@@ -3,6 +3,7 @@ const BLOOMSCAPES_WORKFLOW_TABS = [
     {id:'bloomscapes-replenishment',label:'Hidden Lake Replenishment'},
     {id:'bloomscapes-dock-approvals',label:'Dock Rep Approvals'},
     {id:'bloomscapes-hl-keying',label:'Park Hill Data Entry · Hidden Lake'},
+    {id:'bloomscapes-field-jobs',label:'Field Jobs and Can Fill'},
     {id:'bloomscapes-lab',label:'Plant Health & Lab Review'},
     {id:'bloomscapes-vault',label:'My Work & Inquiry Vault'}
 ];
@@ -15,6 +16,7 @@ function workflowForm(tab) {
     if (tab === 'bloomscapes-inventory') {
         return '<label>Farm <select name="farm"><option value="10-PH">🌲 10-PH</option><option value="60-HL">🏔️ 60-HL</option><option value="all">🌐 Combined</option></select></label><button type="submit">Show</button>';
     }
+    if (tab === 'bloomscapes-field-jobs') return bloomscapesFieldForms();
     if (tab === 'bloomscapes-vault') {
         return '<label>Work type <input name="type"></label><label>From <input name="from" type="date"></label><button type="submit">Search</button>';
     }
@@ -29,16 +31,17 @@ function renderBloomscapesWorkflowPanel(tab) {
     const form = workflowForm(tab);
     return `<section data-bloomscapes-workflow="${workflow.id}" class="space-y-3 p-3">
       <h2 class="text-lg font-bold">${workflow.label}</h2>
-      ${form ? '<form class="space-x-2">' + form + '</form>' : ''}
+      ${tab === 'bloomscapes-field-jobs' ? form : (form ? '<form class="space-x-2">' + form + '</form>' : '')}
       <p role="status"></p><div data-bloomscapes-results></div>
     </section>`;
 }
 
 const workflowFields = {
     'bloomscapes-inventory': ['warehouse_id','unique_id','itemcode','commonname','locationcode','lotcode','ptronhand'],
-    'bloomscapes-replenishment': ['itemcode','blockalpha','blocknumber','needed_on','remaining_po_qty','open_can_space'],
+    'bloomscapes-replenishment': ['blockalpha','blocknumber','needed_on','remaining_po_qty','open_can_space','demand_7_days'],
     'bloomscapes-dock-approvals': ['itemcode','dock','order_unique_id','candidate_locationcode','decision'],
     'bloomscapes-hl-keying': ['itemcode','lotcode','locationcode','field_name','qty_delta','reason_code','actor_username'],
+    'bloomscapes-field-jobs': ['unique_id','record_kind','itemcode','locationcode','new_locationcode','graded_qty','qty_hauled','job_status'],
     'bloomscapes-lab': ['sample_id','warehouse_id','genus_name','itemcode','lotcode','locationcode','status'],
     'bloomscapes-vault': ['work_type','itemcode','locationcode','lotcode','created_at']
 };
@@ -71,7 +74,10 @@ function renderDockWorkflowRow(item, row, run) {
 
 function renderReplenishmentGauge(item, row) {
     const capacity = Number(row.allocated_beds) * Number(row.cpb);
-    if (!Number.isFinite(capacity) || capacity <= 0 || row.current_ptronhand == null) return;
+    if (!Number.isFinite(capacity) || capacity <= 0 || row.current_ptronhand == null) {
+        appendWorkflowNode(item, 'span', 'Verified capacity unavailable');
+        return;
+    }
     const current = Number(row.current_ptronhand);
     if (!Number.isFinite(current)) return;
     const meter = appendWorkflowNode(item, 'meter', '');
@@ -166,11 +172,80 @@ function mountBloomscapesWorkflowPanel(container, tab) {
             if (host.isConnected) status.textContent = error.message;
         } finally { busy = false; }
     };
-    form?.addEventListener('submit', event => {
+    if (tab === 'bloomscapes-field-jobs') mountBloomscapesFieldForms(host, status, load);
+    else form?.addEventListener('submit', event => {
         event.preventDefault();
         const inputs = Object.fromEntries(new FormData(form));
         if (tab === 'bloomscapes-lab') void createSample(inputs);
         else void load(inputs);
     });
     void load(tab === 'bloomscapes-inventory' ? {farm:'10-PH'} : {});
+}
+
+function bloomscapesFieldForms() {
+    const farm = '<label>Farm <select name="farm"><option>10-PH</option><option>60-HL</option></select></label>';
+    const row = '<label>Source row ID <input name="rowId" maxlength="150" required></label>';
+    return '<form class="space-x-2" data-field-command="grading"><h3>Season .Y Grading</h3>' + farm + row
+        + '<label>Scheduled total <input name="scheduled" type="number" min="1" required></label>'
+        + '<label>Graded # <input name="graded" type="number" min="0" required></label><button>Record grading</button></form>'
+        + '<form class="space-x-2" data-field-command="haul"><h3>Hauling</h3>' + farm + row
+        + '<label>Destination row ID <input name="destinationId" maxlength="150" required></label>'
+        + '<label>Qty hauled <input name="quantity" type="number" min="1" required></label><button>Complete haul</button></form>'
+        + bloomscapesShearForms(farm, row);
+}
+
+function mountBloomscapesFieldForms(host, status, load) {
+    for (const form of host.querySelectorAll('[data-field-command]')) {
+        bindBloomscapesFieldForm(form, status, load);
+    }
+}
+
+function bindBloomscapesFieldForm(form, status, load) {
+    let attempt;
+    form.addEventListener('submit', async event => {
+        event.preventDefault();
+        const inputs = Object.fromEntries(new FormData(form));
+        const signature = JSON.stringify(inputs);
+        if (attempt?.signature !== signature) attempt = {signature,id:crypto.randomUUID()};
+        const button = form.querySelector('button');
+        const saved = await runBloomscapesFieldCommand(status, button, load, form.dataset.fieldCommand,
+            {...inputs,requestId:attempt.id});
+        if (saved) attempt = null;
+    });
+}
+
+function bloomscapesShearForms(farm, row) {
+    return '<form class="space-x-2" data-field-command="shear"><h3>Plan Shearing</h3>' + farm + row
+        + '<label>Scope <select name="scope"><option value="ITEM_LOCATION">Item @ Location</option><option value="ITEM_LOT">Item @ Lot</option><option value="SINGLE_ROW">Single Row</option></select></label>'
+        + '<label>Percent <input name="pct" type="number" min="1" max="100" required></label>'
+        + '<label><input name="acknowledge" type="checkbox" value="yes"> Acknowledge outbound or hold warning</label>'
+        + '<button>Plan shear</button></form>'
+        + '<form class="space-x-2" data-field-command="shear-complete"><h3>Complete Shearing</h3>' + farm
+        + '<label>Shear job ID <input name="rowId" maxlength="36" required></label><button>Mark Sheared</button></form>';
+}
+
+function bloomscapesFieldReceipt(receipt) {
+    if (receipt.status === 'REVIEW_REQUIRED') {
+        const exposure = receipt.exposure;
+        return 'Review required · ' + exposure.near_term_orders + ' outbound orders · ' + exposure.unknown_dates
+            + ' orders with unverified dates · ' + receipt.hold_rows + ' held rows';
+    }
+    if (receipt.badge) return receipt.badge + ' · ' + receipt.rows.length + ' rows · ' + receipt.command_id;
+    return receipt.location_note || 'Haul recorded · ' + receipt.quantity;
+}
+
+async function runBloomscapesFieldCommand(status, button, load, command, input) {
+    if (button.disabled) return false;
+    button.disabled = true;
+    try {
+        const receipt = await submitBloomscapesCommand(command,input);
+        await load();
+        if (status.isConnected) status.textContent = bloomscapesFieldReceipt(receipt);
+        return receipt.status !== 'REVIEW_REQUIRED';
+    } catch (error) {
+        if (status.isConnected) status.textContent = error.message;
+        return false;
+    } finally {
+        button.disabled = false;
+    }
 }

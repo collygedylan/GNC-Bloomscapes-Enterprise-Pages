@@ -24,12 +24,7 @@ async function readBloomscapesPanel(panel, inputs = {}) {
 
 function bloomscapesPanelQuery(client, panel, input) {
     if (panel === 'bloomscapes-inventory') return bloomscapesInventoryQuery(client, input.farm);
-    if (panel === 'bloomscapes-replenishment') {
-        const due = new Date(Date.now() + 7 * 86400000).toLocaleDateString('en-CA', {timeZone:'America/Chicago'});
-        return client.from('gnc_10_ph_hl_po_and_staging')
-            .select('itemcode,blockalpha,blocknumber,allocated_beds,cpb,current_ptronhand,remaining_po_qty,needed_on,open_can_space')
-            .lte('needed_on', due).order('needed_on').limit(100);
-    }
+    if (panel === 'bloomscapes-replenishment') return client.rpc('gnc_hl_capacity_7day');
     if (panel === 'bloomscapes-dock-approvals') {
         return client.from('gnc_10_ph_dock_approvals')
             .select('id,itemcode,dock,order_unique_id,candidate_locationcode,inspection_photo_paths,decision')
@@ -38,6 +33,12 @@ function bloomscapesPanelQuery(client, panel, input) {
     if (panel === 'bloomscapes-hl-keying') {
         return client.from('gnc_10_ph_hl_keying').select('itemcode,lotcode,locationcode,field_name,qty_delta,reason_code,actor_username')
             .order('created_at', {ascending:false}).limit(100);
+    }
+    if (panel === 'bloomscapes-field-jobs') {
+        return client.from('gnc_field_jobs_y_grading')
+            .select('unique_id,warehouse_id,record_kind,itemcode,locationcode,new_locationcode,scheduled_qty,graded_qty,qty_hauled,shear_scope,shear_pct,job_status')
+            .in('record_kind',['SEASON_Y_GRADING','HAUL','SHEAR','CAN_FILL'])
+            .order('created_at',{ascending:false}).limit(100);
     }
     if (panel === 'bloomscapes-lab') {
         return client.from('gnc_00_core_lab_knowledge')
@@ -67,9 +68,7 @@ function bloomscapesVaultQuery(client, input) {
 
 async function submitBloomscapesCommand(command, input) {
     const {client, owner} = await requireBloomscapesSession();
-    const result = await (command === 'lab'
-        ? client.rpc('gnc_create_lab_sample', {p_request_id: input.requestId, p_farm: input.farm, p_row_id: input.rowId})
-        : client.rpc('gnc_decide_dock_approval', {p_approval_id: input.id, p_decision: input.decision}));
+    const result = await bloomscapesCommandRequest(client, command, input);
     const current = await getNativeAuthSession();
     if (current?.user?.id !== owner) throw new Error('Signed-in account changed.');
     return bloomscapesData(result);
@@ -84,4 +83,26 @@ async function addPrivateDockPhotoLinks(client, rows) {
         ...row,
         temporaryPhotoLinks: (row.inspection_photo_paths || []).map(path => urlsByPath.get(path)).filter(Boolean)
     }));
+}
+
+function bloomscapesCommandRequest(client, command, input) {
+    if (command === 'dock') {
+        return client.rpc('gnc_decide_dock_approval', {p_approval_id:input.id,p_decision:input.decision});
+    }
+    const params = {p_request_id:input.requestId,p_farm:input.farm};
+    if (command === 'haul') {
+        return client.rpc('gnc_complete_haul', {...params,p_source_id:input.rowId,
+            p_destination_id:input.destinationId,p_quantity:Number(input.quantity)});
+    }
+    if (command === 'grading') {
+        return client.rpc('gnc_complete_y_grading', {...params,p_row_id:input.rowId,
+            p_scheduled:Number(input.scheduled),p_graded:Number(input.graded)});
+    }
+    if (command === 'shear') {
+        return client.rpc('gnc_plan_shear', {...params,p_row_id:input.rowId,
+            p_scope:input.scope,p_pct:Number(input.pct),p_acknowledge:input.acknowledge === 'yes'});
+    }
+    if (command === 'shear-complete') return client.rpc('gnc_complete_shear', {p_farm:input.farm,p_job_id:input.rowId});
+    if (command === 'lab') return client.rpc('gnc_create_lab_sample', {...params,p_row_id:input.rowId});
+    throw new Error('Unknown workflow command.');
 }
