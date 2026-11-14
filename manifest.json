@@ -1,0 +1,26 @@
+{
+  "name": "Bloomscapes Enterprise",
+  "short_name": "Bloomscapes",
+  "description": "Bloomscapes nursery field operations.",
+  "version": "AgData v3.0.85",
+  "id": "./index.html?app=bloomscapes-enterprise",
+  "start_url": "./index.html?shellv=AgData%20v3.0.85&app=bloomscapes-enterprise",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#081c12",
+  "theme_color": "#081c12",
+  "icons": [
+    {
+      "src": "./assets/branding/ag-data-solutions-icon-v2026080925-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./assets/branding/ag-data-solutions-icon-v2026080925-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
