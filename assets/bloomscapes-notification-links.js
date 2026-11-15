@@ -68,3 +68,10 @@ window.addEventListener('gnc-user-access-change',()=>{
     scheduleNotificationResume(resumeSuspendTagApproval);
     scheduleNotificationResume(resumeAssignedItemsNotification);
 });
+
+function maybeWarnPushPermissionBlocked(force = false) {
+    if (!isPushSupported() || !currentUser || Notification.permission !== 'denied' || (!force && pushBlockedNoticeShown)) return false;
+    pushBlockedNoticeShown = true;
+    showToast('Notifications Blocked', 'Allow notifications for this site in Chrome settings, then reopen the app.', true, {requestInputGuidance:true});
+    return true;
+}

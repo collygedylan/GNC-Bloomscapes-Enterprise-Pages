@@ -58197,12 +58197,6 @@ function toggleDriveQuickRequestItem(domId) {
             return true;
         }
 
-        function maybeWarnPushPermissionBlocked(force = false) {
-            if (!isPushSupported() || !currentUser || Notification.permission !== 'denied' || (!force && pushBlockedNoticeShown)) return false;
-            pushBlockedNoticeShown = true;
-            showToast('Notifications Blocked', 'Allow notifications for this site in Chrome settings, then reopen the app.', true);
-            return true;
-        }
 
         function hidePushPermissionHelp() {
             const existing = document.getElementById('push-permission-help-modal');
