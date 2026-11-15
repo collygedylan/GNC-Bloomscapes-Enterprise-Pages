@@ -102,7 +102,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.0.88';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.0.89';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -22589,7 +22589,6 @@ let activeManagerEvalReport='s1-with-pri'; let activeManagerEvalReportView='name
 let managerHistoricalReportState={level:'names',commonNames:[],containerSizes:[],rows:[],selectedCommonName:'',selectedContSize:'',selectedColumns:['report_date','itemcode','locationcode','lotcode','ptravailable','holdstopcode','holdstopreason'],loadedColumns:[],dateStart:'',dateEnd:'',displayMode:'cards',loading:false,loadingMore:false,error:'',hasMore:false,nextCursor:null,dirty:false,requestToken:0,lastSearch:''};
 let managerHistoricalReportMode='inventory-history';
 let managerImportedHistoryUiState={owner:'',dataset:'drive',files:[],hasMoreFiles:false,hasPreviousFiles:false,filePageNumber:1,filePageCursors:[null],nextFileCursor:null,filesLoading:false,filesError:'',selectedSnapshotId:'',selectedSnapshot:null,selectedColumns:[],columnSearch:'',columnError:'',rows:[],rowsLoading:false,rowsRefreshing:false,rowsError:'',rowCount:0,rowPageNumber:1,rowPageCursors:[0],nextRow:null,hasMoreRows:false,fileRequestToken:0,rowRequestToken:0};
-let managerImportHistoryModulePromise=null;
 let managerImportHistoryModule=null;
 let managerImportHistoryService=null;
 let managerImportHistoryServiceOwner='';
@@ -24331,7 +24330,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.0.88';
+        const APP_VERSION = '3.0.89';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -109236,101 +109235,9 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             }
             return null;
         }
+        /* @runtime-fragment assets/bloomscapes-report-pages-controller.js */
         function getManagerReportPageController() {
-            if (!managerReportPageController) {
-                const readPage = async (query, signal, receiptScope, receiptPermission) => {
-                    const response = await postAppFunctionJson(APP_API_FUNCTION_URL,
-                        query ? { action:'report_read_v2', query } : { action:'report_read_v2', operation:'capabilities' },
-                        { signal, label:'Report data', timeoutMs:SUPABASE_READ_TIMEOUT_MS });
-                    if (receiptScope !== getSupabaseReadIdentityScope()) throw staleSupabaseReadScopeError();
-                    if (window.GncUserAccessControl?.getSelfState?.().denied === true || nativeAuthProfile?.active === false || nativeAuthProfile?.disabled_at != null) {
-                        throw Object.assign(new Error('Access to this report has been revoked.'), { status: 403, code: 'FORBIDDEN' });
-                    }
-                    if (!response?.ok || !response.data) {
-                        const error = new Error(response?.error || 'Report data is unavailable.');
-                        error.status = Number(response?.status || 503); error.code = String(response?.code || ''); throw error;
-                    }
-                    const rows = Array.isArray(response.data.rows) ? response.data.rows : [];
-                    const inventoryRevision = String(response.data.inventoryRevision || rows.find(row => row?.loc_on_hand_revision || row?.LOC_ON_HAND_REVISION)?.loc_on_hand_revision || rows.find(row => row?.LOC_ON_HAND_REVISION)?.LOC_ON_HAND_REVISION || '');
-                    if (inventoryRevision && acceptCardLocationOnHandSourceReceipt(receiptScope, receiptPermission, inventoryRevision)) {
-                        const stampRows = values => (Array.isArray(values) ? values : []).forEach(value => {
-                            if (!value || typeof value !== 'object') return;
-                            if (Object.prototype.hasOwnProperty.call(value, 'loc_on_hand') || Object.prototype.hasOwnProperty.call(value, 'LOC_ON_HAND')) stampCardLocationOnHandReceipt(value, receiptScope, receiptPermission, inventoryRevision);
-                            stampRows(value.rows); stampRows(value.reportRows);
-                            if (value.representativeRow) stampRows([value.representativeRow]);
-                        });
-                        stampRows(rows);
-                    }
-                    return response.data.inventoryRevision
-                        ? { ...response.data, metadata:{ ...(response.data.metadata || {}), inventoryRevision:String(response.data.inventoryRevision) } }
-                        : response.data;
-                };
-                managerReportPageController = GncReportPagesLive.createController({
-                scope: () => getSupabaseReadIdentityScope(),
-                // This read-only page session belongs to the account/login.
-                // Canonical permission hashes remain on mutation/freshness
-                // receipts; changing one must not destroy mounted report rows.
-                permission: () => getSupabaseReadIdentityScope(),
-                variant:surface => surface === 'approval' ? activeHomeTab : '',
-                allowed: surface => surface === 'eval1' ? canViewManagerEvalReports()
-                    : surface === 'eval2' ? canViewManagerEvalReports2()
-                    : surface === 'assigned-items' ? canViewAssignedItemsExport()
-                    : surface === 'season-priority' ? canViewManagerSeasonPriority()
-                    : surface === 'approval' ? isManagerApprovalTab(activeHomeTab) : canAccessView('low-stock'),
-                serverAuthorizedSurfaces:['eval2'],
-                loadModule: () => import('/assets/report-pages.js?v=' + APP_VERSION),
-                onSuspend:() => managerReportVisibleRows.clear(),
-                onClear:() => {
-                    managerReportScopedRows.clear(); managerReportVisibleRows.clear(); managerEvalReport2Cache = null; managerEvalReport2CacheKey = '';
-                    managerPagedLocationBase = ''; managerPagedLocationScroll.clear();
-                    managerReportGridFilters.clear();
-                    managerEvalReport2SelectedItemsByKey.clear(); managerEvalReport2EditsByRowKey.clear(); managerEvalReport2DetailItemKey = '';
-                    managerEvalAssignmentSelection.clear();
-                    resetManagerEvalReport2ProgressiveRowsState();
-                },
-                transport: async (query, signal) => {
-                    const local = typeof getManagerEvalReport1ExcelPage === 'function' ? getManagerEvalReport1ExcelPage(query) : null;
-                    if(local)return local;
-                    const receiptScope = getSupabaseReadIdentityScope();
-                    const receiptPermission = String(appAccessSnapshotState.snapshot?.dataPermissionVersion || '');
-                    return await readPage(query, signal, receiptScope, receiptPermission);
-                },
-                onReady: () => { signalProductionLiveSync('report-capabilities', 0); if (getCurrentVisibleViewId() === 'managers') scheduleManagersRender(true); else if (isViewVisible('low-stock')) scheduleLowStockRender(); },
-                onMetadata: (surface, state) => {
-                    if (state.metadata.settings) managerEvalReportSettings = { ...managerEvalReportSettings, ...state.metadata.settings };
-                    if (surface === 'eval2') {
-                        if (state.revision) {
-                            getManagerEvalReports2Api()?.browseSeedRows(state.metadata);
-                            managerEvalReport2Cache = createPagedManagerEvalIndex(state);
-                            managerEvalReport2CacheKey = state.revision;
-                        }
-                        managerEvalReport2LoadState.lastSourceUpdatedAt = state.metadata.latestSourceUpdatedAt || '';
-                        const progressive = managerEvalReport2ProgressiveRowsState;
-                        const incomingRevision = String(state.expectedRevision || state.revision || '');
-                        if (progressive && progressive.owner === getSupabaseReadIdentityScope() && progressive.revision
-                            && incomingRevision && incomingRevision !== progressive.revision && !progressive.refreshing) {
-                            void refreshManagerEvalReport2ProgressiveRows(progressive);
-                        }
-                    }
-                    if (surface.startsWith('eval') && isViewVisible('managers')) scheduleManagersRender(true);
-                },
-                onState: (surface, state) => {
-                    if (surface === 'eval2') {
-                        managerEvalReport2LoadState.loading = state.loading && !state.page;
-                        managerEvalReport2LoadState.error = state.error;
-                        if (state.page) managerEvalReport2LoadState.lastLoadedAt = new Date().toISOString();
-                        syncManagerEvalReport2SelectionUi();
-                        const progressive = managerEvalReport2ProgressiveRowsState;
-                        if (progressive && progressive.owner === getSupabaseReadIdentityScope() && progressive.rows.length
-                            && !state.page && !state.loading && !state.error && !progressive.refreshing) {
-                            void refreshManagerEvalReport2ProgressiveRows(progressive);
-                        }
-                        if (!state.revision && isViewVisible('managers')) scheduleManagersRender(true);
-                    }
-                }
-                });
-            }
-            return managerReportPageController;
+            return managerReportPageController ||= createManagerReportPageController();
         }
         function useManagerReportPages(surface) {
             if (!window.GncReportPagesLive || !currentUser) return false;
@@ -113623,16 +113530,8 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             const owner = state.owner;
             if (!owner || owner !== managerImportHistoryCurrentOwner()) throw staleSupabaseReadScopeError();
             if (managerImportHistoryService && managerImportHistoryServiceOwner === owner) return managerImportHistoryService;
-            if (!managerImportHistoryModulePromise) {
-                managerImportHistoryModulePromise = import('/assets/report-pages.js?v=' + APP_VERSION).then(module => {
-                    managerImportHistoryModule = module;
-                    return module;
-                }).catch(error => {
-                    managerImportHistoryModulePromise = null;
-                    throw error;
-                });
-            }
-            const module = await managerImportHistoryModulePromise;
+            const module = await loadReportPagesModule();
+            managerImportHistoryModule = module;
             if (owner !== managerImportHistoryCurrentOwner() || !canViewManagerHistoricalReport()) throw staleSupabaseReadScopeError();
             managerImportHistoryService = module.createImportHistoryService({
                 scopeKey: () => getSupabaseReadIdentityScope(),
