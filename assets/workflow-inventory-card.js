@@ -128,7 +128,7 @@ function renderDriveInventoryCardMarkup(context) {
         (driveRoleAccess.isRep && !driveRoleAccess.isCsr)
         || (canSelectDriveWorkflow && (canUseDriveBloomPickerForTakeBack() || isWarehouseAssignedDriveCardForCurrentUser(item)))
     );
-    const driveBottomExtraHtml = `${driveNewCropReleaseBtn}${driveHoldReleaseBtn}${driveReverseRailBtn}${renderBloomscapesDriveDispatchActions(item,renderMeta,sourceView)}`.trim();
+    const driveBottomExtraHtml = `${driveNewCropReleaseBtn}${driveHoldReleaseBtn}${driveReverseRailBtn}${renderBloomscapesDriveShearBadge(item,renderMeta,sourceView)}`.trim();
     let quickRequestBtn = '';
     if (includeDriveBloomPickerBtn || driveBottomExtraHtml) {
         quickRequestBtn = getInventoryCardBottomRailHtml(item.DOM_ID, driveBottomExtraHtml, { includeCart: includeDriveBloomPickerBtn, sourceView });

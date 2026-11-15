@@ -44,17 +44,45 @@ function bindBloomscapesFarmDialog(state,select,resolve,initial,next) {
     const confirm = state.dialog.appendChild(document.createElement('button'));
     confirm.type = 'button';
     confirm.textContent = initial ? 'Use this farm' : `Confirm Switch to ${next}`;
-    confirm.addEventListener('click',()=>finish(select ? select.value : true));
+    const prepare = prepareBloomscapesFarmConfirmation(state,confirm,select,next);
+    confirm.addEventListener('click',event=>{
+        event.stopPropagation();
+        const farm = select ? select.value : next;
+        if (!getBloomscapesWarmFarm(farm)) { prepare();return; }
+        finish(select ? select.value : true);
+    });
     if (!initial) {
         const cancel = state.dialog.appendChild(document.createElement('button'));
         cancel.type = 'button';
         cancel.textContent = 'Cancel';
-        cancel.addEventListener('click',()=>finish(false));
+        cancel.addEventListener('click',event=>{event.stopPropagation();finish(false);});
     }
     state.dialog.addEventListener('cancel',event=>{
         event.preventDefault();
         if (!initial) finish(false);
     });
+}
+
+function prepareBloomscapesFarmConfirmation(state,confirm,select,next) {
+    const title = confirm.textContent;
+    const prepare = () => {
+        const farm = select ? select.value : next;
+        confirm.disabled = true;
+        void ensureBloomscapesWarmFarm(farm).then(()=>{
+            if (bloomscapesFarmDialog!==state || select && select.value!==farm) return;
+            confirm.disabled = false;
+            confirm.textContent = title;
+        }).catch(error=>{
+            if (bloomscapesFarmDialog!==state) return;
+            const status = state.dialog.querySelector('p');
+            status.textContent = error.message;
+            confirm.textContent = 'Retry inventory';
+            confirm.disabled = false;
+        });
+    };
+    select?.addEventListener('change',prepare);
+    prepare();
+    return prepare;
 }
 
 async function syncBloomscapesFarmSelector() {

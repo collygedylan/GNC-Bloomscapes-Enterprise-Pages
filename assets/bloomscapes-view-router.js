@@ -1,4 +1,5 @@
 function renderViewContent(viewId, forceReset = false, forceRender = false) {
+    detachInactiveBloomscapesReceivingPanels(viewId);
     const changedView=bloomscapesThumbnailView!==viewId;
     if (forceReset || changedView) abortBloomscapesCardThumbnails(document);
     bloomscapesThumbnailView=viewId;

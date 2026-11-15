@@ -199,3 +199,5 @@ html body :is(.inventory-card,.drive-card,.app-smart-card,.metric-tile,tr)::afte
 #bloomscapes-radio-inbox button {min-height:44px;padding:.4rem;background:#081c12;border:1px solid #397b51;border-radius:8px;}
 #bloomscapes-radio-inbox label {display:inline-flex;align-items:center;gap:.4rem;padding:.4rem;}
 #bloomscapes-radio-inbox audio {width:min(100%,320px);}
+
+#view-detail[data-bloomscapes-work-actions="true"] button[onclick^="return submitShearApprovalRequestForActiveDetail"] { display: none; }

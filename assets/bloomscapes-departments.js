@@ -14,6 +14,12 @@ const bloomscapesDepartmentTabs = new Map();
 const bloomscapesDepartmentFrames = new Map();
 const BLOOMSCAPES_DEPARTMENT_DEFAULTS={'hl-order':'bloomscapes-replenishment',communication:'bloomscapes-radio'};
 
+function detachInactiveBloomscapesReceivingPanels(view) {
+    for (const frame of document.querySelectorAll('[data-department-workspace="bloomscapes-replenishment"]')) {
+        if (frame.closest('[id^="view-"]')?.id!=='view-'+view) frame.remove();
+    }
+}
+
 function bloomscapesDepartmentKey(view) {
     return getSupabaseReadIdentityScope()+':'+view;
 }
@@ -84,7 +90,7 @@ function renderBloomscapesDepartmentWorkspace(view) {
         bloomscapesDepartmentFrames.set(key+':'+tab,frame);
     }
     root.appendChild(frame);
-    if (fresh) mountBloomscapesWorkflowPanel(frame,tab);
+    if (fresh || tab==='bloomscapes-replenishment') mountBloomscapesWorkflowPanel(frame,tab);
     return true;
 }
 

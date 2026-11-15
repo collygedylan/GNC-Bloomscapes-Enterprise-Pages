@@ -1,3 +1,5 @@
+const bloomscapesTransferMounts = new WeakMap();
+
 function renderBloomscapesTransferBuilder() {
     return `<section data-bloomscapes-workflow="bloomscapes-replenishment" class="bloomscapes-transfer-builder">
       <h2>Intercompany Replenishment &amp; CPB · Transfer Order Builder</h2>
@@ -9,7 +11,13 @@ function renderBloomscapesTransferBuilder() {
 async function mountBloomscapesTransferBuilder(host) {
     const root=host.querySelector('[data-bloomscapes-workflow="bloomscapes-replenishment"]');
     if (!root) return;
+    const existing=bloomscapesTransferMounts.get(root);
+    if (existing?.owner===bloomscapesTransferOwner()) {
+        if (!existing.ready) await loadBloomscapesTransferCards(existing);
+        return;
+    }
     const state={root,owner:bloomscapesTransferOwner(),rows:[],cards:[],loading:false};
+    bloomscapesTransferMounts.set(root,state);
     root.querySelector('[data-origin-filter]').addEventListener('change',()=>filterBloomscapesTransferCards(state));
     root.querySelector('[data-po-history]').addEventListener('change',()=>void loadBloomscapesTransferCards(state));
     await loadBloomscapesTransferCards(state);
@@ -22,6 +30,7 @@ async function loadBloomscapesTransferCards(state) {
         const rows=await readBloomscapesPanel('bloomscapes-replenishment',{includeHistory:state.root.querySelector('[data-po-history]').checked});
         if (!state.root.isConnected || state.owner!==bloomscapesTransferOwner()) return;
         state.rows=rows;state.cards=[];
+        state.ready=true;
         const host=state.root.querySelector('[data-transfer-cards]');host.replaceChildren();
         rows.forEach(po=>state.cards.push(createBloomscapesTransferCard(host,po,state)));
         filterBloomscapesTransferCards(state);refreshBloomscapesTransferProjection(state);

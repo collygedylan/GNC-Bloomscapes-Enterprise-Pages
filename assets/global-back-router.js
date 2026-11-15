@@ -10,7 +10,7 @@ function goBackUniversal() {
     if (typeof backBloomscapesDepartmentWorkspace==='function' && backBloomscapesDepartmentWorkspace(currentView)) return false;
     if (currentView==='managers') return backGlobalManagersSurface({restoreViewBack:restoreGlobalViewBack,currentView});
     const parent=Array.isArray(viewHistoryStack)?viewHistoryStack.at(-1):null;
-    if (currentView==='drive' && parent?.directDriveEntry && restorePreviousViewFromHistory()) return false;
+    if (currentView==='drive' && driveViewLevel===0 && parent?.directDriveEntry && restorePreviousViewFromHistory()) return false;
     if (currentView==='bunch-note') return backGlobalBunchNoteSurface({restoreViewBack:restoreGlobalViewBack,currentView});
     if (window.SalesWorkspace?.back()) { updateGlobalBackButton(); return false; }
     if (globalThis.LocationCode.back()) { updateGlobalBackButton(); return false; }

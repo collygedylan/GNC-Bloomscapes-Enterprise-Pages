@@ -102,7 +102,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.0.93';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.0.94';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -24170,7 +24170,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.0.93';
+        const APP_VERSION = '3.0.94';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -30906,84 +30906,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             }
         }
 
-        async function prepareProductionMasterSnapshot(sourceRows = [], options = {}) {
-            const rows = Array.isArray(sourceRows) ? sourceRows : [];
-            const identity = String(options.identity || getSupabaseReadIdentityScope());
-            const permissionVersion = String(options.permissionVersion ?? appAccessSnapshotState.snapshot?.dataPermissionVersion ?? '');
-            const seasonKey = String(options.seasonKey || currentMasterPreparationSeasonKey());
-            const signal = options.signal || null;
-            const rawRows = [];
-            const displayRows = [];
-            const avOpenRows = [];
-            const avOpenByMasterId = new Map();
-            const indexMaps = createMasterInventoryIndexMaps();
-            const inheritanceCandidates = { ncr: [], moved: [] };
-            const limit = Number.isInteger(options.limit) ? Math.max(0, Math.min(rows.length, options.limit)) : rows.length;
-            const assertCurrent = () => assertMasterPreparationCurrent(identity, permissionVersion, seasonKey, signal);
-            const yieldFormattingIfNeeded = createMasterPreparationYieldController(assertCurrent);
-
-            for (let offset = 0; offset < limit; offset += MASTER_PREPARATION_BATCH_SIZE) {
-                assertCurrent();
-                const batch = rows.slice(offset, Math.min(limit, offset + MASTER_PREPARATION_BATCH_SIZE));
-                // Cache/source rows and display rows have separate ownership. Copy
-                // bounded batches so neither formatters nor photos can mutate raw data.
-                if (options.includeRawRows !== false) rawRows.push(...JSON.parse(JSON.stringify(batch)));
-                const displayInput = JSON.parse(JSON.stringify(batch));
-                const formatted = formatFetchedRows(displayInput, 'ph_master_inventory');
-                formatted.forEach((item, index) => {
-                    item.DOM_ID = 'fi_' + (offset + index);
-                    buildSearchIndex(item);
-                    addMasterInventoryRowToIndexes(indexMaps, item);
-                    // Collect broad, immutable source candidates during bounded
-                    // preparation; current eligibility is still checked at commit.
-                    if (hasNcrLocationNote(item)) inheritanceCandidates.ncr.push(item);
-                    if (isMovedSeasonAvSourceSeason(item)) inheritanceCandidates.moved.push(item);
-                    displayRows.push(item);
-                });
-                if (offset + MASTER_PREPARATION_BATCH_SIZE < limit) {
-                    const pause = yieldFormattingIfNeeded(batch.length);
-                    if (pause) await pause;
-                }
-            }
-
-            assertCurrent();
-            await prepareMasterSeasonAssignments(displayRows, assertCurrent);
-            assertCurrent();
-            const masterById = new Map(displayRows.map((item) => [String(item && item.UNIQUE_ID || '').trim(), item]));
-            const yieldIfNeeded = createMasterPreparationYieldController(assertCurrent);
-            for (let offset = 0; offset < displayRows.length; offset += MASTER_PREPARATION_BATCH_SIZE) {
-                assertCurrent();
-                const end = Math.min(displayRows.length, offset + MASTER_PREPARATION_BATCH_SIZE);
-                for (let index = offset; index < end; index++) {
-                    const masterItem = displayRows[index];
-                    if (!masterItem || !shouldIncludeMasterItemInAvSeasonView(masterItem)) {
-                        if (index + 1 < displayRows.length) {
-                            const pause = yieldIfNeeded();
-                            if (pause) await pause;
-                        }
-                        continue;
-                    }
-                    const avItem = { ...masterItem };
-                    const uniqueId = String(avItem.UNIQUE_ID || '').trim();
-                    syncMasterFieldsToRow(masterById.get(uniqueId) || findLinkedMasterRow(avItem) || masterItem,
-                        avItem, EXACT_ROW_SYNC_KEYS, { attachMasterLink: false });
-                    if (isEvalScopedDataRowVisibleToCurrentUser(avItem)
-                        && shouldIncludeMasterItemInAvSeasonView(avItem)) {
-                        avItem.DOM_ID = 'avo_' + (avItem.UNIQUE_ID || avOpenRows.length);
-                        avOpenByMasterId.set(String(avItem.UNIQUE_ID || '').trim(), avItem);
-                        avOpenRows.push(avItem);
-                    }
-                    if (index + 1 < displayRows.length) {
-                        const pause = yieldIfNeeded();
-                        if (pause) await pause;
-                    }
-                }
-            }
-            assertCurrent();
-            preparedMasterRows.set(displayRows, { identity, permissionVersion, seasonKey, avOpenRows, avOpenByMasterId, indexMaps, inheritanceCandidates });
-            return { rawRows, payload: { data: displayRows }, rowCount: displayRows.length };
-        }
-
         function getCurrentPreparedMasterRows(rows) {
             if (!Array.isArray(rows) || !(preparedMasterRows instanceof WeakMap)) return null;
             const prepared = preparedMasterRows.get(rows);
@@ -30998,37 +30920,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             const indexes = prepared.indexMaps;
             prepared.indexMaps = null;
             return indexes;
-        }
-
-        function hydrateReserveInventoryRow(item, idx) {
-            const reserveFieldKeys = Object.keys(item || {}).filter((key) => String(key || '').trim() !== '');
-            item.DOM_ID='res_'+idx;
-            item.UNIQUE_ID=item.UNIQUE_ID||'res_uid_'+idx;
-            let masterItem=findLinkedMasterRow(item);
-            item.CUSTOMERNAME=item.CUSTOMERNAME||item.CUSTOMER||'Unknown Customer';
-            item.CONSIGNEENAME=item.CONSIGNEENAME||item.CONSIGNEE||'';
-            item.SALESREPNAME=item.SALESREPNAME||item.SALESREP||item['SALES_REP']||'Unknown Rep';
-            item.COMMONNAME=firstNonEmptyValue(item.COMMONNAME, item.DESCRIPTION, item.PLANT_NAME, item.ITEMCODE, 'Unknown');
-            item.CONTSIZE=firstNonEmptyValue(item.CONTSIZE, item.ITEMSPEC, item.contsize, '-');
-            item.LOCATIONCODE=firstNonEmptyValue(item.LOCATIONCODE, item.LOCATION, 'No Loc');
-            item.ITEMCODE=firstNonEmptyValue(item.ITEMCODE, item.itemcode, '-');
-            item.LOTCODE=firstNonEmptyValue(item.LOTCODE, item.lotcode, '-');
-            item.PTRAVAILABLE=firstNonEmptyValue(item.PTRAVAILABLE, item.ptravailable, 0);
-            item.SEASONSUPPLY=firstNonEmptyValue(item.SEASONSUPPLY, item.SEASON_SUPPLY, item.season_supply, 0);
-            item.PRIORITY=firstNonEmptyValue(item.PRIORITY, item.priority, '-');
-            if(masterItem){
-                syncMasterFieldsToRequestRow(masterItem, item);
-                item.APP_TAB_ASSIGNMENT = firstNonEmptyValue(item.APP_TAB_ASSIGNMENT, masterItem.APP_TAB_ASSIGNMENT);
-            }
-            repairDisplayFieldsOnRow(item);
-            normalizeRowPhotoFields(item);
-            item._reserveSourceFieldKeys = reserveFieldKeys;
-            item._search=`${item.COMMONNAME||''} ${item.CUSTOMERNAME||''} ${item.ITEMCODE||''}`.toLowerCase();
-            item._searchCandidates = null;
-            item._searchPrimaryStarts = null;
-            item._searchWordStarts = null;
-            item._searchProfileWordStarts = null;
-            return item;
         }
 
         function hydrateReserveInventoryRowFast(item, idx) {
@@ -32671,36 +32562,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             (Array.isArray(items) ? items : []).forEach(item => addMasterInventoryRowToIndexes(indexes, item));
             indexes.lookup = window.AgMetricQueueInventory?.createIndex(items.flatMap(item => item.__physicalInventoryRows || [item])) || null;
             return indexes;
-        }
-
-        function installMasterInventoryIndexMaps(indexes) {
-            if (!indexes) return false;
-            if (typeof queueCardInventoryHydrator !== 'undefined') queueCardInventoryHydrator?.invalidate();
-            masterInventoryById = indexes.byId;
-            masterInventoryLookup = indexes.lookup;
-
-
-
-
-            masterInventoryByItemCode = indexes.byItemCode;
-            const state = getManagerAssignedColumnState();
-            state.inventoryByRowKeyMap = indexes.byId;
-            state.inventoryByItemcodeMap = indexes.byItemCode;
-            state.inventoryByItemPrefixMap = new Map();
-            for (const [code, rows] of indexes.byItemCode) {
-                const prefix = code.slice(0, 6);
-                if (!state.inventoryByItemPrefixMap.has(prefix)) state.inventoryByItemPrefixMap.set(prefix, []);
-                for (const row of rows) state.inventoryByItemPrefixMap.get(prefix).push(row);
-            }
-            state.inventoryByLocationMap = indexes.byLocation;
-            masterInventoryByItemLocationOnHand = indexes.byItemLocationOnHand;
-            masterInventoryByNormalizedItemLocation = indexes.byNormalizedItemLocation;
-            invalidateInventoryDomIdLookup();
-            if (typeof getInventoryLocationPhotos === 'function' && fullInventory.length) {
-                const snapshot = fullInventory;
-                setTimeout(() => { if (snapshot === fullInventory && snapshot.length) getInventoryLocationPhotos(snapshot[0]); },0);
-            }
-            return true;
         }
 
         function rebuildMasterInventoryIndexes() {
@@ -43478,52 +43339,6 @@ let avTopControlsRenderToken = 0;
             }, 650);
         }
 
-        function renderInventoryEditDetailAction(item = activeItem, detailSourceView = '') {
-            const sharedPanel = document.getElementById('detail-inventory-checks-panel');
-            const tabPanel = document.getElementById('inventory-edit-tab-detail-action');
-            const legacyPanels = ['inventory-edit-detail-action', 'inventory-edit-request-detail-action']
-                .map((id) => document.getElementById(id))
-                .filter(Boolean);
-            const allPanels = [sharedPanel, tabPanel, ...legacyPanels].filter(Boolean);
-            const safeTab = String(activeDetailTab || '').trim().toLowerCase();
-            const safeSourceView = String(detailSourceView || activeDetailSourceView || lastView || '').trim().toLowerCase();
-            const sharedInventoryAllowed = safeSourceView !== 'request' && safeSourceView !== 'drive';
-            const targetPanels = safeTab === 'inventory-edit'
-                ? (tabPanel ? [tabPanel] : [])
-                : (sharedInventoryAllowed ? (sharedPanel ? [sharedPanel] : legacyPanels) : []);
-            if (!allPanels.length) return;
-            const hidePanels = (panels) => {
-                panels.forEach((panel) => {
-                    panel.classList.add('hidden');
-                    panel.innerHTML = '';
-                });
-            };
-            if (!targetPanels.length) {
-                hidePanels([sharedPanel, ...legacyPanels].filter(Boolean));
-                syncDetailSharedPanelsVisibility();
-                return;
-            }
-            if (isInventoryEditDetailRenderBusy(targetPanels)) {
-                deferInventoryEditDetailRender();
-                syncDetailSharedPanelsVisibility();
-                return;
-            }
-            const workflowRecord = findInventoryEditMockRecordForItem(item, { ignoreAccess: true });
-            const canUsePanel = canUseInventoryEditMock(item) || canCurrentUserEditInventoryEditMockRecord(workflowRecord);
-            if (!canUsePanel) {
-                hidePanels(allPanels);
-                syncDetailSharedPanelsVisibility();
-                return;
-            }
-            const html = buildInventoryEditDetailWorkflowPanel(item, workflowRecord, detailSourceView);
-            targetPanels.forEach((panel) => {
-                panel.innerHTML = html;
-                panel.classList.remove('hidden');
-            });
-            hidePanels(allPanels.filter((panel) => !targetPanels.includes(panel)));
-            syncDetailSharedPanelsVisibility();
-        }
-
         function buildInventoryEditCurrentSummaryHtml(snapshot = {}, options = {}) {
             const opts = options && typeof options === 'object' ? options : {};
             const clickable = !!opts.clickable;
@@ -44916,15 +44731,6 @@ if (driveQuickFiltersModalOpen) renderDriveQuickFiltersModal();
 refreshDriveQuickFilterResults();
 return false;
 }
-
-        function getDriveModeItems() {
-            if (activeDriveMode === 'ok') {
-                return applyRepU3VisibilityScope(
-                    applyForemanPriorityRowScope(fullInventory).filter((item) => !shouldHideNotOnInventoryApprovalRowFromInventory(item))
-                );
-            }
-            return [];
-        }
 
         function getDriveQuickFilterOptions(candidateItems) {
             const searchInput = document.getElementById('drive-search');
@@ -52077,23 +51883,6 @@ function toggleDriveQuickRequestItem(domId) {
                 rebased.push(localRow);
             });
             return rebased;
-        }
-
-        function hydrateDockSourceRows(rows = []) {
-            return rows.map(item => {
-                normalizeSocDockRowAliases(item);
-                const sourceUid = normalizeDockIssueSourceUniqueId(firstNonEmptyValue(item && item.DOCK_ISSUE_SOURCE_UID, item && item.UNIQUE_ID, item && item.unique_id, ''));
-                const masterItem = findLinkedMasterRow(item);
-                if (masterItem) {
-                    syncMasterFieldsToRequestRow(masterItem, item);
-                    item.APP_TAB_ASSIGNMENT = firstNonEmptyValue(item.APP_TAB_ASSIGNMENT, masterItem.APP_TAB_ASSIGNMENT);
-                    normalizeSocDockRowAliases(item);
-                }
-                stampDockIssueSourceIdentity(item, { sourceUid });
-                normalizeRowPhotoFields(item);
-                buildSearchIndex(item);
-                return item;
-            }).filter(item => isEvalScopedDataRowVisibleToCurrentUser(item));
         }
 
         const EMPTY_DOCK_SUSPEND_SOURCE_ROWS = Object.freeze([]);
@@ -118008,7 +117797,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
         function refreshRuntimeWatchdogBadge(force = false) { return runtimeWatchdogPanel.refreshBadge(force); }
         function refreshRuntimeWatchdogPanel() { return runtimeWatchdogPanel.refreshPanel(); }
         function copyRuntimeWatchdogFixBrief() { return runtimeWatchdogPanel.copyFixBrief(); }
-        /* @runtime-fragment assets/bloomscapes-farm-identity.js */ /* @runtime-fragment assets/bloomscapes-farm-state.js */ /* @runtime-fragment assets/bloomscapes-farm-read.js */ /* @runtime-fragment assets/bloomscapes-transfer-order.js */
+        /* @runtime-fragment assets/bloomscapes-farm-identity.js */ /* @runtime-fragment assets/master-snapshot-preparation.js */ /* @runtime-fragment assets/bloomscapes-farm-cache.js */ /* @runtime-fragment assets/bloomscapes-farm-publication.js */ /* @runtime-fragment assets/bloomscapes-farm-snapshot.js */ /* @runtime-fragment assets/drive-plant-filter-state.js */ /* @runtime-fragment assets/bloomscapes-farm-state.js */ /* @runtime-fragment assets/bloomscapes-farm-read.js */ /* @runtime-fragment assets/bloomscapes-transfer-order.js */
 /* @runtime-fragment assets/bloomscapes-transfer-submit.js */
 /* @runtime-fragment assets/bloomscapes-transfer-builder.js */
 /* @runtime-fragment assets/bloomscapes-history.js */
@@ -126845,31 +126634,6 @@ ${folderNote ? `Folder Note: ${folderNote}
             try { return decodeURIComponent(text); } catch (error) { return text; }
         }
 
-        function getDriveColumnFilterFields(items = []) {
-            const fieldsByKey = new Map();
-            const exposeAssignedTo = activeDriveTab === 'season-sales-notes';
-            (Array.isArray(items) ? items : []).forEach((item) => {
-                if (!item || typeof item !== 'object') return;
-                Object.keys(item).forEach((rawKey) => {
-                    const key = normalizeDriveColumnFilterKey(rawKey);
-                    if (key === 'ASSIGNEDTO' && !exposeAssignedTo) return;
-                    if (!key || fieldsByKey.has(key) || !DRIVE_COLUMN_FILTER_ALLOWED_HEADER_KEYS.has(key)) return;
-                    fieldsByKey.set(key, { key, sourceKey: rawKey, label: formatDriveColumnHeaderLabel(key) });
-                });
-            });
-            if (exposeAssignedTo && !fieldsByKey.has('ASSIGNEDTO')) fieldsByKey.set('ASSIGNEDTO', { key: 'ASSIGNEDTO', sourceKey: 'ASSIGNEDTO', label: 'Assigned To' });
-            const priorityIndex = new Map(DRIVE_COLUMN_FILTER_COMMON_HEADERS.map((key, index) => [key, index]));
-            return DRIVE_COLUMN_FILTER_ALLOWED_HEADERS
-                .filter((entry) => fieldsByKey.has(entry.key))
-                .map((entry) => Object.assign({}, fieldsByKey.get(entry.key), { label: formatDriveColumnHeaderLabel(entry.key) }))
-                .sort((a, b) => {
-                const aPriority = priorityIndex.has(a.key) ? priorityIndex.get(a.key) : 9999;
-                const bPriority = priorityIndex.has(b.key) ? priorityIndex.get(b.key) : 9999;
-                if (aPriority !== bPriority) return aPriority - bPriority;
-                return String(a.label || a.key).localeCompare(String(b.label || b.key), undefined, { numeric: true, sensitivity: 'base' });
-            });
-        }
-
         function getDriveColumnWorkingFilterMap() {
             return driveColumnFilterDropdownOpen ? driveColumnFilterDrafts : driveColumnFilters;
         }
@@ -128306,99 +128070,6 @@ ${folderNote ? `Folder Note: ${folderNote}
             driveLotSelectionMode = 'all';
             selectedDriveLotCodes = new Set(drivePlantFilterLotOptions);
             driveLotSearchTerm = '';
-        }
-
-        function buildDrivePlantFilterState(items = []) {
-            const baseItems = Array.isArray(items) ? items : [];
-            const stateScopeKey = [
-                getInventoryExcelState('drive').revision,
-                String(driveBaseFilterCacheKey || ''),
-                baseItems === driveBaseFilterCacheItems || baseItems === drivePlantFilterItemsCache
-                    ? String(driveBaseFilterCacheKey || `drive-base:${resolvedViewStateEpoch}:${baseItems.length}`)
-                    : `drive-manual:${resolvedViewStateEpoch}:${activeDriveTab}:${baseItems.length}`,
-                driveGenusSelectionMode, [...selectedDriveGenusNames].sort().join(','), driveGenusSearchTerm,
-                driveContSizeSelectionMode, [...selectedDriveContSizes].sort().join(','), driveContSizeSearchTerm,
-                driveLocationSelectionMode, [...selectedDriveLocationCodes].sort().join(','), driveLocationSearchTerm,
-                driveLotSelectionMode, [...selectedDriveLotCodes].sort().join(','), driveLotSearchTerm
-            ].join('|');
-            if (drivePlantFilterStateCacheKey === stateScopeKey && drivePlantFilterStateCache) {
-                incrementInternalPerfCounter('viewStateCacheHits');
-                return drivePlantFilterStateCache;
-            }
-
-            const genusOptions = [...new Set(baseItems.map((item) => getDrivePlantGenusValue(item)))]
-                .sort((a, b) => String(a).localeCompare(String(b)));
-            const genusState = syncDriveGenusSelectionState(genusOptions);
-            const genusSearchTerm = String(driveGenusSearchTerm || '').trim().toLowerCase();
-            const filteredGenusOptions = genusSearchTerm
-                ? genusOptions.filter((name) => doesExcelFilterSearchMatchStart(name, genusSearchTerm))
-                : genusOptions;
-
-            const sizeOptions = [...new Set(baseItems.map((item) => getDrivePlantContSize(item)).filter(Boolean))]
-                .sort(compareDrivePlantContSize);
-            const sizeState = syncDriveContSizeSelectionState(sizeOptions);
-            const contSizeSearchTerm = String(driveContSizeSearchTerm || '').trim().toLowerCase();
-            const filteredSizeOptions = contSizeSearchTerm
-                ? sizeOptions.filter((size) => doesExcelFilterSearchMatchStart(size, contSizeSearchTerm))
-                : sizeOptions;
-
-            const locationOptions = [...new Set(baseItems.map((item) => getDrivePlantLocationCode(item)).filter(Boolean))]
-                .sort(compareLocationCodeValues);
-            const locationState = syncDriveLocationSelectionState(locationOptions);
-            const locationSearchTerm = String(driveLocationSearchTerm || '').trim().toLowerCase();
-            const filteredLocationOptions = locationSearchTerm
-                ? locationOptions.filter((location) => doesExcelFilterSearchMatchStart(location, locationSearchTerm))
-                : locationOptions;
-
-            const lotOptions = [...new Set(baseItems.map((item) => getDrivePlantLotCode(item)).filter(Boolean))]
-                .sort((a, b) => String(a || '').localeCompare(String(b || ''), undefined, { numeric: true, sensitivity: 'base' }));
-            const lotState = syncDriveLotSelectionState(lotOptions);
-            const lotSearchTerm = String(driveLotSearchTerm || '').trim().toLowerCase();
-            const filteredLotOptions = lotSearchTerm
-                ? lotOptions.filter((lot) => doesExcelFilterSearchMatchStart(lot, lotSearchTerm))
-                : lotOptions;
-
-            const filteredItems = baseItems.filter((item) => {
-                const genusName = getDrivePlantGenusValue(item);
-                if (!genusState.selected.has(genusName)) return false;
-                const contSize = getDrivePlantContSize(item);
-                if (!sizeState.selected.has(contSize)) return false;
-                const locationCode = getDrivePlantLocationCode(item);
-                if (!locationState.selected.has(locationCode)) return false;
-                const lotCode = getDrivePlantLotCode(item);
-                if (!lotState.selected.has(lotCode)) return false;
-                return true;
-            });
-
-            const genusAllSelected = !!genusState.options.length && genusState.selected.size === genusState.options.length;
-            const contSizeAllSelected = !!sizeState.options.length && sizeState.selected.size === sizeState.options.length;
-            const locationAllSelected = !!locationState.options.length && locationState.selected.size === locationState.options.length;
-            const lotAllSelected = !!lotState.options.length && lotState.selected.size === lotState.options.length;
-
-            drivePlantFilterStateCacheKey = stateScopeKey;
-            drivePlantFilterStateCache = {
-                baseItems,
-                filteredItems,
-                genusOptions: genusState.options,
-                filteredGenusOptions,
-                sizeOptions: sizeState.options,
-                filteredSizeOptions,
-                locationOptions: locationState.options,
-                filteredLocationOptions,
-                lotOptions: lotState.options,
-                filteredLotOptions,
-                genusSelectedCount: genusState.selected.size,
-                contSizeSelectedCount: sizeState.selected.size,
-                locationSelectedCount: locationState.selected.size,
-                lotSelectedCount: lotState.selected.size,
-                genusAllSelected,
-                contSizeAllSelected,
-                locationAllSelected,
-                lotAllSelected,
-                hasActiveFilters: !(genusAllSelected && contSizeAllSelected && locationAllSelected && lotAllSelected),
-                hasTypedSearch: !!(String(driveGenusSearchTerm || '').trim() || String(driveContSizeSearchTerm || '').trim() || String(driveLocationSearchTerm || '').trim() || String(driveLotSearchTerm || '').trim())
-            };
-            return drivePlantFilterStateCache;
         }
 
         function hideDrivePlantFilters() {
@@ -130893,149 +130564,7 @@ ${folderNote ? `Folder Note: ${folderNote}
             return true;
         }
 
-        function renderDriveCommonNameDrill(container, crumb, driveModeLabel = '', viewStateOverride = null) {
-            ensureDriveToolbarControls();
-            const resolvedDriveModeLabel = String(driveModeLabel || DRIVE_MODE_LABELS[activeDriveMode] || 'Drive Mode');
-            const driveViewState = viewStateOverride && typeof viewStateOverride === 'object'
-                ? viewStateOverride
-                : buildDriveVisibleItemsState();
-            const { visibleItems, resolvedStateKey } = driveViewState;
-            const forceTopLevelSearchResults = shouldLockDriveSearchToTopLevel();
-            if (!visibleItems.length) {
-                applyDriveRenderMarkup(container, crumb, `${resolvedDriveModeLabel} > Common Name`, `<div class="p-8 text-center text-gray-400">No rows match the current Drive filters.</div>`, 'drive:name:empty');
-                container.dataset.driveCommonnameState = 'complete'; container.dataset.driveCommonnameCount = '0';
-                return;
-            }
-            if (driveViewLevel <= 0 || !selectedDriveName || forceTopLevelSearchResults) {
-                const groupCacheKey = `drive:name:list:${resolvedStateKey || ''}`;
-                let groups = driveDrillGroupStateCache instanceof Map ? driveDrillGroupStateCache.get(groupCacheKey) : null;
-                if (Array.isArray(groups)) {
-                    incrementInternalPerfCounter('viewStateCacheHits');
-                } else {
-                    const nameMap = new Map();
-                    visibleItems.forEach((item) => {
-                        const commonName = getDrivePlantCommonName(item) || 'Unknown';
-                        if (!nameMap.has(commonName)) nameMap.set(commonName, { name: commonName, rowCount: 0, sizes: new Set(), __driveRenderKeyValue: '' });
-                        const entry = nameMap.get(commonName);
-                        entry.rowCount += 1;
-                        entry.sizes.add(getDrivePlantContSize(item) || '-');
-                    });
-                    groups = [...nameMap.values()]
-                        .map((entry) => ({
-                            name: entry.name,
-                            rowCount: entry.rowCount,
-                            sizeCount: entry.sizes.size,
-                            __driveRenderKeyValue: `${entry.name}|${entry.rowCount}|${entry.sizes.size}`
-                        }))
-                        .sort((a, b) => compareDriveCommonName(a.name, b.name));
-                    if (!(driveDrillGroupStateCache instanceof Map)) driveDrillGroupStateCache = new Map();
-                    driveDrillGroupStateCache.set(groupCacheKey, groups);
-                    while (driveDrillGroupStateCache.size > 16) {
-                        const oldest = driveDrillGroupStateCache.keys().next();
-                        if (oldest && !oldest.done) driveDrillGroupStateCache.delete(oldest.value);
-                        else break;
-                    }
-                }
-                renderDriveDrillEntries(container, crumb, `${resolvedDriveModeLabel} > Select Common Name (${groups.length} names)`, groups, 'drive:name:list', renderDriveCommonNameGroupCard, {
-                    emptyMessage: 'No common names match the current Drive search.',
-                    approxCardHeight: 84
-                });
-                return;
-            }
-            const selectedNameItems = visibleItems.filter((item) => getDrivePlantCommonName(item) === selectedDriveName);
-            if (!selectedNameItems.length) {
-                applyDriveRenderMarkup(container, crumb, `${resolvedDriveModeLabel} > ${selectedDriveName}`, `<div class="p-8 text-center text-gray-400">No rows match the current Drive filters for ${esc(selectedDriveName)}.</div>`, 'drive:name:selected-empty');
-                return;
-            }
-            if (driveViewLevel <= 1 || !selectedDriveSize) {
-                const sizeMap = new Map();
-                selectedNameItems.forEach((item) => {
-                    const contSize = getDrivePlantContSize(item) || '-';
-                    if (!sizeMap.has(contSize)) sizeMap.set(contSize, { size: contSize, rowCount: 0, seasons: new Set(), __driveRenderKeyValue: '' });
-                    const entry = sizeMap.get(contSize);
-                    entry.rowCount += 1;
-                    entry.seasons.add(String(firstNonEmptyValue(item.SEASON, '') || '').trim().toUpperCase() || 'UNKNOWN');
-                });
-                const groups = [...sizeMap.values()]
-                    .map((entry) => ({
-                        size: entry.size,
-                        rowCount: entry.rowCount,
-                        seasonCount: entry.seasons.size,
-                        __driveRenderKeyValue: `${selectedDriveName}|${entry.size}|${entry.rowCount}|${entry.seasons.size}`
-                    }))
-                    .sort((a, b) => compareDrivePlantContSize(a.size, b.size));
-                const allSeasons = new Set(selectedNameItems.map((item) => String(firstNonEmptyValue(item.SEASON, '') || '').trim().toUpperCase() || 'UNKNOWN'));
-                const sizeGroups = [{
-                    size: DRIVE_DRILL_ALL_VALUE,
-                    displaySize: DRIVE_DRILL_ALL_LABEL,
-                    rowCount: selectedNameItems.length,
-                    seasonCount: allSeasons.size,
-                    isAll: true,
-                    __driveRenderKeyValue: `${selectedDriveName}|ALL|${selectedNameItems.length}|${allSeasons.size}`
-                }].concat(groups);
-                renderDriveDrillEntries(container, crumb, `${resolvedDriveModeLabel} > ${selectedDriveName} > Select Container Size (${groups.length} sizes)`, sizeGroups, 'drive:name:sizes', renderDriveContSizeGroupCard, {
-                    emptyMessage: 'No container sizes match the current Drive filters.',
-                    approxCardHeight: 84
-                });
-                return;
-            }
-            const selectedSizeIsAll = isDriveDrillAllValue(selectedDriveSize);
-            const selectedSizeLabel = getDriveDrillDisplayValue(selectedDriveSize);
-            const selectedSizeItems = selectedSizeIsAll ? selectedNameItems : selectedNameItems.filter((item) => getDrivePlantContSize(item) === selectedDriveSize);
-            if (!selectedSizeItems.length) {
-                applyDriveRenderMarkup(container, crumb, `${resolvedDriveModeLabel} > ${selectedDriveName} > ${selectedSizeLabel}`, `<div class="p-8 text-center text-gray-400">No rows match the current Drive filters for ${esc(selectedSizeLabel)}.</div>`, 'drive:name:size-empty');
-                return;
-            }
-            if (driveViewLevel <= 2 || !selectedDriveSeason) {
-                const seasonMap = new Map();
-                selectedSizeItems.forEach((item) => {
-                    const seasonValue = String(firstNonEmptyValue(item.SEASON, '') || '').trim().toUpperCase() || 'UNKNOWN';
-                    if (!seasonMap.has(seasonValue)) seasonMap.set(seasonValue, { season: seasonValue, rowCount: 0, __driveRenderKeyValue: '' });
-                    seasonMap.get(seasonValue).rowCount += 1;
-                });
-                const groups = [...seasonMap.values()]
-                    .map((entry) => ({
-                        season: entry.season,
-                        rowCount: entry.rowCount,
-                        __driveRenderKeyValue: `${selectedDriveName}|${selectedDriveSize}|${entry.season}|${entry.rowCount}`
-                    }))
-                    .sort((a, b) => {
-                        const seasonCompare = getDriveSeasonOptionRank(a.season) - getDriveSeasonOptionRank(b.season);
-                        if (seasonCompare !== 0) return seasonCompare;
-                        return String(a.season || '').localeCompare(String(b.season || ''));
-                    });
-                const seasonGroups = [{
-                    season: DRIVE_DRILL_ALL_VALUE,
-                    displaySeason: DRIVE_DRILL_ALL_LABEL,
-                    rowCount: selectedSizeItems.length,
-                    isAll: true,
-                    __driveRenderKeyValue: `${selectedDriveName}|${selectedSizeLabel}|ALL|${selectedSizeItems.length}`
-                }].concat(groups);
-                renderDriveDrillEntries(container, crumb, `${resolvedDriveModeLabel} > ${selectedDriveName} > ${selectedSizeLabel} > Select Season (${groups.length} seasons)`, seasonGroups, 'drive:name:seasons', renderDriveSeasonGroupCard, {
-                    emptyMessage: 'No seasons match the current Drive filters.',
-                    approxCardHeight: 84
-                });
-                return;
-            }
-            const selectedSeasonIsAll = isDriveDrillAllValue(selectedDriveSeason);
-            const selectedSeasonLabel = getDriveDrillDisplayValue(selectedDriveSeason, 'Unknown');
-            const seasonItems = sortDriveCardItems(selectedSeasonIsAll ? selectedSizeItems : selectedSizeItems.filter((item) => String(firstNonEmptyValue(item.SEASON, '') || '').trim().toUpperCase() === String(selectedDriveSeason || '').trim().toUpperCase()));
-            if (!seasonItems.length) {
-                const crumbText = `${resolvedDriveModeLabel} > ${selectedDriveName} > ${selectedSizeLabel} > ${selectedSeasonLabel} (0 items)`;
-                applyDriveRenderMarkup(container, crumb, crumbText, `<div class="p-8 text-center text-gray-400">No rows match the selected season.</div>`, 'drive:name:cards-empty');
-                return;
-            }
-            const finalItems = seasonItems;
-            const crumbText = `${resolvedDriveModeLabel} > ${selectedDriveName} > ${selectedSizeLabel} > ${selectedSeasonLabel} (${finalItems.length} items)`;
-            const renderKey = buildDriveRenderKey('drive:name:cards', crumbText, finalItems);
-            if (!finalItems.length) {
-                applyDriveRenderMarkup(container, crumb, crumbText, `<div class="p-8 text-center text-gray-400">No rows match the selected season.</div>`, 'drive:name:cards-empty');
-                return;
-            }
-            renderDriveRecordResults('drive-name-card', container, crumb, finalItems, crumbText, renderKey, {
-                approxCardHeight: 310
-            });
-        }
+        // Common Name drill implementation is composed from drive-plant-filter-state.js.
 
         function renderDriveLocationDrill(container, crumb, driveModeLabel = '', viewStateOverride = null) {
             ensureDriveToolbarControls();

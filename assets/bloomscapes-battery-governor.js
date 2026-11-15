@@ -8,6 +8,7 @@ function registerBloomscapesBatteryResource(name,resource) {
 function syncBloomscapesBatteryState() {
     if (typeof currentUser==='undefined') return;
     const paused=document.hidden || navigator.onLine===false;
+    if (!paused && typeof prewarmBloomscapesFarms==='function') void prewarmBloomscapesFarms();
     if (paused===bloomscapesBatteryPaused) return;
     bloomscapesBatteryPaused=paused;
     for(const resource of bloomscapesBatteryResources.values()) {
@@ -33,6 +34,7 @@ function pauseBloomscapesInventoryUi() {
 }
 function resumeBloomscapesInventoryUi() {
     if (!currentUser) return;
+    if (typeof prewarmBloomscapesFarms==='function') void prewarmBloomscapesFarms();
     getProductionLiveSyncCoordinator()?.signal('battery-foreground');
     scheduleManagerApprovalLiveRefresh();
     startReclassDeliveryPolling();

@@ -121,4 +121,49 @@ function processAndLoadData(payload) {
     finishLoadedInventoryPublication(res, hasMaster, changedDatasetKeys, clearOps);
     if (hasMaster || changedDatasetKeys.includes('avOpen')) restoreBloomCartSelection();
     if (hasMaster || changedDatasetKeys.includes('warehouseAssignedItems')) refreshVisibleEvalOverview();
+    rememberBloomscapesFarmPublication(true);
+}
+
+function publishPreparedBloomscapesFarm(snapshot) {
+    const state = getManagerAssignedColumnState();
+    fullInventory = snapshot.inventory;
+    socInventory = snapshot.soc;
+    reservesInventory = snapshot.reserves;
+    warehouseAssignedItemsInventory = snapshot.assigned;
+    avOpenInventory = snapshot.av;
+    socRawSourceRows = snapshot.socRaw;
+    socRawSourceRowsReady = true;
+    suspendSocDisplayIdentity = getSuspendSocDisplayIdentity();
+    state.fullInventory = fullInventory;
+    state.defaultOwnersByCode = new Map(snapshot.defaults.map(row=>[buildManagerEvalAssignmentKey(row.itemcode_normalized),row]));
+    state.itemcodeDefaultOwners = state.defaultOwnersByCode;
+    state.defaultOwnersCheckedAt = Date.now();
+    managerEvalAssignmentSelection.clear();
+    clearWarehouseAssignedItemCaches();
+    installMasterInventoryIndexMaps(snapshot.indexes);
+    clearAcceptedLocOnHandAggregates();
+    invalidateMasterDerivedInventories();
+    invalidateResolvedViewStateCaches();
+    state.bloomscapesOwners = {farm:snapshot.farm,epoch:state.dataEpoch,owner:snapshot.owner,index:snapshot.assignedMap};
+    for (const [key,rows] of [['master',fullInventory],['soc',socInventory],['reserves',reservesInventory],['warehouseAssignedItems',warehouseAssignedItemsInventory]]) {
+        Object.assign(getDatasetState(key),{initialLoaded:true,fullLoaded:true,rowCompleteness:'complete',fieldCoverage:'full',
+            expectedRowCount:rows.length,lastLoadedAt:new Date(snapshot.loadedAt).toISOString()});
+    }
+    productionDisplayMasterReceipt = {rows:fullInventory,readScope:getSupabaseReadIdentityScope(),
+        permission:String(appAccessSnapshotState.snapshot?.dataPermissionVersion || '')};
+    pruneBloomscapesFarmInventoryCaches();
+}
+
+function captureBloomscapesFarmPublication(snapshot,invalidateDrive=false) {
+    const state = getManagerAssignedColumnState();
+    const cached = state.bloomscapesOwners;
+    if (invalidateDrive || snapshot.inventory!==fullInventory) snapshot.driveProjection = null;
+    Object.assign(snapshot,{inventory:fullInventory,soc:socInventory,reserves:reservesInventory,
+        assigned:warehouseAssignedItemsInventory,av:avOpenInventory,socRaw:socRawSourceRows,
+        defaults:[...(state.defaultOwnersByCode || new Map()).values()],
+        assignedMap:cached?.farm===snapshot.farm && cached.epoch===state.dataEpoch ? cached.index : null});
+    snapshot.indexes = {byId:masterInventoryById,lookup:masterInventoryLookup,byItemCode:masterInventoryByItemCode,
+        byLocation:state.inventoryByLocationMap,byItemLocationOnHand:masterInventoryByItemLocationOnHand,
+        byNormalizedItemLocation:masterInventoryByNormalizedItemLocation,byItemPrefix:state.inventoryByItemPrefixMap};
+    scheduleBloomscapesWarmAssignments(snapshot);
 }

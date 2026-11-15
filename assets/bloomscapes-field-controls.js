@@ -3,6 +3,24 @@ function renderBloomscapesFieldExtras(item,tab,row) {
     if (row.recovery) renderBloomscapesRecovery(item,row);
 }
 
+function resetBloomscapesFarmNavigation() {
+    globalThis.dispatchEvent?.(new CustomEvent('bloomscapes-farm-changing'));
+    cancelDriveSearchRenderWork();
+    resetDriveDrillSelectionState();
+    resetDockView(false);
+    for (const id of ['drive-content','docks-content']) {
+        const host = document.getElementById(id);
+        if (host) host.replaceChildren();
+    }
+}
+
+function renderBloomscapesFarmNavigation() {
+    const view = getCurrentVisibleViewId();
+    markViewDirty(view);
+    renderViewContent(view,false,true);
+    updateGlobalBackButton();
+}
+
 function renderBloomscapesSubstituteFinder(item,row) {
     const button = document.createElement('button');
     button.type = 'button';
@@ -58,4 +76,51 @@ function mountBloomscapesRowChoices(host) {
     }
     host.appendChild(list);
     inputs.forEach(input => input.setAttribute('list',list.id));
+}
+
+function renderInventoryEditDetailAction(item = activeItem, detailSourceView = '') {
+    renderBloomscapesDetailDispatch(item,detailSourceView);
+    const sharedPanel = document.getElementById('detail-inventory-checks-panel');
+    const tabPanel = document.getElementById('inventory-edit-tab-detail-action');
+    const legacyPanels = ['inventory-edit-detail-action', 'inventory-edit-request-detail-action']
+        .map((id) => document.getElementById(id))
+        .filter(Boolean);
+    const allPanels = [sharedPanel, tabPanel, ...legacyPanels].filter(Boolean);
+    const safeTab = String(activeDetailTab || '').trim().toLowerCase();
+    const safeSourceView = String(detailSourceView || activeDetailSourceView || lastView || '').trim().toLowerCase();
+    const sharedInventoryAllowed = safeSourceView !== 'request' && safeSourceView !== 'drive';
+    const targetPanels = safeTab === 'inventory-edit'
+        ? (tabPanel ? [tabPanel] : [])
+        : (sharedInventoryAllowed ? (sharedPanel ? [sharedPanel] : legacyPanels) : []);
+    if (!allPanels.length) return;
+    const hidePanels = (panels) => {
+        panels.forEach((panel) => {
+            panel.classList.add('hidden');
+            panel.innerHTML = '';
+        });
+    };
+    if (!targetPanels.length) {
+        hidePanels([sharedPanel, ...legacyPanels].filter(Boolean));
+        syncDetailSharedPanelsVisibility();
+        return;
+    }
+    if (isInventoryEditDetailRenderBusy(targetPanels)) {
+        deferInventoryEditDetailRender();
+        syncDetailSharedPanelsVisibility();
+        return;
+    }
+    const workflowRecord = findInventoryEditMockRecordForItem(item, { ignoreAccess: true });
+    const canUsePanel = canUseInventoryEditMock(item) || canCurrentUserEditInventoryEditMockRecord(workflowRecord);
+    if (!canUsePanel) {
+        hidePanels(allPanels);
+        syncDetailSharedPanelsVisibility();
+        return;
+    }
+    const html = buildInventoryEditDetailWorkflowPanel(item, workflowRecord, detailSourceView);
+    targetPanels.forEach((panel) => {
+        panel.innerHTML = html;
+        panel.classList.remove('hidden');
+    });
+    hidePanels(allPanels.filter((panel) => !targetPanels.includes(panel)));
+    syncDetailSharedPanelsVisibility();
 }

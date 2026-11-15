@@ -130,3 +130,52 @@ function publishLoadedCustomerInventory(res) {
         normalizeAvHotPriceKeyRows(res.avHotPriceKeysData || []);
     }
 }
+
+function hydrateReserveInventoryRow(item, idx, resolveMaster = findLinkedMasterRow) {
+    const reserveFieldKeys = Object.keys(item || {}).filter((key) => String(key || '').trim() !== '');
+    item.DOM_ID='res_'+idx;
+    item.UNIQUE_ID=item.UNIQUE_ID||'res_uid_'+idx;
+    const masterItem=resolveMaster(item);
+    item.CUSTOMERNAME=item.CUSTOMERNAME||item.CUSTOMER||'Unknown Customer';
+    item.CONSIGNEENAME=item.CONSIGNEENAME||item.CONSIGNEE||'';
+    item.SALESREPNAME=item.SALESREPNAME||item.SALESREP||item['SALES_REP']||'Unknown Rep';
+    item.COMMONNAME=firstNonEmptyValue(item.COMMONNAME, item.DESCRIPTION, item.PLANT_NAME, item.ITEMCODE, 'Unknown');
+    item.CONTSIZE=firstNonEmptyValue(item.CONTSIZE, item.ITEMSPEC, item.contsize, '-');
+    item.LOCATIONCODE=firstNonEmptyValue(item.LOCATIONCODE, item.LOCATION, 'No Loc');
+    item.ITEMCODE=firstNonEmptyValue(item.ITEMCODE, item.itemcode, '-');
+    item.LOTCODE=firstNonEmptyValue(item.LOTCODE, item.lotcode, '-');
+    item.PTRAVAILABLE=firstNonEmptyValue(item.PTRAVAILABLE, item.ptravailable, 0);
+    item.SEASONSUPPLY=firstNonEmptyValue(item.SEASONSUPPLY, item.SEASON_SUPPLY, item.season_supply, 0);
+    item.PRIORITY=firstNonEmptyValue(item.PRIORITY, item.priority, '-');
+    if(masterItem){
+        syncMasterFieldsToRequestRow(masterItem, item);
+        item.APP_TAB_ASSIGNMENT = firstNonEmptyValue(item.APP_TAB_ASSIGNMENT, masterItem.APP_TAB_ASSIGNMENT);
+    }
+    repairDisplayFieldsOnRow(item);
+    normalizeRowPhotoFields(item);
+    item._reserveSourceFieldKeys = reserveFieldKeys;
+    item._search=`${item.COMMONNAME||''} ${item.CUSTOMERNAME||''} ${item.ITEMCODE||''}`.toLowerCase();
+    item._searchCandidates = null;
+    item._searchPrimaryStarts = null;
+    item._searchWordStarts = null;
+    item._searchProfileWordStarts = null;
+    return item;
+}
+
+
+function hydrateDockSourceRows(rows = [], resolveMaster = findLinkedMasterRow) {
+    return rows.map(item => {
+        normalizeSocDockRowAliases(item);
+        const sourceUid = normalizeDockIssueSourceUniqueId(firstNonEmptyValue(item && item.DOCK_ISSUE_SOURCE_UID, item && item.UNIQUE_ID, item && item.unique_id, ''));
+        const masterItem = resolveMaster(item);
+        if (masterItem) {
+            syncMasterFieldsToRequestRow(masterItem, item);
+            item.APP_TAB_ASSIGNMENT = firstNonEmptyValue(item.APP_TAB_ASSIGNMENT, masterItem.APP_TAB_ASSIGNMENT);
+            normalizeSocDockRowAliases(item);
+        }
+        stampDockIssueSourceIdentity(item, { sourceUid });
+        normalizeRowPhotoFields(item);
+        buildSearchIndex(item);
+        return item;
+    }).filter(item => isEvalScopedDataRowVisibleToCurrentUser(item));
+}

@@ -17,33 +17,32 @@ function bloomscapesFarmRowIsVisible(row) {
 }
 
 async function selectBloomscapesFarm(farm) {
-    await ensureBloomscapesFarmAccess();
-    if (!bloomscapesFarmState.allowed.includes(farm)) throw new Error('Choose one of your permitted farms.');
-    const previous = getBloomscapesFarm();
-    const state = bloomscapesFarmState;
+    getBloomscapesFarm();
+    if (!bloomscapesFarmState.loaded) await ensureBloomscapesFarmAccess();
+    const state = bloomscapesFarmState, previous = state.farm;
+    if (!state.allowed.includes(farm)) throw new Error('Choose one of your permitted farms.');
     if (state.busy) return previous;
     state.busy = true;
-    state.farm = farm;
-    if(previous!==farm)globalThis.dispatchEvent?.(new CustomEvent('bloomscapes-farm-changing'));
     try {
-        const loaded = await ensureDatasetLoaded('master','full',{force:state.readyFarm!==farm,bypassLiveSyncCoordinator:true});
-        if (bloomscapesFarmState !== state) throw new Error('Signed-in account changed.');
-        if (!loaded) throw new Error('Farm data is unavailable; previous inventory retained.');
-        await refreshBloomscapesFarmSupport(state);
-        await ensureDatasetLoaded('warehouseAssignedItems','full',{force:state.readyFarm!==farm,bypassLiveSyncCoordinator:true});
-        if (bloomscapesFarmState !== state) throw new Error('Signed-in account changed.');
-        await refreshBloomscapesFarmOwners(state);
+        const warm = getBloomscapesWarmFarm(farm);
+        const snapshot = warm || await ensureBloomscapesWarmFarm(farm);
+        if (state!==bloomscapesFarmState) throw new Error('Signed-in account changed.');
+        rememberBloomscapesFarmPublication();
+        state.farm = farm;
+        if (previous!==farm) resetBloomscapesFarmNavigation();
+        activateBloomscapesWarmFarm(snapshot);
         state.readyFarm = farm;
-        if (previous!==farm) pruneBloomscapesFarmInventoryCaches();
         state.confirmed = true;
         persistBloomscapesSessionFarm(state);
         globalThis.dispatchEvent?.(new CustomEvent('bloomscapes-farm-ready'));
-        if (previous!==farm && typeof resetDockView==='function') resetDockView(false);
-        refreshAffectedViews(['master','avOpen','requests','soc','reserves']);
-        if (typeof ensureBloomscapesFieldQueue==='function') void ensureBloomscapesFieldQueue(true).catch(error=>globalThis.reportHandledRuntimeIssue?.('field_work_queue',error.code || 'FIELD_WORK_READ_FAILED'));
+        renderBloomscapesFarmNavigation();
+        void refreshBloomscapesWarmFarm(farm);
+        void prewarmBloomscapesFarms();
+        if (typeof ensureBloomscapesFieldQueue==='function') void ensureBloomscapesFieldQueue(true).catch(error=>
+            globalThis.reportHandledRuntimeIssue?.('field_work_queue',error.code || 'FIELD_WORK_READ_FAILED'));
         return farm;
-    } catch (error) {
-        if (bloomscapesFarmState === state) state.farm = previous;
+    } catch(error) {
+        if (state===bloomscapesFarmState) state.farm = previous;
         throw error;
     } finally { state.busy = false; }
 }
@@ -95,18 +94,6 @@ async function readBloomscapesFarmAccess(state) {
 }
 
 
-async function refreshBloomscapesFarmOwners(state) {
-    const owners = getManagerAssignedColumnState();
-    await owners.defaultOwnersPromise;
-    if (bloomscapesFarmState!==state) throw new Error('Signed-in account changed.');
-    owners.defaultOwnersByCode = new Map();
-    owners.itemcodeDefaultOwners = owners.defaultOwnersByCode;
-    owners.dataEpoch = (owners.dataEpoch || 0)+1;
-    managerEvalAssignmentSelection.clear();
-    await loadManagerItemcodeDefaultOwners(true);
-    if (bloomscapesFarmState!==state) throw new Error('Signed-in account changed.');
-}
-
 function readBloomscapesSessionFarm(state) {
     try {
         const saved = JSON.parse(globalThis.sessionStorage?.getItem(BLOOMSCAPES_SESSION_FARM_KEY) || 'null');
@@ -124,12 +111,6 @@ function persistBloomscapesSessionFarm(state) {
     } catch {
         globalThis.reportHandledRuntimeIssue?.('farm_session_save','HANDLED_OPERATION_FAILURE');
     }
-}
-
-async function refreshBloomscapesFarmSupport(state) {
-    await Promise.allSettled(['soc','reserves'].map(key=>
-        ensureDatasetLoaded(key,'full',{force:true,bypassLiveSyncCoordinator:true})));
-    if (bloomscapesFarmState !== state) throw new Error('Signed-in account changed.');
 }
 
 function getSupabaseReadIdentityScope() {

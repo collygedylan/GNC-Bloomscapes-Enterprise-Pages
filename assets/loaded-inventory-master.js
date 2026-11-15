@@ -124,3 +124,40 @@ function publishLoadedAvInventory(res, hasMaster, changedDatasetKeys) {
     rememberWarmAvInventoryRows(avOpenInventory);
     if (rebuild && !changedDatasetKeys.includes('avOpen')) changedDatasetKeys.push('avOpen');
 }
+
+function installMasterInventoryIndexMaps(indexes) {
+    if (!indexes) return false;
+    if (typeof queueCardInventoryHydrator !== 'undefined') queueCardInventoryHydrator?.invalidate();
+    masterInventoryById = indexes.byId;
+    masterInventoryLookup = indexes.lookup;
+
+
+
+
+    masterInventoryByItemCode = indexes.byItemCode;
+    const state = getManagerAssignedColumnState();
+    state.inventoryByRowKeyMap = indexes.byId;
+    state.inventoryByItemcodeMap = indexes.byItemCode;
+    indexes.byItemPrefix ||= buildMasterInventoryPrefixIndex(indexes.byItemCode);
+    state.inventoryByItemPrefixMap = indexes.byItemPrefix;
+    state.inventoryByLocationMap = indexes.byLocation;
+    masterInventoryByItemLocationOnHand = indexes.byItemLocationOnHand;
+    masterInventoryByNormalizedItemLocation = indexes.byNormalizedItemLocation;
+    invalidateInventoryDomIdLookup();
+    if (typeof getInventoryLocationPhotos === 'function' && fullInventory.length) {
+        const snapshot = fullInventory;
+        setTimeout(() => { if (snapshot === fullInventory && snapshot.length) getInventoryLocationPhotos(snapshot[0]); },0);
+    }
+    return true;
+}
+
+
+function buildMasterInventoryPrefixIndex(byItemCode) {
+    const prefixes = new Map();
+    for (const [code,rows] of byItemCode) {
+        const prefix = code.slice(0,6);
+        if (!prefixes.has(prefix)) prefixes.set(prefix,[]);
+        prefixes.get(prefix).push(...rows);
+    }
+    return prefixes;
+}
