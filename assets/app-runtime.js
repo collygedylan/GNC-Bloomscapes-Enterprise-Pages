@@ -99705,64 +99705,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return `${plan.renderSignature}:${mirrorPreparationState}:queue-inventory:${Number(queueCardInventoryRenderVersion) || 0}:source-auth:${sourceAndAuthSignature}:planstart:${JSON.stringify(planstartSignature)}`;
         }
 
-        function buildSuspendTagRenderPlan(items) {
-            const collators = {
-                text: new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' }).compare,
-                location: new Intl.Collator(undefined, { numeric: true }).compare
-            };
-            // Resolve the source lookup revision once for this render. Filter
-            // option and sort helpers share the authorized point-lookup map
-            // instead of re-reading session identity for every row.
-            const sourceRows = getDockSuspendDcSourceRows();
-            const latestSourceFreshness = typeof getCurrentSuspendTagSourceFreshness === 'function'
-                ? getCurrentSuspendTagSourceFreshness() : null;
-            const freshnessRows = typeof socRawSourceRows !== 'undefined' ? socRawSourceRows : sourceRows;
-            const latestSourceWatermark = typeof getLatestSocImportFileWatermark === 'function'
-                ? getLatestSocImportFileWatermark(freshnessRows, latestSourceFreshness) : { filename: '', lastUpdated: '' };
-            const latestSourceRows = typeof getLatestSocSuspendTagSourceRows === 'function'
-                ? getLatestSocSuspendTagSourceRows(sourceRows, freshnessRows, latestSourceFreshness)
-                : (Array.isArray(sourceRows) ? sourceRows : []);
-            const latestSourceIds = new Set(latestSourceRows.map((row) => getDockSuspendDcRequestSourceUid(row)).filter(Boolean));
-            const sourceLookupRevision = getDockSuspendDcSourceRowLookupRevision(sourceRows);
-            const sourceLookup = getDockSuspendDcSourceRowLookup(sourceRows, sourceLookupRevision);
-            // Sorting is independent of status and filters. Cache only the
-            // ordered source candidates; evaluate completion and permissions on
-            // every render so optimistic Done state and reopening stay current.
-            const currentFileItems = typeof getLatestSocSuspendTagSourceRows === 'function'
-                ? uniquePhysicalSuspendTags((Array.isArray(items) ? items : []).filter((row) =>
-                    isDockSuspendDcRequestMirrorRow(row) && latestSourceIds.has(getDockSuspendDcRequestSourceUid(row))))
-                : items;
-            const sortedSourceRows = getSortedSuspendTagSourceRows(currentFileItems, collators, sourceLookup, sourceLookupRevision);
-            const allItems = getSuspendTagRequestItems(sortedSourceRows, requestSuspendTagStatusFilter);
-            const searchItems = applyRequestSuspendTagCommonNameSearchFilter(allItems);
-            const assignedItems = suspendQueueRowsForOwner(searchItems, requestSuspendTagStatusFilter === 'active' ? allItems : []);
-            const contSizeItems = applyRequestSuspendTagContSizeFilter(assignedItems, sourceLookup);
-            const candidates = applyRequestSuspendTagDockFilter(contSizeItems, sourceLookup);
-            const filteredItems = typeof applyInventoryExcelFilters === 'function' ? applyInventoryExcelFilters('suspend',candidates) : candidates;
-            const filterKey = JSON.stringify([
-                requestSuspendTagStatusFilter, getSuspendEvalUserFilter('suspend-tag'),
-                normalizeSearchValue(requestSuspendTagCommonNameSearchTerm),
-                normalizeRequestSuspendTagContSizeFilterValue(requestSuspendTagContSizeFilter),
-                requestSuspendTagDockFilter,
-                latestSourceWatermark.filename,
-                latestSourceWatermark.lastUpdated
-            ]);
-            const mode = `request:suspend-tag:${filterKey}`;
-            const renderKey = buildRequestChunkRenderKey(mode, 'Suspend Tag', filteredItems);
-            const plan = {
-                empty: !filteredItems.length,
-                crumbText: 'Suspend Tag',
-                items: filteredItems,
-                rows: filteredItems,
-                pageIndex: 0,
-                renderKey,
-                renderSignature: `${renderKey}:all:${buildRequestBrowseMembershipKey(mode, filteredItems)}`,
-                footerMarkup: ''
-            };
-            return { ...plan, allItems, searchItems, assignedItems, contSizeItems, sourceLookup,
-                renderSignature: buildSuspendTagPlanSignature(plan, latestSourceRows, sourceLookupRevision) };
-        }
-
         function getRequestSuspendTagSearchInputState(event = null) {
             const target = event && event.target ? event.target : document.getElementById('request-suspend-tag-common-search');
             if (!target || String(target.id || '') !== 'request-suspend-tag-common-search') return null;
@@ -100079,52 +100021,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return index.codesByOwner.get(owner) || new Set();
         }
 
-        function getScopedRequestItems(items = requestsInventory, options = {}) {
-            const sourceItems = Array.isArray(items) ? items : [];
-            const roleAccess = getRoleAccessState();
-            const capabilities = getRequestCapabilities();
-            const requestScopeMode = capabilities ? capabilities.scope : 'none';
-            const hasGlobalRequestAccess = canViewAllRequests();
-            const queuePending = activeReqTab === 'pending' && capabilities?.canViewQueue;
-            const needsLegacyScope = !options.strictQueueVisibility && !hasGlobalRequestAccess && (!queuePending || sourceItems.some(row => row && !row.REQUEST_ACTIVE && !row.REQUEST_HISTORY));
-            const assignedItemcodes = needsLegacyScope ? getRequestAssignedItemcodeScope() : null;
-            const canUseCache = items === requestsInventory;
-            const includeDockSuspendMirrorRows = canUseCache && activeReqTab === 'suspend-tag' && options.includeDockSuspendMirrorRows !== false && canReadSuspendQueue();
-            const useResultCache = canUseCache;
-            const cacheKey = canUseCache ? [
-                resolvedViewStateEpoch,
-                getDatasetLoadSignature('requests'),
-                includeDockSuspendMirrorRows ? canUseRequestSuspendTagAssignedToFilter() : '',
-                includeDockSuspendMirrorRows ? getDatasetLoadSignature(activeReqTab === 'suspend-tag' ? 'suspendTag' : 'soc') : '',
-                activeReqTab + (options.strictQueueVisibility === true ? '|strict-queue|' + getSuspendEvalUserFilter() + '|' + (getManagerAssignedColumnState().dataEpoch || 0) : '|legacy-scope'),
-                requestScopeMode,
-                hasGlobalRequestAccess ? '1' : '0',
-                assignedItemcodes ? getManagerAssignedColumnState().dataEpoch || 0 : '',
-                safeRole,
-                currentUser,
-                currentUserDisplay
-            ].join('|') : '';
-            if (useResultCache && requestScopedItemsCacheKey === cacheKey && Array.isArray(requestScopedItemsCache)) {
-                incrementInternalPerfCounter('viewStateCacheHits');
-                return requestScopedItemsCache.slice();
-            }
-            let nextItems = capabilities && capabilities.canViewQueue ? sourceItems.slice() : [];
-            if (options.strictQueueVisibility === true) nextItems = nextItems.filter(row => isQueueOwnerVisible(row));
-            else if (!hasGlobalRequestAccess) {
-                nextItems = nextItems.filter(item => (queuePending && item.REQUEST_ACTIVE === true)
-                    || doesCurrentUserOwnCreatedRequestItem(item)
-                    || assignedItemcodes?.has(String(item?.ITEMCODE || item?.itemcode || '').trim().toUpperCase()));
-            }
-            if (includeDockSuspendMirrorRows) {
-                nextItems = appendDockSuspendDcRequestMirrorRows(nextItems).filter(row =>
-                    !isDockSuspendDcRequestMirrorRow(row) || canUseRequestSuspendTagAssignedToFilter() || isQueueOwnerVisible(row));
-            }
-            if (useResultCache) {
-                requestScopedItemsCacheKey = cacheKey;
-                requestScopedItemsCache = nextItems.slice();
-            }
-            return canUseCache && ['global', 'role'].includes(requestScopeMode) ? nextItems.slice() : nextItems;
-        }
 
         function canUseRequestDylanViewerFilter() {
             return isExactDylanCollygeUser();
@@ -118457,7 +118353,9 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
         function refreshRuntimeWatchdogBadge(force = false) { return runtimeWatchdogPanel.refreshBadge(force); }
         function refreshRuntimeWatchdogPanel() { return runtimeWatchdogPanel.refreshPanel(); }
         function copyRuntimeWatchdogFixBrief() { return runtimeWatchdogPanel.copyFixBrief(); }
-        /* @runtime-fragment assets/bloomscapes-farm-identity.js */ /* @runtime-fragment assets/bloomscapes-farm-state.js */ /* @runtime-fragment assets/bloomscapes-farm-read.js */ /* @runtime-fragment assets/bloomscapes-home.js */ /* @runtime-fragment assets/bloomscapes-field-controls.js */ /* @runtime-fragment assets/bloomscapes-lab.js */ /* @runtime-fragment assets/bloomscapes-lab-controls.js */ /* @runtime-fragment assets/bloomscapes-radio.js */ /* @runtime-fragment assets/bloomscapes-radio-controls.js */ /* @runtime-fragment assets/bloomscapes-dock.js */ /* @runtime-fragment assets/bloomscapes-dock-controls.js */ /* @runtime-fragment assets/bloomscapes-workflows.js */ /* @runtime-fragment assets/bloomscapes-vault-filter.js */
+        /* @runtime-fragment assets/bloomscapes-farm-identity.js */ /* @runtime-fragment assets/bloomscapes-farm-state.js */ /* @runtime-fragment assets/bloomscapes-farm-read.js */ /* @runtime-fragment assets/bloomscapes-home.js */ /* @runtime-fragment assets/bloomscapes-job-board.js */
+
+/* @runtime-fragment assets/bloomscapes-field-controls.js */ /* @runtime-fragment assets/bloomscapes-lab.js */ /* @runtime-fragment assets/bloomscapes-lab-controls.js */ /* @runtime-fragment assets/bloomscapes-radio.js */ /* @runtime-fragment assets/bloomscapes-radio-controls.js */ /* @runtime-fragment assets/bloomscapes-dock.js */ /* @runtime-fragment assets/bloomscapes-dock-controls.js */ /* @runtime-fragment assets/bloomscapes-workflows.js */ /* @runtime-fragment assets/bloomscapes-vault-filter.js */
         /* @runtime-fragment assets/bloomscapes-farm-dialog.js */
         /* @runtime-fragment assets/bloomscapes-owner-command.js */
         /* @runtime-fragment assets/bloomscapes-farm-access.js */

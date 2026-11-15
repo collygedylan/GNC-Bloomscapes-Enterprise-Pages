@@ -19,7 +19,11 @@ async function requireBloomscapesOwner(owner) {
 }
 
 function bloomscapesData(result) {
-    if (result.error) throw new Error('The isolated service could not complete this request.');
+    if (result.error) {
+        const error = new Error(result.error.message || 'The isolated service could not complete this request.');
+        error.code = result.error.code || 'ISOLATED_SERVICE_FAILED';
+        throw error;
+    }
     return result.data;
 }
 
@@ -29,6 +33,12 @@ async function readBloomscapesPanel(panel, inputs = {}) {
     const current = await getNativeAuthSession();
     if (current?.user?.id !== owner) throw new Error('Signed-in account changed.');
     const data = bloomscapesData(result);
+    if (panel==='bloomscapes-replenishment') {
+        if (data?.farm_code!=='10-PH' || !Array.isArray(data.rows)
+            || data.rows.some(row=>!row.po_id || !['60-HL','20-TX','40-NC'].includes(row.origin_farm)
+                || !inputs.includeHistory && !(Number(row.remaining_on_po)>0))) throw new Error('PO line scope was not confirmed.');
+        return data.rows;
+    }
     if (panel !== 'bloomscapes-dock-approvals') return data;
     const rows = await addPrivateDockPhotoLinks(client, data);
     if ((await getNativeAuthSession())?.user?.id !== owner) throw new Error('Signed-in account changed.');
@@ -40,7 +50,7 @@ function bloomscapesPanelQuery(client, panel, input) {
     if (panel === 'architecture') return client.rpc('gnc_architecture_counts');
     if (panel === 'bloomscapes-sales-vault') return client.rpc('gnc_sales_vault',{p_farm:input.farm});
     if (panel === 'bloomscapes-inventory') return bloomscapesInventoryQuery(client, input.farm);
-    if (panel === 'bloomscapes-replenishment') return client.rpc('gnc_intercompany_replenishment_rows');
+    if (panel === 'bloomscapes-replenishment') return client.rpc('gnc_read_replenishment_board',{p_include_history:input.includeHistory===true});
     if (panel === 'bloomscapes-dock-approvals') {
         return client.from('gnc_10_ph_dock_approvals')
             .select('id,itemcode,dock,order_unique_id,candidate_locationcode,inspection_photo_paths,decision')
@@ -105,6 +115,9 @@ async function submitBloomscapesCommand(command, input) {
     const current = await getNativeAuthSession();
     if (current?.user?.id !== owner) throw new Error('Signed-in account changed.');
     const receipt = bloomscapesData(result);
+    if (command==='queue-shuttle' && (receipt?.id!==input.requestId || receipt.farm_code!=='10-PH'
+        || receipt.work_view!=='HAULING' || receipt.po_id!==input.poId || receipt.source_id!==input.rowId
+        || receipt.origin_farm!==input.originFarm)) throw new Error('Queued shuttle receipt did not match.');
     if (command === 'intercompany-shuttle') {
         requireBloomscapesShuttleReceipt(receipt, input);
         const refreshed = await refreshBloomscapesShuttleProjection(owner);
@@ -148,6 +161,9 @@ async function addPrivateDockPhotoLinks(client, rows) {
 }
 
 function bloomscapesCommandRequest(client, command, input) {
+    if (command==='queue-shuttle') return client.rpc('gnc_queue_intercompany_haul',{
+        p_request_id:input.requestId,p_po_id:input.poId,p_target_id:input.rowId,
+        p_quantity:input.quantity,p_assigned_to:input.assignedTo || null});
     if (command === 'farm-access') return client.rpc('set_user_allowed_farms_v1',{
         p_username:input.username,p_allowed_farms:input.farms,p_default_farm:input.defaultFarm,
         p_requires_confirm:true,p_subject_type:input.subjectType

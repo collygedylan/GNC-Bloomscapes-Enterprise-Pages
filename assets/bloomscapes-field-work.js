@@ -2,7 +2,7 @@ async function readBloomscapesFieldWork() {
     const {client,owner} = await requireBloomscapesSession();
     const farm = getBloomscapesFarm();
     const ownerScope = getSupabaseReadIdentityScope();
-    const result = await client.rpc('gnc_read_field_work',{p_farm:farm});
+    const result = await client.rpc('gnc_read_job_board',{p_farm:farm});
     await requireBloomscapesOwner(owner);
     const data = bloomscapesData(result);
     if (data?.farm_code!==farm || !Array.isArray(data.rows) || !Array.isArray(data.views)
@@ -52,6 +52,7 @@ async function completeBloomscapesFieldWork(job,answers) {
     const receipt = bloomscapesData(result);
     if (receipt?.ok!==true || receipt.work_id!==job.id || receipt.farm_code!==job.farm_code
         || receipt.work_view!==job.work_view) throw new Error('Work completion receipt did not match.');
+    applyBloomscapesFieldWorkReceipt(job,answers,receipt);
     const pdf = await client.functions.invoke('request-delivery-worker',{body:{operation:'work_pdf',
         requestId:job.id,farm:job.farm_code,rowId:job.id,workType:'FIELD_WORK'}});
     await requireBloomscapesOwner(owner);
@@ -59,4 +60,27 @@ async function completeBloomscapesFieldWork(job,answers) {
     if (archive?.pdfId!==job.id || !/^[a-f0-9]{64}$/.test(String(archive?.sha256 || ''))
         || !archive.signedUrl) throw new Error('Work saved. PDF archive remains pending; retry this same completion.');
     return {...receipt,pdf:archive};
+}
+
+async function readBloomscapesJobBoardRevision() {
+    const {client,owner} = await requireBloomscapesSession();
+    const farm = getBloomscapesFarm(),ownerScope = getSupabaseReadIdentityScope();
+    const result = await client.rpc('gnc_read_job_board_revision',{p_farm:farm});
+    await requireBloomscapesOwner(owner);
+    const data = bloomscapesData(result);
+    if (data?.farm_code!==farm || typeof data.revision!=='string' || !data.counts) throw new Error('Job counts scope was not confirmed.');
+    return {...data,ownerScope};
+}
+
+async function createBloomscapesSuspendWork(command) {
+    const {client,owner} = await requireBloomscapesSession();
+    const result = await client.rpc('gnc_create_suspend_work',{p_request_id:command.id,p_farm:command.farm,
+        p_source_id:command.sourceId,p_scope:command.scope,p_order_id:command.orderId,p_quantity:command.quantity});
+    await requireBloomscapesOwner(owner);
+    const receipt = bloomscapesData(result);
+    if (receipt?.ok!==true || receipt.command_id!==command.id || receipt.farm_code!==command.farm
+        || receipt.source_id!==command.sourceId || receipt.order_id!==command.orderId || receipt.scope!==command.scope) {
+        throw new Error('Suspend creation receipt did not match the selected farm, stock and order.');
+    }
+    return receipt;
 }

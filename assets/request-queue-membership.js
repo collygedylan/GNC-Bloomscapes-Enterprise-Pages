@@ -18,6 +18,13 @@ function queueAccessScope(tab = 'suspend-tag') {
 
 function getQueueScopeFilter(tab) {
     const policy = queueAccessScope(tab);
+    if (['pending','suspend-tag'].includes(tab) && typeof getBloomscapesJobBoardFilters==='function') {
+        const assigned = getBloomscapesJobBoardFilters(tab).assigned;
+        if (!policy.all) return policy.user;
+        if (assigned==='all') return 'ALL';
+        if (assigned==='mine') return policy.user;
+        return assigned==='unassigned' ? 'Unassigned' : normalizeEvalAssignableUser(assigned);
+    }
     const state = getManagerAssignedColumnState();
     const signature = [policy.user, policy.all, policy.initial].join('|');
     state.queueScopeFilters ||= {};

@@ -15,6 +15,10 @@ const BLOOMSCAPES_HOME_MODULES = [
 ];
 
 function mountBloomscapesHomeModules() {
+    for (const id of ['header-version','app-release-version']) {
+        const pill = document.getElementById(id);
+        if (pill) pill.textContent = window.__APP_RELEASE_VERSION__;
+    }
     mountBloomscapesFarmSelector();
     const grid = document.getElementById('home-dashboard-grid');
     if (!grid) return;

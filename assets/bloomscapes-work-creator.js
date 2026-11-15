@@ -15,6 +15,7 @@ function renderBloomscapesWorkCreator(tab) {
       <label>Or Percent <input name="percent" type="number" min="1" max="100" step="1"></label>
       <label>Target Location <select name="targetLocation"><option value="">No location move</option></select></label>
       <label>Assigned Crew / User <select name="assignedTo" required></select></label>
+      <label>Media <input name="media" maxlength="120"></label><label>Fertilizer recipe <input name="fertilizer" maxlength="120"></label>
       <label>Due Date <input name="dueOn" type="date"></label>
       <label>Field Instructions <textarea name="instructions" maxlength="4000"></textarea></label>
       <button type="button" data-simulate-work>Simulate · 7 gates</button><button type="submit">Create Work in Que</button>
@@ -28,6 +29,9 @@ async function mountBloomscapesWorkCreator(host) {
     const owner = getSupabaseReadIdentityScope();
     const state = {owner,source:null,attempt:null,busy:false,previewRevision:0};
     const form = root.querySelector('form');
+    for (const option of form.elements.workView.options) {
+        option.disabled = !isFullAppAdministrator() && bloomscapesFieldQueueState.canCreate?.[option.value]!==true;
+    }
     mountBloomscapesWorkBrowser(root.querySelector('[data-work-browser]'),row=>{
         state.source = row;
         form.elements.sourceId.value = String(row.UNIQUE_ID || row.unique_id);
@@ -91,6 +95,7 @@ async function submitBloomscapesWorkCreator(form,state,status) {
         if (state.owner!==getSupabaseReadIdentityScope()) return;
         state.attempt = null;
         status.textContent = 'Created '+receipt.id;
+        form.dispatchEvent(new CustomEvent('gnc-field-work-created',{bubbles:true,detail:{id:receipt.id}}));
         await openBloomscapesWorkQueue(receipt.work_view);
     } catch (error) { if (form.isConnected) status.textContent = error.message; }
     finally { state.busy = false; button.disabled = false; }

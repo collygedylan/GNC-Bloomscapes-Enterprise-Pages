@@ -171,7 +171,7 @@ function retireUnusedShellGenerations() {
     const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     const builds = await Promise.all(windows.filter(client => isProductionShellUrl(client.url)).map(readWindowShellBuild));
     if (builds.some(build => build !== APP_SHELL_BUILD)) return;
-    await Promise.all((await caches.keys()).filter(isRetiredRootCacheName).map(name => caches.delete(name)));
+    await Promise.all((await caches.keys()).filter(name => isRetiredRootCacheName(name) && !name.startsWith(CACHE_VERSION + '-')).map(name => caches.delete(name)));
   })().finally(() => { retirementFlight = null; });
   return retirementFlight;
 }
@@ -195,7 +195,7 @@ async function prepareCurrentShellActivation() {
   const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true }).catch(() => null);
   if (windows && !windows.some(client => isProductionShellUrl(client.url))) {
     const keys = await caches.keys();
-    await Promise.all(keys.filter(isRetiredRootCacheName).map(key => caches.delete(key)));
+    await Promise.all(keys.filter(name => isRetiredRootCacheName(name) && !name.startsWith(CACHE_VERSION + '-')).map(key => caches.delete(key)));
   }
   const preload = self.registration.navigationPreload;
   await Promise.resolve(preload?.disable?.()).catch(() => {});

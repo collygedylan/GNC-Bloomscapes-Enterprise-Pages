@@ -23,7 +23,8 @@ function workflowForm(tab) {
     if (tab === 'bloomscapes-inventory') {
         return '';
     }
-    if (tab === 'bloomscapes-replenishment') return '<label>Origin <select data-origin-filter><option>ALL</option><option>60-HL</option><option>20-TX</option><option>40-NC</option></select></label>';
+    if (tab === 'bloomscapes-replenishment') return '<label>Origin <select data-origin-filter><option>ALL</option><option>60-HL</option><option>20-TX</option><option>40-NC</option></select></label>'
+        + '<label><input type="checkbox" data-po-history> Show Completed / 0-Balance History</label>';
     if (bloomscapesFieldPanel(tab)) return renderBloomscapesWorkCreator(tab);
     if (tab === 'bloomscapes-vault') {
         return '<label>Search <input name="search" type="search"></label><label>User <input name="user"></label>'
@@ -85,41 +86,6 @@ function renderDockWorkflowRow(item, row, run) {
     dockApprovalButtons(item, row, run);
 }
 
-function renderReplenishmentGauge(item, row) {
-    const capacity = Number(row.bed_capacity);
-    appendWorkflowNode(item,'span','On hand '+row.current_ptronhand+' · Target '+row.block_target_cans
-        +' · Open '+row.open_can_space+' · PO balance '+row.remaining_po_qty
-        +' · 7-day demand '+row.demand_7_days+' · Origin available '+row.hl_on_hand);
-    if (row.capacity_basis === 'NO_ALLOCATED_BEDS' || row.capacity_basis === 'INCOMPLETE_OCCUPANCY') {
-        appendWorkflowNode(item,'span','Receiving held · '+(row.capacity_basis === 'NO_ALLOCATED_BEDS'
-            ? 'no current bed allocation' : 'occupancy requires verification'));
-        return;
-    }
-    if (!Number.isFinite(capacity) || capacity<=0) {
-        appendWorkflowNode(item,'span','No receiving bed capacity');
-        return;
-    }
-    const current = Number(row.occupied_beds);
-    if (!Number.isFinite(current)) return;
-    const meter = appendWorkflowNode(item, 'meter', '');
-    meter.setAttribute('aria-label', 'Block capacity used');
-    meter.max = capacity;
-    meter.value = Math.min(capacity, current);
-    appendWorkflowNode(item, 'span', current.toFixed(1) + ' / ' + capacity + ' beds occupied · '
-        + (100*current/capacity).toFixed(1)+'% · '+row.cpb+' cans per bed'
-        +(row.capacity_basis==='CONTAINER_DERIVED'?' · container-derived estimate':''));
-}
-
-function renderIntercompanyShuttle(item,row,refresh) {
-    const button=appendWorkflowNode(item,'button','Shuttle '+row.origin_farm+' → 10-PH');
-    button.type='button';
-    button.disabled=!(row.open_can_space>0 && row.remaining_po_qty>0 && row.hl_on_hand>0);
-    const status=appendWorkflowNode(item,'span','');
-    status.setAttribute('role','status');
-    const input={rowId:row.row_id,originFarm:row.origin_farm,requestId:crypto.randomUUID()};
-    button.addEventListener('click',()=>void runBloomscapesFieldCommand(status,button,refresh,'intercompany-shuttle',input));
-}
-
 function showWorkflowRows(host, tab, rows, run, refresh) {
     const results = host.querySelector('[data-bloomscapes-results]');
     results.replaceChildren();
@@ -133,8 +99,7 @@ function showWorkflowRows(host, tab, rows, run, refresh) {
         const fields = keys.map(key => row[key]).filter(value => value != null && value !== '');
         appendWorkflowNode(item, 'span', fields.join(' · '));
         if (tab === 'bloomscapes-replenishment') {
-            renderReplenishmentGauge(item,row);
-            renderIntercompanyShuttle(item,row,refresh);
+            renderBloomscapesPOCard(item,row,refresh);
         } else renderBloomscapesFieldExtras(item,tab,row);
         if (tab === 'bloomscapes-dock-approvals') renderDockWorkflowRow(item, row, run);
         if (tab === 'bloomscapes-vault') renderBloomscapesVaultPdf(item,row);
@@ -163,10 +128,11 @@ function mountBloomscapesWorkflowPanel(container, tab) {
         status.textContent = 'Loading…';
         const commit = text => { if (host.isConnected && epoch === generation) status.textContent = text; };
         try {
-            const rows = await readBloomscapesPanel(tab, inputs);
+            const rows = await readBloomscapesPanel(tab, {...inputs,includeHistory:host.querySelector('[data-po-history]')?.checked===true});
             if (!host.isConnected || epoch !== generation) return;
             showWorkflowRows(host, tab, rows, decide, load);
-            commit(rows.length ? rows.length + ' records shown' : 'No records match.');
+            const origin = host.querySelector('[data-origin-filter]')?.value || 'ALL';
+            commit(rows.filter(row=>origin==='ALL' || row.origin_farm===origin).length + ' records shown');
             bindBloomscapesPanelFilters(host,tab,rows,decide,load);
         } catch (error) {
             commit(error.message);
@@ -212,6 +178,8 @@ function bindBloomscapesPanelForm(host,tab,status,load) {
 }
 
 function bindBloomscapesPanelFilters(host,tab,rows,decide,load) {
+    const history = host.querySelector('[data-po-history]');
+    if (history) history.onchange=()=>void load();
     if(tab==='bloomscapes-vault') bindBloomscapesVaultFilter(host,rows,
         matches=>showWorkflowRows(host,tab,matches,decide,load));
     const origin=host.querySelector('[data-origin-filter]');

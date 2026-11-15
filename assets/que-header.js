@@ -79,7 +79,7 @@ function clearRequestHeaderSearch() {
 
 function buildPendingRequestRenderPlan(items) {
     const crumbText = 'All Request Que';
-    const candidates = items.filter(matchesQueHeaderSearch).filter(isRequestPendingVisible).filter(isRegularRequestQueueItem);
+    const candidates = items.filter(matchesQueHeaderSearch).filter(matchesBloomscapesJobBoardFilters).filter(isRequestPendingVisible).filter(isRegularRequestQueueItem);
     const pendingItems = typeof applyInventoryExcelFilters === 'function' ? applyInventoryExcelFilters('request',candidates) : candidates;
     if (typeof rememberOperationalExport === 'function') rememberOperationalExport('request',pendingItems);
     if (!pendingItems.length) return { empty: true, crumbText, items: [], rows: [], pageIndex: 0, renderKey: '', renderSignature: '', footerMarkup: '' };
@@ -122,24 +122,24 @@ return false;
 }
 
 function syncQueHeaderLayout() {
-    const row = document.getElementById('global-header-search-row');
+    const row = document.querySelector('#view-request > .freeze-panel');
     const toolbar = document.getElementById('request-filter-toolbar');
     if (getCurrentVisibleViewId() !== 'request' || !row || !toolbar) return;
-    if (toolbar.parentElement !== row) row.appendChild(toolbar);
+    if (toolbar.parentElement !== row) row.prepend(toolbar);
+    row.dataset.jobBoardHeader = 'true';
 }
 
 function renderRequestCategoryToolbar(counts = null) {
     const toolbar = document.getElementById('request-filter-toolbar');
     if (!toolbar) return false;
     counts = counts || getRequestTabQueueCounts();
-    const categories = getAuthorizedRequestCategories().map(category => ({
+    const categories = bloomscapesJobBoardCategories().map(([category,label]) => ({
         key: category,
-        label: bloomscapesWorkQueueLabel(category) || REQUEST_TAB_LABELS[category],
+        label,
         count: bloomscapesWorkKind(category) ? bloomscapesWorkQueueCount(category) : Math.max(0, Number(counts[category]) || 0)
     }));
     syncQueCategoryButtons(toolbar.querySelector('.request-category-options'), categories);
-    syncQueCategorySelect(toolbar, categories);
-    syncQueOwnerFallback(toolbar);
+    syncBloomscapesJobBoardToolbar(toolbar);
     toolbar.dataset.toolbarSingleRow = 'true';
     syncQueHeaderLayout();
     if (nativeAuthSessionActive) void ensureBloomscapesFieldQueue().catch(error=>
@@ -155,7 +155,7 @@ function syncQueCategoryCounts(counts, allCounts) {
 
 function syncQueCategoryButtons(group, categories) {
     if (!group) return;
-    const primary = categories.filter(({ key }) => key === 'pending' || key === 'suspend-tag');
+    const primary = categories;
     const buttons = primary.map(({ key, label, count }) => {
         const active = activeReqTab === key;
         return `<button type="button" id="tab-req-${escapeHtml(key)}" class="request-category-chip${active ? ' is-active' : ''}" data-request-category="${escapeHtml(key)}" aria-pressed="${active}" onclick="return setReqTab(this.dataset.requestCategory)"><span>${escapeHtml(label)}</span><span class="request-category-chip__count${count > 0 ? ' has-count' : ''}">(${escapeHtml(formatRequestTabCount(count))})</span></button>`;
@@ -165,23 +165,6 @@ function syncQueCategoryButtons(group, categories) {
         document.getElementById(focused)?.focus({ preventScroll: true });
     }
     group.hidden = primary.length === 0;
-}
-
-function syncQueCategorySelect(toolbar, categories) {
-    let control = toolbar.querySelector('.que-view-control');
-    if (!control) {
-        control = document.createElement('label');
-        control.className = 'que-view-control';
-        control.innerHTML = '<span class="sr-only">Que View</span><select id="que-view-select" aria-label="Que View" onchange="return setReqTab(this.value)"></select>';
-        toolbar.prepend(control);
-    }
-    const select = control.querySelector('select');
-    const secondary = categories.filter(({ key }) => key !== 'pending' && key !== 'suspend-tag');
-    control.hidden = secondary.length === 0;
-    const markup = '<option value="" disabled>Other views</option>' + secondary.map(({ key, label, count }) =>
-        `<option value="${escapeHtml(key)}">${escapeHtml(label)} (${escapeHtml(formatRequestTabCount(count))})</option>`).join('');
-    if (select.innerHTML !== markup) select.innerHTML = markup;
-    select.value = secondary.some(({ key }) => key === activeReqTab) ? activeReqTab : '';
 }
 
 function syncQueActiveCategory(toolbar = document.getElementById('request-filter-toolbar')) {
@@ -195,17 +178,3 @@ function syncQueActiveCategory(toolbar = document.getElementById('request-filter
     if (select) select.value = ['pending', 'suspend-tag'].includes(activeReqTab) ? '' : activeReqTab;
 }
 
-function syncQueOwnerFallback(toolbar) {
-    let fallback = toolbar.querySelector('#que-other-owner');
-    if (!fallback) {
-        fallback = document.createElement('select');
-        fallback.id = 'que-other-owner';
-        fallback.setAttribute('aria-label', 'Assigned / Eval User');
-        fallback.disabled = true;
-        toolbar.appendChild(fallback);
-    }
-    const { all } = queueAccessScope(activeReqTab);
-    fallback.hidden = ['pending', 'suspend-tag'].includes(activeReqTab) && all;
-    const label = all ? 'All Users' : String(currentUser || 'Assigned User');
-    if (fallback.options[0]?.text !== label) fallback.innerHTML = `<option>${escapeHtml(label)}</option>`;
-}

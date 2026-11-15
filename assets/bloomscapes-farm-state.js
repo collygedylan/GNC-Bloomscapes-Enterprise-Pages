@@ -36,6 +36,7 @@ async function selectBloomscapesFarm(farm) {
         state.confirmed = true;
         persistBloomscapesSessionFarm(state);
         refreshAffectedViews(['master','avOpen','requests','soc','reserves']);
+        if (typeof ensureBloomscapesFieldQueue==='function') void ensureBloomscapesFieldQueue(true).catch(error=>globalThis.reportHandledRuntimeIssue?.('field_work_queue',error.code || 'FIELD_WORK_READ_FAILED'));
         return farm;
     } catch (error) {
         if (bloomscapesFarmState === state) state.farm = previous;
@@ -178,4 +179,34 @@ function getScopedDocksItems(items = socInventory, cacheScopeKey = '') {
         docksScopedItemsCache = nextItems.slice();
     }
     return nextItems;
+}
+
+const bloomscapesJobBoardFilters = new Map();
+function getBloomscapesJobBoardFilters(tab=activeReqTab) {
+    const key = getSupabaseReadIdentityScope()+':'+tab;
+    if (!bloomscapesJobBoardFilters.has(key)) bloomscapesJobBoardFilters.set(key,{assigned:'all',block:'',search:''});
+    return bloomscapesJobBoardFilters.get(key);
+}
+
+function setBloomscapesJobBoardFilter(key,value) {
+    if (!['assigned','block','search'].includes(key)) return;
+    getBloomscapesJobBoardFilters()[key] = String(value || '');
+    scheduleTrackedSearchViewRender('request','job-board-filter',String(value || ''),{force:true,debounceDelay:1,typingDelay:18});
+}
+
+function matchesBloomscapesJobBoardFilters(row) {
+    const filter = getBloomscapesJobBoardFilters();
+    const farm = row.farm_code || bloomscapesRowFarm(row);
+    if (farm!==getBloomscapesFarm()) return false;
+    const rawOwner = row.work_view ? row.assigned_to : typeof getAssignedQueueOwner==='function'
+        ? getAssignedQueueOwner(row) : row.ASSIGNEDTO || row.assignedto || row.EVAL_USER || row.eval_user || '';
+    const owner = String(typeof normalizeEvalAssignableUser==='function' ? normalizeEvalAssignableUser(rawOwner) : rawOwner || '').trim().toLowerCase();
+    const selected = filter.assigned==='mine' ? String(currentUser).toLowerCase() : filter.assigned;
+    if (selected==='unassigned' && owner && !['unassigned','none','null','n_a'].includes(owner)) return false;
+    if (!['all','unassigned'].includes(selected) && owner!==selected) return false;
+    const members = row.source_rows || [];
+    const locations = [row.LOCATIONCODE,row.locationcode,row.target_location,...members.map(member=>member.locationcode)].filter(Boolean).join(' ').toLowerCase();
+    if (filter.block && !locations.includes(filter.block.toLowerCase().trim())) return false;
+    const text = [row.ITEMCODE,row.itemcode,row.COMMONNAME,row.commonname,row.action_type,row.instructions,locations,row.command?.media,row.command?.fertilizer].filter(Boolean).join(' ').toLowerCase();
+    return filter.search.toLowerCase().trim().split(/\s+/).every(term=>text.includes(term));
 }
