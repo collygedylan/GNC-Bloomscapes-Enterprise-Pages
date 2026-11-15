@@ -23,6 +23,8 @@ function setHomeTab(tab = 'dashboard') {
     if (nextTab === MANAGER_ASSIGNED_ITEMS_EXPORT_VIEW) scheduleAssignedItemsChrome();
     else globalThis.renderHomeOrManagersNow(true);
     if (typeof syncHomeDashboardBodyMode === 'function') syncHomeDashboardBodyMode();
+    syncManagersHeaderChrome();
+    syncGlobalHeaderChrome({reason:'manager-module',force:true});
     return false;
 }
 
@@ -116,6 +118,7 @@ function enterNextHomeTab(previousTab, nextTab) {
 }
 
 function hydrateNextHomeTab(nextTab) {
+    if (bloomscapesFarmWorkspaceSelection(nextTab)) return;
     if (isManagerApprovalTab(nextTab)) {
         ensureDatasetLoaded('master', 'full').then(() => scheduleManagersRender(true)).catch(() => {});
         if (isNcrApprovalTaskView(nextTab)) scheduleNcrApprovalTaskRowsRefresh(nextTab, { force: true });

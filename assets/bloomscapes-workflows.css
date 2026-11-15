@@ -8,6 +8,41 @@
   background: #103220;
   font-size: .85rem;
 }
+.bloomscapes-farm-selector[hidden] { display: none; }
+.bloomscapes-work-source, .bloomscapes-field-work-card {
+  display: block;
+  width: 100%;
+  padding: .8rem;
+  margin: .4rem 0;
+  border: 1px solid #35654a;
+  border-radius: .65rem;
+  background: #103220;
+  color: #e9f7ed;
+  text-align: left;
+}
+[data-work-creator] label, [data-field-work-queue] label { display: inline-flex; flex-direction: column; margin: .4rem; }
+[data-work-browser] input, [data-work-browser] select { max-width: 100%; min-height: 44px; margin: .3rem; }
+.bloomscapes-farm-dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(92vw, 430px);
+  padding: 1.4rem;
+  border: 1px solid #568a65;
+  border-radius: 1rem;
+  background: #103220;
+  color: #e9f7ed;
+}
+.bloomscapes-farm-dialog::backdrop { background: #000a; }
+.bloomscapes-farm-dialog button, .bloomscapes-farm-dialog select {
+  min-height: 44px;
+  margin: .6rem .6rem 0 0;
+  padding: .5rem;
+  background: #081c12;
+  color: #e9f7ed;
+  border: 1px solid #568a65;
+  border-radius: .5rem;
+}
 #bloomscapes-farm-selector {
   max-width: 100%;
   min-height: 38px;

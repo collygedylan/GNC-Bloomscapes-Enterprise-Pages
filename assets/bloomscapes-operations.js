@@ -4,6 +4,8 @@ const BLOOMSCAPES_WORKFLOW_TABS = [
     {id:'bloomscapes-dock-approvals',label:'Dock Rep Approvals'},
     {id:'bloomscapes-hl-keying',label:'Park Hill Data Entry · Intercompany'},
     {id:'bloomscapes-field-jobs',label:'Field Jobs and Can Fill'},
+    {id:'bloomscapes-bunch-notes',label:'Bunch Notes'},
+    {id:'bloomscapes-can-filling',label:'Can Filling'},
     {id:'bloomscapes-grading',label:'Season .Y Shift Grading & CF#'},
     {id:'bloomscapes-hauling',label:'Hauling & Consolidation'},
     {id:'bloomscapes-shearing',label:'Shear List & Crew Queue'},
@@ -19,10 +21,10 @@ function bloomscapesWorkflowTab(tab) {
 
 function workflowForm(tab) {
     if (tab === 'bloomscapes-inventory') {
-        return '<label>Farm <select name="farm"><option>10-PH</option><option>60-HL</option><option>20-TX</option><option>40-NC</option><option>ALL</option></select></label><button type="submit">Show</button>';
+        return '';
     }
     if (tab === 'bloomscapes-replenishment') return '<label>Origin <select data-origin-filter><option>ALL</option><option>60-HL</option><option>20-TX</option><option>40-NC</option></select></label>';
-    if (bloomscapesFieldPanel(tab)) return bloomscapesFieldForms(tab);
+    if (bloomscapesFieldPanel(tab)) return renderBloomscapesWorkCreator(tab);
     if (tab === 'bloomscapes-vault') {
         return '<label>Search <input name="search" type="search"></label><label>User <input name="user"></label>'
             + '<label>Work type <input name="type"></label><label>Block <input name="block"></label>'
@@ -186,12 +188,18 @@ function mountBloomscapesWorkflowPanel(container, tab) {
     mountBloomscapesLabControls(host,tab);
     mountBloomscapesDockControls(host,tab,load);
     mountBloomscapesRowChoices(host);
-    host.addEventListener('bloomscapes-farm-change',()=>void load());
+    if (bloomscapesFieldPanel(tab)) void mountBloomscapesWorkCreator(host,tab);
+    host.addEventListener('bloomscapes-farm-change',()=>{
+        if (bloomscapesFieldPanel(tab)) {
+            host.outerHTML = renderBloomscapesWorkflowPanel(tab);
+            mountBloomscapesWorkflowPanel(container,tab);
+        } else void load();
+    });
     void load();
 }
 
 function bindBloomscapesPanelForm(host,tab,status,load) {
-    if (bloomscapesFieldPanel(tab)) {mountBloomscapesFieldForms(host,status,load);return;}
+    if (bloomscapesFieldPanel(tab)) return;
     if (tab==='bloomscapes-vault') return;
     const form=host.querySelector('form');
     const createSample=createBloomscapesLabSampleRunner(host,status,load);
@@ -207,7 +215,11 @@ function bindBloomscapesPanelFilters(host,tab,rows,decide,load) {
     if(tab==='bloomscapes-vault') bindBloomscapesVaultFilter(host,rows,
         matches=>showWorkflowRows(host,tab,matches,decide,load));
     const origin=host.querySelector('[data-origin-filter]');
-    if (origin) origin.onchange=()=>showWorkflowRows(host,tab,rows,decide,load);
+    if (origin) origin.onchange=()=>{
+        showWorkflowRows(host,tab,rows,decide,load);
+        const count = rows.filter(row=>origin.value==='ALL' || row.origin_farm===origin.value).length;
+        host.querySelector('[role="status"]').textContent = count+' records shown';
+    };
 }
 
 function bloomscapesInquiryPdfForm() {
@@ -252,62 +264,6 @@ function bloomscapesFieldPanel(tab) {
     return Object.hasOwn(BLOOMSCAPES_FIELD_KINDS,tab);
 }
 
-function bloomscapesFieldForms(tab) {
-    const farm = '<label>Farm <select name="farm"><option>10-PH</option><option>60-HL</option><option>20-TX</option><option>40-NC</option></select></label>';
-    const row = '<label>Source row ID <input name="rowId" maxlength="150" required></label>';
-    const grading = '<form class="space-x-2" data-field-command="grading"><h3>Season .Y Grading</h3>' + farm + row
-        + '<label>Scheduled total <input name="scheduled" type="number" min="1" required></label>'
-        + '<label>Graded # <input name="graded" type="number" min="0" required></label><button>Record grading</button></form>';
-    const haul = '<form class="space-x-2" data-field-command="haul"><h3>Hauling</h3>' + farm + row
-        + '<label>Destination row ID <input name="destinationId" maxlength="150" required></label>'
-        + '<label>Qty hauled <input name="quantity" type="number" min="1" required></label>'
-        + '<label>TAs <input name="tas" maxlength="1000"></label><button>Complete haul</button></form>';
-    if (tab === 'bloomscapes-grading') return grading;
-    if (tab === 'bloomscapes-hauling') return haul;
-    if (tab === 'bloomscapes-shearing') return bloomscapesShearForms(farm, row);
-    return grading + haul + bloomscapesShearForms(farm, row);
-}
-
-function mountBloomscapesFieldForms(host, status, load) {
-    for (const form of host.querySelectorAll('[data-field-command]')) {
-        bindBloomscapesFieldForm(form, status, load);
-    }
-}
-
-function bindBloomscapesFieldForm(form, status, load) {
-    let attempt;
-    form.addEventListener('submit', async event => {
-        event.preventDefault();
-        const inputs = Object.fromEntries(new FormData(form));
-        const signature = JSON.stringify(inputs);
-        if (attempt?.signature !== signature) attempt = {signature,id:crypto.randomUUID()};
-        const button = form.querySelector('button');
-        const saved = await runBloomscapesFieldCommand(status, button, load, form.dataset.fieldCommand,
-            {...inputs,requestId:attempt.id});
-        if (saved) attempt = null;
-    });
-}
-
-function bloomscapesShearForms(farm, row) {
-    return '<form class="space-x-2" data-field-command="shear"><h3>Plan Shearing</h3>' + farm + row
-        + '<label>Scope <select name="scope"><option value="ITEM_LOCATION">Item @ Location</option><option value="ITEM_LOT">Item @ Lot</option><option value="SINGLE_ROW">Single Row</option></select></label>'
-        + '<label>Percent <input name="pct" type="number" min="1" max="100" required></label>'
-        + '<label><input name="acknowledge" type="checkbox" value="yes"> Acknowledge outbound or hold warning</label>'
-        + '<button>Plan shear</button></form>'
-        + '<form class="space-x-2" data-field-command="shear-complete"><h3>Complete Shearing</h3>' + farm
-        + '<label>Shear job ID <input name="rowId" maxlength="36" required></label><button>Mark Sheared</button></form>';
-}
-
-function bloomscapesFieldReceipt(receipt) {
-    if (receipt.status === 'REVIEW_REQUIRED') {
-        const exposure = receipt.exposure;
-        return 'Review required · ' + exposure.near_term_orders + ' outbound orders · ' + exposure.unknown_dates
-            + ' orders with unverified dates · ' + receipt.hold_rows + ' held rows';
-    }
-    if (receipt.badge) return receipt.badge + ' · ' + receipt.rows.length + ' rows · ' + receipt.command_id;
-    return receipt.location_note || 'Haul recorded · ' + receipt.quantity;
-}
-
 async function runBloomscapesFieldCommand(status, button, load, command, input) {
     if (button.disabled) return false;
     button.disabled = true;
@@ -315,8 +271,7 @@ async function runBloomscapesFieldCommand(status, button, load, command, input) 
         const receipt = await submitBloomscapesCommand(command,input);
         await load();
         if (status.isConnected) {
-            status.textContent = bloomscapesFieldReceipt(receipt);
-            if (command === 'grading') mountBloomscapesBalanceSplit(status, receipt, input.farm, load);
+            status.textContent = receipt.location_note || 'Work recorded';
         }
         return receipt.status !== 'REVIEW_REQUIRED';
     } catch (error) {
@@ -327,23 +282,6 @@ async function runBloomscapesFieldCommand(status, button, load, command, input) 
     }
 }
 
-function mountBloomscapesBalanceSplit(status, grading, farm, load) {
-    const target = appendWorkflowNode(status, 'select', '');
-    target.setAttribute('aria-label','Move ungraded balance to season');
-    for (const supply of ['27.F1','27.S1','27.U1','27.U2','27.U3','27.X']) {
-        const option = appendWorkflowNode(target,'option',supply);
-        option.value = supply;
-    }
-    const button = appendWorkflowNode(status,'button','Split balance out of .Y');
-    button.type = 'button';
-    let attempt;
-    button.addEventListener('click', () => {
-        if (!attempt || attempt.targetSupply !== target.value) {
-            attempt = {farm,gradingId:grading.command_id,targetSupply:target.value,requestId:crypto.randomUUID()};
-        }
-        void runBloomscapesFieldCommand(status,button,load,'balance-split',attempt);
-    });
-}
 
 function createBloomscapesLabSampleRunner(host,status,load) {
     let labAttempt;

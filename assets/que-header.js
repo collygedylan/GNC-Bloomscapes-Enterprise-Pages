@@ -134,14 +134,16 @@ function renderRequestCategoryToolbar(counts = null) {
     counts = counts || getRequestTabQueueCounts();
     const categories = getAuthorizedRequestCategories().map(category => ({
         key: category,
-        label: REQUEST_TAB_LABELS[category],
-        count: Math.max(0, Number(counts[category]) || 0)
+        label: bloomscapesWorkQueueLabel(category) || REQUEST_TAB_LABELS[category],
+        count: bloomscapesWorkKind(category) ? bloomscapesWorkQueueCount(category) : Math.max(0, Number(counts[category]) || 0)
     }));
     syncQueCategoryButtons(toolbar.querySelector('.request-category-options'), categories);
     syncQueCategorySelect(toolbar, categories);
     syncQueOwnerFallback(toolbar);
     toolbar.dataset.toolbarSingleRow = 'true';
     syncQueHeaderLayout();
+    if (nativeAuthSessionActive) void ensureBloomscapesFieldQueue().catch(error=>
+        globalThis.reportHandledRuntimeIssue?.('field_work_queue',error.code || 'FIELD_WORK_READ_FAILED'));
     return true;
 }
 

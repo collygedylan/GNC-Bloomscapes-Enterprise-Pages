@@ -52,6 +52,7 @@ function getProductionLiveSyncSideContext() {
 }
 
 function addProductionLiveManagerSurfaces(add) {
+    if (bloomscapesFarmWorkspaceSelection()) return;
     const managerToolAccess = getManagersToolAccess();
     if (canLoadProductionLiveManagerTab(activeHomeTab,managerToolAccess)) add(`managers:${activeHomeTab}`);
     if (activeHomeTab === MANAGER_EVAL_REPORTS_VIEW) add('managers:eval-reports');

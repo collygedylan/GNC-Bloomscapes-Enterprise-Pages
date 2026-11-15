@@ -11,7 +11,7 @@ function getManagerAssignedItemsDisplayRows(rows = null, batch = null) {
     const targetRevision = typeof getManagerItemLowStockTargetsState === 'function' ? getManagerItemLowStockTargetsState().revision : 0;
     const signature = getManagerAssignedDisplaySignature(state, useMaster, targetRevision);
     if (!batch && state.displayCache?.input === input && state.displayCache.signature === signature && state.displayCache.length === input.length) return state.displayCache.rows;
-    const sourceRows = (batch ? input : enrichManagerAssignedPlantGroups(input))
+    const sourceRows = (batch ? input : enrichManagerAssignedPlantGroups(input)).filter(bloomscapesFarmRowIsVisible)
         .map((row, index) => projectManagerAssignedOwnerRow(row, index, state, useMaster)).filter(Boolean);
     for (const row of sourceRows) {
         if (row.LOCATIONCODE || !row.ITEMCODE || typeof masterInventoryByItemCode === 'undefined') continue;

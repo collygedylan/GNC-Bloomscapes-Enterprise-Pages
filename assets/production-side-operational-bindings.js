@@ -201,7 +201,7 @@ function buildDockWorkflowSideBindings(api, array, read) {
                     read('ph_dock_issue_allocations', 'select=*&order=allocation_unique_id.asc')
                 ]);
                 const trips = api.keyed(array(tripsResult.data, 'Dock trips'), normalizeDockTeamInfo, (row) => normalizeDockTeamTripKey(row.tripnumber));
-                const items = new Map(itemRows.map((row) => [normalizeDockItemUniqueId(row.unique_id || row.UNIQUE_ID), normalizeDockItemProgress(row)]).filter(([key]) => key));
+                const items = new Map(itemRows.map((row) => [bloomscapesDockProgressKey(row.unique_id || row.UNIQUE_ID), normalizeDockItemProgress(row)]).filter(([key]) => key));
                 const issues = api.keyed(issueRows, normalizeDockIssueStatusRow, (row) => row.issueSourceUniqueId);
                 const allocations = api.keyed(allocationRows, normalizeDockIssueAllocationRow, (row) => row.allocationUniqueId);
                 const bySource = new Map();

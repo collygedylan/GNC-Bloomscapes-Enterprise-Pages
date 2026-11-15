@@ -1,4 +1,6 @@
 const BLOOMSCAPES_FIELD_KINDS = {
+    'bloomscapes-bunch-notes':['BUNCH_NOTES'],
+    'bloomscapes-can-filling':['CAN_FILL'],
     'bloomscapes-field-jobs':['SEASON_Y_GRADING','HAUL','SHEAR','CAN_FILL'],
     'bloomscapes-grading':['SEASON_Y_GRADING','CAN_FILL'],
     'bloomscapes-hauling':['HAUL'],
@@ -23,7 +25,7 @@ function bloomscapesData(result) {
 
 async function readBloomscapesPanel(panel, inputs = {}) {
     const {client, owner} = await requireBloomscapesSession();
-    const result = await bloomscapesPanelQuery(client, panel, {farm:getBloomscapesFarm(),...inputs});
+    const result = await bloomscapesPanelQuery(client, panel, {...inputs,farm:getBloomscapesFarm()});
     const current = await getNativeAuthSession();
     if (current?.user?.id !== owner) throw new Error('Signed-in account changed.');
     const data = bloomscapesData(result);
@@ -34,6 +36,7 @@ async function readBloomscapesPanel(panel, inputs = {}) {
 }
 
 function bloomscapesPanelQuery(client, panel, input) {
+    if (panel === 'farm-access') return client.rpc('gnc_farm_access_rows');
     if (panel === 'architecture') return client.rpc('gnc_architecture_counts');
     if (panel === 'bloomscapes-sales-vault') return client.rpc('gnc_sales_vault',{p_farm:input.farm});
     if (panel === 'bloomscapes-inventory') return bloomscapesInventoryQuery(client, input.farm);
@@ -145,6 +148,10 @@ async function addPrivateDockPhotoLinks(client, rows) {
 }
 
 function bloomscapesCommandRequest(client, command, input) {
+    if (command === 'farm-access') return client.rpc('set_user_allowed_farms_v1',{
+        p_username:input.username,p_allowed_farms:input.farms,p_default_farm:input.defaultFarm,
+        p_requires_confirm:true,p_subject_type:input.subjectType
+    });
     if (command === 'pdf-link') return bloomscapesWorkPdfLink(client,input.id);
     if (command === 'sales-substitutes') return client.rpc('gnc_sales_substitutes',{p_farm:input.farm,p_order_id:input.rowId});
     if (command === 'intercompany-shuttle') return client.rpc('gnc_execute_intercompany_shuttle', {

@@ -20,6 +20,7 @@ function renderManagers() {
     mountManagerPrimarySurfaces(container, tabs.canViewRuntimeWatchdog);
     mountManagerPagedApprovals(container);
     mountManagerAuxiliarySurfaces(container);
+    void mountBloomscapesFarmAccessEditor(container,managerTableManagementSelection);
     restoreManagerRenderedViewport(container);
 }
 
@@ -99,6 +100,7 @@ function resolveManagerRenderTabs() {
 }
 
 function keepManagerModuleSurface(container) {
+    if (bloomscapesFarmWorkspaceSelection() && keepBloomscapesFarmWorkspace(container)) return true;
     if (activeHomeTab === MANAGER_ACCESS_CONTROL_VIEW && document.getElementById('effective-user-access-editor')) renderNavigationPreferencesEditor('access', document.getElementById('effective-user-access-editor'));
     if (activeHomeTab !== MANAGER_TABLE_MANAGEMENT_VIEW) destroyManagerTableManagement();
     if (activeHomeTab === MANAGER_TABLE_MANAGEMENT_VIEW && managerTableManagementInstance?.root?.isConnected
@@ -136,6 +138,7 @@ function keepManagerModuleSurface(container) {
 }
 
 function buildManagerRenderHtml({ access, managerApprovalTabs, managerToolTabs, canViewRuntimeWatchdog }) {
+    if (bloomscapesFarmWorkspaceSelection()) return '<div id="bloomscapes-native-farm-root"></div>';
     if (bloomscapesWorkflowTab(activeHomeTab)) return renderBloomscapesWorkflowPanel(activeHomeTab);
     if (activeHomeTab === BLOOMSCAPES_ARCHITECTURE_TAB) return renderBloomscapesArchitecturePanel();
     if (activeHomeTab === 'dashboard') return renderManagerModulePicker(access, managerApprovalTabs, managerToolTabs);
@@ -198,6 +201,10 @@ function patchManagerRenderedSurface(container, html) {
 }
 
 function mountManagerPrimarySurfaces(container, canViewRuntimeWatchdog) {
+    if (bloomscapesFarmWorkspaceSelection()) {
+        mountBloomscapesFarmWorkspace(container.querySelector('#bloomscapes-native-farm-root'),bloomscapesFarmWorkspaceSelection());
+        return;
+    }
     if (typeof syncManagerTableManagementViewport === 'function') syncManagerTableManagementViewport();
     if (activeHomeTab === MANAGER_RUNTIME_WATCHDOG_VIEW && canViewRuntimeWatchdog) void refreshRuntimeWatchdogPanel();
     else if (activeHomeTab === 'dashboard' && canViewRuntimeWatchdog) void refreshRuntimeWatchdogBadge();

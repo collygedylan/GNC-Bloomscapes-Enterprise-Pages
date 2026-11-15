@@ -102,7 +102,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.0.89';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.0.90';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -20191,52 +20191,7 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
             if (data.rows.length === 0 && Number(data.offset) < data.total) throw new Error('Available stock returned an incomplete page.');
             return { rows: data.rows, total: data.total, authSource: 'app-api' };
         }
-        async function requestInventoryRead(operation, params = {}, options = {}) {
-            if (options.signal?.aborted) throw Object.assign(new Error('Inventory read cancelled.'), { code: 'REQUEST_ABORTED' });
-            const safeOperation = String(operation || '').trim();
-            if (!['master_page','master_identity_batch','master_delta','po_detail','recount_queue','ncr_queue','not_on_inventory_queue','verify_row','schema_capabilities','source_freshness'].includes(safeOperation)) {
-                throw new Error('Unsupported inventory read operation.');
-            }
-            if (productionLiveSyncCoordinator?.isSourceReadSuspended?.()) {
-                throw Object.assign(new Error('Inventory source verification is paused while readiness is rechecked.'), {
-                    code: 'LOC_SOURCE_READ_SUSPENDED', status: 423
-                });
-            }
-            const identityScope = getSupabaseReadIdentityScope();
-            const permissionVersion = String(appAccessSnapshotState.snapshot?.dataPermissionVersion || '');
-            const safeParams = params && typeof params === 'object' ? params : {};
-            const retainRead = typeof hasAuthenticatedOperationalReadIdentity === 'function' && hasAuthenticatedOperationalReadIdentity();
-            const readKey = `inventory_read:${safeOperation}:${JSON.stringify(safeParams)}`;
-            return runDedupeSupabaseRead(readKey, async ({ signal }) => {
-                let payload;
-                try {
-                    payload = await postAppFunctionJson(APP_API_FUNCTION_URL, {
-                        action: 'inventory_read', operation: safeOperation, params: safeParams
-                    }, {
-                        timeoutMs: Math.max(1000, Number(options.timeoutMs) || SUPABASE_READ_TIMEOUT_MS),
-                        label: String(options.label || 'Inventory data'),
-                        signal
-                    });
-                } catch (error) {
-                    suspendProductionInventoryReadForReadiness(error);
-                    throw error;
-                }
-                if (identityScope !== getSupabaseReadIdentityScope() || permissionVersion !== String(appAccessSnapshotState.snapshot?.dataPermissionVersion || '')) throw staleSupabaseReadScopeError();
-                if (!payload || payload.ok !== true || !Object.prototype.hasOwnProperty.call(payload, 'data')) {
-                    const error = new Error(String(payload?.error || payload?.message || 'Inventory data is unavailable.'));
-                    error.status = Number(payload?.status || 0);
-                    error.code = String(payload?.code || '').trim().toUpperCase();
-                    error.payload = payload;
-                    suspendProductionInventoryReadForReadiness(error);
-                    throw error;
-                }
-                const inventoryRevision = String(payload.data?.inventoryRevision || payload.data?.rows?.find(row => row?.loc_on_hand_revision || row?.LOC_ON_HAND_REVISION)?.loc_on_hand_revision || payload.data?.rows?.find(row => row?.LOC_ON_HAND_REVISION)?.LOC_ON_HAND_REVISION || '');
-                if (inventoryRevision && Array.isArray(payload.data?.rows) && acceptCardLocationOnHandSourceReceipt(identityScope, permissionVersion, inventoryRevision)) {
-                    payload.data.rows.forEach(row => stampCardLocationOnHandReceipt(row, identityScope, permissionVersion, inventoryRevision));
-                }
-                return payload.data;
-            }, { signal: retainRead ? null : (options.signal || null), retainOnGenerationChange: retainRead });
-        }
+        /* @runtime-fragment assets/bloomscapes-inventory-read.js */
         function validateInventoryReadProjection(result = {}, params = {}) {
             const requested = String(params?.projection || '').trim().toLowerCase();
             if (!['browse', 'full'].includes(requested)) return true;
@@ -24330,7 +24285,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.0.89';
+        const APP_VERSION = '3.0.90';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -25700,44 +25655,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         /* @runtime-fragment assets/erp-manual-continuation.js */
         bindManualErpProgressWakeLock(document, window, navigator.wakeLock, getSupabaseReadIdentityScope);
 
-        function getGlobalHeaderChromeState() {
-            ensureGlobalHeaderSearchPlaceholders();
-            const backState = getGlobalBackState();
-            const currentView = backState.currentView;
-            const baseMeta = AMAZON_HEADER_META[currentView] || { title: formatGlobalHeaderTitle(currentView) };
-            const meta = currentView === 'moves' && activeMovesTab === 'office'
-                ? { eyebrow: 'Location Move', title: 'Inventory Office' }
-                : baseMeta;
-            const resolvedTitle = meta.title || formatGlobalHeaderTitle(currentView);
-            const showHomeBack = currentView === 'home' && backState.showBack;
-            const searchContainerId = currentView === 'tasks'
-                ? (shouldShowTaskHeaderSearch() ? GLOBAL_HEADER_SEARCH_CONFIG.tasks : '')
-                : GLOBAL_HEADER_SEARCH_CONFIG[currentView];
-            const searchContainer = searchContainerId ? document.getElementById(searchContainerId) : null;
-            const searchVisible = !!(searchContainer && !searchContainer.classList.contains('hidden'));
-            return {
-                currentView,
-                meta,
-                resolvedTitle,
-                showHomeBack,
-                searchContainerId,
-                searchContainer,
-                searchVisible,
-                signature: [
-                    currentView,
-                    resolvedTitle,
-                    showHomeBack ? 'home-back' : 'no-home-back',
-                    cartPanelOpen ? 'cart-open' : 'cart-closed',
-                    bloomShareMenuOpen ? 'share-open' : 'share-closed',
-                    bloomCropUpdateModalOpen ? 'crop-update-open' : 'crop-update-closed',
-                    searchContainerId || 'no-search',
-                    searchVisible ? 'search-visible' : 'search-hidden',
-                    currentUserDisplay || currentUser || 'User',
-                    APP_VERSION
-                ].join('|')
-            };
-        }
-
+        /* @runtime-fragment assets/header-navigation-state.js */
         function syncGlobalHeaderChrome(options = {}) {
             // Navigation visibility is synchronous even when search ownership
             // is unchanged, focused, or deferred to preserve typing/scrolling.
@@ -26127,11 +26045,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             signalProductionLiveSync('suspend-tag-action-proof-required', 0);
             return false;
         }
-        function requireCurrentDocksWriteProof(actionLabel = 'saving Docks changes') {
-            const view = getCurrentVisibleViewId();
-            if (!canUseProductionLiveSync() || (view !== 'docks' && !(view === 'detail' && activeDetailSourceView === 'docks'))) return true;
-            return requireCurrentProductionLiveSyncProof(actionLabel);
-        }
         function isDocksWriteControl(element) {
             const handlers = ['onclick', 'onpointerdown', 'onpointerup', 'ontouchstart', 'ontouchend']
                 .map((name) => String(element?.getAttribute?.(name) || '')).join(' ');
@@ -26165,28 +26078,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
                 button.setAttribute('title', 'Waiting for current Docks data verification.');
             });
         }
-        function updateDocksWriteControlGate() {
-            const view = getCurrentVisibleViewId();
-            const isDocks = view === 'docks' || (view === 'detail' && activeDetailSourceView === 'docks');
-            const verified = !isDocks || !canUseProductionLiveSync() || hasCurrentProductionLiveSyncProof();
-            docksWriteControlsVerified = verified;
-            const roots = ['docks-content', 'view-detail', 'dock-info-modal', 'dock-mistake-modal', 'dock-mistake-detail-modal', 'dock-allocation-modal']
-                .map((id) => document.getElementById(id)).filter(Boolean);
-            roots.forEach((root) => {
-                applyDocksWriteProofToNode(root, verified);
-                if (isDocks && typeof MutationObserver === 'function' && !docksWriteControlObservers.has(root)) {
-                    const observer = new MutationObserver((records) => records.forEach((record) =>
-                        record.addedNodes.forEach((node) => applyDocksWriteProofToNode(node, docksWriteControlsVerified))));
-                    observer.observe(root, { childList: true, subtree: true });
-                    docksWriteControlObservers.set(root, observer);
-                }
-            });
-            if (!isDocks) {
-                docksWriteControlObservers.forEach(observer => observer.disconnect());
-                docksWriteControlObservers.clear();
-            }
-        }
-
         function isSuspendTagWriteControl(element) {
             const handlers = ['onclick', 'onpointerdown', 'onpointerup', 'ontouchstart', 'ontouchend']
                 .map((name) => String(element?.getAttribute?.(name) || '')).join(' ');
@@ -26463,107 +26354,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             return { foreground, background: source.filter(adapter => adapter?.id !== 'core:salesOffice') };
         }
 
-        function getProductionLiveSyncContext() {
-            const accessReady = appAccessSnapshotState.status === 'ready' && !appAccessSnapshotState.stale
-                && appAccessSnapshotState.username === getRequestCapabilityUsernameKey(currentUser);
-            const visible = !document.hidden && !productionLiveSyncNavigation.signal.aborted
-                && (accessReady || hasRetainedAuthenticatedAppAccess())
-                && document.body.classList.contains('role-access-ready');
-            if (!canUseProductionLiveSync()) return observeHlOrderVerificationContext({ scope: '', visible, online: navigator.onLine !== false, adapters: [] });
-            const context = getProductionLiveSyncSideContext();
-            const pagedSurface = getActiveManagerReportPageSurface(context.view);
-            if (pagedSurface && useManagerReportPages(pagedSurface)) context.pagedReportSurface = pagedSurface;
-            if (context.view === 'sales-inventory') context.pagedReportSurface = 'inventory-hub';
-            const registry = window.AgMetricLiveSyncRegistry;
-            const view = registry.views[context.view] ? context.view : 'home';
-            context.scope = JSON.stringify([nativeAuthProfile.id, currentUser, currentRole, getCurrentLoginCacheScopeKey()]);
-            context.authenticated = nativeAuthSessionActive === true && nativeAuthSessionUserId === nativeAuthProfile.id;
-            context.accessDenied = hasConfirmedCurrentAccountRevocation();
-            context.accessDeniedConfirmed = context.accessDenied;
-            context.readIdentity = getSupabaseReadIdentityScope();
-            context.dataPermissionVersion = String(appAccessSnapshotState.snapshot?.dataPermissionVersion || '');
-            context.dataPermissionSnapshotFresh = accessReady;
-            if (!productionLiveSyncSideAdapters) productionLiveSyncSideAdapters = createProductionLiveSyncSideAdapters();
-            const foregroundContext = { ...context, surfaces: context.surfaces.filter(id => !id.startsWith('badge:')) };
-            const descriptors = (targetView, targetContext) => {
-                const fastPagedViews = targetView === 'tasks' || targetView === 'drive' || targetView === 'av' || targetView === 'docks'
-                    || targetView === 'request' && targetContext.surfaces.includes('request:suspend-tag');
-                const result = [
-                    ...canonicalizeProductionCoreLiveKeys(registry.getCoreKeys(targetView, targetContext)).filter((key) => !RETIRED_DATASET_KEYS.has(key))
-                    .map((key) => createProductionCoreLiveAdapter(key, getProductionCoreLiveProjection(key, targetView, targetContext), {
-                        pageConcurrency: key === 'master' ? 2 : fastPagedViews ? 2 : 1
-                    })),
-                    ...productionLiveSyncSideAdapters.getViewAdapters(targetView, targetContext)
-                ];
-                if (targetView === 'docks' || targetView === 'request' && targetContext.surfaces.includes('request:suspend-tag')) {
-                    result.sort((a, b) => Number(b.id.startsWith('core:')) - Number(a.id.startsWith('core:')));
-                }
-                return result;
-            };
-            const describedAdapters = descriptors(view, foregroundContext);
-            const salesOfficeAdapters = partitionSalesOfficeLiveAdapters(describedAdapters, view, foregroundContext.surfaces);
-            const adapters = salesOfficeAdapters.foreground;
-            if (view === 'home' && (canAccessView('drive') || canAccessView('av')) && !adapters.some(adapter => adapter.id === 'core:master')) {
-                const projection = getProductionCoreLiveProjection('master', view, foregroundContext);
-                adapters.unshift(createProductionCoreLiveAdapter('master', projection, {
-                    pageConcurrency: projection === 'full' ? 8 : 2,
-                }));
-            }
-            const hasDataCohort = registry.views[view]?.kind === 'data'
-                || view === 'managers' && adapters.length > 0
-                || view === 'home' && adapters.length > 0;
-            // Dialogs and all data tabs may display their same-account complete cohort
-            // while refresh is pending. Display is separate from write authorization.
-            const progressive = hasDataCohort;
-            const previewAdapterIds = progressive && ['home', 'drive', 'av', 'tasks', 'docks'].includes(view)
-                ? [view === 'docks' ? 'core:soc' : 'core:master'] : undefined;
-            if (previewAdapterIds?.length) {
-                adapters.sort((a, b) => Number(previewAdapterIds.includes(b.id)) - Number(previewAdapterIds.includes(a.id)));
-            } else if (progressive && view !== 'docks' && !(view === 'request' && foregroundContext.surfaces.includes('request:suspend-tag'))) {
-                adapters.sort((a, b) => Number(a.id.startsWith('core:')) - Number(b.id.startsWith('core:')));
-            }
-            const foregroundIds = new Set(adapters.map(adapter => adapter.id));
-            const backgroundContext = { ...context, surfaces: context.surfaces.filter(id => id.startsWith('badge:')) };
-            const backgroundAdapters = context.pagedReportSurface ? [] : descriptors('home', backgroundContext).filter(adapter => !foregroundIds.has(adapter.id));
-            if (!context.pagedReportSurface && canViewDashboardSyncStatus()) {
-                for (const key of ['soc', 'reserves', 'cav']) {
-                    const id = `core:${key}`;
-                    if (!foregroundIds.has(id) && !backgroundAdapters.some(adapter => adapter.id === id)) {
-                        backgroundAdapters.push(createProductionCoreLiveAdapter(key, 'browse', { pageConcurrency: 1 }));
-                    }
-                }
-                const poAdapter = productionLiveSyncSideAdapters.getAdapter('side:po', foregroundContext);
-                if (poAdapter && !foregroundIds.has(poAdapter.id) && !backgroundAdapters.some(adapter => adapter.id === poAdapter.id)) {
-                    backgroundAdapters.push(poAdapter);
-                }
-            }
-            salesOfficeAdapters.background.forEach((adapter) => {
-                if (!foregroundIds.has(adapter.id) && !backgroundAdapters.some(item => item.id === adapter.id)) backgroundAdapters.push(adapter);
-            });
-            // Assignment reads authorize card actions, not catalog visibility.
-            // Until loaded the existing action checks remain denied.
-            if ((view === 'drive' || view === 'detail' && context.driveDetail) && context.driveAssignmentsRequired
-                && !foregroundIds.has('core:warehouseAssignedItems')) {
-                backgroundAdapters.push(createProductionCoreLiveAdapter('warehouseAssignedItems', 'browse', { pageConcurrency: 1 }));
-            }
-            // Customer/rep names are a card enhancement, never a prerequisite
-            // for opening the Suspend Tag queue.
-            appendSuspendTagBackgroundCustomerRepMap(backgroundAdapters, foregroundIds, view, foregroundContext.surfaces,
-                () => createProductionCoreLiveAdapter('customerRepMap',
-                    getProductionCoreLiveProjection('customerRepMap', view, foregroundContext), { pageConcurrency: 1 }));
-            // Optional AV enhancements still refresh, but an unopened notes or
-            // customer/hot-price surface must not hold the catalog at its preview.
-            if (view === 'av') {
-                for (const key of ['customerRepMap', 'avHotPriceKeys']) {
-                    if (!foregroundIds.has(`core:${key}`) && !backgroundAdapters.some(adapter => adapter.id === `core:${key}`)) {
-                        backgroundAdapters.push(createProductionCoreLiveAdapter(key,
-                            getProductionCoreLiveProjection(key, view, foregroundContext), { pageConcurrency: 1 }));
-                    }
-                }
-            }
-            return observeHlOrderVerificationContext({ ...foregroundContext, progressive, previewAdapterIds, scope: context.scope, viewKey: JSON.stringify([view, foregroundContext.surfaces, productionLiveSyncNavigationGeneration, view === 'av' ? activeAVTab : null]), visible, online: navigator.onLine !== false, adapters, backgroundAdapters });
-        }
-
+        /* @runtime-fragment assets/bloomscapes-live-context.js */
         function verifiedSnapshotCacheKey(meta) {
             return 'verified-raw-v1:' + JSON.stringify([meta.scope, meta.adapterId, meta.cacheKey]);
         }
@@ -30560,7 +30351,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         }
 
         function getAuthorizedRequestCategories() {
-            return canAccessView('request') ? Object.keys(REQUEST_TAB_LABELS).filter(tab => (tab !== 'suspend-tag' || isSuspendTabAvailable()) && (isFullAppAdministrator() || hasExplicitViewPermission(tab === 'suspend-tag' ? 'queue-suspend' : 'queue-pending'))) : [];
+            return canAccessView('request') ? [...Object.keys(REQUEST_TAB_LABELS).filter(tab => (tab !== 'suspend-tag' || isSuspendTabAvailable()) && (isFullAppAdministrator() || hasExplicitViewPermission(tab === 'suspend-tag' ? 'queue-suspend' : 'queue-pending'))),...bloomscapesWorkQueueCategories()] : [];
         }
 
         const requestCategoryToolbarMarkupByNode = new WeakMap();
@@ -30722,6 +30513,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
                 && canSeeRegularRequestTabs() && !isRestrictedEvalUser()) return 'reps';
             // Queue entry owns navigation. Each subview retains its own data and command authorization.
             const authorized = typeof canAccessView === 'function' ? canAccessView('request') : getRequestCapabilities()?.canViewQueue;
+            if (authorized && bloomscapesWorkQueueCategories().includes(requested)) return requested;
             return authorized && ['pending','suspend-tag','projects','moves','recount','shear-list','eval-work','bunch-notes','bunch-count-review'].includes(requested)
                 ? requested : 'pending';
         }
@@ -52587,25 +52379,6 @@ function toggleDriveQuickRequestItem(domId) {
             showToast('Shared Dock Status Unavailable', 'Trip assignments could not be loaded from the shared server. Refresh after the current release finishes deploying.', true);
         }
 
-        async function runDockTripStatusRequest(operation = 'list', payload = {}) {
-            const safeOperation = String(operation || 'list').trim().toLowerCase();
-            if (safeOperation !== 'list' && !requireCurrentDocksWriteProof()) {
-                throw Object.assign(new Error('Current Docks data must be verified before saving trip status.'), { code: 'LIVE_DATA_PROOF_REQUIRED' });
-            }
-            const ready = await ensureAppApiWriteProxySession();
-            if (!ready) throw new Error('App session unavailable for shared Dock status.');
-            const result = await postAppFunctionJson(APP_API_FUNCTION_URL, {
-                action: 'dock_trip_status',
-                operation: safeOperation,
-                ...(payload && typeof payload === 'object' ? payload : {})
-            }, {
-                timeoutMs: SUPABASE_WRITE_TIMEOUT_MS,
-                label: `Dock trip status ${String(operation || 'list')}`
-            });
-            if (!result || result.ok !== true) throw new Error(String(result && (result.error || result.message) || 'Shared Dock status request failed.'));
-            return result;
-        }
-
         function getDockTripStatusResponseRow(data = null) {
             const row = Array.isArray(data) ? data[0] : data;
             return row && typeof row === 'object' ? row : null;
@@ -52692,35 +52465,7 @@ function toggleDriveQuickRequestItem(domId) {
             };
         }
 
-        function readLegacyDockItemProgress(uniqueId = '') {
-            const normalizedUid = normalizeDockItemUniqueId(uniqueId);
-            if (!normalizedUid) return getDefaultDockItemProgress();
-            try {
-                return normalizeDockItemProgress(JSON.parse(localStorage.getItem('gnc_dock_item_' + normalizedUid) || '{}'));
-            } catch (error) {
-                return getDefaultDockItemProgress();
-            }
-        }
-
-        function cacheDockItemProgress(uniqueId = '', progress = null) {
-            const normalizedUid = normalizeDockItemUniqueId(uniqueId);
-            if (!normalizedUid) return getDefaultDockItemProgress();
-            const normalized = normalizeDockItemProgress(progress);
-            dockItemProgressByUid.set(normalizedUid, normalized);
-            localStorage.setItem('gnc_dock_item_' + normalizedUid, JSON.stringify(normalized));
-            invalidateDockWorkflowResolvedState();
-            return normalized;
-        }
-
-        function getDockItemProgress(uniqueId = '') {
-            const normalizedUid = normalizeDockItemUniqueId(uniqueId);
-            if (!normalizedUid) return getDefaultDockItemProgress();
-            if (dockItemProgressByUid.has(normalizedUid)) return normalizeDockItemProgress(dockItemProgressByUid.get(normalizedUid));
-            const legacy = readLegacyDockItemProgress(normalizedUid);
-            dockItemProgressByUid.set(normalizedUid, legacy);
-            return legacy;
-        }
-
+        /* @runtime-fragment assets/bloomscapes-dock-cache.js */
         function maybeWarnDockItemSchemaMissing() {
             if (dockItemSchemaWarningShown || !currentUser) return;
             dockItemSchemaWarningShown = true;
@@ -52768,7 +52513,7 @@ function toggleDriveQuickRequestItem(domId) {
                 (rows || []).forEach((row) => {
                     const normalizedUid = normalizeDockItemUniqueId(row.unique_id || row.UNIQUE_ID);
                     if (!normalizedUid) return;
-                    nextMap.set(normalizedUid, normalizeDockItemProgress(row));
+                    nextMap.set(bloomscapesDockProgressKey(normalizedUid), normalizeDockItemProgress(row));
                 });
                 dockItemProgressByUid = nextMap;
                 dockItemProgressLoaded = true;
@@ -53429,32 +53174,6 @@ function toggleDriveQuickRequestItem(domId) {
         function isDockIssueAllocationForeignKeyError(error = null) {
             const message = String(error && error.message ? error.message : error || '').toLowerCase();
             return message.includes('23503') && message.includes('issue_source_unique_id') && (message.includes('ph_dock_issue_allocations') || message.includes('not present'));
-        }
-
-        async function saveDockIssueStatusPayloads(payloads = []) {
-            const rows = (Array.isArray(payloads) ? payloads : [payloads]).filter(Boolean);
-            if (!rows.length) return false;
-            return supabaseFetch('ph_dock_issue_status', 'POST', rows);
-        }
-
-        async function saveDockIssueStatusPayload(payload = null) {
-            return saveDockIssueStatusPayloads(payload ? [payload] : []);
-        }
-
-        async function saveDockIssueAllocationPayloads(parentPayload = null, allocationPayloads = [], options = {}) {
-            const rows = (Array.isArray(allocationPayloads) ? allocationPayloads : [allocationPayloads]).filter(Boolean);
-            if (!rows.length) return false;
-            const opts = options || {};
-            if (parentPayload && opts.parentAlreadySaved !== true) await saveDockIssueStatusPayload(parentPayload);
-            try {
-                return await supabaseFetch('ph_dock_issue_allocations', 'POST', rows);
-            } catch (error) {
-                if (parentPayload && isDockIssueAllocationForeignKeyError(error)) {
-                    await saveDockIssueStatusPayload(parentPayload);
-                    return supabaseFetch('ph_dock_issue_allocations', 'POST', rows);
-                }
-                throw error;
-            }
         }
 
         function getDockIssueSourcePhotoCsv(item = null) {
@@ -74456,409 +74175,9 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
             document.querySelectorAll('[id$="-modal"],dialog,[role="dialog"]').forEach(modal=>observer.observe(modal,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style','open']}));
             syncGlobalModalBack();
         }
-        function goBackUniversal() {
-            const modalBack = getVisibleSecondaryBack(true);
-            if (modalBack) { modalBack.click(); syncGlobalModalBack(); return false; }
-            if (getManagerAssignedColumnState().editor) return closeManagerAssignedColumnFilter();
-            const currentView = getCurrentVisibleViewId();
-            const restoreViewBack = () => {
-                const secondaryBack = getVisibleSecondaryBack();
-                if (secondaryBack) { secondaryBack.click(); updateGlobalBackButton(); return true; }
-                return restorePreviousViewFromHistory();
-            };
-            if (isDrawerOpen()) {
-                setMenuOpenState(false);
-                updateGlobalBackButton();
-                return false;
-            }
-            if (closeOpenInteractiveSurfaceForBack()) return false;
-            // Manager submodules own one shell Back step, regardless of their
-            // internal drill or a still-pending read. Modal/editor Back above
-            // remains local to the active interaction.
-            if (currentView === 'managers') {
-                if (typeof getManagerTableManagementKey === 'function' && ((activeHomeTab === 'table-management' && managerTableManagementSelection) || getManagerTableManagementKey(activeHomeTab))) {
-                    if (globalThis.GncNurseryTables?.back?.()) { updateGlobalBackButton(); return false; }
-                    openManagerTableManagement(); updateGlobalBackButton(); return false;
-                }
-                if (activeHomeTab === MANAGER_EVAL_REPORTS_2_VIEW && backEvalAggregateDashboard()) { updateGlobalBackButton(); return false; }
-                if (activeHomeTab === MANAGER_EVAL_REPORTS_2_VIEW && !isEvalAggregateDashboardVisible()
-                    && (managerEvalReport2DetailItemKey || managerEvalReport2BrowseMode === 'location' && managerEvalReport2DrillLevel > 0)) {
-                    backManagerEvalReport2Drill(); updateGlobalBackButton(); return false;
-                }
-                const quickAccessBack = typeof quickAccessNestedBackState !== 'undefined' ? quickAccessNestedBackState : null;
-                if (quickAccessBack?.parent === 'managers'
-                    && quickAccessBack.account === String(currentUser || '').trim().toLowerCase()
-                    && quickAccessBack.tab === String(activeHomeTab || '').trim().toLowerCase()) {
-                    quickAccessNestedBackState = null;
-                    if (restorePreviousViewFromHistory()) return false;
-                    fastBackToView(quickAccessBack.origin || 'home', { fromHistory: true });
-                    return false;
-                }
-                if (String(activeHomeTab || '').trim().toLowerCase() !== 'dashboard') return openManagersModules();
-                fastBackHome();
-                return false;
-            }
-            const managerParent = typeof viewHistoryStack !== 'undefined' && Array.isArray(viewHistoryStack)
-                ? viewHistoryStack[viewHistoryStack.length - 1] : null;
-            if (currentView === 'drive' && managerParent?.directDriveEntry) {
-                if (restorePreviousViewFromHistory()) return false;
-            }
-            if (currentView !== 'home' && currentView !== 'drive' && managerParent?.viewId === 'managers') {
-                if (restorePreviousViewFromHistory()) return false;
-            }
-            if (currentView === 'bunch-note') {
-                if (globalThis.BunchNote.back()) updateGlobalBackButton();
-                else if (!restoreViewBack()) fastBackHome();
-                return false;
-            }
-            if (window.SalesWorkspace?.back()) { updateGlobalBackButton(); return false; }
-            if (globalThis.LocationCode.back()) { updateGlobalBackButton(); return false; }
-            if (currentView === 'home' && shouldShowHomeProductivityBackButton()) {
-                backToProductivityUserList();
-                return false;
-            }
-            if (currentView === 'building' && selectedBuildingGroupKey) {
-                closeBuildingGroup();
-                updateGlobalBackButton();
-                return false;
-            }
-            if (currentView === 'detail') {
-                goBackFromDetail();
-                return false;
-            }
-            if (currentView === 'drive') {
-                if (activeDriveTab === 'name') {
-                    if (driveViewLevel >= 4 && selectedDriveName && selectedDriveSize && selectedDriveSeason) {
-                        backToDrivePrograms();
-                        updateGlobalBackButton();
-                        return false;
-                    }
-                    if (driveViewLevel >= 3 && selectedDriveName && selectedDriveSize) {
-                        backToDriveSeasons();
-                        updateGlobalBackButton();
-                        return false;
-                    }
-                    if (driveViewLevel >= 2 && selectedDriveName) {
-                        backToDriveSizes();
-                        updateGlobalBackButton();
-                        return false;
-                    }
-                    if (driveViewLevel >= 1 && selectedDriveName) {
-                        backToDriveNames();
-                        updateGlobalBackButton();
-                        return false;
-                    }
-                }
-                if (activeDriveTab === 'loc') {
-                    if (driveViewLevel >= 2 && selectedDriveLoc) {
-                        backToDriveLocations();
-                        updateGlobalBackButton();
-                        return false;
-                    }
-                    if (driveViewLevel >= 1 && selectedDriveBlock) {
-                        backToDriveBlocks();
-                        updateGlobalBackButton();
-                        return false;
-                    }
-                }
-                if (hasActiveDriveSearchTerm()) {
-                    clearDriveSearch();
-                    updateGlobalBackButton();
-                    return false;
-                }
-                if (restoreViewBack()) return false;
-                fastBackHome();
-                return false;
-            }
-            if (currentView === 'crop-roll') {
-                if (typeof getCropRollActiveViewLevel === 'function' && getCropRollActiveViewLevel() >= 2) {
-                    backCropRollSy27ToLocations();
-                    updateGlobalBackButton();
-                    return false;
-                }
-                if (typeof getCropRollActiveViewLevel === 'function' && getCropRollActiveViewLevel() >= 1) {
-                    backCropRollSy27ToBlocks();
-                    updateGlobalBackButton();
-                    return false;
-                }
-                if (restoreViewBack()) return false;
-                fastBackHome();
-                return false;
-            }
-            if (currentView === 'tasks') {
-                if (activeTaskTab === 'flyer' && taskViewLevel > 0) {
-                    backToFlyerFolderList();
-                    updateGlobalBackButton();
-                    return false;
-                }
-                if (activeTaskTab === 'endcap' && taskViewLevel > 0) {
-                    taskViewLevel = 0;
-                    selectedEndCapFolder = null;
-                    scheduleTasksRender(0);
-                    updateGlobalBackButton();
-                    return false;
-                }
-                if (taskViewLevel === 2) {
-                    backToTaskLocationList();
-                    updateGlobalBackButton();
-                    return false;
-                }
-                if (taskViewLevel === 1) {
-                    backToTaskBlockList();
-                    updateGlobalBackButton();
-                    return false;
-                }
-                if (restoreViewBack()) return false;
-                fastBackHome();
-                return false;
-            }
-            if (currentView === 'docks') {
-                if (dockViewMode !== 'docks') {
-                    if (selectedDockIssueUid) {
-                        selectedDockIssueUid = null;
-                        selectedDockIssueAllocationId = '';
-                        scheduleDocksRender(0);
-                        updateGlobalBackButton();
-                        return false;
-                    }
-                    setDockViewMode('docks');
-                    updateGlobalBackButton();
-                    return false;
-                }
-                if (dockViewLevel === 2) {
-                    dockViewLevel = 1;
-                    selectedDockStop = null;
-                    scheduleDocksRender(0);
-                    updateGlobalBackButton();
-                    return false;
-                }
-                if (dockViewLevel === 1) {
-                    resetDockView();
-                    updateGlobalBackButton();
-                    return false;
-                }
-                if (restoreViewBack()) return false;
-                fastBackHome();
-                return false;
-            }
-            if (currentView === 'moves') {
-                if (activeMovesTab === 'main' && movesViewLevel >= 2) {
-                    backToMovesLocations();
-                    updateGlobalBackButton();
-                    return false;
-                }
-                if (activeMovesTab === 'main' && movesViewLevel === 1) {
-                    backToMovesBlocks();
-                    updateGlobalBackButton();
-                    return false;
-                }
-                if (restoreViewBack()) return false;
-                fastBackHome();
-                return false;
-            }
-            if (currentView === 'request') {
-                if (activeReqTab === 'moves' && String(activeLocationMoveQueDetailUid || '').trim()) {
-                    closeApprovedMoveRequestCard();
-                    updateGlobalBackButton();
-                    return false;
-                }
-                if (activeReqTab === 'shear-list' && String(activeShearQueDetailId || '').trim()) {
-                    closeShearMoveTestRequestCard();
-                    updateGlobalBackButton();
-                    return false;
-                }
-                if (activeReqTab === 'reps') {
-                    if (requestViewLevel === 4) {
-                        backToRequestFolderList();
-                        updateGlobalBackButton();
-                        return false;
-                    }
-                    if (requestViewLevel === 3) {
-                        backToRequestConsigneeList();
-                        updateGlobalBackButton();
-                        return false;
-                    }
-                    if (requestViewLevel === 2) {
-                        backToRequestStatusList();
-                        updateGlobalBackButton();
-                        return false;
-                    }
-                    if (requestViewLevel === 1) {
-                        backToRequestRepList();
-                        updateGlobalBackButton();
-                        return false;
-                    }
-                    if (requestSalesRepsManagerMode) {
-                        closeManagerSalesRepsModule();
-                        return false;
-                    }
-                }
-                if (restoreViewBack()) return false;
-                fastBackHome();
-                return false;
-            }
-            if (currentView === 'chat') {
-                if (activeChatConversationId || chatComposeOpen) {
-                    chatComposeOpen = false;
-                    backToChatList();
-                    updateGlobalBackButton();
-                    return false;
-                }
-                if (restoreViewBack()) return false;
-                fastBackHome();
-                return false;
-            }
-            if (currentView === 'po-management') {
-                const section = normalizePoManagementSection(poManagementState && poManagementState.section);
-                if (section !== 'home') {
-                    goBackPoManagementDrilldown();
-                    updateGlobalBackButton();
-                    return false;
-                }
-                if (restoreViewBack()) return false;
-                fastBackHome();
-                return false;
-            }
-            if (currentView === 'av') {
-                if (activeAVTab !== 'reserves' && avOpenLevel > 0) {
-                    avOpenLevel = Math.max(0, Math.min(3, avOpenLevel) - 1);
-                    selectedAvOpenSeason = null;
-                    selectedAvOpenLot = null;
-                    if (avOpenLevel < 2) selectedAvOpenSize = null;
-                    if (avOpenLevel < 1) selectedAvOpenName = null;
-                    avResolvedBaseStateKey = '';
-                    avResolvedBaseStateCache = null;
-                    scheduleAVRender(0);
-                    updateGlobalBackButton();
-                    return false;
-                }
-                if (activeAVTab === 'reserves') {
-                    if (avResLevel === 2) {
-                        avResLevel = 1;
-                        selectedAvResDriveUid = null;
-                        clearSelectedAvReserveCustomerCardState();
-                        scheduleAVRender(0);
-                        updateGlobalBackButton();
-                        return false;
-                    }
-                    if (avResLevel === 1) {
-                        avResLevel = 0;
-                        selectedAvResDriveUid = null;
-                        selectedAvResItemCode = null;
-                        selectedAvResName = null;
-                        selectedAvResSize = null;
-                        clearSelectedAvReserveCustomerCardState();
-                        scheduleAVRender(0);
-                        updateGlobalBackButton();
-                        return false;
-                    }
-                    if (selectedAvResRep) {
-                        clearSelectedAvResRep();
-                        updateGlobalBackButton();
-                        return false;
-                    }
-                }
-                if (restoreViewBack()) return false;
-                fastBackHome();
-                return false;
-            }
-            if (currentView === 'review') {
-                if (typeof reviewViewLevel !== 'undefined' && reviewViewLevel > 0) {
-                    backReviewView();
-                    updateGlobalBackButton();
-                    return false;
-                }
-                if (restoreViewBack()) return false;
-                fastBackHome();
-                return false;
-            }
-            if (currentView === 'move-up') {
-                if (typeof moveUpViewLevel !== 'undefined' && moveUpViewLevel > 0) {
-                    backMoveUpView();
-                    updateGlobalBackButton();
-                    return false;
-                }
-                if (restoreViewBack()) return false;
-                fastBackHome();
-                return false;
-            }
-            if (currentView === 'shear-list') {
-                if (shearListState && String(shearListState.activeTab || 'open').toLowerCase() === 'drive' && shearListState.driveDrillLevel === 'rows' && String(shearListState.selectedDriveItemKey || '').trim()) {
-                    backShearDriveItems();
-                    updateGlobalBackButton();
-                    return false;
-                }
-                if (shearListState && String(shearListState.activeTab || 'open').toLowerCase() !== 'drive' && shearListState.drillLevel && shearListState.drillLevel !== 'blocks') {
-                    backShearListDrill();
-                    updateGlobalBackButton();
-                    return false;
-                }
-                if (restoreViewBack()) return false;
-                fastBackHome();
-                return false;
-            }
-            if (currentView === 'production-workflow') {
-                if (productionWorkflowState && String(productionWorkflowState.activeTab || 'drive').toLowerCase() === 'drive' && productionWorkflowState.driveDrillLevel === 'rows' && String(productionWorkflowState.selectedDriveItemKey || '').trim()) {
-                    backProductionWorkflowItems();
-                    updateGlobalBackButton();
-                    return false;
-                }
-                if (productionWorkflowState && String(productionWorkflowState.activeTab || 'drive').toLowerCase() === 'list' && productionWorkflowState.drillLevel && productionWorkflowState.drillLevel !== 'blocks') {
-                    backProductionWorkflowListDrill();
-                    updateGlobalBackButton();
-                    return false;
-                }
-                if (restoreViewBack()) return false;
-                fastBackHome();
-                return false;
-            }
-            if (currentView === 'weather-hold') {
-                if (weatherHoldState && weatherHoldState.inventoryDrillLevel === 'rows' && String(weatherHoldState.selectedInventoryItemKey || '').trim()) {
-                    backWeatherHoldInventoryItems();
-                    updateGlobalBackButton();
-                    return false;
-                }
-                if (restoreViewBack()) return false;
-                fastBackHome();
-                return false;
-            }
-            if (currentView === 'sales-inventory') {
-                if (inventoryMainTab === 'production' && productionInventoryTab === 'counting' && spreadCountState && spreadCountState.drillLevel && spreadCountState.drillLevel !== 'blocks') {
-                    backSpreadCountDrill();
-                    updateGlobalBackButton();
-                    return false;
-                }
-                if (restoreViewBack()) return false;
-                fastBackHome();
-                return false;
-            }
-            if (currentView === 'hl-order') {
-                if (hlOrderDetailKey || hlOrderTrackingId) {
-                    backHlOrder();
-                    updateGlobalBackButton();
-                    return false;
-                }
-                if (hlOrderTab === 'cart') {
-                    setHlOrderTab('needed');
-                    updateGlobalBackButton();
-                    return false;
-                }
-                if (restoreViewBack()) return false;
-                fastBackHome();
-                return false;
-            }
-            if (currentView === 'reserves' || currentView === 'sales-office' || currentView === 'reports' || currentView === 'hours' || currentView === 'low-stock') {
-                if (restoreViewBack()) return false;
-                fastBackHome();
-                return false;
-            }
-            if (currentView && currentView !== 'home') {
-                if (restoreViewBack()) return false;
-                fastBackHome();
-                return false;
-            }
-            return false;
-        }
+        /* @runtime-fragment assets/global-back-router.js */
+        /* @runtime-fragment assets/global-back-surfaces-1.js */
+        /* @runtime-fragment assets/global-back-surfaces-2.js */
 
         function reRenderCurrentView() {
             const visibleViewIds = getVisibleTrackedViewIds();
@@ -83430,100 +82749,7 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
             return false;
         }
 
-        async function submitDockItemMistake() {
-            if (!requireCurrentDocksWriteProof()) return false;
-            if (getRoleAccessState().isRep) {
-                showToast('View Only', 'Docks is view only for sales reps.', true);
-                return false;
-            }
-            const uid = normalizeDockIssueSourceUniqueId(document.getElementById('dock-mistake-uid').value);
-            const text = document.getElementById('dock-mistake-text').value.toUpperCase().trim();
-            const qtyValue = parseAppNumber(document.getElementById('dock-mistake-qty').value);
-            const measurementValues = getDockMistakeModalMeasurementValues();
-            const item = findDockMistakeSourceRowByUniqueId(uid, getDockIssueStatus(uid));
-            if (!item) {
-                showToast("Error", "Could not find that dock row.", true);
-                return;
-            }
-            if (!text) {
-                showToast("Mistake Required", "Explain the mistake before saving.", true);
-                return;
-            }
-            if (qtyValue == null || qtyValue <= 0) {
-                showToast("Quantity Required", "Enter the mistake quantity before saving.", true);
-                return;
-            }
-            const selectedMasterUids = Array.from(dockMistakeSelectionUids).map((value) => String(value || '').trim()).filter(Boolean);
-            const selectableMasterUids = new Set((dockMistakeCandidateRows || []).map((entry) => String(firstNonEmptyValue(entry && entry.masterUniqueId, entry && entry.row && entry.row.UNIQUE_ID, '')).trim()).filter(Boolean));
-            if (selectableMasterUids.size && !selectedMasterUids.length) {
-                showToast("Select Row", "Choose at least one Drive Mode row for this mistake.", true);
-                return;
-            }
-            if (dockMistakeIssuePhotoPromise) {
-                showToast("Uploading Photo", "Finishing the issue photo upload before saving.", false);
-                await dockMistakeIssuePhotoPromise;
-            }
-            if (dockMistakeIssuePhotoLink) {
-                const photoSchemaReady = await ensureDockIssuePhotoSchemaReady(false, true);
-                if (!photoSchemaReady) {
-                    if (!dockIssuePhotoSchemaWarningShown) showToast('Photo Setup', 'Could not verify dock issue photo fields. Try again when service is healthy.', true);
-                    return false;
-                }
-            }
-            const hasMeasurementValues = !!(measurementValues.sourceSpec || measurementValues.sourceCaliper);
-            let measurementSchemaReady = dockIssueMeasurementSchemaReady === true;
-            if (hasMeasurementValues) {
-                measurementSchemaReady = await ensureDockIssueMeasurementSchemaReady(false, true);
-                if (!measurementSchemaReady) return false;
-            }
-            const schemaReady = await ensureDockIssueSchemaReady();
-            if (!schemaReady) {
-                showToast("Schema Required", "Run dock_issue_resolution_migration.sql and dock_issue_source_match_key_migration.sql in Supabase first.", true);
-                return;
-            }
-            const payload = buildDockIssuePayloadFromRow(item, {
-                issueNote: text,
-                issueState: 'open',
-                sourceQty: qtyValue,
-                ...measurementValues,
-                issuePhotoLink: dockMistakeIssuePhotoLink,
-                issuePhotoName: dockMistakeIssuePhotoName,
-                includeIssuePhotoFields: !!dockMistakeIssuePhotoLink || dockIssuePhotoSchemaReady === true,
-                includeIssueMeasurementFields: measurementSchemaReady
-            });
-            if (!payload) {
-                showToast("Error", "Could not save that dock issue.", true);
-                return;
-            }
-            const issueUid = normalizeDockIssueSourceUniqueId(firstNonEmptyValue(payload.issue_source_unique_id, uid));
-            const existingAllocations = getDockIssueAllocations(issueUid);
-            const selectedSet = new Set(selectedMasterUids);
-            const deleteAllocations = existingAllocations.filter((allocation) => allocation && !selectedSet.has(allocation.altMasterUniqueId));
-            const candidateByUid = new Map((dockMistakeCandidateRows || []).map((entry) => {
-                const masterUid = String(firstNonEmptyValue(entry && entry.masterUniqueId, entry && entry.row && entry.row.UNIQUE_ID, '')).trim();
-                return masterUid && entry && entry.row ? [masterUid, entry.row] : null;
-            }).filter(Boolean));
-            const allocationPayloads = selectedMasterUids.map((masterUid) => {
-                const row = candidateByUid.get(masterUid) || masterInventoryById.get(masterUid);
-                return row ? buildDockIssueAllocationPayload(issueUid, row, 0) : null;
-            }).filter(Boolean);
-            cacheDockIssueStatus(issueUid, payload);
-            allocationPayloads.forEach((allocation) => cacheDockIssueAllocation(allocation));
-            deleteAllocations.forEach((allocation) => removeDockIssueAllocationFromCache(allocation.allocationUniqueId));
-            dockIssueDataLoaded = true;
-            closeDockMistakeModal();
-            refreshDockIssueUi(`issue-save:${uid}`);
-            showToast("Saving...", "Updating dock issue...", false);
-            try {
-                await saveDockIssueStatusPayload(payload);
-                if (allocationPayloads.length) await saveDockIssueAllocationPayloads(payload, allocationPayloads, { parentAlreadySaved: true });
-                await Promise.all(deleteAllocations.map((allocation) => supabaseFetch('ph_dock_issue_allocations', 'DELETE', null, buildSupabaseEqQuery('allocation_unique_id', allocation.allocationUniqueId))));
-                showToast("Success", "Dock issue saved!");
-            } catch (error) {
-                console.error('[DockIssue] Shared issue update failed after local save.', error);
-                showToast("Shared Save Failed", `Saved on this device. Shared update failed: ${getDockSharedWriteErrorMessage(error)}`, true);
-            }
-        }
+        /* @runtime-fragment assets/bloomscapes-dock-issue-command.js */
 
         async function submitDockIssueAllocation() {
             if (!requireCurrentDocksWriteProof()) return false;
@@ -83987,48 +83213,7 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
             return false;
         }
 
-        async function toggleDockItemState(uid, type) {
-            if (!requireCurrentDocksWriteProof()) return false;
-            const item = findDockDisplayRowByUniqueId(uid) || socInventory.find(i => String(i.UNIQUE_ID || '') === String(uid || ''));
-            if (!item) return;
-            const stage = type === 'inspector' ? 'inspector' : 'checker';
-            if (!canCurrentUserMarkDockStage(item, stage)) {
-                showToast('Restricted', stage === 'checker' ? 'This row is still assigned to a different checker.' : 'This row is not ready for your inspection yet.', true);
-                return;
-            }
-            const previous = getDockItemProgress(uid);
-            const updatedAt = new Date().toISOString();
-            const nextProgress = normalizeDockItemProgress({
-                checker: previous.checker || stage === 'checker' || stage === 'inspector',
-                inspector: previous.inspector || stage === 'inspector',
-                checker_completed_by: previous.checkerCompletedBy || (stage === 'checker' || stage === 'inspector' ? (currentUserDisplay || currentUser || '') : ''),
-                inspector_completed_by: stage === 'inspector' ? (currentUserDisplay || currentUser || '') : previous.inspectorCompletedBy,
-                updated_at: updatedAt
-            });
-            cacheDockItemProgress(uid, nextProgress);
-            dockItemProgressLoaded = true;
-            markViewDirty('docks');
-            scheduleDocksRender(16);
-            if (navigator.onLine === false) return;
-            try {
-                const schemaReady = await ensureDockItemSchemaReady();
-                if (!schemaReady) return;
-                await supabaseFetch('ph_dock_item_status', 'POST', [{
-                    unique_id: String(uid || ''),
-                    checker_done: !!nextProgress.checker,
-                    inspector_done: !!nextProgress.inspector,
-                    checker_completed_by: nextProgress.checkerCompletedBy || null,
-                    inspector_completed_by: nextProgress.inspectorCompletedBy || null,
-                    updated_by: currentUserDisplay || currentUser || null,
-                    updated_at: updatedAt
-                }]);
-                dockItemProgressLoaded = true;
-                scheduleDocksRender(16);
-            } catch (error) {
-                showToast('Error', 'Dock row progress saved on this device, but the shared dock workflow update failed.', true);
-            }
-        }
-
+        /* @runtime-fragment assets/bloomscapes-dock-progress.js */
         function getDockIssueAttachedPhotoCsv(issue = null) {
             return mergePhotoCsvList([
                 issue && issue.issuePhotoLink,
@@ -116963,41 +116148,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             });
         }
 
-        function getManagerModuleMeta(tab = activeHomeTab) {
-            const safeTab = String(tab || '').trim().toLowerCase();
-            if (safeTab === MANAGER_APPROVAL_HOME_VIEW) return { label: 'Approval', description: 'Open Shear and NCR approval work.', icon: 'ph-seal-check' };
-            if (safeTab === MANAGER_RUNTIME_WATCHDOG_VIEW) return { label: 'WATCHDOG MONITOR', description: 'Review runtime incidents and role parity.', icon: 'ph-shield-warning' };
-            if (safeTab === 'moves') return { label: 'Move', description: 'Build location-code move sessions from Drive Mode rows.', icon: 'ph-map-pin-line' };
-            if (safeTab === APP_SEASON_SETTINGS_VIEW) return { label: 'Season', description: 'Set the current and next sales season logic.', icon: 'ph-calendar-check' };
-            if (safeTab === AV_BLANKS_PHOTO_BYPASS_SETTINGS_VIEW) return { label: 'AV Note Users', description: 'Choose who can enter Season Sales Notes and finish AV Blanks without photo/spec.', icon: 'ph-note-pencil' };
-            if (safeTab === ITEM_INQUIRY_COVERAGE_SETTINGS_VIEW) return { label: 'Inquiry Coverage', description: 'Mark Sharon Here or Gone and automatically copy Sunday while Sharon is away.', icon: 'ph-users-three' };
-            if (safeTab === INVENTORY_TRANSACTION_HISTORY_VIEW) return { label: 'Transaction History', description: 'Look up who made QTY, Transfer, and Reclass changes.', icon: 'ph-clock-counter-clockwise' };
-            if (safeTab === MANAGER_TRANSACTIONS_KEYED_VIEW) return { label: 'Transactions Keyed', description: 'Compare keyed transaction counts and daily or historical shares.', icon: 'ph-table' };
-            if (safeTab === MANAGER_ORDERS_VIEW) return { label: 'Orders', description: 'Open frozen order-file history and matched Drive Mode rows.', icon: 'ph-package' };
-            if (safeTab === MANAGER_TABLE_MANAGEMENT_VIEW) return { label: 'Table Management', description: 'Manage authorized maintained tables and browse read-only history.', icon: 'ph-table' };
-            if (safeTab === MANAGER_ASSIGNED_ITEMS_EXPORT_VIEW) return { label: 'Assigned Items', description: 'Export warehouse assigned item rows by AssignedTo.', icon: 'ph-user-list' };
-            if (safeTab === MANAGER_CUSTOMER_REP_MAP_VIEW) return { label: 'Customer Assignments', description: 'Assign customer and consignee sales reps, or restore their imported assignments.', icon: 'ph-address-book' };
-            if (safeTab === MANAGER_EVAL_REPORTS_VIEW) return { label: 'Eval Reports', description: 'Open live Drive-based Eval inventory reports.', icon: 'ph-chart-bar' };
-            if (safeTab === MANAGER_EVAL_REPORTS_2_VIEW) return { label: 'Eval Reports #2', description: 'Open Apps Script-compatible reports and Item Inquiry from live Park Hill inventory.', icon: 'ph-chart-line-up' };
-            if (safeTab === MANAGER_HISTORICAL_REPORT_VIEW) return { label: 'Historical Report', description: 'Search Common Name and ContSize history with selectable columns.', icon: 'ph-clock-counter-clockwise' };
-            if (safeTab === MANAGER_SHORTAGE_CANCEL_VIEW) return { label: 'Shortage/Cancel', description: 'Review SOC rows where ordered and shipped quantities do not match.', icon: 'ph-warning-circle' };
-            if (safeTab === MANAGER_BLOCK_CLEARING_VIEW) return { label: 'Block Clearing', description: 'Email grouped clearing instructions from Drive Mode rows.', icon: 'ph-broom' };
-            if (safeTab === MANAGER_ACCESS_CONTROL_VIEW) return { label: 'User & Role Access', description: 'Set inherited role permissions and individual feature overrides.', icon: 'ph-shield-checkered' };
-            if (safeTab === MANAGER_CODEX_OPERATIONS_VIEW) return { label: 'Codex Operations', description: 'Report a defect, review the repair, and approve one exact commit.', icon: 'ph-terminal-window' };
-            if (safeTab === MANAGER_SALES_REPS_VIEW) return { label: 'Request History', description: 'Search assigned requests and completed history.', icon: 'ph-users-three' };
-            if (safeTab === MANAGER_DELIVERY_RECOVERY_VIEW) return { label: 'Delivery Recovery', description: 'Review and retry stalled request deliveries.', icon: 'ph-lifebuoy' };
-            if (safeTab === MANAGER_SEASON_PRIORITY_VIEW) return { label: 'Season Priority', description: 'Request priority 1 for selected Season Sales Notes.', icon: 'ph-list-numbers' };
-            if (safeTab === MANAGER_PRODUCTION_SCHEDULE_VIEW) return { label: 'Production Schedule', description: 'Browse the 2027 workbook and refresh its seven sheets.', icon: 'ph-calendar-dots' };
-            if (safeTab === MANAGER_HR_COMMAND_VIEW) return { label: 'HR & Labor', description: 'Weekly employee labor and time off.', icon: 'ph-identification-card' };
-            if (safeTab === MANAGER_COMPANY_DIRECTORY_VIEW) return { label: 'Company Directory', description: 'Manage company contacts, block capacities, and production codes.', icon: 'ph-address-book' };
-            if (safeTab === 'hours') return { label: 'Labor Hours', description: 'Open the labor-hours entry form.', icon: 'ph-clock' };
-            if (safeTab === 'productivity') return { label: 'Productivity', description: 'Review completed work by user and date.', icon: 'ph-chart-line-up' };
-            if (safeTab === SHEAR_APPROVAL_VIEW) return { label: 'Shear Approvals', description: 'Approve explicit Add To Shear List requests before they enter Que.', icon: 'ph-scissors' };
-            if (safeTab === NCR_APPROVAL_NEW_CROP_VIEW) return { label: 'NCR Approvals', description: 'Approve future season new crop release rows.', icon: 'ph-seal-check' };
-            if (safeTab === NOT_ON_INVENTORY_APPROVAL_VIEW) return { label: 'Not On Inventory', description: 'Review rows flagged outside inventory.', icon: 'ph-clipboard-text' };
-            return { label: getManagerApprovalTabLabel(safeTab) || 'Manager Module', description: 'Open a manager workflow.', icon: 'ph-squares-four' };
-        }
-
+        /* @runtime-fragment assets/manager-module-meta.js */
         function getManagersSearchTokens() {
             return String(managersSearchTerm || '').trim().toLowerCase().split(/\s+/).filter(Boolean);
         }
@@ -119313,6 +118464,14 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
         function refreshRuntimeWatchdogPanel() { return runtimeWatchdogPanel.refreshPanel(); }
         function copyRuntimeWatchdogFixBrief() { return runtimeWatchdogPanel.copyFixBrief(); }
         /* @runtime-fragment assets/bloomscapes-farm-identity.js */ /* @runtime-fragment assets/bloomscapes-farm-state.js */ /* @runtime-fragment assets/bloomscapes-farm-read.js */ /* @runtime-fragment assets/bloomscapes-home.js */ /* @runtime-fragment assets/bloomscapes-field-controls.js */ /* @runtime-fragment assets/bloomscapes-lab.js */ /* @runtime-fragment assets/bloomscapes-lab-controls.js */ /* @runtime-fragment assets/bloomscapes-radio.js */ /* @runtime-fragment assets/bloomscapes-radio-controls.js */ /* @runtime-fragment assets/bloomscapes-dock.js */ /* @runtime-fragment assets/bloomscapes-dock-controls.js */ /* @runtime-fragment assets/bloomscapes-workflows.js */ /* @runtime-fragment assets/bloomscapes-vault-filter.js */
+        /* @runtime-fragment assets/bloomscapes-farm-dialog.js */
+        /* @runtime-fragment assets/bloomscapes-owner-command.js */
+        /* @runtime-fragment assets/bloomscapes-farm-access.js */
+        /* @runtime-fragment assets/bloomscapes-dock-save.js */
+        /* @runtime-fragment assets/bloomscapes-field-work.js */
+        /* @runtime-fragment assets/bloomscapes-work-browser.js */
+        /* @runtime-fragment assets/bloomscapes-work-creator.js */
+        /* @runtime-fragment assets/bloomscapes-field-queue.js */
         /* @runtime-fragment assets/bloomscapes-operations.js */ /* @runtime-fragment assets/bloomscapes-architecture.js */
         /* @runtime-fragment assets/manager-module-render.js */
         function updateSyncDiagnostics(modeOverride = '') {
@@ -125031,106 +124190,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return owner.ownerRefreshPromise;
         }
 
-        async function assignEvalItemcodes(itemcodes = [], assignedto = '') {
-            if (!canManageEvalItemcodeAssignments()) {
-                showToast('Restricted', 'Your account cannot update Itemcode Default Owners.', true);
-                return false;
-            }
-            const codes = Array.from(new Set((Array.isArray(itemcodes) ? itemcodes : [itemcodes])
-                .map(value => buildManagerEvalAssignmentKey(typeof value === 'object' ? value.itemcode : parseManagerEvalAssignmentKey(value).itemcode)).filter(Boolean)));
-            if (!codes.length) return false;
-            if (!isManagerAssignedSnapshotCurrent()) {
-                showToast('Checking for updates', 'Wait for current assignments before saving.', true);
-                return false;
-            }
-            const state = getManagerAssignedColumnState();
-            // The canonical RPC authorizes and serializes last-write-wins saves; displayed rows supply optimistic state.
-            state.defaultPending ||= new Set();
-            if (codes.some(code => state.defaultPending.has(code))) return false;
-            state.defaultDrafts ||= {};
-            state.defaultCommands ||= new Map();
-            const assignee = normalizeEvalAssignableUser(assignedto);
-            const wantedCodes = new Set(codes), currentRowsByCode = new Map();
-            for (const row of warehouseAssignedItemsInventory) {
-                const code = buildManagerEvalAssignmentKey(row.ITEMCODE || row.itemcode);
-                if (wantedCodes.has(code) && !currentRowsByCode.has(code)) currentRowsByCode.set(code, row);
-                if (currentRowsByCode.size === wantedCodes.size) break;
-            }
-            const changes = codes.map(itemcode => {
-                const row = currentRowsByCode.get(itemcode);
-                const prior = state.defaultDrafts[itemcode];
-                const expectedRevision = prior ? prior.expectedRevision : Number(row?.default_revision ?? row?.DEFAULT_REVISION ?? 0);
-                state.defaultDrafts[itemcode] = { assignedto: assignee, expectedRevision };
-                return { itemcode, assignedto: assignee || null, expectedRevision };
-            }).sort((a, b) => a.itemcode.localeCompare(b.itemcode));
-            const fingerprint = JSON.stringify(changes);
-            const command = state.defaultCommands.get(fingerprint) || { id: crypto.randomUUID() };
-            state.defaultCommands.set(fingerprint, command);
-            const drafts = new Map(codes.map(code => [code, state.defaultDrafts[code]]));
-            state.ownerWriteAt = Date.now();
-            codes.forEach(code => state.defaultPending.add(code));
-            const undoOptimistic = applyOptimisticItemcodeOwners(codes, assignee);
-            if (typeof showToast === 'function') showToast('Updating Defaults', `${codes.length} owners updated on screen; saving…`);
-            if (typeof updateManagerAssignedItemsView === 'function') updateManagerAssignedItemsView({ ownerOnly: true });
-            const isCurrent = () => state === getManagerAssignedColumnState() && canManageEvalItemcodeAssignments();
-            let saved = false;
-            try {
-                const result = await supabaseRpc('set_itemcode_default_owners_v1', { p_itemcodes: codes, p_assignedto: assignee || null, p_request_id: command.id }, { singleWrite: true });
-                if (!isCurrent()) return false;
-                applyAcknowledgedEvalAssignmentResults(changes, [result]);
-                void mirrorConfirmedItemcodeOwners(codes, assignee, getSupabaseReadIdentityScope()).catch(() => globalThis.reportHandledRuntimeIssue?.('owner_mirror','WRITE_FAILED'));
-                codes.forEach(code => {
-                    if (state.defaultDrafts[code] === drafts.get(code)) delete state.defaultDrafts[code];
-                    managerEvalAssignmentSelection.delete(code);
-                });
-                state.defaultCommands.delete(fingerprint);
-                if (state.displayCache && typeof getManagerAssignedDisplaySignature === 'function') state.displayCache.signature = getManagerAssignedDisplaySignature(state, state.displayCache.input === fullInventory, getManagerItemLowStockTargetsState().revision);
-                saved = true;
-                showToast('Defaults Saved', `${codes.length} Itemcode Default Owner${codes.length === 1 ? '' : 's'} updated, including Effective Worker.`);
-            } catch (error) {
-                if (!isCurrent()) return false;
-                undoOptimistic();
-                const message = String(error?.message || 'Could not update Itemcode Default Owners.');
-                codes.forEach(code => { if (state.defaultDrafts[code] === drafts.get(code)) state.defaultDrafts[code].error = message; });
-                showToast('Default Owner Save Failed', message, true);
-                reportSemanticHealthEvent('eval_assignment_failed', 'eval_assignments', 'EVAL_ASSIGNMENT_FAILED', { affected_count: codes.length });
-            } finally {
-                if (!saved && !isCurrent()) undoOptimistic();
-                codes.forEach(code => state.defaultPending.delete(code));
-                state.ownerWriteAt = Date.now();
-                if (isCurrent()) {
-                    if (typeof updateManagerAssignedItemsView === 'function') updateManagerAssignedItemsView({ ownerOnly: true });
-                }
-            }
-            if (saved && isCurrent()) {
-                if (typeof refreshSuspendOwnerViews === 'function') refreshSuspendOwnerViews();
-                void (async () => {
-                    try { if (state.viewPageSource) getManagerReportPageController().refresh('assigned-items'); else await reloadWarehouseAssignmentsAfterMutation(); }
-                    catch { globalThis.reportHandledRuntimeIssue?.("reloadWarehouseAssignmentsAfterMutation", "READ_FAILED"); }
-                    if (isCurrent()) scheduleManagersRender(true);
-                })();
-            }
-            return false;
-        }
-
-        async function setSingleEvalItemcodeAssignment(itemcode = '', genusname = '', assignedto = '', control = null) {
-            const select = control && String(control.tagName || '').toUpperCase() === 'SELECT' ? control : null;
-            if (select && select.disabled) return false;
-            if (select) {
-                select.disabled = true;
-                select.setAttribute('aria-busy', 'true');
-            }
-            try {
-                await assignEvalItemcodes([{ itemcode, genusname }], assignedto);
-            } finally {
-                if (select && select.isConnected) {
-                    select.disabled = false;
-                    select.removeAttribute('aria-busy');
-                }
-            }
-            return false;
-        }
-
+        /* @runtime-fragment assets/itemcode-owner-command.js */
         function assignSelectedEvalItemcodes(allFiltered = null) {
             const select = document.getElementById('manager-eval-bulk-assignee');
             const snapshot = getManagerAssignedSelectionSnapshot();
@@ -147061,3 +146121,7 @@ function syncHeaderBloomPlacement(viewId = getCurrentVisibleViewId()) {
     const host = home ? document.querySelector('.nav-header-meta-row') : document.getElementById('global-header-search-row');
     if (bloom && host && bloom.parentElement !== host) host.appendChild(bloom);
 }
+
+/* @runtime-fragment assets/bloomscapes-dock-write-context.js */
+
+/* @runtime-fragment assets/bloomscapes-dock-issue-save.js */

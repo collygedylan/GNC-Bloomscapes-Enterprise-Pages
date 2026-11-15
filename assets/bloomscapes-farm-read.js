@@ -43,8 +43,12 @@ async function fetchAuthenticatedSupabaseReadPage(table, queryString = '', optio
 }
 
 function bloomscapesFarmReadContract(table,farm) {
+    if (['ph_inventory_row_assignments','ph_itemcode_default_owners','ph_dock_item_status'].includes(table)) {
+        return {table,column:'farm_code',code:farm};
+    }
+    if (table==='ph_warehouse_assigned_items') return {table:'gnc_all_warehouse_assigned_items',column:'warehousei',code:farm.slice(0,2)};
     if (farm==='10-PH') return null;
-    if (!['60-HL','20-TX','40-NC','ALL'].includes(farm)) throw new Error('Invalid inventory farm scope.');
+    if (!['60-HL','20-TX','40-NC'].includes(farm)) throw new Error('Invalid inventory farm scope.');
     const contracts={
         ph_master_inventory:['gnc_all_master_inventory','warehousei'],
         ph_soc_master:['gnc_all_soc_master','warehouseid'],
@@ -53,7 +57,7 @@ function bloomscapesFarmReadContract(table,farm) {
     };
     const contract=contracts[table];
     if (!contract) return null;
-    return {table:contract[0],column:contract[1],code:farm==='ALL'?'':farm.slice(0,2)};
+    return {table:contract[0],column:contract[1],code:farm.slice(0,2)};
 }
 
 async function fetchDirectMasterInventoryPage(params = {}, limit = INITIAL_PAGE_LIMIT, offset = 0, options = {}) {
@@ -98,11 +102,12 @@ async function fetchInventoryReadPage(operation, params = {}, limit = INITIAL_PA
     const safeLimit = Math.max(1, Math.min(1000, Math.floor(Number(limit) || INITIAL_PAGE_LIMIT)));
     const safeOffset = Math.max(0, Math.floor(Number(offset) || 0));
     const exactLookup = params.dataset === 'lookup' && !!String(params.uniqueId || '').trim() && nativeAuthSessionActive;
-    if (operation === 'master_page' && (['master','avOpen'].includes(String(params.dataset || '').trim().toLowerCase()) || exactLookup)
+    if (operation === 'master_page' && (['master','avopen'].includes(String(params.dataset || '').trim().toLowerCase()) || exactLookup)
         && ['browse', 'full'].includes(String(params.projection || '').trim().toLowerCase())) {
         return fetchDirectMasterInventoryPage(params, limit, safeOffset, options);
     }
-    const result = await requestInventoryRead(operation, { ...params, limit: safeLimit, offset: safeOffset }, options);
+    const scopedParams = operation==='master_page' ? bloomscapesInventoryReadParameters(params) : params;
+    const result = await requestInventoryRead(operation, { ...scopedParams, limit: safeLimit, offset: safeOffset }, options);
     if (!result || !Array.isArray(result.rows)) throw new Error('Inventory data returned an invalid page; verified cached rows were retained.');
     validateInventoryReadProjection(result, params);
     const total = result.total === null || result.total === undefined ? null : Number(result.total);
@@ -110,4 +115,11 @@ async function fetchInventoryReadPage(operation, params = {}, limit = INITIAL_PA
         projection: String(result.projection || params.projection || '').trim(),
         fieldCoverage: String(result.fieldCoverage || '').trim(),
         columns: Array.isArray(result.columns) ? result.columns.slice() : [] };
+}
+
+function bloomscapesInventoryReadParameters(params) {
+    const contract = window.AgMetricInventoryList;
+    const columns = params.projection==='full' ? contract?.readColumns || contract?.physicalColumns
+        : params.projection==='browse' ? contract?.columns : null;
+    return {...params,farm_code:getBloomscapesFarm(),...(columns ? {columns} : {})};
 }

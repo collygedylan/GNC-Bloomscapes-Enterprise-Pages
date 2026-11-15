@@ -62,10 +62,10 @@ function applyRealtimeDockStatusRows(tableName, payload, eventType, realtimeAppl
     if (tableName === 'ph_dock_item_status') {
         const rawRow = eventType === 'DELETE' ? (payload.old || {}) : (payload.new || {});
         const uniqueId = normalizeDockItemUniqueId(rawRow.unique_id || rawRow.UNIQUE_ID);
-        if (!uniqueId) return false;
+        if (!uniqueId || rawRow.farm_code!==getBloomscapesFarm()) return false;
         if (eventType === 'DELETE') {
-            dockItemProgressByUid.delete(uniqueId);
-            try { localStorage.removeItem('gnc_dock_item_' + uniqueId); } catch { globalThis.safeIgnoreProbeError?.("applyRealtimeChange"); }
+            dockItemProgressByUid.delete(bloomscapesDockProgressKey(uniqueId));
+            try { localStorage.removeItem('gnc_dock_item_' + bloomscapesDockProgressKey(uniqueId)); } catch { globalThis.safeIgnoreProbeError?.("applyRealtimeChange"); }
         } else {
             cacheDockItemProgress(uniqueId, rawRow);
         }

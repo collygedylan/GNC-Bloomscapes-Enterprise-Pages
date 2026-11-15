@@ -1,11 +1,11 @@
+'use strict';
+{
 /* global canUseInvBunchNotes, nativeAuthProfile, getSupabaseReadIdentityScope, getCurrentVisibleViewId, renderRequestCategoryToolbar, updateFooterRequestBadge, SUPABASE_URL, postAppFunctionJson, APP_API_FUNCTION_URL, activeReqTab, getMainAreaScrollTarget, setMainAreaScrollTop, showPrimaryViewWithScrollPolicy, schedulePrimaryViewChromeRefresh, clearPendingDetailHydration, shouldResetIosPhoneMainScrollForView */
 /* global activeItem: writable, activeDetailSourceView: writable, lastView: writable */
 /* Que integration; authenticated reads and durable drafts live in the typed client. */
-(function () {
-    'use strict';
     let modulePromise, client, clientScope = '', mounted, host, detail, generation = 0;
     let counts = { active: 0, review: 0, canReview: false }, lastWarm = 0;
-    const isTab = tab => tab === 'bunch-notes' || tab === 'bunch-count-review';
+    const isTab = tab => tab === 'bunch-notes' || tab === 'bunch-count-review' || !!globalThis.bloomscapesWorkKind?.(tab);
     const scope = () => canUseInvBunchNotes() ? `${nativeAuthProfile.id}:${getSupabaseReadIdentityScope()}` : '';
     function destroy() { closeDetail(); generation++; mounted?.destroy(); mounted = null; host = null; }
     function closeDetail() {
@@ -86,6 +86,7 @@
     }
     async function render(container, crumb, reviewMode) {
         if (!container) return;
+        if (globalThis.bloomscapesWorkKind?.(activeReqTab)) return globalThis.renderBloomscapesFieldQueue(container,crumb);
         if (crumb) crumb.textContent = reviewMode ? 'Count Review' : 'Bunch Notes';
         if (mounted && host?.parentElement === container) { mounted.update(reviewMode); return; }
         if (host?.parentElement === container) return;
@@ -109,11 +110,12 @@
     window.BunchQueueShell = {
         isTab, reset, destroy, warm, render, openDetail, closeDetail, isDetailOpen: () => !!detail, counts: () => counts,
         scope: () => `${scope()}:${activeReqTab}:${client?.getSnapshot().filter || 'mine'}:${client?.getSnapshot().offset || 0}`,
-        stage: async ctx => (await ensure()).client.stage(activeReqTab === 'bunch-count-review', ctx.signal),
-        commit: value => client?.commit(value)
+        stage: async ctx => globalThis.bloomscapesWorkKind?.(activeReqTab) ? {fieldWork:await globalThis.readBloomscapesFieldWork()} : (await ensure()).client.stage(activeReqTab === 'bunch-count-review', ctx.signal),
+        commit: value => value?.fieldWork ? globalThis.applyBloomscapesFieldQueueSnapshot?.(value.fieldWork) : client?.commit(value)
     };
     window.addEventListener('gnc:bunch-published', () => { void warm(true); });
     document.addEventListener('keydown', event => {
         if (event.key === 'Escape' && detail) { event.preventDefault(); event.stopImmediatePropagation(); closeDetail(); }
     }, true);
-})();
+
+}

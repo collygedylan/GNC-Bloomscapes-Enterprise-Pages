@@ -21,6 +21,7 @@ function fetchPublicRequestPhotoShare(requestId) {
 }
 
 function reportAppFunctionFailure(action, body, response, responseCode) {
+    if (body.mode==='create' && response.status===409 && responseCode==='AURA_LOCAL_CONVERSATION_ONLY') return;
     const preLogin = response.status === 401 && (isLoginScreenVisible() || !getCurrentAppSessionToken());
     const policy = response.status === 403 && /FORBIDDEN|NOT_ENABLED|UNAVAILABLE/.test(responseCode)
         || [409,423].includes(response.status) && /SOURCE_CHANGED|REVISION_CHANGED|REFRESH|NOT_READY/.test(responseCode);

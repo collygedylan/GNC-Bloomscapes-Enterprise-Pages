@@ -271,6 +271,10 @@ function getAppUpdateHeaderSearchRoot(view) {
 }
 
 function captureAppUpdateWorkSnapshot() {
+    const fieldWork=document.querySelector('[data-create-field-work]');
+    if(fieldWork && ['sourceId','quantity','percent','instructions'].some(name=>fieldWork.elements[name]?.value)) {
+        throw Error('field-work-draft-unsaved');
+    }
     const owner=getAppUpdateWorkOwner();
     if(!owner.verified && !owner.guest)throw Error('session-not-ready');
     if(owner.guest)return {owner,view:'login',roots:[],selection:[]};
