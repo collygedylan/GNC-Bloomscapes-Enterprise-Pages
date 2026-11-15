@@ -129809,11 +129809,7 @@ ${folderNote ? `Folder Note: ${folderNote}
             ].join('::');
         }
 
-        function syncDriveCrumb(crumb, crumbText = '') {
-            if (!crumb) return;
-            const nextText = String(crumbText || '');
-            if (crumb.innerText !== nextText) crumb.innerText = nextText;
-        }
+        // Shared Drive breadcrumb text is owned by drive-plant-filter-state.js.
 
         function applyDriveRenderMarkup(container, crumb, crumbText, html, renderKey = '') {
             if (!container) return false;

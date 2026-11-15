@@ -294,3 +294,10 @@ function buildDriveCommonNameGroups(visibleItems) {
         }))
         .sort((a, b) => compareDriveCommonName(a.name, b.name));
 }
+
+function syncDriveCrumb(crumb, crumbText = '') {
+    if (!crumb) return;
+    const nextText = String(crumbText || '');
+    if (crumb.textContent !== nextText) crumb.textContent = nextText;
+}
+
