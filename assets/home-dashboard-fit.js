@@ -22,7 +22,7 @@ function calculateHomeDashboardFit(input) {
     const {profile,tileCount,gridWidth,availableHeight,expanded} = input;
     const clamp = (value,min,max)=>Math.max(min,Math.min(max,value));
     const compact = profile.width<768;
-    const columns = expanded ? (compact?3:5) : compact?2:getHomeDesktopColumnCount(tileCount);
+    const columns = expanded ? 5 : compact?2:getHomeDesktopColumnCount(tileCount);
     const rows = Math.max(1,Math.ceil(tileCount/columns));
     const minimum = expanded ? 44 : compact?54:72;
     let rowGap = compact?4:12;

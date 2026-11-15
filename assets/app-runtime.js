@@ -102,7 +102,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.0.91';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.0.92';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -370,47 +370,7 @@
             return withProductionLiveSyncSignal(options.signal || null, (cohortSignal) =>
                 runDedupeSupabaseRead(readKey, ({ signal }) => callAuraAppApi(payload, { ...options, signal }), { signal: cohortSignal, maxAttempts: 1, explicitRetry: options.explicitRetry === true }));
         }
-        async function callAuraLlmRouter(body, options = {}) {
-            const identity = getSupabaseReadIdentityScope();
-            const accessDiscovery = body?.mode === 'capabilities';
-            const authorized = () => accessDiscovery ? isAuraRouterProfileCandidate() : isAuraRouterWidgetAuthorized();
-            if (!authorized()) throw Object.assign(new Error('AURA is unavailable to the active account.'), { status: 403 });
-            const controller = new AbortController();
-            const externalSignal = options.signal;
-            const abort = () => controller.abort(externalSignal?.reason);
-            if (externalSignal?.aborted) abort();
-            else externalSignal?.addEventListener('abort', abort, { once: true });
-            const deadlineAt = Number.isFinite(options.deadlineAt) ? Number(options.deadlineAt) : Date.now() + 35000;
-            const remaining = () => Math.max(1, deadlineAt - Date.now());
-            const timer = setTimeout(() => controller.abort(Object.assign(new Error('AURA command exceeded thirty-five seconds. Your conversation is still here. Retry when ready.'), { name: 'TimeoutError', code: 'AURA_DEADLINE_EXCEEDED' })), remaining());
-            auraPendingRequests.add(controller);
-            try {
-                options.onStage?.('authentication');
-                const nativeHeaders = await awaitAuraRead(() => getNativeAuthRequestHeaders(), controller.signal);
-                if (!nativeHeaders?.Authorization || !authorized() || identity !== getSupabaseReadIdentityScope()) throw Object.assign(new Error('AURA session expired. Sign in again.'), { status: 401 });
-                options.onStage?.('request');
-                const payload = await awaitAuraRead(() => postAppFunctionJson(AURA_LLM_ROUTER_URL, body, {
-                    includeSession: false, nativeHeaders, timeoutMs: remaining(), requestId: options.requestId,
-                    label: 'AURA command', signal: controller.signal,
-                    idempotencyKey: `${options.requestId || 'aura'}:${body?.mode || 'command'}`
-                }), controller.signal);
-                if (controller.signal.aborted) throw controller.signal.reason;
-                if (!authorized() || identity !== getSupabaseReadIdentityScope()) throw Object.assign(new Error('AURA session changed.'), { status: 403 });
-                if (!payload || payload.ok !== true) {
-                    const error = new Error(String(payload?.error?.message || payload?.error || 'AURA could not complete that request.'));
-                    error.status = Number(payload?.status || 0);
-                    error.code = String(payload?.code || '').toUpperCase();
-                    error.requestId = payload?.requestId || options.requestId;
-                    error.appContext = payload?.appContext ?? payload?.error?.appContext;
-                    throw error;
-                }
-                return payload;
-            } finally {
-                clearTimeout(timer);
-                externalSignal?.removeEventListener('abort', abort);
-                auraPendingRequests.delete(controller);
-            }
-        }
+        /* @runtime-fragment assets/bloomscapes-aura-conversation.js */
         async function callAuraLegacyQuery(body, options = {}) {
             const identity = getSupabaseReadIdentityScope();
             if (!isAuraWidgetAuthorized()) throw Object.assign(new Error('The legacy AURA service is available only to its owner.'), { status: 403 });
@@ -9520,83 +9480,7 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
             return Number.isFinite(date.getTime()) ? date.toLocaleDateString('en-US', { timeZone: 'America/Chicago' }) : text.slice(0, 24);
         }
 
-        function buildInventoryQuantityChipsHtml(row = null, options = {}) {
-            const safeOptions = options && typeof options === 'object' && !Array.isArray(options) ? options : {};
-            const sizeClasses = safeOptions.compact ? 'px-2 py-1' : 'px-3 py-1';
-            const quantityToneClasses = [
-                'border-emerald-200 bg-emerald-50 text-emerald-800',
-                'border-sky-200 bg-sky-50 text-sky-800',
-                'border-blue-200 bg-blue-50 text-blue-800',
-                'border-violet-200 bg-violet-50 text-violet-800'
-            ];
-            const chipClassFor = (index = 0) => `rounded-full border ${quantityToneClasses[index] || quantityToneClasses[0]} ${sizeClasses}`;
-            const stackedChipClassFor = (index = 0) => `app-card-qty-chip rounded-full border ${quantityToneClasses[index] || quantityToneClasses[0]} px-1.5 py-1 text-center`;
-            const valueClass = 'text-slate-900';
-            const metricIdFor = (label) => ({
-                'On Hand': 'on-hand',
-                Review: 'review',
-                Available: 'available',
-                'Open Stock': 'open-stock',
-                'Loc Photo Match': 'loc-photo-match',
-                'Loc On Hand': 'loc-on-hand'
-            })[label] || '';
-            const compactMetrics = safeOptions.compact === true || safeOptions.layout === 'row';
-            const hydrationLabel = safeOptions.hydrationStatus && ['loading', 'missing', 'ambiguous', 'error', 'unavailable'].includes(safeOptions.hydrationStatus) ? '--' : '';
-            const formatQuantity = (value) => {
-                if (hydrationLabel && (value == null || String(value).trim() === '')) return hydrationLabel;
-                if (compactMetrics && /^(unknown|unavailable|not verified|loading.*|not found|check inventory)$/i.test(String(value || '').trim())) return '--';
-                if (value === null || typeof value === 'undefined' || String(value).trim() === '') {
-                    if (safeOptions.missingValue === 'N/A') return 'N/A';
-                    if (compactMetrics || safeOptions.canonical === true || safeOptions.preserveUnknown === true) return '--';
-                }
-                return normalizeCardQuantityValue(value);
-            };
-            const queueMetricAttr = (label) => safeOptions.queueMetricTelemetry === true && metricIdFor(label)
-                ? ` data-queue-metric="${metricIdFor(label)}"` : '';
-            const buildChip = ([label, value], className = '', index = 0) => `<span class="app-card-qty-chip ${className || chipClassFor(index)}" data-inventory-card-metric="${metricIdFor(label)}"><span class="app-card-qty-label">${escapeHtml(label)}</span><span class="app-card-qty-value ${valueClass}"${label === 'Loc Photo Match' ? ' data-loc-photo-match-value' : ''}${queueMetricAttr(label)}>${escapeHtml(formatQuantity(value))}</span></span>`;
-            const buildStackedChip = ([label, value], index = 0) => {
-                const formatted = formatQuantity(value);
-                return `<span class="${stackedChipClassFor(index)}" data-inventory-card-metric="${metricIdFor(label)}"><span class="app-card-qty-label">${escapeHtml(label)}</span><span class="app-card-qty-value${formatted === 'Unknown' ? ' app-card-qty-value--unknown' : ''} ${valueClass}"${label === 'Loc Photo Match' ? ' data-loc-photo-match-value' : ''}${queueMetricAttr(label)}>${escapeHtml(formatted)}</span></span>`;
-            };
-            const metric = (key, legacy) => {
-                if (safeOptions.canonical !== true) return legacy;
-                const value = row?.[key] ?? row?.[key.toLowerCase()];
-                return value == null || String(value).trim() === '' ? legacy : value;
-            };
-            const primaryChips = [
-                ['On Hand', metric('PTRONHAND', getCardPtrOnHandValue(row, safeOptions))],
-                ['Review', metric('PTRREVIEWED', getCardPtrReviewedValue(row, safeOptions))],
-                ['Available', metric('PTRAVAILABLE', getCardPtrAvailableValue(row, safeOptions))]
-            ];
-            const openStockChip = ['Open Stock', metric('S_LTS', getCardOpenStockValue(row, safeOptions))];
-            const locationMetricRow = safeOptions.locationMetricItem || row;
-            const sourceView = String(safeOptions.sourceView || '');
-            const knownLocationPhotoMatch = safeOptions.knownLocationPhotoMatch;
-            const locationPhotoMatch = knownLocationPhotoMatch !== null && knownLocationPhotoMatch !== undefined
-                && String(knownLocationPhotoMatch).trim() !== '' && Number.isFinite(Number(knownLocationPhotoMatch))
-                ? Number(knownLocationPhotoMatch) : ['N/A', 'Not verified'].includes(String(knownLocationPhotoMatch)) ? 'N/A' : formatLocPhotoMatchQtyValue(locationMetricRow, sourceView);
-            const locationAggregate = safeOptions.canonical === true ? getCardLocationOnHandServerAggregate(locationMetricRow, { preserveUnknown: true }) : null;
-            const knownLocationOnHand = safeOptions.knownLocationOnHand;
-            const locationOnHand = knownLocationOnHand !== null && knownLocationOnHand !== undefined && Number.isFinite(Number(knownLocationOnHand)) && String(knownLocationOnHand).trim() !== ''
-                ? Number(knownLocationOnHand)
-                : locationAggregate?.verified === true ? locationAggregate.value : getCardLocationOnHandValue(locationMetricRow);
-            const locationChips = safeOptions.includeLocationMetrics === false ? [] : [
-                ['Loc Photo Match', ['drive', 'request', 'docks', 'av', 'av-photo'].includes(sourceView) && locationPhotoMatch === 'Not verified' ? 'N/A' : locationPhotoMatch],
-                ['Loc On Hand', preserveCardLocationOnHand(locationMetricRow, parseAppNumber(locationOnHand)) ?? (safeOptions.canonical === true ? locationOnHand : (locationOnHand ?? (safeOptions.missingValue === 'N/A' ? 'N/A' : 'Unknown')))]
-            ];
-            const allChips = [...primaryChips, openStockChip, ...locationChips];
-            const trailingChipsHtml = String(safeOptions.trailingChipsHtml || '').trim();
-            if (safeOptions.layout === 'row') {
-                const gridGapClass = safeOptions.compact ? 'gap-1.5' : 'gap-2';
-                return `<div class="app-card-qty-row grid ${gridGapClass} text-[9px] font-black uppercase">${allChips.map((chip, index) => buildStackedChip(chip, index)).join('')}${trailingChipsHtml}</div>`;
-            }
-            if (safeOptions.layout === 'stacked') {
-                const gridGapClass = safeOptions.compact ? 'gap-1.5' : 'gap-2';
-                const openStockClass = safeOptions.compact ? 'mt-1.5' : 'mt-2';
-                return `<div class="w-full"><div class="app-card-qty-grid grid ${gridGapClass} text-[9px] font-black uppercase">${primaryChips.map((chip, index) => buildStackedChip(chip, index)).join('')}</div><div class="${openStockClass} flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-[0.12em]">${allChips.slice(3).map((chip, index) => buildChip(chip, '', index + 3)).join('')}${trailingChipsHtml}</div></div>`;
-            }
-            return allChips.map((chip, index) => buildChip(chip, '', index)).join('') + trailingChipsHtml;
-        }
+        /* @runtime-fragment assets/inventory-quantity-chips.js */
 
         function isInventoryCardMeaningfulTextValue(value = '') {
             const text = String(value == null ? '' : value).trim();
@@ -20544,7 +20428,8 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
         /* @runtime-fragment assets/bloom-cart-actions.js */
         /* @runtime-fragment assets/bloom-inventory-project.js */
         /* @runtime-fragment assets/app-update-state.js */
-        /* @runtime-fragment assets/app-update-restore.js */
+        /* @runtime-fragment assets/app-update-capture.js */
+/* @runtime-fragment assets/app-update-restore.js */
         /* @runtime-fragment assets/inventory-photo-domain.js */
         async function ensureLeafAssistantSession(forceRefresh = false) {
             const nativeSession = await getNativeAuthSession().catch(() => null);
@@ -24285,7 +24170,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.0.91';
+        const APP_VERSION = '3.0.92';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -55705,129 +55590,19 @@ function toggleDriveQuickRequestItem(domId) {
             return { isSuperAdmin, isAdmin, isRep, isSalesRole, isSalesAssistant, isSalesMarketing, isRepLike, isQcSupervisor, isQc, isCsr, isForeman, isGrower, isEval, isDivision, isPrivilegedManager, isEvalAdminOverride, isTakeBackOnly, isRequestRepScopedUser, isManagerViewDenied, allowedViews };
         }
 
-        function canUseHistoricalRequests(profile = nativeAuthProfile) {
-            const username = String(profile?.username || '');
-            const role = String(profile?.role || '').trim().toUpperCase();
-            if (role.replace(/[^A-Z0-9]/g, '').startsWith('EVAL')) return false;
-            const locked = profile?.locked_until ? Date.parse(profile.locked_until) : 0;
-            return !!(nativeAuthSessionActive && profile?.id && username === String(currentUser || '')
-                && !profile.disabled_at && profile.must_change_password === false
-                && (!profile.locked_until || (Number.isFinite(locked) && locked <= Date.now()))
-                && ((typeof getCurrentVisibleViewId === 'function' && getCurrentVisibleViewId() === 'request-history' && canAccessView('request-history'))
-                    || isSuperAdminRoleValue(role) || ['ADMIN', 'ADMINISTRATOR', 'REP', 'SALESREP'].includes(role)));
-        }
 
-        function getHistoricalRequestsOwnerKey(profile = nativeAuthProfile) {
-            return JSON.stringify([profile?.id, profile?.username, profile?.role, profile?.disabled_at,
-                profile?.locked_until, profile?.must_change_password, currentUser,
-                typeof getCurrentVisibleViewId === 'function' ? getCurrentVisibleViewId() : 'historical-requests']);
-        }
 
-        function destroyHistoricalRequestsIsland() {
-            historicalRequestsGeneration += 1;
-            historicalRequestsMount?.destroy();
-            historicalRequestsMount = null;
-            historicalRequestsOwner = '';
-            document.getElementById('historical-requests-content')?.replaceChildren();
-            document.getElementById('request-history-content')?.replaceChildren();
-        }
 
-        async function historicalRequestsTransport(query, signal) {
-            if (!canUseHistoricalRequests()) throw new Error('Sign in with an authorized account to view Historical Requests.');
-            const owner = getHistoricalRequestsOwnerKey();
-            const session = await getNativeAuthSession();
-            if (!session?.user?.id || session.user.id !== nativeAuthProfile?.id || owner !== getHistoricalRequestsOwnerKey()) {
-                destroyHistoricalRequestsIsland();
-                throw new Error('Your session changed. Sign in again to view Historical Requests.');
-            }
-            if (signal?.aborted) throw new Error('Historical Requests was cancelled.');
-            const view = typeof getCurrentVisibleViewId === 'function' ? getCurrentVisibleViewId() : 'historical-requests';
-            const response = await postAppFunctionJson(APP_API_FUNCTION_URL, {
-                action: 'historical_requests_read',
-                query: { ...query, view }
-            }, { timeoutMs: 15000, label: 'Historical Requests', signal });
-            if (!response?.ok || !response.data || typeof response.data !== 'object' || Array.isArray(response.data)) {
-                const error = new Error(response?.error || 'Historical Requests could not load for this account.');
-                error.status = Number(response?.status || 0);
-                error.code = String(response?.code || '').trim().toUpperCase();
-                throw error;
-            }
-            const data = response.data;
-            if (signal?.aborted || owner !== getHistoricalRequestsOwnerKey() || !canUseHistoricalRequests()) {
-                throw new Error('Historical Requests was cancelled because the account changed.');
-            }
-            return data;
-        }
 
-        function retryHistoricalRequestsIsland() {
-            historicalRequestsModulePromise = null;
-            historicalRequestsModule = null;
-            destroyHistoricalRequestsIsland();
-            void ensureHistoricalRequestsIsland();
-            return false;
-        }
 
-        function renderHistoricalRequestArchive() {
-            const host = document.getElementById('historical-request-archive');
-            if (!host || !isViewVisible('historical-requests') || !canCurrentUserArchiveRequestRows()) return;
-            const scope = getRequestArchivePageScopeKey();
-            if (requestArchiveListState.scopeKey && requestArchiveListState.scopeKey !== scope) resetRequestArchivePageState();
-            host.innerHTML = '<h2>Archived / Completed Requests</h2>' + renderRequestArchivePageHtml(requestArchiveListState);
-            syncRequestArchiveStatus(host, requestArchiveListState);
-            if (!requestArchiveListState.loaded && !requestArchiveListState.loading && !requestArchiveListState.error) void loadRequestArchivePage(0);
-        }
 
-        async function ensureHistoricalRequestsIsland() {
-            const view = getCurrentVisibleViewId();
-            const host = document.getElementById(view + '-content');
-            if (!['historical-requests', 'request-history'].includes(view) || !host || !isViewVisible(view) || !canAccessView(view)) {
-                destroyHistoricalRequestsIsland();
-                return;
-            }
-            const owner = getHistoricalRequestsOwnerKey();
-            const revisionKey = JSON.stringify(['master', 'soc', 'reserves', 'requests', 'requestHistory', 'customerRepMap'].map(key => getDatasetState(key).liveVerifiedRevision || ''));
-            if (!document.getElementById('historical-requests-stylesheet')) {
-                const stylesheet = document.createElement('link');
-                stylesheet.id = 'historical-requests-stylesheet';
-                stylesheet.rel = 'stylesheet';
-                stylesheet.href = new URL('./assets/historical-requests.css?v=' + encodeURIComponent(APP_SHELL_BUILD), document.baseURI).href;
-                stylesheet.onerror = () => stylesheet.remove();
-                document.head.appendChild(stylesheet);
-            }
-            if (historicalRequestsMount && historicalRequestsOwner === owner && historicalRequestsModule) {
-                historicalRequestsMount.update(historicalRequestsModule.createHistoricalRequestsBridge({ scopeKey: owner, revisionKey, role: nativeAuthProfile?.role || '', transport: historicalRequestsTransport }));
-                renderHistoricalRequestArchive();
-                syncRequestSalesImpactEntrypoints();
-                return;
-            }
-            destroyHistoricalRequestsIsland();
-            const generation = historicalRequestsGeneration;
-            host.textContent = 'Loading Historical Requests…';
-            try {
-                if (!historicalRequestsModulePromise) historicalRequestsModulePromise = import(new URL('./assets/historical-requests.js?v=' + encodeURIComponent(APP_SHELL_BUILD), document.baseURI).href)
-                    .catch(error => { historicalRequestsModulePromise = null; throw error; });
-                const module = await historicalRequestsModulePromise;
-                if (generation !== historicalRequestsGeneration || !host.isConnected || !isViewVisible(view)
-                    || owner !== getHistoricalRequestsOwnerKey() || !canAccessView(view)) return;
-                historicalRequestsModule = module;
-                host.replaceChildren();
-                const historyHost = document.createElement('div');
-                host.appendChild(historyHost);
-                if (view === 'historical-requests' && canCurrentUserArchiveRequestRows()) {
-                    const archiveHost = document.createElement('section');
-                    archiveHost.id = 'historical-request-archive';
-                    host.prepend(archiveHost);
-                }
-                historicalRequestsMount = module.mountHistoricalRequests(historyHost, module.createHistoricalRequestsBridge({ scopeKey: owner, revisionKey, role: nativeAuthProfile?.role || '', transport: historicalRequestsTransport }));
-                historicalRequestsOwner = owner;
-                renderHistoricalRequestArchive();
-                syncRequestSalesImpactEntrypoints();
-            } catch (error) {
-                if (generation !== historicalRequestsGeneration || !host.isConnected) return;
-                host.innerHTML = `<div role="alert">${escapeHtml(error?.message || 'Historical Requests could not load.')} <button type="button" onclick="return retryHistoricalRequestsIsland()">Retry Historical Requests</button></div>`;
-                syncRequestSalesImpactEntrypoints();
-            }
-        }
+
+
+
+
+
+
+
         window.ensureHistoricalRequestsIsland = ensureHistoricalRequestsIsland;
 
         function isRequestSalesImpactOwner() {
@@ -73202,25 +72977,10 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
             return false;
         }
 
-        function renderViewContent(viewId, forceReset = false, forceRender = false) {
-            const state = ensureViewRenderState(viewId);
-            if (!forceReset && !forceRender && state.initialized && !state.dirty) {
-                incrementInternalPerfCounter('warmViewReuseHits');
-                return;
-            }
-            const renderStartedAt = beginInternalPerfMeasure();
-
-            if (!renderCoreAppView(viewId, state, forceReset) && !renderRequestAndWorkspaceView(viewId, state, forceReset) && !renderHubAppView(viewId)) {
-                renderAuxiliaryAppView(viewId, state, forceReset);
-            }
-
-            state.initialized = true;
-            state.dirty = false;
-            scheduleIosPhoneTaskStyleModuleFlowCleanup(viewId, `render:${viewId}`, { resetScroll: false });
-            recordInternalPerfDuration('viewRenderDurations', renderStartedAt, viewId || 'unknown');
-            reportPerformanceHealthEvent('view_render', 'rendering', getAdaptivePerfElapsedMs(renderStartedAt), { reason: viewId || 'unknown' });
-        }
-
+        /* @runtime-fragment assets/bloomscapes-work-card.js */
+        /* @runtime-fragment assets/bloomscapes-studio.js */
+        /* @runtime-fragment assets/bloomscapes-departments.js */
+        /* @runtime-fragment assets/bloomscapes-view-router.js */
         function renderCoreAppView(viewId, state, forceReset) {
             if (viewId === 'home') {
                 renderHome();
@@ -118353,7 +118113,11 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
         function refreshRuntimeWatchdogBadge(force = false) { return runtimeWatchdogPanel.refreshBadge(force); }
         function refreshRuntimeWatchdogPanel() { return runtimeWatchdogPanel.refreshPanel(); }
         function copyRuntimeWatchdogFixBrief() { return runtimeWatchdogPanel.copyFixBrief(); }
-        /* @runtime-fragment assets/bloomscapes-farm-identity.js */ /* @runtime-fragment assets/bloomscapes-farm-state.js */ /* @runtime-fragment assets/bloomscapes-farm-read.js */ /* @runtime-fragment assets/bloomscapes-home.js */ /* @runtime-fragment assets/bloomscapes-job-board.js */
+        /* @runtime-fragment assets/bloomscapes-farm-identity.js */ /* @runtime-fragment assets/bloomscapes-farm-state.js */ /* @runtime-fragment assets/bloomscapes-farm-read.js */ /* @runtime-fragment assets/bloomscapes-transfer-order.js */
+/* @runtime-fragment assets/bloomscapes-transfer-submit.js */
+/* @runtime-fragment assets/bloomscapes-transfer-builder.js */
+/* @runtime-fragment assets/bloomscapes-history.js */
+/* @runtime-fragment assets/bloomscapes-home.js */ /* @runtime-fragment assets/bloomscapes-job-board.js */
 
 /* @runtime-fragment assets/bloomscapes-field-controls.js */ /* @runtime-fragment assets/bloomscapes-lab.js */ /* @runtime-fragment assets/bloomscapes-lab-controls.js */ /* @runtime-fragment assets/bloomscapes-radio.js */ /* @runtime-fragment assets/bloomscapes-radio-controls.js */ /* @runtime-fragment assets/bloomscapes-dock.js */ /* @runtime-fragment assets/bloomscapes-dock-controls.js */ /* @runtime-fragment assets/bloomscapes-workflows.js */ /* @runtime-fragment assets/bloomscapes-vault-filter.js */
         /* @runtime-fragment assets/bloomscapes-farm-dialog.js */

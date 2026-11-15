@@ -92,6 +92,11 @@ function renderBloomscapesFieldWorkCard(job,status) {
     const card = document.createElement('article');
     card.dataset.workId = job.id;
     card.className = 'bloomscapes-field-work-card';
+    const source=findItemByUniqueId(job.source_id) || job.source_snapshot;
+    if (source && bloomscapesFarmRowIsVisible(source)) {
+        const identity=card.appendChild(document.createElement('div'));
+        identity.innerHTML=bloomscapesWorkIdentityMarkup(source,{assignedTo:job.assigned_to});
+    }
     const heading = card.appendChild(document.createElement('h3'));
     heading.textContent = `${job.work_view==='SHEARING' ? (job.status==='OPEN' ? '#? Needs Shear · ' : '#✓ Sheared · ') : ''}${job.action_type} · ${job.itemcode} · ${job.farm_code}`;
     appendBloomscapesJobFacts(card,job);

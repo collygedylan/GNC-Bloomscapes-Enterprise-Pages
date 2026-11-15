@@ -35,6 +35,7 @@ async function selectBloomscapesFarm(farm) {
         state.readyFarm = farm;
         state.confirmed = true;
         persistBloomscapesSessionFarm(state);
+        if (previous!==farm && typeof resetDockView==='function') resetDockView(false);
         refreshAffectedViews(['master','avOpen','requests','soc','reserves']);
         if (typeof ensureBloomscapesFieldQueue==='function') void ensureBloomscapesFieldQueue(true).catch(error=>globalThis.reportHandledRuntimeIssue?.('field_work_queue',error.code || 'FIELD_WORK_READ_FAILED'));
         return farm;

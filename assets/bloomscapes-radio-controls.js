@@ -23,19 +23,28 @@ function mountBloomscapesRadioControls(container) {
             .catch(error => status(error.message));
     });
     ui.observer = new MutationObserver(() => {
-        if (host.isConnected && getCurrentVisibleViewId() === 'managers' && activeHomeTab === 'bloomscapes-radio') return;
+        if (isBloomscapesRadioSurfaceActive(host)) return;
+        host.dataset.radioDisposed='true';
         ui.abort.abort();
         ui.observer.disconnect();
         void leaveBloomscapesRadioUi(ui,status);
     });
     ui.observer.observe(container,{childList:true});
-    const view = document.getElementById('view-managers');
-    if (view) ui.observer.observe(view,{attributes:true,attributeFilter:['class','hidden']});
+    const view = host.closest('[id^="view-"]');
+    if (view) ui.observer.observe(view,{attributes:true,attributeFilter:['class','hidden'],childList:true});
     document.addEventListener('visibilitychange',() => {
         if (document.hidden) void leaveBloomscapesRadioUi(ui,status);
     },{signal:ui.abort.signal});
     window.addEventListener('pagehide',() => void leaveBloomscapesRadioUi(ui,status),{signal:ui.abort.signal});
     void refreshBloomscapesRadioChoices(host).catch(error => status(error.message));
+}
+
+function isBloomscapesRadioSurfaceActive(host) {
+    if (!host.isConnected) return false;
+    const view=getCurrentVisibleViewId();
+    if (view==='managers') return activeHomeTab==='bloomscapes-radio' && !!host.closest('#view-managers');
+    const frame=host.closest('[data-department-workspace]');
+    return frame?.dataset.departmentWorkspace==='bloomscapes-radio' && !!frame.closest('#view-'+view);
 }
 
 async function refreshBloomscapesRadioChoices(host,selected) {

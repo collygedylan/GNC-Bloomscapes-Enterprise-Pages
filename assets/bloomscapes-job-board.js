@@ -20,7 +20,7 @@ function syncBloomscapesJobBoardToolbar(toolbar) {
             const key = event.target.dataset.jobFilter;
             if (key) setBloomscapesJobBoardFilter(key,event.target.value);
         });
-        tools.querySelector('button').addEventListener('click',()=>void openBloomscapesJobBoardCreator(activeReqTab));
+        tools.querySelector('[data-create-board-work]').addEventListener('click',()=>void openBloomscapesJobBoardCreator(activeReqTab));
     }
     const filters = getBloomscapesJobBoardFilters();
     tools.querySelector('[data-job-board-farm]').textContent = 'Farm · '+getBloomscapesFarm();
@@ -36,8 +36,14 @@ function syncBloomscapesJobBoardToolbar(toolbar) {
     for (const field of tools.querySelectorAll('[data-job-filter]')) {
         if (field!==document.activeElement) field.value = filters[field.dataset.jobFilter];
     }
+    let studio=tools.querySelector('[data-open-work-studio]');
+    if (!studio) {
+        studio=document.createElement('button');studio.type='button';studio.dataset.openWorkStudio='true';
+        studio.textContent='+ Build Work in Studio';studio.addEventListener('click',()=>openBloomscapesDepartmentModule('production','studio'));
+        tools.appendChild(studio);
+    }
     const label = BLOOMSCAPES_JOB_BOARD.find(([tab])=>tab===activeReqTab)?.[1] || 'Field';
-    const button = tools.querySelector('button');
+    const button = tools.querySelector('[data-create-board-work]');
     button.textContent = '+ Create '+label+' Work';
     button.disabled = !canCreateBloomscapesJobBoardWork(activeReqTab);
 }
@@ -48,9 +54,9 @@ function canCreateBloomscapesJobBoardWork(tab) {
     return bloomscapesFieldQueueState.canCreate?.[bloomscapesWorkKind(tab) || 'SUSPEND']===true;
 }
 
-async function openBloomscapesJobBoardCreator(tab) {
+async function openBloomscapesJobBoardCreator(tab,options={}) {
     if (!canCreateBloomscapesJobBoardWork(tab)) return;
-    const owner = getSupabaseReadIdentityScope(),key = owner+':'+tab;
+    const owner = getSupabaseReadIdentityScope(),key = owner+':'+tab+(options.quick ? ':quick:'+getItemUniqueId(options.source) : '');
     const previous = bloomscapesJobBoardDialogs.get(key);
     if (previous?.isConnected) { previous.showModal(); return; }
     const dialog = document.createElement('dialog');
@@ -72,7 +78,7 @@ async function openBloomscapesJobBoardCreator(tab) {
     bloomscapesJobBoardDialogs.set(key,dialog);
     document.body.appendChild(dialog);dialog.showModal();
     try {
-        if (kind) await mountBloomscapesWorkCreator(dialog);
+        if (kind) await mountBloomscapesWorkCreator(dialog,options);
         else await mountBloomscapesLegacyWorkPicker(dialog,tab);
     } catch (error) {
         if (dialog.isConnected) body.appendChild(document.createTextNode(error.message));
@@ -232,75 +238,4 @@ function buildSuspendTagRenderPlan(items) {
     };
     return { ...plan, allItems, searchItems, assignedItems, contSizeItems, sourceLookup,
         renderSignature: buildSuspendTagPlanSignature(plan, latestSourceRows, sourceLookupRevision) };
-}
-
-function renderBloomscapesPOCard(card,po,refresh) {
-    card.dataset.poId = po.po_id;
-    const header = card.appendChild(document.createElement('h3'));
-    header.textContent = `${po.origin_farm} → 10-PH · ${po.itemcode} · PO Balance ${po.remaining_on_po}`;
-    const select = card.appendChild(document.createElement('select'));
-    select.setAttribute('aria-label','10-PH receiving block');
-    select.appendChild(new Option(po.targets.length ? 'Choose receiving block / lot' : 'No matching PH receiving row',''));
-    po.targets.forEach(target=>select.appendChild(new Option([target.locationcode,target.lotcode,target.row_id].join(' · '),target.row_id)));
-    const facts = card.appendChild(document.createElement('p'));
-    facts.dataset.shuttleVariables = 'true';
-    const form = card.appendChild(document.createElement('form'));
-    form.innerHTML = '<label>Planned Qty <input name="quantity" type="number" min="1" step="1" required></label>'
-        + '<label>Assigned Crew <select name="assignedTo" required></select></label><button type="submit">Queue Shuttle · HAULING &amp; CONSOLIDATION</button><p role="status"></p>';
-    const update = ()=>{
-        const target = po.targets.find(row=>row.row_id===select.value);
-        facts.textContent = bloomscapesShuttleVariableText(po,target);
-        form.querySelector('button').disabled = !(Number(po.remaining_on_po)>0 && target && Number(target.open_can_space)>0
-            && Number(target.verified_open_can_space)>0 && Number(target.hl_on_hand)>0);
-        if (target) form.elements.quantity.max = Math.floor(Math.min(Number(po.remaining_on_po)-Number(po.queued_quantity),
-            Number(target.open_can_space),Number(target.verified_open_can_space),Number(target.hl_on_hand)));
-    };
-    select.addEventListener('change',update);
-    const initial = po.targets.find(target=>Number(target.verified_open_can_space)>0 && Number(target.hl_on_hand)>0) || po.targets[0];
-    if (initial) select.value = initial.row_id;
-    update();
-    const crew = form.elements.assignedTo;
-    crew.appendChild(new Option('Assign to me',String(currentUser)));
-    const roster = bloomscapesFieldQueueState.roster || [];
-    roster.filter(user=>user.username!==currentUser).forEach(user=>crew.appendChild(new Option(user.name || user.username,user.username)));
-    const state = {attempt:null,busy:false,owner:String(currentUser)};
-    form.addEventListener('submit',event=>{
-        event.preventDefault();
-        void queueBloomscapesPOCard(form,po,select.value,state,refresh);
-    });
-}
-
-function bloomscapesShuttleVariableText(po,target) {
-    if (!target) return `Remaining on PO ${po.remaining_on_po} · ${po.origin_farm} Origin Farm On-Hand ${po.origin_on_hand} · 10-PH Block Open Can Space: no matching receiving row · 7-Day 10-PH SOC Demand: receiving allocation required`;
-    const space = target.open_can_space==null ? 'Unknown · review capacity' : target.open_can_space;
-    return `Remaining on PO ${po.remaining_on_po} · ${po.origin_farm} Origin Farm On-Hand ${po.origin_on_hand} · Matching lot ${target.hl_on_hand}`
-        + ` · 10-PH Block Open Can Space ${space} = (${target.allocated_beds ?? '?'} beds × ${target.cpb ?? '?'} CPB) − ${target.current_ptronhand} PTRONHAND`
-        + ` · Verified receiving limit ${target.verified_open_can_space} · 7-Day 10-PH SOC Demand ${target.demand_7_days}`
-        + ` · Already queued ${po.queued_quantity} · Stock, PO and PH keying post on confirmed Qty Hauled`;
-}
-
-async function queueBloomscapesPOCard(form,po,rowId,state,refresh) {
-    if (state.busy || state.owner!==String(currentUser)) return;
-    state.busy = true;
-    const button = form.querySelector('button'),status = form.querySelector('[role=status]');
-    button.disabled = true;
-    try {
-        if (getBloomscapesFarm()!=='10-PH') {
-            const selector = document.getElementById('bloomscapes-farm-selector');
-            if (!selector || !getBloomscapesAllowedFarms().includes('10-PH')) throw new Error('PH session access required.');
-            selector.value = '10-PH';await changeBloomscapesFarmSelection(selector);
-            if (getBloomscapesFarm()!=='10-PH') return;
-        }
-        if (state.owner!==String(currentUser)) return;
-        const input = {poId:po.po_id,rowId,originFarm:po.origin_farm,
-            quantity:Number(form.elements.quantity.value),assignedTo:form.elements.assignedTo.value};
-        const signature = JSON.stringify(input);
-        if (state.attempt?.signature!==signature) state.attempt = {...input,signature,requestId:crypto.randomUUID()};
-        await submitBloomscapesCommand('queue-shuttle',state.attempt);
-        if (state.owner!==String(currentUser)) return;
-        state.attempt = null;
-        status.textContent = 'Shuttle queued. Confirm Qty Hauled on its work card after physical movement.';
-        await refresh();await openBloomscapesWorkQueue('HAULING');
-    } catch (error) { if (status.isConnected) status.textContent = error.message; }
-    finally { state.busy = false;button.disabled = false; }
 }

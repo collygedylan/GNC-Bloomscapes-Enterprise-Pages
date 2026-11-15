@@ -113,22 +113,22 @@ function createDriveInventoryCardModel(context) {
 
 function renderDriveInventoryCardMarkup(context) {
     let { item, sourceView, renderMeta, displaySource, displaySourceView, isChecked, safeCardSourceViewKey, seasonCardShellClass, inventoryCardToneClass, holdBorderClass, inlineThumbHtml, driveListPriceHtml, driveQuantityRowHtml, driveSpecHtml, driveAvNoteHtml, driveHoldDataHtml, noteHtml, inventoryEditActionHtml } = context;
-    const canUseDriveOptions = canCurrentUserUseDriveCardOptions(item, sourceView);
-    const canSelectDriveWorkflow = canCurrentUserSelectDriveWorkflowRow(item, sourceView);
+    const canUseDriveOptions = !renderMeta.workBuilder && canCurrentUserUseDriveCardOptions(item, sourceView);
+    const canSelectDriveWorkflow = !renderMeta.workBuilder && canCurrentUserSelectDriveWorkflowRow(item, sourceView);
     const driveNewCropReleaseBtn = canUseDriveOptions ? getDriveNewCropReleaseButtonHtml(item) : '';
     const driveHoldReleaseBtn = canUseDriveOptions ? getDriveHoldReleaseButtonHtml(item) : '';
     const driveReverseRailBtn = canUseDriveOptions ? buildNcrApprovalReverseRailButtonHtml(item, 'drive') : '';
-    const driveArgosRailHtml = sourceView === 'av' ? '' : buildArgosInventoryTransactionRailHtml(item, renderMeta.originView || 'drive');
+    const driveArgosRailHtml = sourceView === 'av' || renderMeta.workBuilder ? '' : buildArgosInventoryTransactionRailHtml(item, renderMeta.originView || 'drive');
     const driveTagColorHtml = buildInventoryCardTopTagColorHtml(item);
     const driveSourceChipHtml = displaySource ? `<span class="app-drive-card-source-chip">${esc(displaySource)}</span>` : '';
     const driveReclassMetaHtml = `${driveTagColorHtml}${driveSourceChipHtml}`;
     const driveReclassActionHtml = driveArgosRailHtml || driveReclassMetaHtml ? `<div class="app-drive-card-reclass" onclick="event.stopPropagation();">${driveArgosRailHtml}${driveTagColorHtml ? `<div class="app-drive-card-tag-row" data-inventory-card-field="fieldtagcolor">${driveTagColorHtml}</div>` : ''}${driveSourceChipHtml ? `<div class="app-drive-card-source-row">${driveSourceChipHtml}</div>` : ''}</div>` : '';
     const driveRoleAccess = getRoleAccessState();
-    const includeDriveBloomPickerBtn = canAddItemToBloomPicker(item, sourceView) && (
+    const includeDriveBloomPickerBtn = !renderMeta.workBuilder && canAddItemToBloomPicker(item, sourceView) && (
         (driveRoleAccess.isRep && !driveRoleAccess.isCsr)
         || (canSelectDriveWorkflow && (canUseDriveBloomPickerForTakeBack() || isWarehouseAssignedDriveCardForCurrentUser(item)))
     );
-    const driveBottomExtraHtml = `${driveNewCropReleaseBtn}${driveHoldReleaseBtn}${driveReverseRailBtn}`.trim();
+    const driveBottomExtraHtml = `${driveNewCropReleaseBtn}${driveHoldReleaseBtn}${driveReverseRailBtn}${renderBloomscapesDriveDispatchActions(item,renderMeta,sourceView)}`.trim();
     let quickRequestBtn = '';
     if (includeDriveBloomPickerBtn || driveBottomExtraHtml) {
         quickRequestBtn = getInventoryCardBottomRailHtml(item.DOM_ID, driveBottomExtraHtml, { includeCart: includeDriveBloomPickerBtn, sourceView });
@@ -139,7 +139,7 @@ function renderDriveInventoryCardMarkup(context) {
     const driveChipRowHtml = `${buildCompletedRowBadge(item)}${buildEvalOwnerBadge(item)}${buildDriveEarlyABadgeHtml(item)}${driveFieldChipsHtml}`.trim();
     const driveCardActionClass = `${quickRequestBtn ? 'app-card-with-bottom-rail' : ''} ${driveReclassActionHtml ? 'app-drive-card-with-reclass' : ''}`.trim();
 
-    return `<div class="flex items-center w-full mb-3 item-row app-smart-card app-smart-card--inventory app-drive-compact-card ${sourceView === 'drive' ? 'app-shared-drive-layout' : ''} app-inventory-card-overhaul ${seasonCardShellClass} ${driveCardActionClass} relative ${inventoryCardToneClass} p-4 rounded-xl border shadow-sm active:scale-[0.99] transition-transform cursor-pointer overflow-hidden ${holdBorderClass}" data-dom-id="${item.DOM_ID}" oncontextmenu="return handleCardContextMenu(event, '${item.DOM_ID}')" ${buildExactInventoryCardActivationAttrs(item, renderMeta.originView || sourceView, 'Open drive row')}>${driveCheckboxHtml}${buildSharedInventoryCardLayout(item, { photoHtml: inlineThumbHtml, actionsHtml: driveReclassActionHtml, headerHtml: driveListPriceHtml, metricsHtml: driveQuantityRowHtml, detailsHtml: `${driveSpecHtml}${driveAvNoteHtml}${quickRequestBtn ? `<div class="app-drive-card-bottom">${quickRequestBtn}</div>` : ''}${driveHoldDataHtml}${driveChipRowHtml ? `<div class="app-drive-card-chip-row">${driveChipRowHtml}</div>` : ''}${noteHtml}${customerOutreachHtml}${inventoryEditActionHtml}` })}</div>`;
+    return `<div class="flex items-center w-full mb-3 item-row app-smart-card app-smart-card--inventory app-drive-compact-card ${sourceView === 'drive' ? 'app-shared-drive-layout' : ''} app-inventory-card-overhaul ${seasonCardShellClass} ${driveCardActionClass} relative ${inventoryCardToneClass} p-4 rounded-xl border shadow-sm active:scale-[0.99] transition-transform cursor-pointer overflow-hidden ${holdBorderClass}" data-dom-id="${item.DOM_ID}" oncontextmenu="return handleCardContextMenu(event, '${item.DOM_ID}')" ${bloomscapesDriveCardActivation(item,renderMeta,sourceView)}>${driveCheckboxHtml}${buildSharedInventoryCardLayout(item, { photoHtml: inlineThumbHtml, actionsHtml: driveReclassActionHtml, headerHtml: driveListPriceHtml, metricsHtml: driveQuantityRowHtml, detailsHtml: `${driveSpecHtml}${driveAvNoteHtml}${quickRequestBtn ? `<div class="app-drive-card-bottom">${quickRequestBtn}</div>` : ''}${driveHoldDataHtml}${driveChipRowHtml ? `<div class="app-drive-card-chip-row">${driveChipRowHtml}</div>` : ''}${noteHtml}${customerOutreachHtml}${inventoryEditActionHtml}` })}</div>`;
 }
 
 function renderDriveInventoryCard(context) {

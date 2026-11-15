@@ -18,12 +18,13 @@ function renderBloomscapesWorkCreator(tab) {
       <label>Media <input name="media" maxlength="120"></label><label>Fertilizer recipe <input name="fertilizer" maxlength="120"></label>
       <label>Due Date <input name="dueOn" type="date"></label>
       <label>Field Instructions <textarea name="instructions" maxlength="4000"></textarea></label>
+      <label><input name="acknowledge" type="checkbox" value="true"> I reviewed the 14-day outbound SOC / hold warning for shear work</label>
       <button type="button" data-simulate-work>Simulate · 7 gates</button><button type="submit">Create Work in Que</button>
       <button type="button" data-clear-work>Clear draft</button>
       <div data-work-preview role="status"></div></form></section>`;
 }
 
-async function mountBloomscapesWorkCreator(host) {
+async function mountBloomscapesWorkCreator(host,options={}) {
     const root = host.querySelector('[data-work-creator]');
     if (!root) return;
     const owner = getSupabaseReadIdentityScope();
@@ -32,12 +33,18 @@ async function mountBloomscapesWorkCreator(host) {
     for (const option of form.elements.workView.options) {
         option.disabled = !isFullAppAdministrator() && bloomscapesFieldQueueState.canCreate?.[option.value]!==true;
     }
-    mountBloomscapesWorkBrowser(root.querySelector('[data-work-browser]'),row=>{
-        state.source = row;
-        form.elements.sourceId.value = String(row.UNIQUE_ID || row.unique_id);
-        root.querySelector('[data-selected-source]').textContent = [row.COMMONNAME || row.commonname,
-            row.ITEMCODE || row.itemcode,row.LOCATIONCODE || row.locationcode,row.LOTCODE || row.lotcode].join(' · ');
+    const browser=root.querySelector('[data-work-browser]');
+    mountBloomscapesWorkBrowser(browser,row=>selectBloomscapesWorkSource(root,form,state,row),
+        {getWorkView:()=>form.elements.workView.value});
+    form.elements.workView.addEventListener('change',()=>{
+        syncBloomscapesWorkCreatorKind(form);refreshBloomscapesWorkBrowser(browser);
     });
+    syncBloomscapesWorkCreatorKind(form);
+    if (options.source) {
+        selectBloomscapesWorkSource(root,form,state,options.source);
+        form.elements.scope.value='ITEM_LOCATION';form.elements.percent.value='100';
+        browser.hidden=options.quick===true;
+    }
     bindBloomscapesWorkCreator(form,state);
     const locations = [...new Set(bloomscapesWorkBrowserRows().map(row=>row.LOCATIONCODE || row.locationcode))].filter(Boolean).sort();
     locations.forEach(location=>form.elements.targetLocation.appendChild(new Option(location,location)));
@@ -47,6 +54,25 @@ async function mountBloomscapesWorkCreator(host) {
         roster.forEach(user=>form.elements.assignedTo.appendChild(new Option(user.name,user.username)));
         form.elements.assignedTo.value = currentUser;
     } catch (error) { root.querySelector('[data-work-preview]').textContent = error.message; }
+}
+
+function selectBloomscapesWorkSource(root,form,state,row) {
+    state.source=row;state.attempt=null;
+    form.elements.sourceId.value=String(row.UNIQUE_ID || row.unique_id);
+    root.querySelector('[data-selected-source]').textContent=[row.COMMONNAME || row.commonname,
+        row.ITEMCODE || row.itemcode,row.LOCATIONCODE || row.locationcode,row.LOTCODE || row.lotcode].join(' · ');
+    let preview=root.querySelector('[data-selected-work-identity]');
+    if (!preview) {preview=document.createElement('div');preview.dataset.selectedWorkIdentity='true';root.querySelector('form').before(preview);}
+    preview.innerHTML=bloomscapesWorkIdentityMarkup(row);
+}
+
+function syncBloomscapesWorkCreatorKind(form) {
+    const kind=form.elements.workView.value;
+    const actions={SHEARING:['Shear %','Whole-group Shear'],HAULING:['Consolidate Inventory','Whole-group Consolidation','Block Haul'],
+        BUNCH_NOTES:['Bunch & Tie','Consolidate / Jam','Spread','House Cover / Poly','Remove Cover','Custom Field Instructions','Custom Bunch Note'],
+        CAN_FILLING:['Can Fill Prep','Can Filling'],Y_GRADING:['Grade & Shift']}[kind];
+    form.elements.actionType.replaceChildren(...actions.map(action=>new Option(action,action)));
+    form.elements.targetLocation.required=kind==='HAULING';
 }
 
 function readBloomscapesWorkCreatorInput(form,state) {
@@ -60,6 +86,7 @@ function bindBloomscapesWorkCreator(form,state) {
     const status = form.querySelector('[data-work-preview]');
     form.querySelector('[data-clear-work]').addEventListener('click',()=>{
         form.reset();
+        form.closest('[data-work-creator]').querySelector('[data-selected-work-identity]')?.remove();
         form.elements.sourceId.value = '';
         form.elements.assignedTo.value = currentUser;
         state.source = null;

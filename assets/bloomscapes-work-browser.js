@@ -23,57 +23,93 @@ function bloomscapesWorkBrowserIdentity(row) {
         item:row.ITEMCODE || row.itemcode || '',lot:row.LOTCODE || row.lotcode || ''};
 }
 
-function mountBloomscapesWorkBrowser(host,onSelect) {
-    const owner = getSupabaseReadIdentityScope();
-    const search = host.appendChild(document.createElement('input'));
-    search.type = 'search';
-    search.placeholder = 'Search Drive Mode items, locations or lots';
-    search.setAttribute('aria-label','Search work source inventory');
-    const selectors = appendBloomscapesWorkBrowserFilters(host);
-    const status = host.appendChild(document.createElement('p'));
-    const list = host.appendChild(document.createElement('div'));
-    list.dataset.workSourceCards = 'true';
-    const next = host.appendChild(document.createElement('button'));
-    next.type = 'button';
-    next.textContent = 'Next 40 rows';
-    let offset = 0;
-    const render = ()=>{
-        if (owner!==getSupabaseReadIdentityScope()) return;
-        const filters = Object.fromEntries(selectors.map(select=>[select.dataset.field,select.value]));
-        const rows = bloomscapesWorkBrowserRows(search.value,filters);
-        status.textContent = `${rows.length} rows · ${getBloomscapesFarm()}`;
-        list.replaceChildren(...rows.slice(offset,offset+40).map(row=>bloomscapesWorkSourceCard(row,onSelect)));
-        next.disabled = offset+40>=rows.length;
-    };
-    const reset = ()=>{offset=0;render();};
-    search.addEventListener('input',reset);
-    selectors.forEach(select=>select.addEventListener('change',reset));
-    next.addEventListener('click',()=>{offset+=40;render();});
-    render();
+const bloomscapesWorkBrowserControllers=new WeakMap();
+
+function mountBloomscapesWorkBrowser(host,onSelect,options={}) {
+    const state={owner:getSupabaseReadIdentityScope(),mode:'block',path:[],offset:0,onSelect,options};
+    host.innerHTML='<nav data-work-modes><button type="button" data-work-mode="block">📍 Block View</button>'
+        +'<button type="button" data-work-mode="common">🌿 Common Name View</button></nav>'
+        +'<input type="search" data-work-search aria-label="Search work source inventory" placeholder="Search Drive Mode items, locations or lots">'
+        +'<button type="button" data-work-back>Back in work inventory</button><p data-work-breadcrumb></p>'
+        +'<p data-work-browser-status></p><div data-work-source-cards class="bloomscapes-work-cards"></div>'
+        +'<button type="button" data-work-next>Next 40 rows</button>';
+    host.querySelector('[data-work-search]').addEventListener('input',()=>{state.offset=0;renderBloomscapesWorkBrowser(host,state);});
+    host.querySelector('[data-work-modes]').addEventListener('click',event=>{
+        const mode=event.target.closest('[data-work-mode]')?.dataset.workMode;
+        if (!mode) return;
+        state.mode=mode;state.path=[];state.offset=0;renderBloomscapesWorkBrowser(host,state);
+    });
+    const back=()=>{if (!state.path.length) return false;state.path.pop();state.offset=0;renderBloomscapesWorkBrowser(host,state);return true;};
+    host.querySelector('[data-work-back]').addEventListener('click',back);
+    host.querySelector('[data-work-next]').addEventListener('click',()=>{state.offset+=40;renderBloomscapesWorkBrowser(host,state);});
+    bloomscapesWorkBrowserControllers.set(host,{back,refresh:()=>{state.path=[];state.offset=0;renderBloomscapesWorkBrowser(host,state);}});
+    renderBloomscapesWorkBrowser(host,state);
 }
 
-function appendBloomscapesWorkBrowserFilters(host) {
-    const rows = bloomscapesWorkBrowserRows();
-    return ['common','size','season','location'].map(field=>{
-        const select = host.appendChild(document.createElement('select'));
-        select.dataset.field = field;
-        select.setAttribute('aria-label',`Work source ${field}`);
-        select.appendChild(new Option(`All ${field}`,''));
-        const values = [...new Set(rows.map(row=>bloomscapesWorkBrowserIdentity(row)[field]))].filter(Boolean).sort();
-        values.forEach(value=>select.appendChild(new Option(value,value)));
-        return select;
+function bloomscapesWorkLocationParts(row) {
+    const location=String(row.LOCATIONCODE || row.locationcode || '').split('.');
+    return [String(row.BLOCKALPHA || row.blockalpha || location[0] || 'Other'),
+        String(row.BLOCKNUMBER || row.blocknumber || location[1] || 'Other'),row.LOCATIONCODE || row.locationcode || 'No location'];
+}
+
+function bloomscapesWorkBrowseProjection(host,state) {
+    const search=host.querySelector('[data-work-search]').value;
+    const kind=state.options.getWorkView?.();
+    const all=bloomscapesWorkBrowserRows(search).filter(row=>kind!=='Y_GRADING' || ['Y','.Y'].includes(String(row.SEASON || row.season).toUpperCase()));
+    const rows=all.filter(row=>{
+        const parts=state.mode==='block' ? bloomscapesWorkLocationParts(row) : [bloomscapesWorkBrowserIdentity(row).common];
+        return state.path.every((part,index)=>part===parts[index]);
     });
+    const leaf=search.trim()!=='' || state.path.length===(state.mode==='block' ? 3 : 1);
+    if (leaf) return {rows,leaf,groups:[]};
+    const groups=new Map();
+    for (const row of rows) {
+        const parts=state.mode==='block' ? bloomscapesWorkLocationParts(row) : [bloomscapesWorkBrowserIdentity(row).common];
+        const key=parts[state.path.length] || 'No common name recorded';
+        groups.set(key,(groups.get(key) || 0)+1);
+    }
+    return {rows,leaf,groups:[...groups].sort(([a],[b])=>a.localeCompare(b,undefined,{numeric:true}))};
+}
+
+function renderBloomscapesWorkBrowser(host,state) {
+    if (state.owner!==getSupabaseReadIdentityScope()) return;
+    const projection=bloomscapesWorkBrowseProjection(host,state);
+    host.querySelector('[data-work-browser-status]').textContent=`${projection.rows.length} rows · ${getBloomscapesFarm()}`;
+    host.querySelector('[data-work-breadcrumb]').textContent=[state.mode==='block' ? 'Block View' : 'Common Name View',...state.path].join(' → ');
+    host.querySelector('[data-work-back]').hidden=state.path.length===0;
+    for (const button of host.querySelectorAll('[data-work-mode]')) button.setAttribute('aria-pressed',String(button.dataset.workMode===state.mode));
+    const list=host.querySelector('[data-work-source-cards]');
+    const cards=projection.leaf ? projection.rows.slice(state.offset,state.offset+40).map(row=>bloomscapesWorkSourceCard(row,state.onSelect))
+        : projection.groups.map(([key,count])=>bloomscapesWorkBrowseGroup(host,state,key,count));
+    list.replaceChildren(...cards);
+    host.querySelector('[data-work-next]').hidden=!projection.leaf;
+    host.querySelector('[data-work-next]').disabled=state.offset+40>=projection.rows.length;
+}
+
+function bloomscapesWorkBrowseGroup(host,state,key,count) {
+    const button=document.createElement('button');
+    button.type='button';button.dataset.workBrowseGroup=key;
+    button.className='bloomscapes-work-group';button.textContent=key+' · '+count+' rows';
+    button.addEventListener('click',()=>{state.path.push(key);state.offset=0;renderBloomscapesWorkBrowser(host,state);});
+    return button;
 }
 
 function bloomscapesWorkSourceCard(row,onSelect) {
-    const canonical = resolveCanonicalInventoryRow(row);
-    const identity = bloomscapesWorkBrowserIdentity(canonical);
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.dataset.workSourceRow = String(row.UNIQUE_ID || row.unique_id);
-    button.className = 'bloomscapes-work-source';
-    button.textContent = [identity.common,identity.size,identity.item,identity.location,identity.lot,
-        `On Hand ${canonical.PTRONHAND ?? canonical.ptronhand ?? 'Unknown'}`].join(' · ');
+    const card=document.createElement('article');
+    card.innerHTML=bloomscapesWorkIdentityMarkup(row);
+    const button=card.appendChild(document.createElement('button'));
+    button.type='button';button.dataset.workSourceRow=String(row.UNIQUE_ID || row.unique_id);
+    button.textContent='Select this physical row';
     button.addEventListener('click',()=>onSelect(row));
-    return button;
+    return card;
+}
+
+function refreshBloomscapesWorkBrowser(host) {
+    bloomscapesWorkBrowserControllers.get(host)?.refresh();
+}
+
+function backBloomscapesActiveWorkBrowser() {
+    const root=document.querySelector('dialog[open]') || document.getElementById('view-'+getCurrentVisibleViewId());
+    const host=root?.querySelector('[data-work-browser]:not([hidden])');
+    return bloomscapesWorkBrowserControllers.get(host)?.back() || false;
 }

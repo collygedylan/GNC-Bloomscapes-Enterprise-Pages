@@ -42,6 +42,11 @@ async function createBloomscapesFieldWork(command) {
         || receipt.work_view!==command.input.workView || receipt.scope!==command.input.scope) {
         throw new Error('Work creation was not confirmed for this farm and scope.');
     }
+    const snapshot=receipt.source_snapshot;
+    if (snapshot && (snapshot.source_record_kind!=='DRIVE' || snapshot.is_drive_row!==true
+        || snapshot.warehouse_id!==command.farm || snapshot.unique_id!==command.input.sourceId)) {
+        throw new Error('Work source snapshot did not match the exact Drive row.');
+    }
     return receipt;
 }
 

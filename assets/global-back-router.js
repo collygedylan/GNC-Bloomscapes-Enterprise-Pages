@@ -4,7 +4,10 @@ function goBackUniversal() {
     if (getManagerAssignedColumnState().editor) return closeManagerAssignedColumnFilter();
     const currentView=getCurrentVisibleViewId();
     if (isDrawerOpen()) { setMenuOpenState(false); updateGlobalBackButton(); return false; }
+    if (currentView==='docks' && dockViewLevel>0) return backGlobalDocksSurface({restoreViewBack:restoreGlobalViewBack,currentView});
+    if (typeof backBloomscapesActiveWorkBrowser==='function' && backBloomscapesActiveWorkBrowser()) return false;
     if (closeOpenInteractiveSurfaceForBack()) return false;
+    if (typeof backBloomscapesDepartmentWorkspace==='function' && backBloomscapesDepartmentWorkspace(currentView)) return false;
     if (currentView==='managers') return backGlobalManagersSurface({restoreViewBack:restoreGlobalViewBack,currentView});
     const parent=Array.isArray(viewHistoryStack)?viewHistoryStack.at(-1):null;
     if (currentView==='drive' && parent?.directDriveEntry && restorePreviousViewFromHistory()) return false;

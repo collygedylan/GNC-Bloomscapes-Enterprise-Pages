@@ -1,4 +1,5 @@
 const BLOOMSCAPES_WORKFLOW_TABS = [
+    {id:'bloomscapes-studio',label:'Field Work Studio'},
     {id:'bloomscapes-inventory',label:'Farm Inventory'},
     {id:'bloomscapes-replenishment',label:'Intercompany Replenishment & CPB'},
     {id:'bloomscapes-dock-approvals',label:'Dock Rep Approvals'},
@@ -23,8 +24,6 @@ function workflowForm(tab) {
     if (tab === 'bloomscapes-inventory') {
         return '';
     }
-    if (tab === 'bloomscapes-replenishment') return '<label>Origin <select data-origin-filter><option>ALL</option><option>60-HL</option><option>20-TX</option><option>40-NC</option></select></label>'
-        + '<label><input type="checkbox" data-po-history> Show Completed / 0-Balance History</label>';
     if (bloomscapesFieldPanel(tab)) return renderBloomscapesWorkCreator(tab);
     if (tab === 'bloomscapes-vault') {
         return '<label>Search <input name="search" type="search"></label><label>User <input name="user"></label>'
@@ -38,6 +37,8 @@ function workflowForm(tab) {
 }
 
 function renderBloomscapesWorkflowPanel(tab) {
+    if (tab === 'bloomscapes-studio') return renderBloomscapesWorkStudio();
+    if (tab === 'bloomscapes-replenishment') return renderBloomscapesTransferBuilder();
     if (tab === 'bloomscapes-radio') return renderBloomscapesRadioControls();
     const workflow = bloomscapesWorkflowTab(tab);
     const form = workflowForm(tab);
@@ -51,7 +52,6 @@ function renderBloomscapesWorkflowPanel(tab) {
 
 const workflowFields = {
     'bloomscapes-inventory': ['warehouse_id','unique_id','itemcode','commonname','locationcode','lotcode','ptronhand'],
-    'bloomscapes-replenishment': ['origin_farm','itemcode','contsize','locationcode','lotcode'],
     'bloomscapes-dock-approvals': ['itemcode','dock','order_unique_id','candidate_locationcode','decision'],
     'bloomscapes-hl-keying': ['itemcode','lotcode','locationcode','field_name','qty_delta','reason_code','actor_username'],
     'bloomscapes-field-jobs': ['unique_id','record_kind','itemcode','locationcode','new_locationcode','graded_qty','qty_hauled','job_status'],
@@ -86,21 +86,18 @@ function renderDockWorkflowRow(item, row, run) {
     dockApprovalButtons(item, row, run);
 }
 
-function showWorkflowRows(host, tab, rows, run, refresh) {
+function showWorkflowRows(host, tab, rows, run) {
     const results = host.querySelector('[data-bloomscapes-results]');
     results.replaceChildren();
     const list = appendWorkflowNode(results, 'ul', '');
     list.className = 'divide-y divide-emerald-900';
-    const origin=host.querySelector('[data-origin-filter]')?.value || 'ALL';
-    rows.filter(row=>tab!=='bloomscapes-replenishment' || origin==='ALL' || row.origin_farm===origin).forEach(row => {
+    rows.forEach(row => {
         const item = appendWorkflowNode(list, 'li', '');
         item.className = 'py-2 space-x-2';
         const keys = workflowFields[tab] || workflowFields['bloomscapes-field-jobs'];
         const fields = keys.map(key => row[key]).filter(value => value != null && value !== '');
         appendWorkflowNode(item, 'span', fields.join(' · '));
-        if (tab === 'bloomscapes-replenishment') {
-            renderBloomscapesPOCard(item,row,refresh);
-        } else renderBloomscapesFieldExtras(item,tab,row);
+        renderBloomscapesFieldExtras(item,tab,row);
         if (tab === 'bloomscapes-dock-approvals') renderDockWorkflowRow(item, row, run);
         if (tab === 'bloomscapes-vault') renderBloomscapesVaultPdf(item,row);
     });
@@ -117,6 +114,8 @@ function printLabSample(host, code, farm) {
 }
 
 function mountBloomscapesWorkflowPanel(container, tab) {
+    if (tab==='bloomscapes-replenishment') return void mountBloomscapesTransferBuilder(container);
+    if (tab === 'bloomscapes-studio') return void mountBloomscapesWorkStudio(container);
     if (tab === 'bloomscapes-radio') return mountBloomscapesRadioControls(container);
     const host = container.querySelector('[data-bloomscapes-workflow]');
     if (!host) return;
@@ -128,12 +127,11 @@ function mountBloomscapesWorkflowPanel(container, tab) {
         status.textContent = 'Loading…';
         const commit = text => { if (host.isConnected && epoch === generation) status.textContent = text; };
         try {
-            const rows = await readBloomscapesPanel(tab, {...inputs,includeHistory:host.querySelector('[data-po-history]')?.checked===true});
+            const rows = await readBloomscapesPanel(tab, inputs);
             if (!host.isConnected || epoch !== generation) return;
-            showWorkflowRows(host, tab, rows, decide, load);
-            const origin = host.querySelector('[data-origin-filter]')?.value || 'ALL';
-            commit(rows.filter(row=>origin==='ALL' || row.origin_farm===origin).length + ' records shown');
-            bindBloomscapesPanelFilters(host,tab,rows,decide,load);
+            showWorkflowRows(host, tab, rows, decide);
+            commit(rows.length + ' records shown');
+            bindBloomscapesPanelFilters(host,tab,rows,decide);
         } catch (error) {
             commit(error.message);
         }
@@ -177,17 +175,9 @@ function bindBloomscapesPanelForm(host,tab,status,load) {
     });
 }
 
-function bindBloomscapesPanelFilters(host,tab,rows,decide,load) {
-    const history = host.querySelector('[data-po-history]');
-    if (history) history.onchange=()=>void load();
-    if(tab==='bloomscapes-vault') bindBloomscapesVaultFilter(host,rows,
-        matches=>showWorkflowRows(host,tab,matches,decide,load));
-    const origin=host.querySelector('[data-origin-filter]');
-    if (origin) origin.onchange=()=>{
-        showWorkflowRows(host,tab,rows,decide,load);
-        const count = rows.filter(row=>origin.value==='ALL' || row.origin_farm===origin.value).length;
-        host.querySelector('[role="status"]').textContent = count+' records shown';
-    };
+function bindBloomscapesPanelFilters(host,tab,rows,decide) {
+    if (tab==='bloomscapes-vault') bindBloomscapesVaultFilter(host,rows,
+        matches=>showWorkflowRows(host,tab,matches,decide));
 }
 
 function bloomscapesInquiryPdfForm() {
