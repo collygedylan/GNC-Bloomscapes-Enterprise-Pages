@@ -102,7 +102,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.0.86';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.0.87';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -4897,127 +4897,7 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
             return Math.min(total, 3);
         }
 
-        function syncHomeDashboardPhoneFit(reason = 'default') {
-            homeDashboardFitFrame = 0;
-            const profile = getResponsiveViewportProfile();
-            syncHomeDashboardBodyMode(false);
-            const isEligibleHome = !!(
-                document.body
-                && document.body.classList.contains('current-view-home')
-                && document.body.classList.contains('home-dashboard-mode')
-                && !document.body.classList.contains('keyboard-open')
-                && !document.body.classList.contains('detail-field-active')
-                && !document.body.classList.contains('measurement-keyboard-open')
-            );
-            if (!isEligibleHome) {
-                clearHomeDashboardPhoneFit();
-                return false;
-            }
-
-            const homeView = document.getElementById('view-home');
-            const mainArea = document.getElementById('main-scroll-area');
-            const bottomNav = document.getElementById('bottom-nav');
-            const grid = getActiveHomeDashboardGrid();
-            if (!homeView || !mainArea || !grid || homeView.classList.contains('hidden')) {
-                clearHomeDashboardPhoneFit();
-                return false;
-            }
-
-            const visibleTiles = Array.from(grid.children || []).filter(isHomeDashboardTileVisible);
-            const mainRect = mainArea.getBoundingClientRect();
-            const gridRect = grid.getBoundingClientRect();
-            const navRect = bottomNav && bottomNav.getClientRects && bottomNav.getClientRects().length ? bottomNav.getBoundingClientRect() : null;
-            const visualViewport = window.visualViewport || null;
-            const visualBottom = visualViewport
-                ? Math.round((visualViewport.offsetTop || 0) + (visualViewport.height || 0))
-                : Math.round(window.innerHeight || document.documentElement.clientHeight || mainRect.bottom || 0);
-            const navTop = navRect && navRect.height > 0 ? navRect.top : visualBottom;
-            const contentBottom = Math.floor(Math.min(mainRect.bottom || visualBottom, navTop || visualBottom, visualBottom) - 4);
-            const gridTop = Math.ceil(gridRect.top || 0);
-            const availableHeight = Math.max(0, contentBottom - gridTop);
-            if (!availableHeight || gridTop <= 0) {
-                if (homeDashboardFitTimer) clearTimeout(homeDashboardFitTimer);
-                homeDashboardFitTimer = setTimeout(() => {
-                    homeDashboardFitTimer = null;
-                    scheduleHomeDashboardFit(`settled:${reason || 'home-fit'}`, true);
-                }, 120);
-                return false;
-            }
-
-            const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
-            const compactHomeLayout = profile.width < 768;
-            let rowGapPx = compactHomeLayout ? 8 : 12;
-            const colGapPx = compactHomeLayout ? 8 : 12;
-            let columnCount = compactHomeLayout ? 2 : getHomeDesktopColumnCount(visibleTiles.length);
-            const candidateColumns = [columnCount];
-            const clearanceTargetPx = !compactHomeLayout
-                ? clamp(Math.round(profile.height * 0.036), 24, 48)
-                : clamp(Math.round(profile.height * 0.018), 8, 18);
-            const hardMinPx = compactHomeLayout ? 54 : 72;
-            const gridWidth = Math.max(0, Math.floor(gridRect.width || grid.clientWidth || 0));
-            const calculateFit = (columns) => {
-                const rows = Math.max(1, Math.ceil(visibleTiles.length / columns));
-                const height = Math.floor((availableHeight - clearanceTargetPx - (rowGapPx * Math.max(0, rows - 1))) / rows);
-                const width = Math.floor((gridWidth - (colGapPx * Math.max(0, columns - 1))) / columns);
-                return { columns, rows, height, width };
-            };
-            let fit = calculateFit(columnCount);
-            candidateColumns.forEach((candidate) => {
-                if (fit.height >= hardMinPx || candidate <= fit.columns || candidate > visibleTiles.length) return;
-                const next = calculateFit(candidate);
-                if (next.width >= hardMinPx) fit = next;
-            });
-            columnCount = fit.columns;
-            const rowCount = fit.rows;
-            let fitTilePx = fit.height;
-            if (fitTilePx < hardMinPx && rowGapPx > 2) {
-                rowGapPx = 2;
-                fit = calculateFit(columnCount);
-                fitTilePx = fit.height;
-            }
-            const tilePx = Math.max(hardMinPx, Math.min(compactHomeLayout ? 72 : 104, fitTilePx));
-            const cardWidthPx = Math.max(hardMinPx, fit.width);
-            const iconPx = compactHomeLayout ? 20 : clamp(Math.round(tilePx * 0.30), 24, 32);
-            const labelPx = compactHomeLayout ? 12 : clamp(Math.round(tilePx * 0.14), 12, 15);
-            const tileGapPx = compactHomeLayout ? 4 : clamp(Math.round(tilePx * 0.06), 3, 6);
-            const paddingYPx = compactHomeLayout ? 6 : clamp(Math.round(tilePx * 0.09), 6, 10);
-            const nextKey = [
-                profile.width,
-                profile.height,
-                visibleTiles.length,
-                columnCount,
-                rowCount,
-                availableHeight,
-                tilePx,
-                cardWidthPx,
-                clearanceTargetPx,
-                rowGapPx,
-                colGapPx,
-                iconPx,
-                labelPx
-            ].join(':');
-            if (homeDashboardFitLastKey === nextKey) return true;
-            homeDashboardFitLastKey = nextKey;
-            homeView.style.setProperty('--home-fit-columns', String(columnCount));
-            homeView.style.setProperty('--home-fit-tile-height', `${tilePx}px`);
-            homeView.style.setProperty('--home-fit-row-gap', `${rowGapPx}px`);
-            homeView.style.setProperty('--home-fit-col-gap', `${colGapPx}px`);
-            homeView.style.setProperty('--home-fit-card-width', `${cardWidthPx}px`);
-            homeView.style.setProperty('--home-fit-bottom-clearance', `${clearanceTargetPx}px`);
-            homeView.style.setProperty('--home-fit-available-height', `${availableHeight}px`);
-            homeView.style.setProperty('--home-phone-tile-height', `${tilePx}px`);
-            homeView.style.setProperty('--home-phone-row-gap', `${rowGapPx}px`);
-            homeView.style.setProperty('--home-phone-col-gap', `${colGapPx}px`);
-            homeView.style.setProperty('--home-phone-tile-padding-y', `${paddingYPx}px`);
-            homeView.style.setProperty('--home-phone-tile-gap', `${tileGapPx}px`);
-            homeView.style.setProperty('--home-phone-icon-size', `${iconPx}px`);
-            homeView.style.setProperty('--home-phone-label-size', `${labelPx}px`);
-            homeView.dataset.homeFitComplete = String(fitTilePx >= hardMinPx);
-            homeView.dataset.homeFitColumns = String(columnCount);
-            homeView.dataset.homeFitRows = String(rowCount);
-            homeView.dataset.homeFitClearance = String(clearanceTargetPx);
-            return true;
-        }
+        /* @runtime-fragment assets/home-dashboard-fit.js */
 
         function observeHomeDashboardFitElements() {
             if (!window.ResizeObserver) return false;
@@ -9571,16 +9451,6 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
             const raw = hasAggregate ? item.LOC_ON_HAND : item.loc_on_hand;
             const parsed = parseAppNumber(raw);
             return { present: true, verified: true, value: parsed == null ? (raw === null ? null : unknown) : parsed };
-        }
-
-        function getInventoryCardItemLocationKey(item = null) {
-            if (!item || typeof item !== 'object') return '';
-            const helper = window.AgMetricQueueInventory;
-            const itemValue = firstNonEmptyValue(item.ITEMCODE, item.itemcode, item.ITEM, '');
-            const locationValue = firstNonEmptyValue(item.LOCATIONCODE, item.locationcode, item.location_code, item.LOCATION, item.location, '');
-            const itemCode = helper ? helper.normalizeItem(itemValue) : normalizeNcrInheritanceKeyPart(itemValue);
-            const locationCode = helper ? helper.normalizeLocation(locationValue) : normalizeNcrInheritanceKeyPart(locationValue);
-            return itemCode && locationCode ? JSON.stringify([itemCode, locationCode]) : '';
         }
 
         function addInventoryCardLocationOnHand(index = new Map(), item = null) {
@@ -16930,30 +16800,6 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
 
         function scheduleCoalescedViewRender(view, render, signature) { return scheduleStableViewRender(view, render, signature); }
 
-        function getSupabaseReadIdentityScope() {
-            return JSON.stringify([
-                typeof SUPABASE_URL === 'string' ? SUPABASE_URL : '',
-                typeof nativeAuthSessionActive !== 'undefined' && !!nativeAuthSessionActive,
-                typeof nativeAuthProfile !== 'undefined' ? nativeAuthProfile?.id || '' : '',
-                typeof currentUser !== 'undefined' ? String(currentUser || '').trim().toLowerCase() : '',
-                typeof currentRole !== 'undefined' ? String(currentRole || '').trim().toLowerCase() : '',
-                typeof currentUserDivision !== 'undefined' ? String(currentUserDivision || '') : '',
-                typeof getCurrentLoginCacheScopeKey === 'function' ? getCurrentLoginCacheScopeKey() : '',
-                // A learned revision hash is not a session boundary. Reads keep
-                // their account owner while server-side permission checks refresh.
-                productionLiveSyncReadAuthEpoch
-            ]);
-        }
-
-        function getProductionRealtimeOwnerKey() {
-            // A channel belongs to the authenticated account, not to a read.
-            // The read permission version is learned AFTER the channel opens;
-            // including it here would silently discard every subsequent event.
-            return JSON.stringify([SUPABASE_URL, nativeAuthSessionActive, nativeAuthProfile?.id || '',
-                String(currentUser || '').trim().toLowerCase(), String(currentRole || '').trim().toLowerCase(),
-                String(currentUserDivision || ''), productionLiveSyncReadAuthEpoch]);
-        }
-
         function staleSupabaseReadScopeError() {
             const error = new Error('The account or data permissions changed while loading. This response was discarded.');
             error.code = 'DATASET_READ_SCOPE_CHANGED';
@@ -20464,24 +20310,6 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
                 return payload.data;
             }, { signal: retainRead ? null : (options.signal || null), retainOnGenerationChange: retainRead });
         }
-        async function fetchInventoryReadPage(operation, params = {}, limit = INITIAL_PAGE_LIMIT, offset = 0, options = {}) {
-            const safeLimit = Math.max(1, Math.min(1000, Math.floor(Number(limit) || INITIAL_PAGE_LIMIT)));
-            const safeOffset = Math.max(0, Math.floor(Number(offset) || 0));
-            const exactLookup = params.dataset === 'lookup' && !!String(params.uniqueId || '').trim() && nativeAuthSessionActive;
-            if (operation === 'master_page' && (String(params.dataset || '').trim().toLowerCase() === 'master' || exactLookup)
-                && ['browse', 'full'].includes(String(params.projection || '').trim().toLowerCase())) {
-                return fetchDirectMasterInventoryPage(params, limit, safeOffset, options);
-            }
-            const result = await requestInventoryRead(operation, { ...params, limit: safeLimit, offset: safeOffset }, options);
-            if (!result || !Array.isArray(result.rows)) throw new Error('Inventory data returned an invalid page; verified cached rows were retained.');
-            validateInventoryReadProjection(result, params);
-            const total = result.total === null || result.total === undefined ? null : Number(result.total);
-            return { rows: result.rows, total: Number.isFinite(total) ? total : null, offset: safeOffset, limit: safeLimit, hasMore: result.hasMore === true,
-                projection: String(result.projection || params.projection || '').trim(),
-                fieldCoverage: String(result.fieldCoverage || '').trim(),
-                columns: Array.isArray(result.columns) ? result.columns.slice() : [] };
-        }
-
         function validateInventoryReadProjection(result = {}, params = {}) {
             const requested = String(params?.projection || '').trim().toLowerCase();
             if (!['browse', 'full'].includes(requested)) return true;
@@ -20496,43 +20324,6 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
                 throw new Error(`${requested === 'full' ? 'Full' : 'Browse'} inventory field coverage was missing or invalid; the partial snapshot was discarded.`);
             }
             return true;
-        }
-
-        async function fetchDirectMasterInventoryPage(params = {}, limit = INITIAL_PAGE_LIMIT, offset = 0, options = {}) {
-            const projection = String(params.projection || '').trim().toLowerCase();
-            const contract = window.AgMetricInventoryList;
-            const columns = projection === 'full' ? (contract?.readColumns || contract?.physicalColumns) : contract?.columns;
-            if (!['browse', 'full'].includes(projection) || !Array.isArray(columns) || !columns.length) {
-                throw new Error('Direct inventory projection is unavailable.');
-            }
-            const safeLimit = Math.max(1, Math.min(5000, Math.floor(Number(limit) || INITIAL_PAGE_LIMIT)));
-            const safeOffset = Math.max(0, Math.floor(Number(offset) || 0));
-            const afterUniqueId = String(options.afterUniqueId || '').trim();
-            const itemCode = String(params.itemCode || '').trim();
-            const pageBoundary = afterUniqueId
-                ? `unique_id=gt.${encodeURIComponent(afterUniqueId)}`
-                : `offset=${safeOffset}`;
-            const itemFilter = itemCode ? `&itemcode=eq.${encodeURIComponent(itemCode)}` : '';
-            const exactUid = String(params.uniqueId || '').trim();
-            const uidFilter = exactUid ? '&unique_id=eq.' + encodeURIComponent(exactUid) : '';
-            const query = `select=${columns.join(',')}&order=unique_id.asc&limit=${safeLimit}&${pageBoundary}${itemFilter}${uidFilter}`;
-            const page = await fetchAuthenticatedSupabaseReadPage('ph_master_inventory', query, {
-                timeoutMs: Number(options.timeoutMs) || SUPABASE_READ_TIMEOUT_MS,
-                count: false,
-                inventoryCsvColumns: columns,
-                signal: options.signal
-            });
-            const total = exactUid && !safeOffset ? page.rows.length : page.total == null ? null : Number(page.total);
-            return {
-                rows: page.rows,
-                total: Number.isFinite(total) ? total : null,
-                offset: safeOffset,
-                limit: safeLimit,
-                hasMore: Number.isFinite(total) ? safeOffset + page.rows.length < total : page.rows.length === safeLimit,
-                projection,
-                fieldCoverage: projection,
-                columns: columns.slice()
-            };
         }
 
         async function fetchDirectMasterInventoryItemRows(itemCode = '', options = {}) {
@@ -24613,7 +24404,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.0.86';
+        const APP_VERSION = '3.0.87';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -31778,44 +31569,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             return !!record && recordUsername === username;
         }
 
-        async function fetchAuthenticatedSupabaseReadPage(table, queryString = '', options = {}) {
-            const safeTable = normalizeAppTableName(table);
-            if (safeTable === 'ph_customer_consignee_sales_reps' && !hasAuthenticatedOperationalReadIdentity()) {
-                throw Object.assign(new Error('Customer mappings load after an authenticated session is ready.'), { code: 'DATASET_AUTH_REQUIRED' });
-            }
-            if (safeTable === 'ph_master_inventory' && /^\s*select=filename,last_updated(?:&|$)/i.test(String(queryString || ''))) {
-                const freshness = await requestInventoryRead('source_freshness', {}, { signal: options.signal, timeoutMs: options.timeoutMs, label: 'Drive source freshness' });
-                const hasFreshness = freshness && typeof freshness === 'object' && (freshness.filename != null || freshness.last_updated != null);
-                const row = hasFreshness ? freshness : null;
-                return { rows: row ? [row] : [], total: row ? 1 : 0, authSource: 'app-api' };
-            }
-            if (isDirectPostgrestReadTable(safeTable)) {
-                return await fetchDirectPostgrestReadPage(safeTable, queryString, options, true);
-            }
-            if (getAuthorizedDatasetRead(safeTable)) {
-                const params = new URLSearchParams(String(queryString || '').replace(/^\?/, ''));
-                const requestedLimit = Math.max(1, Math.min(500, Number(params.get('limit')) || 500));
-                const requestedOffset = Math.max(0, Number(params.get('offset')) || 0);
-                return await requestAuthorizedDatasetReadPage(safeTable, queryString, requestedLimit, requestedOffset, options);
-            }
-            if (getAvReadDataset(safeTable, queryString)) return requestAvReadPage(safeTable, queryString, options);
-            if (safeTable === 'ph_master_inventory') throw new Error('Raw browser inventory reads are disabled; use inventory_read operations.');
-            const opts = options && typeof options === 'object' ? options : {};
-            const timeoutMs = Math.max(1000, Number(opts.timeoutMs) || SUPABASE_READ_TIMEOUT_MS);
-            if (opts.signal?.aborted) throw Object.assign(new Error(`${safeTable} read cancelled.`), { code: 'REQUEST_ABORTED' });
-            const direct = await fetchDirectPostgrestReadPage(safeTable, queryString, opts, false);
-            if (direct) return direct;
-            if (nativeReadRequiresRls()) throw nativeSessionRecoveryError();
-
-            const rows = await runAppApiSupabaseWrite(safeTable, 'GET', null, String(queryString || '').trim(), { timeoutMs, signal: opts.signal });
-            if (!Array.isArray(rows)) throw new Error(`${safeTable} returned an invalid row response; previous verified data was retained.`);
-            return {
-                rows,
-                total: null,
-                authSource: 'app-api'
-            };
-        }
-
         async function fetchSupabaseRowsPage(table, query = 'select=*', limit = 1000, offset = 0, options = {}) {
             if (options.signal?.aborted) throw Object.assign(new Error('Data page read cancelled.'), { code: 'REQUEST_ABORTED' });
             table = normalizeAppTableName(table);
@@ -33266,19 +33019,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
                 if (sourceCode) return sourceCode;
             }
             return '';
-        }
-
-        function getMasterInventoryExactKey(item) {
-            if (!item) return '';
-            const helper = window.AgMetricQueueInventory;
-            const itemValue = firstNonEmptyValue(item.ITEMCODE, item.itemcode, item.ITEM, item.item, '');
-            const locationValue = firstNonEmptyValue(item.LOCATIONCODE, item.locationcode, item.LOCATION, item.location, '');
-            const itemCode = helper ? helper.normalizeItem(itemValue) : String(itemValue || '').trim().toUpperCase();
-            const locationCode = helper ? helper.normalizeLocation(locationValue) : String(locationValue || '').trim().toUpperCase();
-            const lotCode = String(item.LOTCODE || item.LOT || item.lotcode || item.lot || '').trim().toUpperCase();
-            const sourceCode = getMasterInventorySourceCode(item);
-            if (!itemCode || !locationCode || !lotCode || !sourceCode) return '';
-            return `${itemCode}__${locationCode}__${lotCode}__${sourceCode}`;
         }
 
         function createMasterInventoryIndexMaps() {
@@ -56925,41 +56665,6 @@ function toggleDriveQuickRequestItem(domId) {
             invalidateMasterDerivedInventories();
             invalidateResolvedViewStateCaches();
             return true;
-        }
-
-        function getScopedDocksItems(items = socInventory, cacheScopeKey = '') {
-            const { isAdmin, isRep, isQcSupervisor, isQc } = getRoleAccessState();
-            // Docks is an operational snapshot, not a date report. A missing or
-            // old PLANSTART value must never hide a currently imported dock row.
-            let nextItems = getActiveSuspendDockRows(Array.isArray(items) ? items : []).filter((row) => {
-                const dock = normalizeDockViewDockKey(firstNonEmptyValue(row && row.DOCK, row && row.dock, row && row.DOCK_NUM, row && row.dock_num, ''));
-                return dock !== 'Unassigned';
-            });
-            const scopeKey = String(firstNonEmptyValue(cacheScopeKey, items === socInventory ? getDatasetLoadSignature('soc') : '', '')).trim();
-            const canUseCache = !!scopeKey;
-            const cacheKey = canUseCache ? [
-                resolvedViewStateEpoch,
-                dockWorkflowStateEpoch,
-                scopeKey,
-                currentUser,
-                currentUserDisplay,
-                isAdmin ? '1' : '0',
-                isRep ? '1' : '0',
-                isQcSupervisor ? '1' : '0',
-                isQc ? '1' : '0'
-            ].join('|') : '';
-            if (canUseCache && docksScopedItemsCacheKey === cacheKey && Array.isArray(docksScopedItemsCache)) {
-                incrementInternalPerfCounter('viewStateCacheHits');
-                return docksScopedItemsCache.slice();
-            }
-            if (isRep) {
-                nextItems = nextItems.filter(item => isMyRep(firstNonEmptyValue(item && item.SALESREPNAME, item && item.SALESREP, item && item.SALES_REP, item && item.SALESREPID, '')));
-            }
-            if (canUseCache) {
-                docksScopedItemsCacheKey = cacheKey;
-                docksScopedItemsCache = nextItems.slice();
-            }
-            return nextItems;
         }
 
         function applyRolePermissions() {
@@ -119981,43 +119686,9 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
         function refreshRuntimeWatchdogBadge(force = false) { return runtimeWatchdogPanel.refreshBadge(force); }
         function refreshRuntimeWatchdogPanel() { return runtimeWatchdogPanel.refreshPanel(); }
         function copyRuntimeWatchdogFixBrief() { return runtimeWatchdogPanel.copyFixBrief(); }
-        /* @runtime-fragment assets/bloomscapes-workflows.js */ /* @runtime-fragment assets/bloomscapes-operations.js */ /* @runtime-fragment assets/bloomscapes-architecture.js */
+        /* @runtime-fragment assets/bloomscapes-farm-identity.js */ /* @runtime-fragment assets/bloomscapes-farm-state.js */ /* @runtime-fragment assets/bloomscapes-farm-read.js */ /* @runtime-fragment assets/bloomscapes-home.js */ /* @runtime-fragment assets/bloomscapes-field-controls.js */ /* @runtime-fragment assets/bloomscapes-lab.js */ /* @runtime-fragment assets/bloomscapes-lab-controls.js */ /* @runtime-fragment assets/bloomscapes-radio.js */ /* @runtime-fragment assets/bloomscapes-radio-controls.js */ /* @runtime-fragment assets/bloomscapes-dock.js */ /* @runtime-fragment assets/bloomscapes-dock-controls.js */ /* @runtime-fragment assets/bloomscapes-workflows.js */ /* @runtime-fragment assets/bloomscapes-vault-filter.js */
+        /* @runtime-fragment assets/bloomscapes-operations.js */ /* @runtime-fragment assets/bloomscapes-architecture.js */
         /* @runtime-fragment assets/manager-module-render.js */
-        const homeMarkupByNode = new WeakMap();
-        function renderHome() {
-            if (getCurrentVisibleViewId() !== 'home') return;
-            const dynamicContent = document.getElementById('home-dynamic-content');
-            const dashboardContent = document.getElementById('home-dashboard-content');
-            if (!dynamicContent || !dashboardContent) return;
-            syncGoogleScriptButton();
-            if (typeof updateDashboardSyncSummary === 'function') updateDashboardSyncSummary();
-            auditLocalRequestDurability('home').catch(() => {});
-            const dashboardSticky = document.getElementById('home-dashboard-sticky');
-            const dashboardHero = document.getElementById('home-dashboard-hero');
-            if (shouldUseRepSalesHomeHub()) {
-                activeHomeTab = 'dashboard';
-                selectedProductivityUser = '';
-                if (dashboardSticky) dashboardSticky.classList.remove('hidden');
-                if (dashboardHero) dashboardHero.classList.remove('hidden');
-                dashboardContent.classList.add('hidden');
-                const homeHtml = getRepHomeDashboardHtml();
-                syncRequestChromeMarkup(dynamicContent, homeHtml || `<div class="request-capability-card request-capability-card--error" role="alert"><div><strong>Home could not load</strong><span>Retry your access check to restore authorized modules.</span></div><button type="button" onclick="return retryRequestCapabilities()">Retry</button></div>`, homeMarkupByNode);
-                if (!homeHtml && Date.now() - lastHomeEmptyDiagnosticAt > 60000) {
-                    lastHomeEmptyDiagnosticAt = Date.now();
-                    reportSemanticHealthEvent('home_render_empty', 'home', 'HOME_RENDER_EMPTY', { role: String(currentRole || '').slice(0, 40) });
-                }
-                requestAnimationFrame(() => assertRepHomeModuleParity('render-home'));
-                if (typeof syncHomeDashboardBodyMode === 'function') syncHomeDashboardBodyMode();
-                return;
-            }
-            activeHomeTab = 'dashboard';
-            selectedProductivityUser = '';
-            if (dashboardSticky) dashboardSticky.classList.remove('hidden');
-            if (dashboardHero) dashboardHero.classList.remove('hidden');
-            dashboardContent.classList.remove('hidden');
-            if (dynamicContent.firstChild) dynamicContent.replaceChildren();
-            if (typeof syncCurrentViewBodyClass === 'function') syncCurrentViewBodyClass('home');
-        }
         function updateSyncDiagnostics(modeOverride = '') {
             if (modeOverride) syncDiagnosticsOverride = modeOverride;
             const badge = document.getElementById('sync-diagnostics-badge');

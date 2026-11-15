@@ -1,0 +1,54 @@
+{
+  "runtime": "3.8.1",
+  "model": "6b7c523703ae26e39be4b03774966f8571c7f523",
+  "files": [
+    {
+      "file": "transformers.min.js",
+      "url": "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/dist/transformers.min.js",
+      "sha256": "qlACtw54l5jaJj9fmcYr0+j80MEZJYpJPEDBgGSDZfo=",
+      "bytes": 888173
+    },
+    {
+      "file": "ort-wasm-simd-threaded.jsep.mjs",
+      "url": "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/dist/ort-wasm-simd-threaded.jsep.mjs",
+      "sha256": "CPuG7EM8eL+wMsXYSmi46OWo2BJo+jniQxQXmldnpbk=",
+      "bytes": 44484
+    },
+    {
+      "file": "ort-wasm-simd-threaded.jsep.wasm",
+      "url": "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/dist/ort-wasm-simd-threaded.jsep.wasm",
+      "sha256": "xGZV6KlK/EUzjUyyuEBHX4jlAS1SRQmRblBQecAL+jk=",
+      "bytes": 21596019
+    },
+    {
+      "file": "transformers-LICENSE",
+      "url": "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/LICENSE",
+      "sha256": "z8d0m5b2O9McPEK1xHG/dWgUBT6EfBDz6wA0F7xSPTA=",
+      "bytes": 11358
+    },
+    {
+      "file": "models/Xenova/clip-vit-base-patch32/config.json",
+      "url": "https://huggingface.co/Xenova/clip-vit-base-patch32/resolve/6b7c523703ae26e39be4b03774966f8571c7f523/config.json",
+      "sha256": "ST71f/eD5C0VMMkbU0abf9+NuKnBQI6GmY/LeJmk9JU=",
+      "bytes": 4524
+    },
+    {
+      "file": "models/Xenova/clip-vit-base-patch32/preprocessor_config.json",
+      "url": "https://huggingface.co/Xenova/clip-vit-base-patch32/resolve/6b7c523703ae26e39be4b03774966f8571c7f523/preprocessor_config.json",
+      "sha256": "b2OPuUAabWKW/v9TPufv5le3h8SflU+C9ZBrNu8qGx8=",
+      "bytes": 520
+    },
+    {
+      "file": "models/Xenova/clip-vit-base-patch32/onnx/vision_model_quantized.onnx",
+      "url": "https://huggingface.co/Xenova/clip-vit-base-patch32/resolve/6b7c523703ae26e39be4b03774966f8571c7f523/onnx/vision_model_quantized.onnx",
+      "sha256": "WD/REQpRRmeBL+59aElSqvgqmblZdgyNfcp+CrmDkpk=",
+      "bytes": 89117001
+    },
+    {
+      "file": "models/Xenova/clip-vit-base-patch32/LICENSE",
+      "url": "https://raw.githubusercontent.com/openai/CLIP/main/LICENSE",
+      "sha256": "mH5jsy9sif9RYOQpRYqHL/BI5oYLWQo5Euk4+dqPFNs=",
+      "bytes": 1064
+    }
+  ]
+}

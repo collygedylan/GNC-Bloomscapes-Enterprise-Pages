@@ -141,6 +141,7 @@ function mergeLiveInventoryCardRows(rows = [], getPhotos = parsePhotoCsvValues) 
     for (const row of rows) {
         if (!row) continue;
         const tuple = ['ITEMCODE','LOCATIONCODE','LOTCODE'].map(key => String(liveInventoryCardValue(row,key)).trim().toUpperCase());
+        if (bloomscapesRowFarm(row) === '60-HL') tuple.push('60-HL');
         const key = tuple.every(Boolean) ? JSON.stringify(tuple) : row;
         const prior = groups.get(key);
         if (!prior) { groups.set(key,row); continue; }

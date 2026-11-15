@@ -1,3 +1,5 @@
+import {buildWorkInquiryBlocks,workBarcodeCommands} from './work-inquiry-pdf.mjs';
+
 const PAGE_WIDTH = 612;
 const PAGE_HEIGHT = 792;
 const LEFT = 52;
@@ -271,6 +273,7 @@ function buildBlocks(report) {
 }
 
 function blockHeight(block) {
+  if (block.barcode) return block.before + block.after + 44;
   if (block.rule) return block.before + block.after + 4;
   const lines = block.lines || [];
   return block.before + block.after + lines.reduce((total, line) => total + (typeof line === 'string' ? block.size : line.size) * 1.32, 0);
@@ -283,6 +286,12 @@ function paginate(blocks) {
   for (const block of blocks) {
     const height = blockHeight(block);
     if (block.keep && y - height < CONTENT_BOTTOM && pages.at(-1).length) newPage();
+    if (block.barcode) {
+      y -= block.before + 44;
+      pages.at(-1).push({barcode:block.barcode,x:LEFT,y});
+      y -= block.after;
+      continue;
+    }
     if (block.rule) {
       if (y - height < CONTENT_BOTTOM && pages.at(-1).length) newPage();
       y -= block.before + 2;
@@ -313,6 +322,10 @@ function pdfLiteral(value) {
 function pageContent(lines, footer, page, total) {
   const commands = [];
   for (const line of lines) {
+    if (line.barcode) {
+      commands.push(...workBarcodeCommands(line.barcode,line.x,line.y,BODY_WIDTH));
+      continue;
+    }
     if (line.ruleY !== undefined) {
       commands.push('0.68 G 0.5 w');
       commands.push(`${LEFT} ${line.ruleY.toFixed(2)} m ${PAGE_WIDTH - RIGHT} ${line.ruleY.toFixed(2)} l S`);
@@ -387,7 +400,8 @@ export async function renderBunchNoteReportsPdf(reports, preparedBy, preparedAt 
   let totalBytes = 0;
   for (const report of reports) {
     if (!report || typeof report !== 'object') throw new Error('BUNCH_NOTE_PDF_REPORT_INVALID');
-    const bytes = createPdfDocument(paginate(buildBlocks(report)), { preparedBy: byline, timestamp });
+    const blocks = report.report_kind === 'work_inquiry' ? buildWorkInquiryBlocks(report,wrapText,BODY_WIDTH) : buildBlocks(report);
+    const bytes = createPdfDocument(paginate(blocks), { preparedBy: byline, timestamp });
     totalBytes += bytes.length;
     if (totalBytes > 15_000_000) throw new Error('BUNCH_NOTE_BATCH_TOO_LARGE_SELECT_FEWER_LOCATIONS');
     const suffix = report.report_kind === 'completed_work' ? `_WORK_R${report.work_revision ?? ''}` : `_R${report.instruction_revision ?? ''}`;

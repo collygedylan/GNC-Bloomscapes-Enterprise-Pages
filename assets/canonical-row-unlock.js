@@ -2,10 +2,16 @@
 function unlockProtectedSection(prefix) {
     const item = activeItem;
     if (!canUnlockCompletedRow(item)) { showRowEditRestrictedToast(prefix); return false; }
+    void unlockCanonicalInventoryRow(item,prefix);
+    return false;
+}
+
+function unlockCanonicalInventoryRow(item,prefix = 'lsn-') {
+    if (!canUnlockCompletedRow(item)) return Promise.resolve(false);
     const state = getManagerAssignedColumnState(), key = getCompletedRowUnlockKey(item);
-    if (!key) return false;
+    if (!key) return Promise.resolve(false);
     const pending = state.pendingRowUnlocks ||= new Map();
-    if (pending.has(key)) return false;
+    if (pending.has(key)) return pending.get(key);
     const overrides = state.unlockedRowsByKey ||= new Map();
     const signature = String(item.LAST_UPDATED || item.last_updated || '');
     state.failedRowUnlocks?.delete(key);
@@ -14,14 +20,16 @@ function unlockProtectedSection(prefix) {
         if (row) Object.assign(row, {completed:false, is_completed:false, locked:false, row_locked:false,
             DATE_COMPLETED:null, date_completed:null, completed_at:null});
     }
-    protectedEditState[prefix] = key;
-    clearProtectedTimers(prefix);
-    applyProtectedEditState(prefix);
+    if (item === activeItem) {
+        protectedEditState[prefix] = key;
+        clearProtectedTimers(prefix);
+        applyProtectedEditState(prefix);
+    }
     const scope = getSupabaseReadIdentityScope();
     const task = serializeSuspendTagRowWrite({UNIQUE_ID:key}, () => persistCanonicalRowUnlock(state, item, prefix, key, signature, scope), 'unlock|' + signature);
     pending.set(key, task);
     task.finally(() => { if (pending.get(key) === task) pending.delete(key); }).catch(() => {});
-    return false;
+    return task;
 }
 
 async function sendCanonicalRowUnlock(key, signature, current) {

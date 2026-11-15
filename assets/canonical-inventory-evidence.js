@@ -31,13 +31,16 @@ function getCanonicalAvLotKey(row) {
     const qualified = lot.match(/^(\d{2})\.([A-Z]\d*)$/);
     if (!item || !location || !qualified) return '';
     if ((year && year !== qualified[1]) || (season && season !== qualified[2])) return '';
-    return JSON.stringify([item, location, lot]);
+    const key = [item, location, lot];
+    if (bloomscapesRowFarm(row) === '60-HL') key.push('60-HL');
+    return JSON.stringify(key);
 }
 
 function canonicalInventorySameLocation(row, target) {
     const part = (value, key) => normalizeCanonicalInventoryPart(canonicalInventoryValue(value, key));
     const item = part(target, 'ITEMCODE'), location = part(target, 'LOCATIONCODE');
-    return !!item && !!location && part(row, 'ITEMCODE') === item && part(row, 'LOCATIONCODE') === location;
+    return !!item && !!location && part(row, 'ITEMCODE') === item && part(row, 'LOCATIONCODE') === location
+        && bloomscapesRowFarm(row) === bloomscapesRowFarm(target);
 }
 
 function canonicalInventorySameLot(row, target) {

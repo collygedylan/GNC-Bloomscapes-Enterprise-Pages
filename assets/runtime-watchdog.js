@@ -419,22 +419,9 @@ if (!window.GncRuntimeWatchdog) {
     reportHandledRuntimeIssue('docks_no_trip_number_guard','TRIP_DOCK_INVALID');
     state.recoverDocks?.();
   }
-  let prebootFlush = null, prebootRetry = null, lastFilterProbe = 0, bootReadyOwner = '';
-  function flushPrebootRecoveries() {
-    if (prebootFlush || !state.configured || !state.username || typeof state.report !== 'function' || document.hidden) return prebootFlush;
-    if (global.__agdataHomeReadyUser !== state.username || bootReadyOwner === state.username + ':' + state.reportGeneration) return;
-    const generation = state.reportGeneration, username = state.username, reporter = state.report;
-    const version = String(global.__APP_RELEASE_VERSION__ || '').match(/(?:AgData v|v)?(\d+\.\d+\.\d+)/)?.[1];
-    if (!version) return;
-    const event = {event_type:'OPERATIONAL_FAILURE',severity:'low',app_version:version,username,normalized_role:normalizedRole(state.role),view_id:'home',sub_module:'preboot_auto_recovery',duration_ms:0,error_message:'SHELL_READY',cluster_id:'Cluster 1',owning_skill:'agdata-zero-lockout-guard',suspected_functions:['preboot_auto_recovery'],dataset_revisions_snapshot:{},fingerprint:'preboot_auto_recovery:ready:'+version+':'+username};
-    prebootFlush = Promise.resolve().then(() => reporter(event)).then(result => {
-      if (result === false || result?.ok === false) throw new Error('PREBOOT_RECEIPT_PENDING');
-      if (state.reportGeneration !== generation || state.username !== username) return;
-      bootReadyOwner = username + ':' + generation;
-      try { global.localStorage?.setItem('agdata_preboot_recovery_log','[]'); } catch {}
-    }).catch(() => { if (prebootRetry === null) prebootRetry = global.setTimeout(() => { prebootRetry = null; void flushPrebootRecoveries(); }, 30000); }).finally(() => { prebootFlush = null; });
-    return prebootFlush;
-  }
+  let lastFilterProbe = 0;
+  const reportPrebootHealth = createPrebootHealthReporter(global);
+  function flushPrebootRecoveries() { return reportPrebootHealth(state); }
   function av_valid_photos_cross_season_guard() {
     const audit=state.getAvPhotoAudit?.();
     if(audit?.active && (audit.allSeasons!==true || audit.missing>0)) {

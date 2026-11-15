@@ -30,6 +30,7 @@ function getQueueScopeFilter(tab) {
 }
 
 function isQueueOwnerVisible(row, tab = isDockSuspendDcRequestMirrorRow(row) ? 'suspend-tag' : 'pending') {
+    if (!bloomscapesFarmRowIsVisible(row)) return false;
     const selected = getQueueScopeFilter(tab);
     const owner = getAssignedQueueOwner(row) || 'Unassigned';
     return selected === 'ALL' || !!selected && (tab === 'suspend-tag' ? normalizeSuspendQueueOwner(owner) : owner) === selected;
@@ -53,8 +54,7 @@ function useAllSuspendOwnersIfPersonalEmpty(activeRows) {
 
 function suspendQueueRowsForOwner(rows, activeRows) {
     useAllSuspendOwnersIfPersonalEmpty(activeRows);
-    return getQueueScopeFilter('suspend-tag') === 'ALL' ? rows
-        : rows.filter(row => isQueueOwnerVisible(row, 'suspend-tag'));
+    return rows.filter(row => isQueueOwnerVisible(row, 'suspend-tag'));
 }
 
 function applySuspendEvalUserFilter(rows = []) {

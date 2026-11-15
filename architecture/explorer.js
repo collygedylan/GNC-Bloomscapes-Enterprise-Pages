@@ -9,7 +9,8 @@ function renderSchemaRelation(host, relation) {
     const details = appendSchemaNode(host, 'details', '');
     const kind = relation.relkind === 'r' ? 'Table' : 'View';
     appendSchemaNode(details, 'summary', kind + ' · ' + relation.relname);
-    if (relation.triggers?.length) appendSchemaNode(details, 'p', 'Triggers ' + relation.triggers.join(', '));
+    const triggers = Array.isArray(relation.triggers) ? relation.triggers.join(', ') : String(relation.triggers || '').replace(/^\{|\}$/g,'');
+    if (triggers) appendSchemaNode(details, 'p', 'Triggers ' + triggers);
     const table = appendSchemaNode(details, 'table', '');
     const header = appendSchemaNode(table, 'tr', '');
     appendSchemaNode(header, 'th', 'Column');
