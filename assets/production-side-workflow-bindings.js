@@ -39,6 +39,7 @@ function buildSalesWorkspaceSideBindings(array, read, stateReady) {
 function buildChatSideBindings(array, read, stateReady, emitCommunicationSourceRefresh) {
     return {
         'side:chat': {
+            enabled:ctx=>!nativeAuthSessionActive || ctx.view==='chat',
             scope: (ctx) => ctx.username,
             stage: async (ctx) => {
                 const own = array(await chatApiGet(CHAT_PARTICIPANTS_TABLE, `select=*&username=eq.${encodeURIComponent(ctx.username)}&is_archived=eq.false&order=joined_at.desc`, 'Chat participants', ctx)).map(normalizeChatParticipant).filter(Boolean);

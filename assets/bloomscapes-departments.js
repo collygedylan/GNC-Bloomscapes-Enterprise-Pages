@@ -100,3 +100,32 @@ function backBloomscapesDepartmentWorkspace(view) {
     markViewDirty(view);renderViewContent(view,false,true);updateGlobalBackButton();
     return true;
 }
+
+function renderCommunicationHub() {
+    if (nativeAuthSessionActive) {
+        if (getCurrentVisibleViewId()==='communication') {
+            renderBloomscapesDepartmentWorkspace('communication');
+            mountBloomscapesDepartmentShortcuts('communication');
+        }
+        return;
+    }
+    renderLegacyCommunicationHub();
+}
+
+function renderLegacyCommunicationHub() {
+    const host = document.getElementById('view-communication');
+    if (host && !host.querySelector('[data-suspend-approval-inbox]')) {
+        const inbox = document.createElement('section'); inbox.dataset.suspendApprovalInbox = 'true';
+        inbox.className = 'p-4'; host.prepend(inbox);
+    }
+    void refreshSuspendApprovalInbox(true);
+    updateFooterChatBadge();
+    const root = document.getElementById('alpha-communications-root');
+    if (!root) return;
+    const enabled = isAuraWidgetAuthorized();
+    document.getElementById('communication-hub-grid')?.classList.toggle('hidden', enabled);
+    document.querySelector('#view-communication > .freeze-panel')?.classList.toggle('hidden', enabled);
+    root.classList.toggle('hidden', !enabled);
+    if (enabled) void mountAlphaCommandCenter('communications', root);
+    else unmountAlphaCommandCenter('communications');
+}

@@ -12,7 +12,7 @@ async function requestInventoryRead(operation, params = {}, options = {}) {
     const identityScope = getSupabaseReadIdentityScope();
     const permissionVersion = String(appAccessSnapshotState.snapshot?.dataPermissionVersion || '');
     const input = params && typeof params === 'object' ? params : {};
-    const safeParams = safeOperation==='master_page' ? bloomscapesInventoryReadParameters(input) : input;
+    const safeParams = bloomscapesInventoryScopedReadParameters(safeOperation,input);
     const retainRead = typeof hasAuthenticatedOperationalReadIdentity === 'function' && hasAuthenticatedOperationalReadIdentity();
     const readKey = `inventory_read:${safeOperation}:${JSON.stringify(safeParams)}`;
     return runDedupeSupabaseRead(readKey, async ({ signal }) => {
@@ -44,4 +44,12 @@ async function requestInventoryRead(operation, params = {}, options = {}) {
         }
         return payload.data;
     }, { signal: retainRead ? null : (options.signal || null), retainOnGenerationChange: retainRead });
+}
+
+function bloomscapesInventoryScopedReadParameters(operation,input) {
+    if (operation==='master_page') return bloomscapesInventoryReadParameters(input);
+    if (operation==='master_identity_batch' && Array.isArray(input.queueIdentities)) {
+        return {...input,queueIdentities:input.queueIdentities.map(identity=>({...identity,farmCode:getBloomscapesFarm()}))};
+    }
+    return input;
 }
