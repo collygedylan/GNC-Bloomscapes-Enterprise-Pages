@@ -222,7 +222,7 @@ function buildTransactionsKeyedSideBindings(array, stateReady) {
             commit: (value) => { stateReady(accessControlAdminState, { data: value, capabilities: value.capabilities }); }
         },
         'side:codex': {
-            enabled: (ctx) => ctx.username === 'dylan_collyge', scope: (ctx) => ctx.codexTaskId,
+            enabled: (ctx) => !nativeAuthSessionActive && ctx.username === 'dylan_collyge', scope: (ctx) => ctx.codexTaskId,
             stage: async (ctx) => {
                 const capabilities = await invokeCodexOpsApi('capabilities', {}, 20000);
                 if (capabilities?.canView !== true || capabilities.submissionEnabled !== true) return { capabilities, tasks: [], activeTask: null };

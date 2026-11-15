@@ -1,3 +1,10 @@
+function canViewCodexOperations() {
+    if (nativeAuthSessionActive || getCodexOpsCurrentUserKey() !== 'dylan_collyge') return false;
+    if (!codexOpsState.capabilitiesLoaded && !codexOpsState.capabilitiesLoading) loadCodexOpsCapabilities(false).catch(() => {});
+    const capabilities = codexOpsState.capabilities;
+    return !!(capabilities && capabilities.canView === true && capabilities.submissionEnabled === true);
+}
+
 function getManagerModuleMeta(tab = activeHomeTab) {
     const safeTab = String(tab || '').trim().toLowerCase();
     const workflow = bloomscapesWorkflowTab(safeTab);

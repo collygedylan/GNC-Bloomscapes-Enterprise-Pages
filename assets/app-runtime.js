@@ -115103,13 +115103,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return normalizeMovesUserKey(firstNonEmptyValue(currentUser, currentUserDisplay, ''));
         }
 
-        function canViewCodexOperations() {
-            if (getCodexOpsCurrentUserKey() !== 'dylan_collyge') return false;
-            if (!codexOpsState.capabilitiesLoaded && !codexOpsState.capabilitiesLoading) loadCodexOpsCapabilities(false).catch(() => {});
-            const capabilities = codexOpsState.capabilities;
-            return !!(capabilities && capabilities.canView === true && capabilities.submissionEnabled === true);
-        }
-
         function canViewManagerSeasonPriority() {
             const permission = getAuditedAppPermission('managers.season_priority.submit');
             return canAccessView('managers') && (isFullAppAdministrator() || ['ADMIN', 'ADMINISTRATOR', 'MANAGER'].includes(normalizeRoleAccessToken(currentRole)))
