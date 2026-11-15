@@ -11,10 +11,10 @@ function confirmBloomscapesFarmSwitch(previous,next,initial=false) {
     title.textContent = initial ? 'Choose your farm for this session' : 'Confirm Farm Switch';
     const message = dialog.appendChild(document.createElement('p'));
     message.textContent = initial ? 'Select the farm you are selling or working from.'
-        : `Switch active farm from ${previous} to ${next}?`;
+        : `Switch your active session farm from ${previous} to ${next}? All inventory, orders, Assigned To owners, and Que work will switch to ${next}.`;
     const select = appendBloomscapesFarmDialogChoices(dialog,next,initial);
     const state = {dialog,owner};
-    state.promise = new Promise(resolve=>bindBloomscapesFarmDialog(state,select,resolve,initial));
+    state.promise = new Promise(resolve=>bindBloomscapesFarmDialog(state,select,resolve,initial,next));
     bloomscapesFarmDialog = state;
     document.body.appendChild(dialog);
     dialog.showModal();
@@ -33,7 +33,7 @@ function appendBloomscapesFarmDialogChoices(dialog,next,initial) {
     return select;
 }
 
-function bindBloomscapesFarmDialog(state,select,resolve,initial) {
+function bindBloomscapesFarmDialog(state,select,resolve,initial,next) {
     const finish = value=>{
         if (bloomscapesFarmDialog!==state) return;
         bloomscapesFarmDialog = null;
@@ -43,7 +43,7 @@ function bindBloomscapesFarmDialog(state,select,resolve,initial) {
     };
     const confirm = state.dialog.appendChild(document.createElement('button'));
     confirm.type = 'button';
-    confirm.textContent = initial ? 'Use this farm' : 'Confirm switch';
+    confirm.textContent = initial ? 'Use this farm' : `Confirm Switch to ${next}`;
     confirm.addEventListener('click',()=>finish(select ? select.value : true));
     if (!initial) {
         const cancel = state.dialog.appendChild(document.createElement('button'));
@@ -69,9 +69,9 @@ async function syncBloomscapesFarmSelector() {
     select.value = getBloomscapesFarm();
     select.parentElement.hidden = allowed.length===1;
     const initial = bloomscapesFarmNeedsConfirmation();
-    if (bloomscapesFarmDialog || !initial && !(allowed.length===1 && bloomscapesFarmNeedsHydration())) return;
+    if (bloomscapesFarmDialog || !initial && !bloomscapesFarmNeedsHydration()) return;
     select.disabled = true;
-    const chosen = initial ? await confirmBloomscapesFarmSwitch(getBloomscapesFarm(),getBloomscapesFarm(),true) : allowed[0];
+    const chosen = initial ? await confirmBloomscapesFarmSwitch(getBloomscapesFarm(),getBloomscapesFarm(),true) : getBloomscapesFarm();
     if (!chosen) return;
     try {
         await selectBloomscapesFarm(chosen);

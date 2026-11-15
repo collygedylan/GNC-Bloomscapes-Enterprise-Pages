@@ -1,5 +1,6 @@
 let bloomscapesFarmState = {owner:'',farm:'10-PH',busy:false,allowed:['10-PH'],confirmed:false,loaded:false};
 const BLOOMSCAPES_FARM_SCOPES = ['10-PH','60-HL','20-TX','40-NC'];
+const BLOOMSCAPES_SESSION_FARM_KEY = 'gnc_bloomscapes_session_farm_v1';
 
 function getBloomscapesFarm() {
     const owner = String(typeof currentUser === 'undefined' ? '' : currentUser);
@@ -30,11 +31,10 @@ async function selectBloomscapesFarm(farm) {
         await refreshBloomscapesFarmSupport(state);
         await ensureDatasetLoaded('warehouseAssignedItems','full',{force:state.readyFarm!==farm,bypassLiveSyncCoordinator:true});
         if (bloomscapesFarmState !== state) throw new Error('Signed-in account changed.');
-        getManagerAssignedColumnState().defaultOwnersByCode = new Map();
-        managerEvalAssignmentSelection.clear();
-        await loadManagerItemcodeDefaultOwners(true);
+        await refreshBloomscapesFarmOwners(state);
         state.readyFarm = farm;
         state.confirmed = true;
+        persistBloomscapesSessionFarm(state);
         refreshAffectedViews(['master','avOpen','requests','soc','reserves']);
         return farm;
     } catch (error) {
@@ -82,10 +82,43 @@ async function readBloomscapesFarmAccess(state) {
     if (error || !Array.isArray(allowed) || !allowed.length
         || allowed.some(farm=>!BLOOMSCAPES_FARM_SCOPES.includes(farm))) throw new Error('Farm permissions could not load.');
     state.allowed = [...new Set(allowed)];
-    state.farm = allowed.includes(data.default_farm) ? data.default_farm : allowed[0];
-    state.confirmed = allowed.length === 1;
+    const savedFarm = readBloomscapesSessionFarm(state);
+    state.farm = savedFarm || (allowed.includes(data.default_farm) ? data.default_farm : allowed[0]);
+    state.confirmed = allowed.length === 1 || Boolean(savedFarm);
     state.loaded = true;
     return state;
+}
+
+
+async function refreshBloomscapesFarmOwners(state) {
+    const owners = getManagerAssignedColumnState();
+    await owners.defaultOwnersPromise;
+    if (bloomscapesFarmState!==state) throw new Error('Signed-in account changed.');
+    owners.defaultOwnersByCode = new Map();
+    owners.itemcodeDefaultOwners = owners.defaultOwnersByCode;
+    owners.dataEpoch = (owners.dataEpoch || 0)+1;
+    managerEvalAssignmentSelection.clear();
+    await loadManagerItemcodeDefaultOwners(true);
+    if (bloomscapesFarmState!==state) throw new Error('Signed-in account changed.');
+}
+
+function readBloomscapesSessionFarm(state) {
+    try {
+        const saved = JSON.parse(globalThis.sessionStorage?.getItem(BLOOMSCAPES_SESSION_FARM_KEY) || 'null');
+        return saved?.owner===state.owner && state.allowed.includes(saved.farm) ? saved.farm : '';
+    } catch {
+        globalThis.reportHandledRuntimeIssue?.('farm_session_restore','HANDLED_OPERATION_FAILURE');
+        return '';
+    }
+}
+
+function persistBloomscapesSessionFarm(state) {
+    try {
+        globalThis.sessionStorage?.setItem(BLOOMSCAPES_SESSION_FARM_KEY,
+            JSON.stringify({owner:state.owner,farm:state.farm}));
+    } catch {
+        globalThis.reportHandledRuntimeIssue?.('farm_session_save','HANDLED_OPERATION_FAILURE');
+    }
 }
 
 async function refreshBloomscapesFarmSupport(state) {

@@ -57,19 +57,29 @@ function mountBloomscapesFarmSelector() {
         option.textContent = title;
     }
     select.value = getBloomscapesFarm();
-    select.addEventListener('change', async () => {
-        select.disabled = true;
-        try {
-            if (!await confirmBloomscapesFarmSwitch(getBloomscapesFarm(),select.value)) return;
-            select.value = await selectBloomscapesFarm(select.value);
-            refreshBloomscapesFarmPanel();
-        }
-        catch (error) {
-            select.value = getBloomscapesFarm();
-            showToast('Farm selection',error.message,true);
-        } finally { select.value = getBloomscapesFarm(); select.disabled = false; }
-    });
+    select.addEventListener('change',()=>changeBloomscapesFarmSelection(select));
     header.before(label);
+}
+
+
+async function changeBloomscapesFarmSelection(select) {
+    if (select.disabled) return;
+    const previous = getBloomscapesFarm();
+    const next = select.value;
+    select.value = previous;
+    if (next===previous || getBloomscapesAllowedFarms().length===1) return;
+    select.disabled = true;
+    try {
+        if (!await confirmBloomscapesFarmSwitch(previous,next)) return;
+        select.value = next;
+        select.value = await selectBloomscapesFarm(next);
+        refreshBloomscapesFarmPanel();
+    } catch (error) {
+        showToast('Farm selection',error.message,true);
+    } finally {
+        select.value = getBloomscapesFarm();
+        select.disabled = false;
+    }
 }
 
 function refreshBloomscapesFarmPanel() {
