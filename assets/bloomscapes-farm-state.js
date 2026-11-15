@@ -1,4 +1,5 @@
 let bloomscapesFarmState = {owner:'',farm:'10-PH',busy:false};
+const BLOOMSCAPES_FARM_SCOPES = ['10-PH','60-HL','20-TX','40-NC'];
 
 function getBloomscapesFarm() {
     const owner = String(typeof currentUser === 'undefined' ? '' : currentUser);
@@ -9,11 +10,11 @@ function getBloomscapesFarm() {
 function bloomscapesFarmRowIsVisible(row) {
     const farm = getBloomscapesFarm();
     const rowFarm = bloomscapesRowFarm(row);
-    return farm === 'ALL' ? ['10-PH','60-HL'].includes(rowFarm) : rowFarm === farm;
+    return farm === 'ALL' ? BLOOMSCAPES_FARM_SCOPES.includes(rowFarm) : rowFarm === farm;
 }
 
 async function selectBloomscapesFarm(farm) {
-    if (!['10-PH','60-HL','ALL'].includes(farm)) throw new Error('Choose a valid farm.');
+    if (![...BLOOMSCAPES_FARM_SCOPES,'ALL'].includes(farm)) throw new Error('Choose a valid farm.');
     const previous = getBloomscapesFarm();
     const state = bloomscapesFarmState;
     if (state.busy || previous === farm) return previous;
@@ -23,12 +24,19 @@ async function selectBloomscapesFarm(farm) {
         const loaded = await ensureDatasetLoaded('master','full',{force:true,bypassLiveSyncCoordinator:true});
         if (bloomscapesFarmState !== state) throw new Error('Signed-in account changed.');
         if (!loaded) throw new Error('Farm data is unavailable; previous inventory retained.');
-        refreshAffectedViews(['master','avOpen','requests','soc']);
+        await refreshBloomscapesFarmSupport(state);
+        refreshAffectedViews(['master','avOpen','requests','soc','reserves']);
         return farm;
     } catch (error) {
         if (bloomscapesFarmState === state) state.farm = previous;
         throw error;
     } finally { state.busy = false; }
+}
+
+async function refreshBloomscapesFarmSupport(state) {
+    await Promise.allSettled(['soc','reserves'].map(key=>
+        ensureDatasetLoaded(key,'full',{force:true,bypassLiveSyncCoordinator:true})));
+    if (bloomscapesFarmState !== state) throw new Error('Signed-in account changed.');
 }
 
 function getSupabaseReadIdentityScope() {

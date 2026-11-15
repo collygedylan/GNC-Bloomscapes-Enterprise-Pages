@@ -20,3 +20,10 @@
         })
     });
 })(globalThis);
+
+window.guardRememberedSessionBeforePaint = function () {
+    if (window.hasAgDataRememberedSession()) {
+        window.__agdataDisarmBootGuards();
+        document.documentElement.classList.add('agdata-retained-prepaint', 'agdata-authenticated-boot');
+    }
+};

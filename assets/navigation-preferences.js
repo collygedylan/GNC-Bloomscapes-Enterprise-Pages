@@ -8,7 +8,8 @@
     const ICONS = { aura: 'ph-microphone', drive: 'ph-car', tasks: 'ph-clipboard-text', docks: 'ph-truck', request: 'ph-list-checks', bloom: 'ph-handbag', sales: 'ph-handshake', 'sales-office': 'ph-desktop', 'historical-requests': 'ph-clock-counter-clockwise', 'request-history': 'ph-clock-counter-clockwise', 'sales-credit': 'ph-receipt', 'credit-request': 'ph-check-square', 'sales-inventory': 'ph-storefront', production: 'ph-plant', managers: 'ph-users-three', reports: 'ph-chart-bar', av: 'ph-notebook', 'hl-order': 'ph-truck', 'bunch-note': 'ph-notepad', eval_reports_2: 'ph-chart-line-up', 'manager-eval-reports': 'ph-chart-bar', 'inventory-suggestion': 'ph-lightbulb', 'inv-consolidation': 'ph-arrows-in-line-horizontal', 'request-sales-impact': 'ph-currency-dollar', 'archive-requests': 'ph-clock-counter-clockwise', 'archive-orders': 'ph-package', 'archive-reserves': 'ph-bookmark', 'archive-drive': 'ph-car', 'queue-pending': 'ph-list-checks', 'queue-suspend': 'ph-pause-circle', 'queue-moves': 'ph-map-pin', 'queue-recount': 'ph-counter-clockwise', 'queue-eval-work': 'ph-clipboard-text', 'queue-shear-list': 'ph-scissors', 'queue-bunch-notes': 'ph-notepad', 'queue-bunch-count-review': 'ph-check-circle' };
     const FOOTER_IDS = { aura: 'footer-aura-btn', menu: 'footer-menu-btn', home: 'footer-home-btn', communication: 'footer-communication-btn', drive: 'footer-drive-btn', tasks: 'footer-tasks-btn', managers: 'footer-managers-btn', docks: 'footer-docks-btn', request: 'footer-request-btn', bloom: 'footer-cart-btn' };
     const LABELS = { av:'AV', 'hl-order':'HL Order', 'sales-office':'Sales Office', 'sales-inventory':'Inventory', production:'Production', 'take-back':'Take Back', 'weather-hold':'Weather Hold', 'shear-list':'Shear List', qc:'QC', office:'Office', aura: 'AURA', drive: 'Drive', tasks: 'Tasks', docks: 'Docks', request: 'Que', managers: 'Manager', bloom: 'Bloom', home: 'Home', menu: 'Menu', communication: 'Comm', eval_reports_2: 'Eval Reports #2', 'manager-eval-reports': 'Eval Reports', 'inventory-suggestion': 'Inventory Suggestion', 'inv-consolidation': 'Inv Consolidation', 'request-sales-impact': 'Request Sales Impact ($)', 'archive-requests': 'Historical Requests', 'archive-orders': 'Historical SOC Open Orders', 'archive-reserves': 'Historical SOC Reserves', 'archive-drive': 'Historical Drive Around', 'queue-pending': 'Que · Request', 'queue-suspend': 'Que · Suspend', 'queue-moves': 'Que · Location Moves', 'queue-recount': 'Que · Recount', 'queue-eval-work': 'Que · Eval Work', 'queue-shear-list': 'Que · Shear List', 'queue-bunch-notes': 'Que · Bunch Notes', 'queue-bunch-count-review': 'Que · Bunch Count Review' };
-    let hooks = {}, state = null, inflight = null, timer = null, generation = 0, bound = false;
+    const BACKGROUND_REFRESH_MS = 300000;
+    let hooks = {}, state = null, inflight = null, generation = 0, bound = false;
     let footerObserver = null, lastFooter = null;
     let confirmedFooter = null;
     let refreshFailures = 0, retryNotBefore = 0;
@@ -76,21 +77,28 @@
         return result && Object.prototype.hasOwnProperty.call(result, 'data') ? result.data : result;
     }
     async function refresh() {
-        if (!username()) return null;
+        if (!username() || root.document?.hidden === true) return null;
         if (inflight) return inflight;
         const token = generation, user = username();
-        inflight = call('get').then(value => { if (token === generation && user === username()) { adopt(value); refreshFailures = 0; retryNotBefore = 0; } return value; })
-            .catch(error => { if (token === generation && user === username()) { refreshFailures += 1; retryNotBefore = Date.now() + Math.min(300000, 30000 * 2 ** Math.min(refreshFailures, 4)); } throw error; })
+        retryNotBefore = Date.now() + BACKGROUND_REFRESH_MS;
+        inflight = call('get').then(value => {
+            if (token === generation && user === username()) { adopt(value); refreshFailures = 0; }
+            return value;
+        }).catch(error => {
+            if (token === generation && user === username()) {
+                refreshFailures = Math.min(refreshFailures + 1, 3);
+                retryNotBefore = Date.now() + BACKGROUND_REFRESH_MS * 2 ** (refreshFailures - 1);
+            }
+            throw error;
+        })
             .finally(() => { if (token === generation) inflight = null; });
         return inflight;
     }
     function reset() {
         generation++; state = null; inflight = null; confirmedFooter = null; refreshFailures = 0; retryNotBefore = 0;
-        if (timer) root.clearInterval(timer);
-        timer = null;
     }
     function refreshVisibleNavigationPreferences() {
-        if (root.document.hidden || !username() || inflight || Date.now() < retryNotBefore) return;
+        if (root.document.visibilityState !== 'visible' || !username() || inflight || Date.now() < retryNotBefore) return;
         void refresh().catch(() => {});
     }
     function restoreConfirmedFooter() {
@@ -112,7 +120,6 @@
         const oldUser = username(); hooks = { ...hooks, ...options };
         if (oldUser !== username()) reset();
         restoreConfirmedFooter();
-        if (!timer && root.document && root.setInterval) timer = root.setInterval(refreshVisibleNavigationPreferences, 30000);
         bindNavigationPreferenceLifecycle();
         return api;
     }

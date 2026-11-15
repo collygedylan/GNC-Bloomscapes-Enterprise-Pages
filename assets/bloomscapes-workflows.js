@@ -37,14 +37,14 @@ function bloomscapesPanelQuery(client, panel, input) {
     if (panel === 'architecture') return client.rpc('gnc_architecture_counts');
     if (panel === 'bloomscapes-sales-vault') return client.rpc('gnc_sales_vault',{p_farm:input.farm});
     if (panel === 'bloomscapes-inventory') return bloomscapesInventoryQuery(client, input.farm);
-    if (panel === 'bloomscapes-replenishment') return client.rpc('gnc_hl_replenishment_rows');
+    if (panel === 'bloomscapes-replenishment') return client.rpc('gnc_intercompany_replenishment_rows');
     if (panel === 'bloomscapes-dock-approvals') {
         return client.from('gnc_10_ph_dock_approvals')
             .select('id,itemcode,dock,order_unique_id,candidate_locationcode,inspection_photo_paths,decision')
             .order('created_at', {ascending: false}).limit(100);
     }
     if (panel === 'bloomscapes-hl-keying') {
-        return client.from('gnc_10_ph_hl_keying').select('itemcode,lotcode,locationcode,field_name,qty_delta,reason_code,actor_username')
+        return client.from('gnc_10_ph_hl_keying').select('warehouse_id,itemcode,lotcode,locationcode,field_name,qty_delta,reason_code,actor_username')
             .order('created_at', {ascending:false}).limit(100);
     }
     if (BLOOMSCAPES_FIELD_KINDS[panel]) {
@@ -63,10 +63,10 @@ async function bloomscapesFieldQuery(client,panel,farm) {
     const query = client.from('gnc_field_jobs_y_grading')
         .select('unique_id,warehouse_id,record_kind,itemcode,locationcode,new_locationcode,scheduled_qty,graded_qty,qty_hauled,shear_scope,shear_pct,job_status')
         .in('record_kind',BLOOMSCAPES_FIELD_KINDS[panel]).order('created_at',{ascending:false}).limit(100);
-    if (['10-PH','60-HL'].includes(farm)) query.eq('warehouse_id',farm);
+    if (['10-PH','60-HL','20-TX','40-NC'].includes(farm)) query.eq('warehouse_id',farm);
     const result = await query;
     if (result.error || panel !== 'bloomscapes-shearing') return result;
-    const farms = farm === 'ALL' ? ['10-PH','60-HL'] : [farm];
+    const farms = farm === 'ALL' ? ['10-PH','60-HL','20-TX','40-NC'] : [farm];
     for (const selected of farms) {
         const recovery = await client.rpc('gnc_shear_recovery',{p_farm:selected});
         if (recovery.error) return recovery;
@@ -78,8 +78,8 @@ async function bloomscapesFieldQuery(client,panel,farm) {
 function bloomscapesInventoryQuery(client, farm) {
     const query = client.from('gnc_effective_inventory')
         .select('warehouse_id,unique_id,itemcode,commonname,locationcode,lotcode,ptronhand')
-        .eq('source_record_kind', 'DRIVE').in('warehouse_id', ['10-PH', '60-HL']);
-    if (['10-PH', '60-HL'].includes(farm)) query.eq('warehouse_id', farm);
+        .eq('source_record_kind', 'DRIVE').in('warehouse_id', ['10-PH','60-HL','20-TX','40-NC']);
+    if (['10-PH','60-HL','20-TX','40-NC'].includes(farm)) query.eq('warehouse_id', farm);
     return query.order('warehouse_id').order('unique_id').limit(100);
 }
 
@@ -87,7 +87,7 @@ async function bloomscapesVaultQuery(client) {
     const data=[];
     for(let offset=0;offset<20000;offset+=500) {
         const page=await client.from('gnc_00_core_work_inquiry_pdfs')
-            .select('pdf_id,username,farm_code,work_type,itemcode,locationcode,lotcode,drive_file_id,created_at,storage_bucket,storage_path,archive_status')
+            .select('pdf_id,username,farm_code,work_type,itemcode,locationcode,lotcode,drive_file_id,created_at,storage_bucket,storage_path,archive_status,sandbox_delivery_status')
             .order('created_at',{ascending:false}).order('pdf_id').range(offset,offset+499);
         if(page.error) return page;
         data.push(...page.data);
@@ -101,7 +101,36 @@ async function submitBloomscapesCommand(command, input) {
     const result = await bloomscapesCommandRequest(client, command, input);
     const current = await getNativeAuthSession();
     if (current?.user?.id !== owner) throw new Error('Signed-in account changed.');
-    return bloomscapesData(result);
+    const receipt = bloomscapesData(result);
+    if (command === 'intercompany-shuttle') {
+        requireBloomscapesShuttleReceipt(receipt, input);
+        const refreshed = await refreshBloomscapesShuttleProjection(owner);
+        if (!refreshed) return {...receipt,projection_pending:true,
+            location_note:'Haul recorded · '+receipt.quantity+' · Inventory refresh pending'};
+    }
+    return receipt;
+}
+
+function requireBloomscapesShuttleReceipt(receipt, input) {
+    if (receipt?.command_id !== input.requestId || receipt.target !== input.rowId
+        || receipt.source_farm !== input.originFarm || receipt.destination_farm !== '10-PH'
+        || !receipt.source || !receipt.po || !(Number(receipt.quantity) > 0)) {
+        throw new Error('Intercompany shuttle receipt did not match this command.');
+    }
+}
+
+async function refreshBloomscapesShuttleProjection(owner) {
+    try {
+        const loaded = await ensureDatasetLoaded('master', 'full', {force:true,bypassLiveSyncCoordinator:true});
+        await requireBloomscapesOwner(owner);
+        if (!loaded) throw new Error('Inventory refresh remains pending.');
+        refreshAffectedViews(['master','avOpen']);
+        return true;
+    } catch {
+        await requireBloomscapesOwner(owner);
+        globalThis.reportHandledRuntimeIssue?.('intercompanyShuttleProjection','INVENTORY_REFRESH_PENDING');
+        return false;
+    }
 }
 
 async function addPrivateDockPhotoLinks(client, rows) {
@@ -118,7 +147,8 @@ async function addPrivateDockPhotoLinks(client, rows) {
 function bloomscapesCommandRequest(client, command, input) {
     if (command === 'pdf-link') return bloomscapesWorkPdfLink(client,input.id);
     if (command === 'sales-substitutes') return client.rpc('gnc_sales_substitutes',{p_farm:input.farm,p_order_id:input.rowId});
-    if (command === 'shuttle') return client.rpc('gnc_execute_hl_shuttle', {p_request_id:input.requestId,p_target_id:input.rowId});
+    if (command === 'intercompany-shuttle') return client.rpc('gnc_execute_intercompany_shuttle', {
+        p_request_id:input.requestId,p_target_id:input.rowId,p_origin_farm:input.originFarm});
     if (command === 'pdf') return client.functions.invoke('request-delivery-worker',{
         body:{operation:'work_pdf',requestId:input.requestId,farm:input.farm,rowId:input.rowId,workType:input.workType}});
     if (command === 'dock') {

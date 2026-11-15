@@ -4,7 +4,7 @@ const BLOOMSCAPES_HOME_MODULES = [
     ['grading','🌾 Season .Y Shift Grading & CF#','bloomscapes-grading'],
     ['hauling','🚜 Hauling & Consolidation','bloomscapes-hauling'],
     ['shearing','✂️ Shear List & Crew Queue','bloomscapes-shearing'],
-    ['replenishment','🏔️ HL Replenishment & CPB','bloomscapes-replenishment'],
+    ['replenishment','🚚 Intercompany & CPB','bloomscapes-replenishment'],
     ['lab','🔬 Plant Health & Lab Reports','bloomscapes-lab'],
     ['vault','📁 My Work & Inquiry PDF Vault','bloomscapes-vault'],
     ['sales-vault','💼 Sales Rep Vault','bloomscapes-sales-vault'],
@@ -46,7 +46,8 @@ function mountBloomscapesFarmSelector() {
     label.textContent = 'Farm ';
     const select = label.appendChild(document.createElement('select'));
     select.id = 'bloomscapes-farm-selector';
-    for (const [farm,title] of [['10-PH','🌲 10-PH · Park Hill'],['60-HL','🏔️ 60-HL · Hidden Lake'],['ALL','🌐 10-PH + 60-HL']]) {
+    const choices = [['10-PH','10-PH'],['60-HL','60-HL'],['20-TX','20-TX'],['40-NC','40-NC'],['ALL','ALL']];
+    for (const [farm,title] of choices) {
         const option = select.appendChild(document.createElement('option'));
         option.value = farm;
         option.textContent = title;

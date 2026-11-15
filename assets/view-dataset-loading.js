@@ -154,6 +154,7 @@ function getLegacyWorkflowViewLoading(viewId) {
 }
 
 function ensureViewDataForRender(viewId) {
+    if (viewId === 'managers' && activeHomeTab === MANAGER_APPROVAL_HOME_VIEW && canAccessView('managers')) return false;
     const pagedSurface = getActiveManagerReportPageSurface(viewId);
     if (viewId === 'sales-inventory' || pagedSurface && useManagerReportPages(pagedSurface)) return false;
     // Eval Reports #2 owns its inventory/assignment load and keeps its

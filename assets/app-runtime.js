@@ -102,7 +102,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.0.87';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.0.88';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -873,78 +873,6 @@
                 message: String(intent?.message || '').trim(),
                 clientId: String(options.idempotencyKey || '')
             }, options);
-        }
-        async function syncAuraWidgetForSession() {
-            const standby = document.getElementById('aura-standby-control');
-            if (standby) { standby.hidden = !isAuraRouterProfileCandidate(); standby.style.display = standby.hidden ? 'none' : ''; }
-            const requestedOwnerKey = isAuraRouterProfileCandidate()
-                ? `${String(nativeAuthProfile.id)}:${getSupabaseReadIdentityScope()}` : '';
-            if (auraWidgetHandle && auraWidgetOwnerKey !== requestedOwnerKey) disposeAuraWidget();
-            const ticket = ++auraLoadSequence;
-            if (!isAuraRouterProfileCandidate()) { disposeAuraWidget(); return; }
-            const session = await getNativeAuthSession().catch(() => null);
-            if (ticket !== auraLoadSequence) return;
-            if (!session?.user?.id || session.user.id !== nativeAuthProfile?.id || !isAuraRouterProfileCandidate()
-                || requestedOwnerKey !== `${String(nativeAuthProfile.id)}:${getSupabaseReadIdentityScope()}`) {
-                disposeAuraWidget();
-                return;
-            }
-            try {
-                const access = await callAuraLlmRouter({ mode: 'capabilities' }, { requestId: crypto.randomUUID() });
-                if (ticket !== auraLoadSequence || !isAuraRouterProfileCandidate()) return;
-                const capabilities = access.capabilities;
-                if (!capabilities || String(capabilities.id || '') !== String(session.user.id)
-                    || String(capabilities.username || '').trim().toLowerCase() !== String(nativeAuthProfile.username || '').trim().toLowerCase()
-                    || String(capabilities.role || '').trim().toUpperCase() !== String(nativeAuthProfile.role || '').trim().toUpperCase()) {
-                    throw Object.assign(new Error('AURA could not verify this account’s access.'), { status: 403, code: 'AURA_ACCESS_MISMATCH' });
-                }
-                auraRouterCapabilities = { ...capabilities, configured: access.configured === true };
-                auraRouterVerifiedProfileId = String(session.user.id);
-                if (isAuraProfileCandidate()) auraVerifiedProfileId = String(session.user.id);
-                const hasCapability = capabilities.inventory === true || capabilities.history === true || capabilities.drafts === true
-                    || capabilities.socReserves === true || capabilities.socOpenOrders === true;
-                if (!access.configured || !hasCapability) {
-                    disposeAuraRouterVoiceWidget();
-                    return;
-                }
-                // The React adapter mounts the existing single voice controller
-                // only after this native session and its server access are verified.
-                const module = await preloadAuraVoiceWidget();
-                if (ticket !== auraLoadSequence || !isAuraRouterWidgetAuthorized()) return;
-                if (!module) throw new Error('AURA voice module could not load.');
-                if (typeof module.mountAuraWidgetReact !== 'function') throw new Error('AURA React mount is incomplete.');
-                if (auraWidgetHandle) return;
-                const options = {
-                    userId: session.user.id,
-                    initialVoiceName: access.voiceName || 'Kore',
-                    voiceEngine: access.voiceEngine || 'browser',
-                    onVoicePreferenceChange: syncAuraVoiceSettings,
-                    onHandsFreePreferenceChange: syncAuraVoiceSettings,
-                    onReady: syncAuraVoiceSettings,
-                    isAuthorized: isAuraRouterWidgetAuthorized,
-                    requestAssistant: requestAuraQuery,
-                    openAssistantAction: openAuraRouterAction,
-                };
-                let reactHost = document.getElementById('aura-react-root');
-                if (!reactHost) {
-                    reactHost = document.createElement('div');
-                    reactHost.id = 'aura-react-root';
-                    document.body.append(reactHost);
-                }
-                auraWidgetHandle = module.mountAuraWidgetReact(reactHost, options);
-                auraWidgetOwnerKey = requestedOwnerKey;
-                syncAuraVoiceSettings();
-                if (getCurrentVisibleViewId() === 'communication') renderCommunicationHub();
-                if (getCurrentVisibleViewId() === 'managers' && activeHomeTab === 'dashboard') scheduleManagersRender(true);
-            } catch (error) {
-                if (ticket === auraLoadSequence && isAuraRouterProfileCandidate()) {
-                    if (error?.status === 403 || error?.code === 'AURA_FORBIDDEN') {
-                        disposeAuraRouterVoiceWidget();
-                        return;
-                    }
-                    console.warn('AURA capability refresh deferred.', error);
-                }
-            }
         }
         let bloomscapesPendingState = { sequence:0, orders:[], loading:false, more:false, error:'' };
         function getSupabaseBrowserClient() {
@@ -2448,8 +2376,7 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
         let notOnInventoryApprovalTaskRefreshLastAtByKey = new Map();
         let notOnInventoryApprovalPendingLocalRemovalIds = new Map();
         const NCR_APPROVAL_TASK_REFRESH_THROTTLE_MS = 12000;
-        const MANAGER_APPROVAL_LIVE_REFRESH_MS = 5000;
-        let managerApprovalLiveRefreshTimer = null;
+        /* @runtime-fragment assets/bloomscapes-manager-approval-poll.js */
         let taskHotStateCache = new Map();
         let taskFilteredItemsCache = new Map();
         let taskHotPriceSubsetCacheKey = '';
@@ -24404,7 +24331,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.0.87';
+        const APP_VERSION = '3.0.88';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -25960,16 +25887,19 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             }
         });
 
+        window.addEventListener('online', scheduleManagerApprovalLiveRefresh);
         window.addEventListener('offline', () => {
             unsubscribeEvalWorkRealtime();
             clearRequestViewLiveSync();
             clearVisibleViewPollSync();
+            clearManagerApprovalLiveRefresh();
             updateSyncDiagnostics('offline');
         });
 
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden && currentUser) {
                 initializeOpsPilotForCurrentSession('foreground').catch(() => false);
+                scheduleManagerApprovalLiveRefresh();
                 queueForegroundRefresh(isIOSDevice() ? 420 : 120);
                 syncAlwaysOnRequestData(isIOSDevice() ? 460 : 120, { minIntervalMs: 0 });
             } else {
@@ -25979,8 +25909,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
                 clearVisibleViewPollSync();
                 if (hlOrderPollTimer) clearTimeout(hlOrderPollTimer);
                 hlOrderPollTimer = null;
-                if (managerApprovalLiveRefreshTimer) clearTimeout(managerApprovalLiveRefreshTimer);
-                managerApprovalLiveRefreshTimer = null;
+                clearManagerApprovalLiveRefresh();
             }
             if (document.hidden && pendingCachePersist) persistCurrentCache(true);
             if (document.hidden) flushPendingEditsCache(true);
@@ -38129,8 +38058,6 @@ let avTopControlsRenderToken = 0;
         let argosReclassMultiActionState = { holdStopProposals: {}, rowProposals: new Map(), rowResolutions: new Map(), rowTemporaryOverlays: new Map() };
         const RECLASS_DELIVERY_STORAGE_KEY = 'gnc_reclass_delivery_jobs_v1';
         const RECLASS_DELIVERY_JOB_TTL_MS = 24 * 60 * 60 * 1000;
-        let reclassDeliveryPollTimer = null;
-        let reclassDeliveryPollActive = false;
 
         function isArgosInventoryTransactionEligible(item = null) {
             if (!item || typeof item !== 'object') return false;
@@ -40853,70 +40780,7 @@ let avTopControlsRenderToken = 0;
             });
         }
 
-        async function pollReclassDeliveryJobs() {
-            if (document.hidden || reclassDeliveryPollActive) return false;
-            const actor = getCurrentReclassDeliveryActor();
-            if (!actor) {
-                renderReclassDeliveryStatusTray();
-                return false;
-            }
-            const activeJobs = readReclassDeliveryJobs().filter((job) => (
-                job.actorUsername === actor
-                && ['queued', 'processing', 'pending_create'].includes(String(job.status || '').toLowerCase())
-            ));
-            renderReclassDeliveryStatusTray();
-            if (!activeJobs.length) return false;
-            reclassDeliveryPollActive = true;
-            try {
-                for (const job of activeJobs) {
-                    if (document.hidden || getCurrentReclassDeliveryActor() !== actor) break;
-                    let result = null;
-                    try {
-                        if (job.pendingCreate) {
-                            await dispatchPendingReclassDeliveryDraft(job);
-                            continue;
-                        }
-                        result = (['drive', 'suspend-tag'].includes(String(job.sourceView || '').trim().toLowerCase()) || job.payload?.workflowPolicyVersion === RECLASS_ACTION_WORKFLOW_V7_POLICY_VERSION)
-                            ? await driveReclassApi('status', { idempotencyToken: job.token }, { timeoutMs: 12000 })
-                            : await postGoogleScriptRawJsonPayload({
-                                type: 'reclass_inquiry_status',
-                                idempotencyToken: job.token
-                            }, 12000, 'Reclass Background Status');
-                    } catch (error) {
-                        if (job.pendingCreate && !error?.inventoryStatusPending && !isInventoryStatusOutcomeUncertain(error)) {
-                            upsertReclassDeliveryJob(Object.assign({}, job, {
-                                status: 'failed', pendingCreate: true,
-                                errorCode: String(error && (error.code || error.status) || ''),
-                                message: getFriendlyBackendErrorMessage(error, 'The inquiry was not queued. Your saved draft is available to retry.')
-                            }));
-                        }
-                        continue;
-                    }
-                    if (document.hidden || getCurrentReclassDeliveryActor() !== actor) break;
-                    if (!result || !result.status || result.status === 'missing') continue;
-                    const nextStatus = String(result.status || job.status || 'queued').toLowerCase();
-                    const update = {
-                        status: nextStatus,
-                        jobId: String(result.jobId || job.jobId || ''),
-                        queuedAt: String(result.queuedAt || job.queuedAt || ''),
-                        deliveredAt: String(result.deliveredAt || ''),
-                        attemptCount: Number(result.attemptCount || 0),
-                        errorCode: String(result.errorCode || ''),
-                        message: String(result.message || '')
-                    };
-                    if (nextStatus === 'delivered') {
-                        update.payload = null;
-                        update.recipientEmails = [];
-                        update.notified = true;
-                    }
-                    upsertReclassDeliveryJob(Object.assign({}, job, update));
-                }
-            } finally {
-                reclassDeliveryPollActive = false;
-                renderReclassDeliveryStatusTray();
-            }
-            return true;
-        }
+        /* @runtime-fragment assets/bloomscapes-reclass-delivery-poll.js */
 
         async function retryReclassDeliveryJob(token = '') {
             const job = getReclassDeliveryJob(token);
@@ -41004,34 +40868,6 @@ let avTopControlsRenderToken = 0;
             return false;
         }
 
-        function clearReclassDeliveryPollTimer() {
-            if (reclassDeliveryPollTimer == null) return;
-            clearTimeout(reclassDeliveryPollTimer);
-            reclassDeliveryPollTimer = null;
-        }
-
-        function scheduleReclassDeliveryPolling() {
-            clearReclassDeliveryPollTimer();
-            if (!isQuotaBackgroundPollingAllowed()) return;
-            reclassDeliveryPollTimer = window.setTimeout(() => {
-                reclassDeliveryPollTimer = null;
-                if (!isQuotaBackgroundPollingAllowed()) return;
-                Promise.resolve(pollReclassDeliveryJobs()).catch(() => {}).finally(() => {
-                    if (!document.hidden) scheduleReclassDeliveryPolling();
-                });
-            }, 5000);
-        }
-        function startReclassDeliveryPolling() {
-            queueArgosReclassMoveRecovery();
-            renderReclassDeliveryStatusTray();
-            if (!isQuotaBackgroundPollingAllowed()) { clearReclassDeliveryPollTimer(); return; }
-            void pollReclassDeliveryJobs().catch(() => {});
-            scheduleReclassDeliveryPolling();
-        }
-        document.addEventListener('visibilitychange', () => {
-            if (document.hidden) clearReclassDeliveryPollTimer();
-            else startReclassDeliveryPolling();
-        }, { passive: true });
         let inventoryStatusSync = null;
         const inventoryStatusRenderedCards = new Map();
         const inventoryStatusPendingSaves = new Map();
@@ -51827,58 +51663,7 @@ function toggleDriveQuickRequestItem(domId) {
         function syncRuntimeWatchdogHeaderVisibility() {
             if (typeof runtimeWatchdogPanel !== 'undefined') void runtimeWatchdogPanel.refreshBadge();
         }
-        function configureRuntimeWatchdogForCurrentSession() {
-            syncRuntimeWatchdogHeaderVisibility();
-            const username = String(currentUser || '').trim().toLowerCase();
-            const role = String(currentRole || '').trim();
-            if (!username || !role || typeof window.GncRuntimeWatchdog?.configure !== 'function') return false;
-            window.GncRuntimeWatchdog.configure({
-                apiUrl: APP_API_FUNCTION_URL, memoryOnly: true, durableRuntimeErrors: true,
-                getAvPhotoAudit: () => getAvCrossSeasonPhotoAudit(),
-                recoverAvPhotoScope: () => { avResolvedBaseStateKey='';avSharedFilteredRowsCacheKey='';scheduleAVRender(0); },
-                getExcelFilterAudit: () => getInventoryExcelParityAudit(),
-                recoverExcelFilters: () => { for (const scope of getInventoryExcelState.cache?.scopes?.keys() || []) mountInventoryExcelFilters(scope); },
-                filenameOrderValid: () => dashboardFilenameTimestamp('x-20200020261105202001.xlsx') === '20261105202000'
-                    && dashboardFilenameTimestamp('x-06383320261105063834.xlsx') > dashboardFilenameTimestamp('x-14383320261104143833.xlsx'),
-                recoverFilenameOrder: () => refreshDashboardSyncMetadata(),
-                recoverDocks: () => { if (getCurrentVisibleViewId() === 'docks') renderDocks(); },
-                getDocksSuspendAudit: () => getDocksSuspendSyncAudit(), getQueueAudit: root => getWatchdogQueueAudit(root), queueAtRoot: () => requestViewLevel === 0,
-                recountQueue: paintFooterRequestBadgeOnly, recoverRead: () => queueVisibleDatasetCatchup(0),
-                username,
-                role,
-                getSubModule: () => getCurrentVisibleViewId() === 'managers' ? activeHomeTab : '',
-                async reportEvent(event) {
-                    if (String(currentUser || '').trim().toLowerCase() !== username) {
-                        throw Object.assign(new Error('The active app account changed before watchdog delivery.'), { code: 'WATCHDOG_SESSION_CHANGED' });
-                    }
-                    let nativeHeaders = null;
-                    if (nativeAuthSessionActive && nativeAuthProfile?.id) {
-                        const nativeProfileId = String(nativeAuthProfile.id);
-                        const nativeEpoch = nativeAuthRecoveryEpoch;
-                        const nativeSessionUserId = String(nativeAuthSessionUserId || '');
-                        if (nativeSessionUserId !== nativeProfileId) {
-                            throw Object.assign(new Error('The active native app session is not ready for watchdog delivery.'), { code: 'WATCHDOG_SESSION_NOT_READY' });
-                        }
-                        nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
-                        if (String(currentUser || '').trim().toLowerCase() !== username || !nativeAuthSessionActive
-                            || nativeEpoch !== nativeAuthRecoveryEpoch || String(nativeAuthProfile?.id || '') !== nativeProfileId
-                            || String(nativeAuthSessionUserId || '') !== nativeSessionUserId
-                            || !/^Bearer\s+\S+$/i.test(String(nativeHeaders?.Authorization || ''))) {
-                            throw Object.assign(new Error('The authenticated native account changed before watchdog delivery.'), { code: 'WATCHDOG_SESSION_CHANGED' });
-                        }
-                    } else if (!getCurrentAppSessionToken()) {
-                        throw Object.assign(new Error('The active app session is not ready for watchdog delivery.'), { code: 'WATCHDOG_SESSION_NOT_READY' });
-                    }
-                    event = window.GncRuntimeWatchdog.toTransportEvent?.(event) || event;
-                    return postAppFunctionJson(APP_API_FUNCTION_URL, { action: 'watchdog_log_event', event }, {
-                        nativeHeaders,
-                        timeoutMs: 5000,
-                        label: 'Runtime watchdog telemetry'
-                    });
-                }
-            });
-            return true;
-        }
+        /* @runtime-fragment assets/bloomscapes-watchdog-report.js */
 
         async function finalizeLogin(user,pass,isBiometricLogin,options = {}) {
             const loginOptions = (options && typeof options === 'object' && !Array.isArray(options)) ? options : {};
@@ -74337,6 +74122,7 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
                         canonicalUserAccessRevision = self.revision;
                         void initializeAppAccessSnapshot({ force: true, reason: 'canonical-access-change' }).catch(() => {});
                     }
+                    syncAuraAfterCanonicalAccess(detail);
                     if (document.getElementById('rep-list-container')) filterRepList('');
                     invalidateRequestViewResolvedCaches();
                     if (isViewVisible('request')) scheduleRequestRender(0, 0, true);
@@ -108059,45 +107845,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return false;
         }
 
-        function isManagerApprovalLiveContextActive(tab = activeHomeTab) {
-            const safeTab = String(tab || activeHomeTab || '').trim().toLowerCase();
-            return isViewVisible('managers')
-                && isManagerApprovalTab(safeTab)
-                && canUseManagerApprovalTab(safeTab)
-                && navigator.onLine !== false
-                && document.hidden !== true;
-        }
-
-        function runManagerApprovalLiveRefresh(tab = activeHomeTab) {
-            const safeTab = String(tab || activeHomeTab || '').trim().toLowerCase();
-            if (managerApprovalLiveRefreshTimer) {
-                clearTimeout(managerApprovalLiveRefreshTimer);
-                managerApprovalLiveRefreshTimer = null;
-            }
-            if (!isManagerApprovalLiveContextActive(safeTab)) return false;
-            if (isInventoryChecksApprovalTaskView(safeTab) || isShearApprovalTaskView(safeTab)) {
-                ensureInventoryEditRequestsLoadedForShearListCatchup(true).then(() => {
-                    if (isManagerApprovalLiveContextActive(safeTab)) scheduleManagersRender(true);
-                }).catch((error) => console.warn('Inventory checks live refresh failed', error));
-            }
-            if (useManagerReportPages('approval')) getManagerReportPageController().refresh('approval');
-            else {
-                if (isNcrApprovalTaskView(safeTab)) scheduleNcrApprovalTaskRowsRefresh(safeTab, { bypassThrottle: true, quiet: true });
-                if (isNotOnInventoryApprovalTaskView(safeTab)) scheduleNotOnInventoryApprovalTaskRowsRefresh(safeTab, { bypassThrottle: true, quiet: true });
-            }
-            managerApprovalLiveRefreshTimer = setTimeout(() => runManagerApprovalLiveRefresh(activeHomeTab), MANAGER_APPROVAL_LIVE_REFRESH_MS);
-            return false;
-        }
-
-        function scheduleManagerApprovalLiveRefresh(delay = MANAGER_APPROVAL_LIVE_REFRESH_MS) {
-            if (canUseProductionLiveSync()) return;
-            if (managerApprovalLiveRefreshTimer) clearTimeout(managerApprovalLiveRefreshTimer);
-            managerApprovalLiveRefreshTimer = null;
-            if (!isManagerApprovalLiveContextActive(activeHomeTab)) return false;
-            managerApprovalLiveRefreshTimer = setTimeout(() => runManagerApprovalLiveRefresh(activeHomeTab), Math.max(250, Number(delay) || MANAGER_APPROVAL_LIVE_REFRESH_MS));
-            return false;
-        }
-
         function getInventoryEditManagerApprovalRecords(options = {}) {
             const opts = options && typeof options === 'object' ? options : {};
             return getInventoryEditMockRecords()
@@ -108468,31 +108215,11 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             </div>`;
         }
 
+        /* @runtime-fragment assets/manager-approval-home.js */
         function renderManagerApprovalHomePanel(approvalTabs = null) {
-            setTimeout(() => { void refreshSuspendApprovalInbox(); }, 0);
-            const tabs = (Array.isArray(approvalTabs) ? approvalTabs : getManagerApprovalTabs(getManagersToolAccess()))
-                .filter((tab) => [SHEAR_APPROVAL_VIEW, NCR_APPROVAL_NEW_CROP_VIEW].includes(String(tab && tab.id || '').trim().toLowerCase()));
-            const cardsHtml = tabs.map((tab) => {
-                const meta = getManagerModuleMeta(tab.id);
-                const label = tab.label || meta.label || 'Module';
-                const description = meta.description || 'Open approval work.';
-                return `<button type="button" class="manager-module-card" title="${esc(`${label}: ${description}`)}" ${buildFastInvokeAttrs('setHomeTab', [tab.id], label)}>
-                    <span class="manager-module-icon"><i class="ph-bold ${esc(meta.icon || 'ph-seal-check')}"></i></span>
-                    <span class="manager-module-title">${esc(label)}</span>
-                </button>`;
-            }).join('');
-            if (!cardsHtml) {
-                return '<section data-suspend-approval-inbox class="p-4"></section><div class="rounded-2xl border border-dashed border-slate-200 bg-white/80 p-8 text-center text-sm font-bold text-slate-400">No approval queues are available for this login.</div>';
-            }
-            return `<div class="space-y-4">
-                <div class="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm">
-                    <div class="text-[10px] font-black uppercase tracking-[0.16em] text-[#007a4d]">Manager Approval</div>
-                    <div class="mt-1 text-xl font-black text-slate-900">Approval</div>
-                    <div class="mt-1 text-[12px] font-semibold text-slate-500">Choose the approval queue to work. Shear and NCR approvals stay grouped here.</div>
-                </div>
-                <section data-suspend-approval-inbox class="p-4"></section><div class="manager-module-grid">${cardsHtml}</div>
-            </div>`;
+            return renderCanonicalManagerApprovalHome(approvalTabs);
         }
+        globalThis.renderManagerApprovalHomePanel = renderManagerApprovalHomePanel;
 
         function renderManagerApprovalPanel(tab = activeHomeTab) {
             const safeTab = String(tab || '').trim().toLowerCase();
@@ -147309,6 +147036,7 @@ ${folderNote ? `Folder Note: ${folderNote}
         } else {
             initializeAppChromeOnDomReady();
         }
+        bindReclassDeliveryPolling();
         if (document.readyState === 'complete') {
             void initializeAppSessionOnLoad();
             startReclassDeliveryPolling();

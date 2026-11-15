@@ -12,17 +12,24 @@ async function ensureDatasetLoaded(key, mode = 'initial', options = {}) {
     if (isDatasetFrozenDuringManualSync(key,mode)) return wantsFull ? !!state.fullLoaded : !!(state.initialLoaded || state.fullLoaded);
     if (options.force && !wantsFull && state.fullLoaded && !options.preserveRequestedMode) return ensureDatasetLoaded(key,'full',options);
     if (!options.force && datasetLoadAlreadyComplete(key,state,wantsFull)) return true;
-    const load = () => runDatasetLoadWithRetry(key,definition,state,wantsFull,options);
-    if (wantsFull) {
-        if (state.fullPromise) return state.fullPromise;
-        state.fullPromise = Promise.resolve(state.initialPromise).catch(() => false).then(load).finally(() => {
-            state.fullPromise = null;
+    return loadOwnedDataset(key, definition, state, wantsFull, options);
+}
+
+function loadOwnedDataset(key, definition, state, wantsFull, options) {
+    const owner = getSupabaseReadIdentityScope();
+    const slot = wantsFull ? 'fullPromise' : 'initialPromise';
+    const current = state[slot];
+    if (current?.ownerIdentity === owner) return current;
+    const initial = wantsFull && state.initialPromise?.ownerIdentity === owner ? state.initialPromise : null;
+    const isCurrent = () => state[slot] === task && getDatasetState(key) === state && getSupabaseReadIdentityScope() === owner;
+    const task = Promise.resolve(initial).catch(() => false)
+        .then(() => runDatasetLoadWithRetry(key, definition, state, wantsFull, options, isCurrent))
+        .finally(() => {
+            if (state[slot] === task) state[slot] = null;
         });
-        return state.fullPromise;
-    }
-    if (state.initialPromise) return state.initialPromise;
-    state.initialPromise = load().finally(() => { state.initialPromise = null; });
-    return state.initialPromise;
+    Object.defineProperty(task, 'ownerIdentity', { value: owner });
+    state[slot] = task;
+    return task;
 }
 
 function getOwnedColdDatasetLoad(key, mode) {
@@ -49,10 +56,11 @@ function datasetLoadAlreadyComplete(key, state, wantsFull) {
     return (state.initialLoaded || state.fullLoaded) && !isMasterInitialLoadPartialForCurrentScope(state);
 }
 
-async function runDatasetLoadWithRetry(key, definition, state, wantsFull, options) {
+async function runDatasetLoadWithRetry(key, definition, state, wantsFull, options, isCurrent) {
     const maxRetries = options.retryOnCancellation === true ? 4 : 0;
     for (let attempt = 0; ; attempt += 1) {
-        try { return await runLegacyDatasetLoad(key,definition,state,wantsFull,options); }
+        if (!isCurrent()) return false;
+        try { return await runLegacyDatasetLoad(key,definition,state,wantsFull,options,isCurrent); }
         catch (error) {
             if (attempt >= maxRetries || getSupabaseReadErrorCode(error) !== 'REQUEST_ABORTED') throw error;
             await new Promise(resolve => setTimeout(resolve,600*(attempt+1)));
@@ -60,7 +68,7 @@ async function runDatasetLoadWithRetry(key, definition, state, wantsFull, option
     }
 }
 
-function createDatasetReadPlan(key, definition, wantsFull, options) {
+function createDatasetReadPlan(key, definition, wantsFull, options, isCurrent) {
     const modeLabel = wantsFull ? 'full' : 'initial';
     const querySource = wantsFull ? definition.fullQuery : definition.initialQuery;
     const query = typeof querySource === 'function' ? querySource(modeLabel,options) : querySource || 'select=*';
@@ -69,9 +77,9 @@ function createDatasetReadPlan(key, definition, wantsFull, options) {
     const fetchAll = !wantsFull && definition.initialFetchAll === true && options.fastInitialPage !== true;
     const owner = getSupabaseReadIdentityScope();
     const firstPage = shouldHydrateFirstPageForDatasetLoad(key,modeLabel)
-        ? {onFirstPage:(rows,meta) => owner === getSupabaseReadIdentityScope() ? hydrateFirstDatasetPageForRender(key,rows,meta) : false}
+        ? {onFirstPage:(rows,meta) => isCurrent() ? hydrateFirstDatasetPageForRender(key,rows,meta) : false}
         : {};
-    return {key,definition,wantsFull,options,modeLabel,query,limit,fetchAll,owner,firstPage};
+    return {key,definition,wantsFull,options,modeLabel,query,limit,fetchAll,owner,firstPage,isCurrent};
 }
 
 async function fetchLegacyDatasetRows(plan) {
@@ -95,6 +103,7 @@ async function retryFullLegacyMasterRead(plan, error) {
     try {
         return await fetchAllInventoryReadRows('master_page',{dataset:'master',projection:'full'},{...plan.firstPage,limit:500});
     } catch (fallbackError) {
+        if (!plan.isCurrent()) return null;
         console.warn('Full master retry failed; showing first master page while background sync retries.',fallbackError);
         return (await fetchInventoryReadPage('master_page',{dataset:'master',projection:'full'},Math.min(plan.limit,500),0,{label:'Inventory rows'})).rows;
     }
@@ -152,7 +161,9 @@ function refreshRequestOptionsAfterDatasetLoad() {
 async function commitLegacyDatasetRows(plan, state, rows) {
     const {key,definition,wantsFull,owner} = plan;
     if (key === 'reserves' && wantsFull) {
-        reservesInventory = await buildReserveInventoryRowsAsync(formatFetchedRows(rows,definition.sourceTable));
+        const inventory = await buildReserveInventoryRowsAsync(formatFetchedRows(rows,definition.sourceTable));
+        if (!plan.isCurrent()) return;
+        reservesInventory = inventory;
         rebuildDetailLookupIndexes();
         invalidateResolvedViewStateCaches();
         refreshRequestOptionsAfterDatasetLoad();
@@ -192,24 +203,27 @@ function refreshViewsAfterLegacyDatasetLoad(key, wantsFull) {
     }
 }
 
-async function runLegacyDatasetLoad(key, definition, state, wantsFull, options) {
+async function runLegacyDatasetLoad(key, definition, state, wantsFull, options, isCurrent) {
     const startedAt = beginInternalPerfMeasure();
     if (shouldPauseInterruptibleRefresh(options)) {
         options.interruptedDuringLoad = true;
         return false;
     }
-    const plan = createDatasetReadPlan(key,definition,wantsFull,options);
+    const plan = createDatasetReadPlan(key,definition,wantsFull,options,isCurrent);
     let rows;
     try { rows = await fetchLegacyDatasetRows(plan); }
-    catch (error) { rows = await recoverLegacyDatasetRows(plan,error); }
-    if (!rows || plan.owner !== getSupabaseReadIdentityScope()) return false;
+    catch (error) {
+        if (!isCurrent()) return false;
+        rows = await recoverLegacyDatasetRows(plan,error);
+    }
+    if (!rows || !isCurrent()) return false;
     if (shouldPauseInterruptibleRefresh(options)) {
         options.interruptedDuringLoad = true;
         return false;
     }
     const partial = updateLegacyDatasetLoadState(plan,state,rows);
     await commitLegacyDatasetRows(plan,state,rows);
-    if (plan.owner !== getSupabaseReadIdentityScope()) return false;
+    if (!isCurrent()) return false;
     replayHydratedRowPatches();
     refreshViewsAfterLegacyDatasetLoad(key,wantsFull);
     if (key === 'master' && state.fullLoaded && (wantsFull || plan.fetchAll)) persistCurrentCache(true,'master-full');

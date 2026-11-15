@@ -13,7 +13,8 @@ function getInventoryCardItemLocationKey(item = null) {
     const locationCode = helper ? helper.normalizeLocation(locationValue) : normalizeNcrInheritanceKeyPart(locationValue);
     if (!itemCode || !locationCode) return '';
     const key = [itemCode, locationCode];
-    if (bloomscapesRowFarm(item) === '60-HL') key.push('60-HL');
+    const farm = bloomscapesRowFarm(item);
+    if (farm !== '10-PH') key.push(farm);
     return JSON.stringify(key);
 }
 
@@ -27,6 +28,7 @@ function getMasterInventoryExactKey(item) {
     const lotCode = String(item.LOTCODE || item.LOT || item.lotcode || item.lot || '').trim().toUpperCase();
     const sourceCode = getMasterInventorySourceCode(item);
     if (!itemCode || !locationCode || !lotCode || !sourceCode) return '';
-    const farm = bloomscapesRowFarm(item) === '60-HL' ? '__60-HL' : '';
+    const rowFarm = bloomscapesRowFarm(item);
+    const farm = rowFarm === '10-PH' ? '' : '__' + rowFarm;
     return `${itemCode}__${locationCode}__${lotCode}__${sourceCode}${farm}`;
 }

@@ -29,6 +29,11 @@ function bindBloomscapesVaultFilter(host,rows,render) {
 }
 
 function renderBloomscapesVaultPdf(item,row) {
+    if (row.sandbox_delivery_status === 'sandbox_archived_for_dylan') {
+        const receipt=document.createElement('span');
+        receipt.textContent='Archived for Dylan · Storage and local copies verified';
+        item.appendChild(receipt);
+    }
     const button=document.createElement('button');
     button.type='button';
     button.textContent='Open / Print PDF';

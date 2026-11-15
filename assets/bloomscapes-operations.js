@@ -1,8 +1,8 @@
 const BLOOMSCAPES_WORKFLOW_TABS = [
     {id:'bloomscapes-inventory',label:'Farm Inventory'},
-    {id:'bloomscapes-replenishment',label:'Hidden Lake Replenishment'},
+    {id:'bloomscapes-replenishment',label:'Intercompany Replenishment & CPB'},
     {id:'bloomscapes-dock-approvals',label:'Dock Rep Approvals'},
-    {id:'bloomscapes-hl-keying',label:'Park Hill Data Entry · Hidden Lake'},
+    {id:'bloomscapes-hl-keying',label:'Park Hill Data Entry · Intercompany'},
     {id:'bloomscapes-field-jobs',label:'Field Jobs and Can Fill'},
     {id:'bloomscapes-grading',label:'Season .Y Shift Grading & CF#'},
     {id:'bloomscapes-hauling',label:'Hauling & Consolidation'},
@@ -19,8 +19,9 @@ function bloomscapesWorkflowTab(tab) {
 
 function workflowForm(tab) {
     if (tab === 'bloomscapes-inventory') {
-        return '<label>Farm <select name="farm"><option value="10-PH">🌲 10-PH</option><option value="60-HL">🏔️ 60-HL</option><option value="all">🌐 Combined</option></select></label><button type="submit">Show</button>';
+        return '<label>Farm <select name="farm"><option>10-PH</option><option>60-HL</option><option>20-TX</option><option>40-NC</option><option>ALL</option></select></label><button type="submit">Show</button>';
     }
+    if (tab === 'bloomscapes-replenishment') return '<label>Origin <select data-origin-filter><option>ALL</option><option>60-HL</option><option>20-TX</option><option>40-NC</option></select></label>';
     if (bloomscapesFieldPanel(tab)) return bloomscapesFieldForms(tab);
     if (tab === 'bloomscapes-vault') {
         return '<label>Search <input name="search" type="search"></label><label>User <input name="user"></label>'
@@ -47,7 +48,7 @@ function renderBloomscapesWorkflowPanel(tab) {
 
 const workflowFields = {
     'bloomscapes-inventory': ['warehouse_id','unique_id','itemcode','commonname','locationcode','lotcode','ptronhand'],
-    'bloomscapes-replenishment': ['itemcode','locationcode','lotcode','current_ptronhand','remaining_po_qty','open_can_space','demand_7_days','hl_on_hand'],
+    'bloomscapes-replenishment': ['origin_farm','itemcode','contsize','locationcode','lotcode'],
     'bloomscapes-dock-approvals': ['itemcode','dock','order_unique_id','candidate_locationcode','decision'],
     'bloomscapes-hl-keying': ['itemcode','lotcode','locationcode','field_name','qty_delta','reason_code','actor_username'],
     'bloomscapes-field-jobs': ['unique_id','record_kind','itemcode','locationcode','new_locationcode','graded_qty','qty_hauled','job_status'],
@@ -84,8 +85,16 @@ function renderDockWorkflowRow(item, row, run) {
 
 function renderReplenishmentGauge(item, row) {
     const capacity = Number(row.bed_capacity);
-    if (!Number.isFinite(capacity) || capacity <= 0 || row.occupied_beds == null || row.unmeasured_rows>0) {
-        appendWorkflowNode(item, 'span', 'Capacity needs measured beds / CPB for '+(row.unmeasured_rows || 'unmapped')+' rows');
+    appendWorkflowNode(item,'span','On hand '+row.current_ptronhand+' · Target '+row.block_target_cans
+        +' · Open '+row.open_can_space+' · PO balance '+row.remaining_po_qty
+        +' · 7-day demand '+row.demand_7_days+' · Origin available '+row.hl_on_hand);
+    if (row.capacity_basis === 'NO_ALLOCATED_BEDS' || row.capacity_basis === 'INCOMPLETE_OCCUPANCY') {
+        appendWorkflowNode(item,'span','Receiving held · '+(row.capacity_basis === 'NO_ALLOCATED_BEDS'
+            ? 'no current bed allocation' : 'occupancy requires verification'));
+        return;
+    }
+    if (!Number.isFinite(capacity) || capacity<=0) {
+        appendWorkflowNode(item,'span','No receiving bed capacity');
         return;
     }
     const current = Number(row.occupied_beds);
@@ -95,7 +104,18 @@ function renderReplenishmentGauge(item, row) {
     meter.max = capacity;
     meter.value = Math.min(capacity, current);
     appendWorkflowNode(item, 'span', current.toFixed(1) + ' / ' + capacity + ' beds occupied · '
-        + (100*current/capacity).toFixed(1)+'% · '+row.cpb+' cans per bed');
+        + (100*current/capacity).toFixed(1)+'% · '+row.cpb+' cans per bed'
+        +(row.capacity_basis==='CONTAINER_DERIVED'?' · container-derived estimate':''));
+}
+
+function renderIntercompanyShuttle(item,row,refresh) {
+    const button=appendWorkflowNode(item,'button','Shuttle '+row.origin_farm+' → 10-PH');
+    button.type='button';
+    button.disabled=!(row.open_can_space>0 && row.remaining_po_qty>0 && row.hl_on_hand>0);
+    const status=appendWorkflowNode(item,'span','');
+    status.setAttribute('role','status');
+    const input={rowId:row.row_id,originFarm:row.origin_farm,requestId:crypto.randomUUID()};
+    button.addEventListener('click',()=>void runBloomscapesFieldCommand(status,button,refresh,'intercompany-shuttle',input));
 }
 
 function showWorkflowRows(host, tab, rows, run, refresh) {
@@ -103,14 +123,17 @@ function showWorkflowRows(host, tab, rows, run, refresh) {
     results.replaceChildren();
     const list = appendWorkflowNode(results, 'ul', '');
     list.className = 'divide-y divide-emerald-900';
-    rows.forEach(row => {
+    const origin=host.querySelector('[data-origin-filter]')?.value || 'ALL';
+    rows.filter(row=>tab!=='bloomscapes-replenishment' || origin==='ALL' || row.origin_farm===origin).forEach(row => {
         const item = appendWorkflowNode(list, 'li', '');
         item.className = 'py-2 space-x-2';
         const keys = workflowFields[tab] || workflowFields['bloomscapes-field-jobs'];
         const fields = keys.map(key => row[key]).filter(value => value != null && value !== '');
         appendWorkflowNode(item, 'span', fields.join(' · '));
-        if (tab === 'bloomscapes-replenishment') renderReplenishmentGauge(item, row);
-        renderBloomscapesFieldExtras(item,tab,row,refresh);
+        if (tab === 'bloomscapes-replenishment') {
+            renderReplenishmentGauge(item,row);
+            renderIntercompanyShuttle(item,row,refresh);
+        } else renderBloomscapesFieldExtras(item,tab,row);
         if (tab === 'bloomscapes-dock-approvals') renderDockWorkflowRow(item, row, run);
         if (tab === 'bloomscapes-vault') renderBloomscapesVaultPdf(item,row);
     });
@@ -183,6 +206,8 @@ function bindBloomscapesPanelForm(host,tab,status,load) {
 function bindBloomscapesPanelFilters(host,tab,rows,decide,load) {
     if(tab==='bloomscapes-vault') bindBloomscapesVaultFilter(host,rows,
         matches=>showWorkflowRows(host,tab,matches,decide,load));
+    const origin=host.querySelector('[data-origin-filter]');
+    if (origin) origin.onchange=()=>showWorkflowRows(host,tab,rows,decide,load);
 }
 
 function bloomscapesInquiryPdfForm() {
@@ -228,7 +253,7 @@ function bloomscapesFieldPanel(tab) {
 }
 
 function bloomscapesFieldForms(tab) {
-    const farm = '<label>Farm <select name="farm"><option>10-PH</option><option>60-HL</option></select></label>';
+    const farm = '<label>Farm <select name="farm"><option>10-PH</option><option>60-HL</option><option>20-TX</option><option>40-NC</option></select></label>';
     const row = '<label>Source row ID <input name="rowId" maxlength="150" required></label>';
     const grading = '<form class="space-x-2" data-field-command="grading"><h3>Season .Y Grading</h3>' + farm + row
         + '<label>Scheduled total <input name="scheduled" type="number" min="1" required></label>'

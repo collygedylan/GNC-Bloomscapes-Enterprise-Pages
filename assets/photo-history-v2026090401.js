@@ -1,11 +1,13 @@
 /* Approved-user historical photo gallery. Full objects resolve only by explicit Open. */
-(() => {
-  'use strict';
+'use strict';
+{
   let storageKey = '', actorKey = '';
   const ROW = 356;
+  const STATUS_REFRESH_MS = 300000;
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const date = value => String(value || '').slice(0, 10) || 'Unknown date';
-  let bridge, dialog, viewer, returnFocus, generation = 0, timer, poll, frame, requestBusy = false, openGeneration = 0, readOnly = false;
+  let bridge, dialog, viewer, returnFocus, generation = 0, timer, frame, requestBusy = false, openGeneration = 0, readOnly = false;
+  let statusTimer = null, inFlight = null, statusBackoffUntil = 0, statusFailures = 0;
   let photos = [], cursor = null, asOf = '', hasMore = true, loading = false, loadError = false, lastWindow = '', selection = new Map();
   let draft = { q: '', container: '', location: '', lot: '', from: '', to: '', recipientId: '', message: '', pending: null };
   const thumbCache = new Map();
@@ -55,7 +57,7 @@
       <div class="phg-filters compact-filter-rail" aria-label="Photo filters">${[['container','Container size'],['location','Location'],['lot','Lot'],['from','From date'],['to','Through date']].map(([id,label])=>`<label>${label}<input id="phg-${id}" type="${id==='from'||id==='to'?'date':'text'}" autocomplete="off"></label>`).join('')}<button id="phg-reset">Reset filters</button></div>
       <p id="phg-count" class="phg-muted" role="status">Historical photos — not confirmation of current availability. Scroll to browse all matches.</p><p id="phg-message" class="phg-error" role="alert"></p><div id="phg-notices" class="phg-notices" aria-live="polite"></div>
       <div id="phg-scroll" class="phg-scroll" tabindex="0" aria-label="Historical photo gallery"><div id="phg-space" class="phg-space"><div id="phg-window" class="phg-window"></div></div></div>
-      <footer class="phg-tray"><details id="phg-tray"><summary id="phg-selection-count">0 photos selected</summary><div id="phg-selected" class="phg-selected"></div><div class="phg-send-fields"><label>Sales rep<select id="phg-recipientId"><option value="">Choose a sales rep</option></select></label><label>Optional message<textarea id="phg-message-input" maxlength="2000" placeholder="Add context for the sales rep"></textarea></label><button id="phg-send" class="phg-primary">Send One Email</button></div><p class="phg-muted">Dylan and JD are included automatically with the selected sales rep. Up to 20 photos per email. Dates and original filenames are included. No inventory or Requests are changed.</p></details></footer></div>`;
+      <footer class="phg-tray"><details id="phg-tray"><summary id="phg-selection-count">0 photos selected</summary><div id="phg-selected" class="phg-selected"></div><div class="phg-send-fields"><label>Sales rep<select id="phg-recipientId"><option value="">Choose a sales rep</option></select></label><label>Optional message<textarea id="phg-message-input" maxlength="2000" placeholder="Add context for the sales rep"></textarea></label><button id="phg-send" class="phg-primary">Send One Email</button></div><p class="phg-muted">Dylan and JD are included automatically with the selected sales rep. Up to 20 photos per email. Dates and original filenames are included. No inventory or Requests are changed.</p><button id="phg-status-refresh" type="button">Refresh delivery status</button></details></footer></div>`;
     dialog.querySelectorAll('input,textarea,select,button').forEach(e=>e.setAttribute('data-fast-press-ignore',''));
     document.body.append(dialog);
     el('close').onclick = close;
@@ -71,6 +73,7 @@
     el('message-input').oninput=()=>{draft.message=el('message-input').value;persist();};
     el('recipientId').onchange=()=>{draft.recipientId=el('recipientId').value;persist();};
     el('send').onclick=send;
+    el('status-refresh').onclick = refreshDeliveryStatusFromButton;
     el('scroll').addEventListener('scroll',()=>{if(!frame)frame=requestAnimationFrame(()=>{frame=null;renderWindow();});},{passive:true});
     new ResizeObserver(()=>{lastWindow='';if(active())renderWindow();}).observe(el('scroll'));
   }
@@ -202,7 +205,7 @@
     try{
       await api('send',draft.pending);
       if(opened!==openGeneration||!active())return;
-      selection.clear();draft.pending=null;draft.message='';el('message-input').value='';persist();await refreshStatus();
+      selection.clear();draft.pending=null;draft.message='';el('message-input').value='';persist();await refreshStatusAfterChange();
     }catch(error){
       if(opened!==openGeneration||!active())return;
       if(['PHOTO_HISTORY_RECIPIENT_UNAVAILABLE','PHOTO_HISTORY_ASSET_UNAVAILABLE','PHOTO_HISTORY_SELECTION_INVALID'].includes(error?.payload?.code)){
@@ -211,13 +214,79 @@
     }
     finally{if(opened===openGeneration){requestBusy=false;renderSelection();lastWindow='';renderWindow();}}
   }
-  async function refreshStatus(){
-    if(!active())return;
-    try{
-      const result=await api('status');if(!active())return;
-      el('notices').innerHTML=result.shares.filter(s=>s.delivered||['failed','unknown'].includes(s.status)).map(s=>`<div class="phg-notice"><span>${s.delivered?'Email Sent':'Email Failed'} · ${s.photo_count} photos · ${esc(s.recipient_name)}${s.copied_usernames?.length?' · Dylan and JD included':''}</span>${!s.delivered?`<button data-retry="${esc(s.id)}">Retry</button>`:''}<button data-dismiss="${esc(s.id)}">Dismiss</button></div>`).join('');
-      el('notices').querySelectorAll('button').forEach(b=>b.onclick=async()=>{b.disabled=true;try{await api(b.dataset.retry?'retry':'dismiss',{id:b.dataset.retry||b.dataset.dismiss});await refreshStatus();}catch(error){tell(error.message);b.disabled=false;}});
-    }catch(_){/* Silent bounded polling; sends and explicit retries surface their own errors. */}
+  function isPhotoDeliveryPollingAllowed() {
+    return !readOnly && document.visibilityState === 'visible' && window.navigator?.onLine !== false && active();
+  }
+  function stopStatusPolling() {
+    if (statusTimer !== null) clearInterval(statusTimer);
+    statusTimer = null;
+  }
+  function syncStatusPolling() {
+    if (!isPhotoDeliveryPollingAllowed()) {
+      stopStatusPolling();
+      return;
+    }
+    if (statusTimer === null) statusTimer = setInterval(checkBackgroundDeliveryStatus, STATUS_REFRESH_MS);
+  }
+  function checkBackgroundDeliveryStatus() {
+    if (!isPhotoDeliveryPollingAllowed()) {
+      stopStatusPolling();
+      return;
+    }
+    if (inFlight || Date.now() < statusBackoffUntil) return;
+    void refreshStatus();
+  }
+  function renderDeliveryStatus(shares) {
+    el('notices').innerHTML=shares.filter(s=>s.delivered||['failed','unknown'].includes(s.status)).map(s=>`<div class="phg-notice"><span>${s.delivered?'Email Sent':'Email Failed'} · ${s.photo_count} photos · ${esc(s.recipient_name)}${s.copied_usernames?.length?' · Dylan and JD included':''}</span>${!s.delivered?`<button data-retry="${esc(s.id)}">Retry</button>`:''}<button data-dismiss="${esc(s.id)}">Dismiss</button></div>`).join('');
+    el('notices').querySelectorAll('button').forEach(button => {
+      button.onclick = () => changeDeliveryStatus(button);
+    });
+  }
+  async function changeDeliveryStatus(button) {
+    button.disabled = true;
+    try {
+      const {retry, dismiss} = button.dataset;
+      await api(retry ? 'retry' : 'dismiss', {id: retry || dismiss});
+      await refreshStatusAfterChange();
+    } catch (error) {
+      if (active()) tell(error.message);
+      button.disabled = false;
+    }
+  }
+  async function refreshStatusAfterChange() {
+    const opened = openGeneration;
+    if (inFlight) await inFlight;
+    if (opened === openGeneration) return refreshStatus(true);
+    return false;
+  }
+  async function refreshDeliveryStatusFromButton() {
+    if (!isPhotoDeliveryPollingAllowed()) return;
+    const opened = openGeneration;
+    const button = el('status-refresh');
+    button.disabled = true;
+    const updated = await refreshStatus(true);
+    if (!updated && opened === openGeneration && isPhotoDeliveryPollingAllowed()) tell('Could not refresh delivery status. Try again.');
+    button.disabled = false;
+  }
+  function refreshStatus(explicit = false) {
+    if (!isPhotoDeliveryPollingAllowed()) return Promise.resolve(false);
+    if (inFlight) return inFlight;
+    if (!explicit && Date.now() < statusBackoffUntil) return Promise.resolve(false);
+    const opened = openGeneration;
+    statusBackoffUntil = Date.now() + STATUS_REFRESH_MS;
+    inFlight = api('status').then(result => {
+      if (opened !== openGeneration || !isPhotoDeliveryPollingAllowed()) return false;
+      statusFailures = 0;
+      renderDeliveryStatus(result.shares);
+      return true;
+    }).catch(() => {
+      if (opened === openGeneration) {
+        statusFailures = Math.min(statusFailures + 1, 3);
+        statusBackoffUntil = Date.now() + STATUS_REFRESH_MS * 2 ** (statusFailures - 1);
+      }
+      return false;
+    }).finally(() => { inFlight = null; });
+    return inFlight;
   }
   async function openPhoto(p){
     if(viewer?.open)return;
@@ -243,12 +312,18 @@
     if(dialog.open)return false;
     requestBusy=false;
     returnFocus=document.activeElement;dialog.showModal();const opened=++openGeneration;
-    renderSelection();resetSearch();clearInterval(poll);poll=null;
+    renderSelection();resetSearch();
     if(!readOnly){try{const result=await api('recipients');if(opened!==openGeneration||!active())return false;el('recipientId').innerHTML='<option value="">Choose a sales rep</option>'+result.recipients.map(r=>`<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('');el('recipientId').value=draft.recipientId;}catch(error){if(active())tell(error.message);}
-      refreshStatus();poll=setInterval(()=>{if(!bridge.allowed())clear();else if(document.visibilityState==='visible')refreshStatus();},15000);}
+       if (opened === openGeneration) {
+         void refreshStatus(true);
+         syncStatusPolling();
+       }}
     return false;
   }
-  function close(){persist();generation++;openGeneration++;clearTimeout(timer);clearInterval(poll);if(viewer?.open){viewer.close();viewer.remove();}dialog?.close();returnFocus?.focus?.({preventScroll:true});}
+  function close(){persist();generation++;openGeneration++;clearTimeout(timer);stopStatusPolling();statusFailures=0;statusBackoffUntil=0;if(viewer?.open){viewer.close();viewer.remove();}dialog?.close();returnFocus?.focus?.({preventScroll:true});}
   function clear(){close();selection.clear();draft={q:'',container:'',location:'',lot:'',from:'',to:'',recipientId:'',message:'',pending:null};photos=[];thumbCache.clear();try{if(storageKey)localStorage.removeItem(storageKey);}catch(_){}if(dialog){dialog.remove();dialog=null;}actorKey='';storageKey='';requestBusy=false;}
   window.GncPhotoHistory={open,close,clear};
-})();
+  document.addEventListener('visibilitychange', syncStatusPolling, {passive: true});
+  window.addEventListener('online', syncStatusPolling, {passive: true});
+  window.addEventListener('offline', stopStatusPolling, {passive: true});
+}

@@ -1,16 +1,6 @@
-function renderBloomscapesFieldExtras(item,tab,row,refresh) {
+function renderBloomscapesFieldExtras(item,tab,row) {
     if (tab === 'bloomscapes-sales-vault') return renderBloomscapesSubstituteFinder(item,row);
     if (row.recovery) renderBloomscapesRecovery(item,row);
-    if (tab !== 'bloomscapes-replenishment') return;
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.textContent = 'Execute HL shuttle';
-    button.disabled = !(row.open_can_space>0 && row.remaining_po_qty>0 && row.hl_on_hand>0);
-    const requestId = crypto.randomUUID();
-    const status = document.createElement('span');
-    status.setAttribute('role','status');
-    button.addEventListener('click',() => void runBloomscapesShuttle(button,status,row.row_id,requestId,refresh));
-    item.append(button,status);
 }
 
 function renderBloomscapesSubstituteFinder(item,row) {
@@ -38,20 +28,6 @@ function appendBloomscapesSubstitute(results,row) {
     entry.textContent = [row.commonname,row.itemcode,row.locationcode,row.lotcode,
         'Priority '+row.priority,'On hand '+row.ptronhand,row.match_kind].join(' · ');
     results.appendChild(entry);
-}
-
-async function runBloomscapesShuttle(button,status,rowId,requestId,refresh) {
-    if (button.disabled) return;
-    button.disabled = true;
-    try {
-        const receipt = await submitBloomscapesCommand('shuttle',{rowId,requestId});
-        status.textContent = 'Moved '+receipt.quantity+' · '+receipt.source_location+' → '+receipt.destination_location;
-        await ensureDatasetLoaded('master','full',{force:true,bypassLiveSyncCoordinator:true});
-        await refresh();
-    } catch (error) {
-        status.textContent = error.message;
-        button.disabled = false;
-    }
 }
 
 function renderBloomscapesRecovery(item,row) {

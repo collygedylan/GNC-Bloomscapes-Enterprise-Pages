@@ -1,8 +1,10 @@
 async function fetchAuthenticatedSupabaseReadPage(table, queryString = '', options = {}) {
     const safeTable = normalizeAppTableName(table);
-    if (safeTable === 'ph_master_inventory' && getBloomscapesFarm() !== '10-PH') {
-        const farmFilter = getBloomscapesFarm() === '60-HL' ? '&warehousei=eq.60' : '';
-        return fetchDirectPostgrestReadPage('gnc_all_master_inventory',queryString + farmFilter,options,false);
+    const farmRead=bloomscapesFarmReadContract(safeTable,getBloomscapesFarm());
+    if (farmRead) {
+        const query=new URLSearchParams(String(queryString || '').replace(/^\?/,''));
+        if (farmRead.code) query.set(farmRead.column,'eq.'+farmRead.code);
+        return fetchDirectPostgrestReadPage(farmRead.table,query.toString(),options,false);
     }
     if (safeTable === 'ph_customer_consignee_sales_reps' && !hasAuthenticatedOperationalReadIdentity()) {
         throw Object.assign(new Error('Customer mappings load after an authenticated session is ready.'), { code: 'DATASET_AUTH_REQUIRED' });
@@ -38,6 +40,20 @@ async function fetchAuthenticatedSupabaseReadPage(table, queryString = '', optio
         total: null,
         authSource: 'app-api'
     };
+}
+
+function bloomscapesFarmReadContract(table,farm) {
+    if (farm==='10-PH') return null;
+    if (!['60-HL','20-TX','40-NC','ALL'].includes(farm)) throw new Error('Invalid inventory farm scope.');
+    const contracts={
+        ph_master_inventory:['gnc_all_master_inventory','warehousei'],
+        ph_soc_master:['gnc_all_soc_master','warehouseid'],
+        ph_reserves:['gnc_all_reserves','warehouseid'],
+        ph_cav_import:['gnc_all_cav_import','warehouseid']
+    };
+    const contract=contracts[table];
+    if (!contract) return null;
+    return {table:contract[0],column:contract[1],code:farm==='ALL'?'':farm.slice(0,2)};
 }
 
 async function fetchDirectMasterInventoryPage(params = {}, limit = INITIAL_PAGE_LIMIT, offset = 0, options = {}) {
