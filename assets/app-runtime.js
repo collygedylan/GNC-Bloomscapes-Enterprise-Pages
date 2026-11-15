@@ -102,7 +102,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.0.92';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.0.93';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -24170,7 +24170,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.0.92';
+        const APP_VERSION = '3.0.93';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -35314,25 +35314,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             return `<img ${attrs}>`;
         }
 
-        function tuneNativeImagePerformance(root = document) {
-            const scope = root && root.querySelectorAll ? root : document;
-            let imgs = [];
-            try {
-                imgs = Array.from(scope.querySelectorAll('img:not([data-native-image-tuned="1"])'));
-            } catch (error) {
-                imgs = [];
-            }
-            if (!imgs.length) return;
-            const maxTune = getAdaptiveImageHydrationScanLimit();
-            imgs.slice(0, maxTune).forEach((img) => {
-                if (!img || !img.dataset) return;
-                if (!img.hasAttribute('loading')) img.setAttribute('loading', 'lazy');
-                if (!img.hasAttribute('decoding')) img.setAttribute('decoding', 'async');
-                if (!img.hasAttribute('fetchpriority')) img.setAttribute('fetchpriority', 'low');
-                img.draggable = false;
-                img.dataset.nativeImageTuned = '1';
-            });
-        }
+/* @runtime-fragment assets/bloomscapes-card-images.js */
 
         function getDeferredCardPhotoFallbackSrc(src = '') {
             const original = window.AgDataStorageGuard?.original(src) || getExpandedImageUrl(String(src || '').trim());
@@ -58262,45 +58244,6 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
                     Number(error && error.status) === 403 ? 'PUSH_403' : 'PUSH_REGISTRATION_FAILED');
                 return false;
             }
-        }
-
-        async function subscribeCurrentDeviceForPush(options = {}) {
-            const opts = options && typeof options === 'object' ? options : {};
-            if (!isPushSupported() || !currentUser || !getPushPromptUserScope()) return false;
-            if (!PUSH_VAPID_PUBLIC_KEY) {
-                console.warn('Push notifications are not configured. Add a VAPID public key first.');
-                return false;
-            }
-            const reg = await window.withBootDeadline(navigator.serviceWorker.ready);
-            if (!reg) return false;
-            let permission = Notification.permission;
-            if (permission === 'default' && opts.prompt) {
-                permission = await Notification.requestPermission();
-            }
-            if (permission !== 'granted') return false;
-            hideMobilePushEnablePrompt();
-            let subscription = await reg.pushManager.getSubscription();
-            if (!subscription || opts.force) {
-                if (subscription && opts.force) {
-                    try { await subscription.unsubscribe(); } catch (error) { globalThis.reportHandledRuntimeIssue?.("subscribeCurrentDeviceForPush", 'HANDLED_OPERATION_FAILURE'); }
-                }
-                subscription = await reg.pushManager.subscribe({
-                    userVisibleOnly: true,
-                    applicationServerKey: pushPublicKeyToUint8Array(PUSH_VAPID_PUBLIC_KEY)
-                });
-            }
-            if (subscription && subscription.endpoint) currentPushSubscriptionEndpoint = String(subscription.endpoint || '').trim();
-            const persisted = await persistPushSubscription(subscription);
-            if (persisted && isCellularPushDevice()) markMobilePushRefreshComplete();
-            return persisted;
-        }
-
-        function primePushPermissionFromLoginGesture(options = {}) {
-            const opts = options && typeof options === 'object' ? options : {};
-            if (!isPushSupported()) return Promise.resolve(false);
-            if (!opts.allowBeforeUserScope && (!currentUser || !getPushPromptUserScope())) return Promise.resolve(false);
-            if (Notification.permission !== 'default') return Promise.resolve(Notification.permission === 'granted');
-            return Notification.requestPermission().then((permission) => permission === 'granted').catch(() => false);
         }
 
         async function postPushNotificationPayload(payload = {}) {
@@ -81473,7 +81416,7 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
                 prefixHtml: options.prefixHtml || '', footerHtml: options.footerHtml || '',
                 isCurrent: () => getCurrentVisibleViewId() === view && getSupabaseReadIdentityScope() === scope
                     && container.dataset.inventoryWindowSignature === signature,
-                onMount: view === 'drive' || view === 'av' ? hydrateMountedInventoryCardThumbnail : undefined,
+                onMount: hydrateMountedInventoryCardThumbnail,
                 onUnmount: releaseUnmountedDeferredCardPhotos,
                 onRange: ({start,end}) => {
                     const domIds=rows.slice(start,end).map(row=>row.DOM_ID).filter(Boolean);
@@ -118071,7 +118014,13 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
 /* @runtime-fragment assets/bloomscapes-history.js */
 /* @runtime-fragment assets/bloomscapes-home.js */ /* @runtime-fragment assets/bloomscapes-job-board.js */
 
-/* @runtime-fragment assets/bloomscapes-field-controls.js */ /* @runtime-fragment assets/bloomscapes-lab.js */ /* @runtime-fragment assets/bloomscapes-lab-controls.js */ /* @runtime-fragment assets/bloomscapes-radio.js */ /* @runtime-fragment assets/bloomscapes-radio-controls.js */ /* @runtime-fragment assets/bloomscapes-dock.js */ /* @runtime-fragment assets/bloomscapes-dock-controls.js */ /* @runtime-fragment assets/bloomscapes-workflows.js */ /* @runtime-fragment assets/bloomscapes-vault-filter.js */
+/* @runtime-fragment assets/bloomscapes-field-controls.js */ /* @runtime-fragment assets/bloomscapes-lab.js */ /* @runtime-fragment assets/bloomscapes-lab-controls.js */ /* @runtime-fragment assets/bloomscapes-radio.js */ /* @runtime-fragment assets/bloomscapes-radio-controls.js */
+/* @runtime-fragment assets/bloomscapes-battery-governor.js */
+/* @runtime-fragment assets/bloomscapes-ptt-drafts.js */
+/* @runtime-fragment assets/bloomscapes-ptt.js */
+/* @runtime-fragment assets/bloomscapes-push.js */
+/* @runtime-fragment assets/bloomscapes-ptt-inbox.js */
+/* @runtime-fragment assets/bloomscapes-radio-inbox.js */ /* @runtime-fragment assets/bloomscapes-dock.js */ /* @runtime-fragment assets/bloomscapes-dock-controls.js */ /* @runtime-fragment assets/bloomscapes-workflows.js */ /* @runtime-fragment assets/bloomscapes-vault-filter.js */
         /* @runtime-fragment assets/bloomscapes-farm-dialog.js */
         /* @runtime-fragment assets/bloomscapes-owner-command.js */
         /* @runtime-fragment assets/bloomscapes-farm-access.js */

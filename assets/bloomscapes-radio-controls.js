@@ -5,6 +5,7 @@ function renderBloomscapesRadioControls() {
         + '<form data-radio-direct><label>Direct call username <input name="username" required></label><button>Open direct channel</button></form>'
         + '<form data-radio-card><label>Physical row ID <input name="rowId" required></label>'
         + '<label>Farm <select name="farm"><option>10-PH</option><option>60-HL</option></select></label><button>Share Item / Block card</button></form>'
+        + '<button data-radio-notifications>Enable Radio Notifications</button><button data-radio-retry>Retry unsent calls</button>'
         + '<button data-radio-aura>Open AURA voice</button><p role="status">Choose a channel to join.</p>'
         + '<div data-radio-audio></div><div data-radio-cards></div></section>';
 }
@@ -18,6 +19,7 @@ function mountBloomscapesRadioControls(container) {
     host.querySelector('[data-radio-leave]').addEventListener('click',() => void leaveBloomscapesRadioUi(ui,status));
     bindBloomscapesPushToTalk(ui);
     bindBloomscapesRadioForms(ui,status);
+    bindBloomscapesRadioQueueButtons(host,status);
     host.querySelector('[data-radio-aura]').addEventListener('click',() => {
         void syncAuraWidgetForSession().then(() => status(auraWidgetHandle ? 'AURA voice ready.' : 'AURA provider is not configured.'))
             .catch(error => status(error.message));
@@ -35,6 +37,7 @@ function mountBloomscapesRadioControls(container) {
     document.addEventListener('visibilitychange',() => {
         if (document.hidden) void leaveBloomscapesRadioUi(ui,status);
     },{signal:ui.abort.signal});
+    window.addEventListener('bloomscapes-farm-changing',()=>{void leaveBloomscapesRadioUi(ui,status).catch(error=>status(error.message));},{signal:ui.abort.signal});
     window.addEventListener('pagehide',() => void leaveBloomscapesRadioUi(ui,status),{signal:ui.abort.signal});
     void refreshBloomscapesRadioChoices(host).catch(error => status(error.message));
 }
@@ -120,17 +123,21 @@ function bindBloomscapesPushToTalk(ui) {
         if (button.disabled) return;
         event.preventDefault();
         button.setPointerCapture(event.pointerId);
-        setBloomscapesRadioSpeaking(ui.session,true);
-        button.textContent = 'Talking…';
+        startBloomscapesRadioUiCapture(ui,button);
     });
     for (const type of ['pointerup','pointercancel','lostpointercapture','blur']) button.addEventListener(type,stop);
     button.addEventListener('keydown',event => {
         if (![' ','Enter'].includes(event.key) || event.repeat) return;
         event.preventDefault();
-        setBloomscapesRadioSpeaking(ui.session,true);
-        button.textContent = 'Talking…';
+        startBloomscapesRadioUiCapture(ui,button);
     });
     button.addEventListener('keyup',stop);
+}
+function startBloomscapesRadioUiCapture(ui,button) {
+    void setBloomscapesRadioSpeaking(ui.session,true).catch(error=>{
+        statusBloomscapesRadioCapture(ui,error);button.textContent='Hold to talk';
+    });
+    button.textContent='Talking…';
 }
 
 function bindBloomscapesRadioForms(ui,status) {
@@ -150,4 +157,16 @@ function bindBloomscapesRadioForms(ui,status) {
         try { await shareBloomscapesRadioCard(ui.session,input.rowId,input.farm); status('Item / Block card shared.'); }
         catch (error) { status(error.message); }
     });
+}
+
+function statusBloomscapesRadioCapture(ui,error) {
+    if(ui.host.isConnected)ui.host.querySelector('[role="status"]').textContent=error.message;
+}
+function bindBloomscapesRadioQueueButtons(host,status) {
+    host.querySelector('[data-radio-notifications]').onclick=()=>{
+        void enableBloomscapesRadioNotifications().then(status).catch(error=>status(error.message));
+    };
+    host.querySelector('[data-radio-retry]').onclick=()=>{
+        void retryBloomscapesRadioDrafts().then(count=>status(count+' saved calls sent.')).catch(error=>status(error.message));
+    };
 }

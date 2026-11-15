@@ -1,7 +1,11 @@
 function renderViewContent(viewId, forceReset = false, forceRender = false) {
+    const changedView=bloomscapesThumbnailView!==viewId;
+    if (forceReset || changedView) abortBloomscapesCardThumbnails(document);
+    bloomscapesThumbnailView=viewId;
     const state = ensureViewRenderState(viewId);
     if (!forceReset && !forceRender && state.initialized && !state.dirty) {
         incrementInternalPerfCounter('warmViewReuseHits');
+        if(changedView)scheduleDeferredCardPhotoHydration(document.getElementById('view-'+viewId));
         return;
     }
     const renderStartedAt = beginInternalPerfMeasure();
@@ -17,3 +21,5 @@ function renderViewContent(viewId, forceReset = false, forceRender = false) {
     recordInternalPerfDuration('viewRenderDurations', renderStartedAt, viewId || 'unknown');
     reportPerformanceHealthEvent('view_render', 'rendering', getAdaptivePerfElapsedMs(renderStartedAt), { reason: viewId || 'unknown' });
 }
+
+let bloomscapesThumbnailView='';

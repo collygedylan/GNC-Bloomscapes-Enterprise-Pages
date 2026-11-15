@@ -4,7 +4,8 @@ async function bloomscapesRadioRpc(client,name,parameters={}) {
 
 async function listBloomscapesRadioChannels() {
     const {client} = await requireBloomscapesSession();
-    return bloomscapesRadioRpc(client,'gnc_radio_channels');
+    const channels=await bloomscapesRadioRpc(client,'gnc_radio_channels');
+    return channels.filter(channel=>! /^(10-PH|60-HL|20-TX|40-NC) All$/.test(channel.title) || channel.title===getBloomscapesFarm()+' All');
 }
 
 async function createBloomscapesDirectRadio(username) {
@@ -14,8 +15,7 @@ async function createBloomscapesDirectRadio(username) {
 
 async function joinBloomscapesRadio(channelId,callbacks) {
     const {client,owner} = await requireBloomscapesSession();
-    const stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true},video:false});
-    stream.getTracks().forEach(track => { track.enabled = false; });
+    const stream = new MediaStream();
     const state = {client,owner,stream,id:crypto.randomUUID(),channelId,callbacks,peers:new Map(),closed:false,
         queue:Promise.resolve(),subscription:null,expiry:null,speechDeadline:null};
     try {
@@ -60,10 +60,11 @@ function createBloomscapesRadioPeer(state,id,username) {
     if (state.peers.has(id)) return state.peers.get(id);
     if (state.closed || state.peers.size>=5) throw new Error('Radio listener limit reached.');
     const pc = new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
-    const peer = {pc,id,username,pendingIce:[],iceSent:0};
+    const peer = {pc,id,username,pendingIce:[],iceSent:0,sender:pc.addTransceiver('audio',{direction:'sendrecv'}).sender};
     state.peers.set(id,peer);
-    state.stream.getTracks().forEach(track => pc.addTrack(track,state.stream));
-    pc.ontrack = event => { if (!state.closed) state.callbacks.stream(id,username,event.streams[0]); };
+    if(state.speaking)void peer.sender.replaceTrack(state.stream.getAudioTracks()[0] || null)
+        .catch(error=>state.callbacks.status(error.message));
+    pc.ontrack = event => { if (!state.closed) state.callbacks.stream(id,username,event.streams[0] || new MediaStream([event.track])); };
     pc.onicecandidate = event => {
         if (!event.candidate || state.closed || peer.iceSent>=32) return;
         peer.iceSent++;
@@ -109,14 +110,10 @@ function removeBloomscapesRadioPeer(state,id) {
     state.callbacks.remove(id);
 }
 
-function setBloomscapesRadioSpeaking(state,speaking) {
+async function setBloomscapesRadioSpeaking(state,speaking) {
     if (!state || state.closed) return;
-    clearTimeout(state.speechDeadline);
-    state.stream.getAudioTracks().forEach(track => { track.enabled = speaking; });
-    if (speaking) state.speechDeadline = setTimeout(() => {
-        setBloomscapesRadioSpeaking(state,false);
-        state.callbacks.status('Transmission stopped after 30 seconds.');
-    },30000);
+    if (speaking) return beginBloomscapesTransmission(state);
+    endBloomscapesTransmission(state);
 }
 
 async function shareBloomscapesRadioCard(state,rowId,farm) {
@@ -138,6 +135,7 @@ async function receiveBloomscapesRadioCard(state,signal) {
 
 async function closeBloomscapesRadio(state) {
     if (!state || state.closed) return;
+    endBloomscapesTransmission(state);
     state.closed = true;
     state.stream.getTracks().forEach(track => track.stop());
     clearTimeout(state.expiry);

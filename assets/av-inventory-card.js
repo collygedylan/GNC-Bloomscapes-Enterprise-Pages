@@ -18,6 +18,7 @@ function renderInventoryCardAvHero(context) {
 }
 
 function handleAvCardPhotoError(image) {
+    if(image.dataset.photoCancelled==='1')return;
     const fallback = image.dataset.avPhotoFallback;
     if (fallback) {
         delete image.dataset.avPhotoFallback;

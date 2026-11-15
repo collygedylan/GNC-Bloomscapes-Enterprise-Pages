@@ -24,6 +24,7 @@ async function selectBloomscapesFarm(farm) {
     if (state.busy) return previous;
     state.busy = true;
     state.farm = farm;
+    if(previous!==farm)globalThis.dispatchEvent?.(new CustomEvent('bloomscapes-farm-changing'));
     try {
         const loaded = await ensureDatasetLoaded('master','full',{force:state.readyFarm!==farm,bypassLiveSyncCoordinator:true});
         if (bloomscapesFarmState !== state) throw new Error('Signed-in account changed.');
@@ -33,8 +34,10 @@ async function selectBloomscapesFarm(farm) {
         if (bloomscapesFarmState !== state) throw new Error('Signed-in account changed.');
         await refreshBloomscapesFarmOwners(state);
         state.readyFarm = farm;
+        if (previous!==farm) pruneBloomscapesFarmInventoryCaches();
         state.confirmed = true;
         persistBloomscapesSessionFarm(state);
+        globalThis.dispatchEvent?.(new CustomEvent('bloomscapes-farm-ready'));
         if (previous!==farm && typeof resetDockView==='function') resetDockView(false);
         refreshAffectedViews(['master','avOpen','requests','soc','reserves']);
         if (typeof ensureBloomscapesFieldQueue==='function') void ensureBloomscapesFieldQueue(true).catch(error=>globalThis.reportHandledRuntimeIssue?.('field_work_queue',error.code || 'FIELD_WORK_READ_FAILED'));

@@ -163,3 +163,39 @@ html body #app-wrapper #view-request #request-filter-toolbar [data-job-board-too
 .bloomscapes-transfer-builder button,.bloomscapes-transfer-builder input,.bloomscapes-transfer-builder select {min-height:44px;background:#123e29;color:#e1f9e9;border:1px solid #397b51;border-radius:8px;padding:.5rem;}
 
 #view-managers .manager-module-freeze {background:#0b2417 !important;z-index:30 !important;opacity:1;isolation:isolate;}
+
+@layer bloomscapes-battery {
+html body #app-wrapper :is(.inventory-card,.drive-card,.app-smart-card,.bloomscapes-field-work-card,.bloomscapes-transfer-card,
+  [data-docks-dock-card],[data-docks-drop-card],[data-docks-stop-card],
+  [data-bloomscapes-workflow] article,[data-replenishment-card]) {
+  content-visibility:auto !important;
+  contain-intrinsic-size:auto 84px !important;
+  contain:layout style paint !important;
+  backdrop-filter:none !important;
+  -webkit-backdrop-filter:none !important;
+  background:linear-gradient(145deg,#103220,#081c12);
+}
+html body :is(.inventory-card,.drive-card,.app-smart-card,.metric-tile,tr,
+  .bloomscapes-field-work-card,[data-bloomscapes-workflow] article),
+html body :is(.inventory-card,.drive-card,.app-smart-card,.metric-tile,tr)::before,
+html body :is(.inventory-card,.drive-card,.app-smart-card,.metric-tile,tr)::after {
+  backdrop-filter:none !important;
+  -webkit-backdrop-filter:none !important;
+}
+}
+#bloomscapes-radio-inbox {
+  flex:0 0 auto;
+  position:sticky;
+  top:0;
+  z-index:35;
+  padding:.5rem .75rem;
+  border:1px solid #397b51;
+  border-radius:12px;
+  color:#e1f9e9;
+  background:#103220;
+  font-weight:700;
+}
+#bloomscapes-radio-inbox[hidden] {display:none;}
+#bloomscapes-radio-inbox button {min-height:44px;padding:.4rem;background:#081c12;border:1px solid #397b51;border-radius:8px;}
+#bloomscapes-radio-inbox label {display:inline-flex;align-items:center;gap:.4rem;padding:.4rem;}
+#bloomscapes-radio-inbox audio {width:min(100%,320px);}

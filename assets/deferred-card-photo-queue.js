@@ -1,12 +1,14 @@
 const DEFERRED_CARD_PHOTO_PENDING = 'img[data-deferred-card-photo="1"]:not([data-photo-hydrated="1"]):not([data-photo-observed="1"])';
 
 function hydrateMountedInventoryCardThumbnail(card) {
+    configureBloomscapesCardWindowNode(card);
     const isAvCard = card.classList.contains('app-av-catalog-card');
     const selector = isAvCard ? '.app-av-photo-slide img' : 'img.app-drive-card-thumbnail';
     const img = card.querySelector(`${selector}[data-deferred-card-photo="1"]`);
     if (!img) return;
     if (isElementNearViewport(img)) {
-        img.loading = 'eager';
+        img.loading = 'lazy';
+        img.decoding = 'async';
         hydrateDeferredCardPhoto(img);
     } else {
         const scope = card.closest(isAvCard ? '#av-content' : '#drive-content');
@@ -21,8 +23,9 @@ function refreshInventoryCardWindowPhotos(container, view) {
 }
 
 function releaseUnmountedDeferredCardPhotos(card) {
-    for (const img of card.querySelectorAll('img[data-photo-observed="1"]')) {
+    for (const img of card.querySelectorAll('img')) {
         deferredCardPhotoObserver?.unobserve(img);
+        abortBloomscapesThumbnail(img);
         delete img.dataset.photoObserved;
         delete img.dataset.photoObservedSrc;
     }
@@ -46,7 +49,7 @@ function isLiveDeferredPhotoRoot(root) {
 }
 
 function requestDeferredCardPhotoFrame() {
-    if (deferredCardPhotoHydrationFrame || deferredCardPhotoHydrationIdleTimer) return;
+    if (document.hidden || deferredCardPhotoHydrationFrame || deferredCardPhotoHydrationIdleTimer) return;
     deferredCardPhotoHydrationFrame = requestAnimationFrame(runDeferredCardPhotoFrame);
 }
 
@@ -138,7 +141,7 @@ function continuePendingDeferredCardPhotos(roots, delayMs = 48) {
 function deferCardPhotoRoots(roots, delayMs) {
     if (!roots.length) return;
     [...roots].reverse().forEach(root => deferredCardPhotoHydrationRoots.add(root));
-    if (deferredCardPhotoHydrationFrame || deferredCardPhotoHydrationIdleTimer) return;
+    if (document.hidden || deferredCardPhotoHydrationFrame || deferredCardPhotoHydrationIdleTimer) return;
     deferredCardPhotoHydrationIdleTimer = window.setTimeout(() => {
         deferredCardPhotoHydrationIdleTimer = 0;
         requestDeferredCardPhotoFrame();
@@ -230,11 +233,14 @@ function hydrateDeferredCardPhoto(img = null, expectedSrc = '') {
             if (placeholder) placeholder.remove();
         });
     }
+    delete img.dataset.photoCancelled;
+    img.loading='lazy';img.decoding='async';
     img.dataset.photoHydrated = '1';
     img.dataset.photoHydratedSrc = src;
     img.onerror = () => {
-        if (!img || !img.dataset) return;
+        if (!img || !img.dataset || img.dataset.photoCancelled==='1') return;
         if (img.dataset.photoHydratedSrc !== src) return;
+        if(img.closest('.app-av-hero'))return handleAvCardPhotoError(img);
         img.dataset.photoLoadFailed = '1';
         handleDeferredCardPhotoLoadFailure(img);
     };

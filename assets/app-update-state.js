@@ -67,6 +67,7 @@ function getAppUpdateBusyState() {
     add('restore',read(()=>getAppUpdateWorkRuntime().restoring));
     add('restore-pending',read(()=>{const pending=readCommittedAppUpdateSnapshot();return pending && getAppUpdateWorkRuntime().receipt?.snapshotId!==pending.snapshotId;}));
     add('voice-recording',read(()=>chatVoiceRecordingActive || chatVoiceUploadInFlight));
+    add('radio-recording',read(()=>getBloomscapesRadioUpdateBlocker()));
     const owner=getAppUpdateWorkOwner();
     add('session-restoring',!owner.guest && !owner.verified);
     add('login-draft',owner.guest && read(()=>[...document.querySelectorAll('#view-login input, #login-screen input')].some(input=>String(input.value || '').length)));
