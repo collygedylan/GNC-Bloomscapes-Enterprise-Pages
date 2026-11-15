@@ -83438,31 +83438,6 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
             return enriched;
         }
 
-function getDocksSuspendSyncAudit() {
-    const source = getScopedDocksItems(socInventory);
-    const tags = Array.isArray(suspendTagInventory) ? suspendTagInventory : [];
-    const ids = new Set(), keys = new Set();
-    let duplicates=0, resurrected=0, mismatches=0;
-    const orders = new Map(socInventory.map(row=>[getDockSuspendDcRequestSourceUid(row),row]));
-    for (const row of tags) {
-        const uid=getDockSuspendDcRequestSourceUid(row), key=getDockOrderBusinessKey(row);
-        if (ids.has(uid) || key && keys.has(key)) duplicates++;
-        ids.add(uid); if(key)keys.add(key);
-        if (row.suspend_completed === true || row.completed === true || /^(complete|completed|deleted)$/i.test(row.status || row.STATUS || '')) resurrected++;
-        const order=orders.get(uid);
-        if (order && String(order.LOCATIONCODE || order.locationcode || '').trim() !== String(row.LOCATIONCODE || row.locationcode || '').trim()) mismatches++;
-    }
-    const container=document.getElementById('docks-content');
-    const mounted=isViewVisible('docks') && container && !String(document.getElementById('docks-search')?.value || '').trim()
-        && dockViewMode !== 'mistakes' && dockViewMode !== 'dropoff';
-    const nodes=mounted ? [...container.querySelectorAll(dockViewLevel===0?'[data-docks-dock-card]':dockViewLevel===1?'[data-docks-drop-card]':'[data-docks-stop-card]')] : [];
-    const shown=nodes.map(node=>node.getAttribute(dockViewLevel===0?'data-docks-dock-card':dockViewLevel===1?'data-docks-drop-card':'data-docks-stop-card'));
-    const expected=dockViewLevel===0 ? new Set(source.map(row=>normalizeDockViewDockKey(row.DOCK_NUM || row.dock))).size
-        : dockViewLevel===1 ? new Set(source.filter(row=>normalizeDockViewDockKey(row.DOCK_NUM || row.dock)===normalizeDockViewDockKey(selectedDockNum)).map(row=>normalizeDockViewStopKey(row.STOPNUMBER || row.stopnumber))).size : null;
-    return {duplicates,resurrected,mismatches,duplicateCards:shown.length-new Set(shown).size,
-        hierarchyMismatch:!!(mounted && expected!==null && shown.length!==expected), pending:!!container?.querySelector('[aria-busy="true"],[data-loading="true"]')};
-}
-
         function renderDocks() {
             if (ensureViewDataForRender('docks')) return;
             const container = document.getElementById('docks-content');
