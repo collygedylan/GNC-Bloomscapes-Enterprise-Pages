@@ -102,7 +102,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.0.94';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.0.95';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -24170,7 +24170,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.0.94';
+        const APP_VERSION = '3.0.95';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -35174,7 +35174,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             ].filter(Boolean).join(' ');
             return `<img ${attrs}>`;
         }
-
 /* @runtime-fragment assets/bloomscapes-card-images.js */
 
         function getDeferredCardPhotoFallbackSrc(src = '') {
@@ -72694,7 +72693,9 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
         }
 
         /* @runtime-fragment assets/bloomscapes-work-card.js */
-        /* @runtime-fragment assets/bloomscapes-studio.js */
+        /* @runtime-fragment assets/bloomscapes-work-answers.js */
+/* @runtime-fragment assets/bloomscapes-work-lifecycle.js */
+/* @runtime-fragment assets/bloomscapes-studio.js */
         /* @runtime-fragment assets/bloomscapes-departments.js */
         /* @runtime-fragment assets/bloomscapes-view-router.js */
         function renderCoreAppView(viewId, state, forceReset) {
@@ -117802,7 +117803,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
 /* @runtime-fragment assets/bloomscapes-transfer-builder.js */
 /* @runtime-fragment assets/bloomscapes-history.js */
 /* @runtime-fragment assets/bloomscapes-home.js */ /* @runtime-fragment assets/bloomscapes-job-board.js */
-
 /* @runtime-fragment assets/bloomscapes-field-controls.js */ /* @runtime-fragment assets/bloomscapes-lab.js */ /* @runtime-fragment assets/bloomscapes-lab-controls.js */ /* @runtime-fragment assets/bloomscapes-radio.js */ /* @runtime-fragment assets/bloomscapes-radio-controls.js */
 /* @runtime-fragment assets/bloomscapes-battery-governor.js */
 /* @runtime-fragment assets/bloomscapes-ptt-drafts.js */
@@ -145203,7 +145203,5 @@ function syncHeaderBloomPlacement(viewId = getCurrentVisibleViewId()) {
     const host = home ? document.querySelector('.nav-header-meta-row') : document.getElementById('global-header-search-row');
     if (bloom && host && bloom.parentElement !== host) host.appendChild(bloom);
 }
-
 /* @runtime-fragment assets/bloomscapes-dock-write-context.js */
-
 /* @runtime-fragment assets/bloomscapes-dock-issue-save.js */

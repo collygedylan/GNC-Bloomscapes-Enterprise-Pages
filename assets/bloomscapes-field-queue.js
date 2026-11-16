@@ -38,7 +38,7 @@ function bloomscapesWorkQueueCount(tab) {
 function applyBloomscapesFieldQueueSnapshot(data) {
     if (data.ownerScope!==getSupabaseReadIdentityScope() || data.farm_code!==getBloomscapesFarm()) return false;
     Object.assign(bloomscapesFieldQueueState,{owner:data.ownerScope,rows:data.rows,views:data.views,roster:data.roster || [],
-        canCreate:data.can_create || {},counts:data.counts,revision:data.revision,recovery:data.recovery || [],loaded:true});
+        canCreate:data.can_create || {},counts:data.counts,revision:data.revision,recovery:data.recovery || [],lifecycle:data.block_lifecycle || [],loaded:true});
     renderRequestCategoryToolbar();
     return true;
 }
@@ -111,6 +111,7 @@ function renderBloomscapesFieldWorkCard(job,status) {
     form.elements.actualQuantity.value = job.quantity;
     form.querySelector('label').firstChild.textContent = job.work_view==='HAULING' ? 'Qty Hauled ' : job.work_view==='Y_GRADING' ? 'GRADED # ' : 'Actual Qty ';
     if (job.work_view==='Y_GRADING') form.insertAdjacentHTML('afterbegin','<label>CF# <input name="canFillQuantity" type="number" min="0" step="1" value="0"></label>');
+    renderBloomscapesWorkAnswers(form,job);
     configureBloomscapesCompletionForm(form,job);
     form.addEventListener('submit',event=>{
         event.preventDefault();
@@ -124,9 +125,7 @@ async function completeBloomscapesFieldWorkCard(job,form,status) {
     if (button.disabled) return;
     button.disabled = true;
     const owner = getSupabaseReadIdentityScope();
-    const answers = job.completion_answers || {actualQuantity:form.elements.actualQuantity.value,
-        notes:form.elements.notes.value,acknowledge:form.elements.acknowledge.checked,
-        ...(form.elements.canFillQuantity ? {canFillQuantity:form.elements.canFillQuantity.value} : {})};
+    const answers = job.completion_answers || readBloomscapesWorkAnswers(form,job);
     try {
         const receipt = await completeBloomscapesFieldWork(job,answers);
         if (owner!==getSupabaseReadIdentityScope()) return;
@@ -150,6 +149,9 @@ function applyBloomscapesFieldWorkReceipt(job,answers,receipt) {
     if (!canonical) return false;
     const wasOpen = canonical.status==='OPEN';
     Object.assign(canonical,{status:'DONE',completion_answers:structuredClone(answers),completion_receipt:receipt});
+    for (const next of bloomscapesFieldQueueState.rows) {
+        if (next.farm_code===job.farm_code && next.blocked_by===job.id) next.blocked=false;
+    }
     if (wasOpen && bloomscapesFieldQueueState.counts) bloomscapesFieldQueueState.counts[job.work_view] = Math.max(0,(bloomscapesFieldQueueState.counts[job.work_view] || 0)-1);
     renderRequestCategoryToolbar();
     return true;
@@ -167,7 +169,12 @@ function configureBloomscapesCompletionForm(form,job) {
     const editable = bloomscapesFieldQueueState.canCreate?.[job.work_view]===true || isFullAppAdministrator();
     form.querySelector('button').textContent = done ? 'Work complete · Retry PDF archive' : 'MARK DONE · Complete Work';
     form.querySelector('button').hidden = !editable;
-    if (!editable) form.querySelectorAll('input').forEach(input=>{input.disabled=true;});
+    if (job.blocked) {
+        form.querySelector('button').disabled=true;
+        form.querySelector('button').textContent='Waiting for previous workflow step';
+    }
+    if (done && isBloomscapesMeasuredWork(job)) restoreBloomscapesMeasuredAnswers(form,job);
+    if (!editable) form.querySelectorAll('input,select').forEach(input=>{input.disabled=true;});
 }
 
 function renderBloomscapesWorkGroups(list,rows,status,kind) {

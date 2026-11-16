@@ -31,6 +31,7 @@ function mountBloomscapesWorkBrowser(host,onSelect,options={}) {
         +'<button type="button" data-work-mode="common">🌿 Common Name View</button></nav>'
         +'<input type="search" data-work-search aria-label="Search work source inventory" placeholder="Search Drive Mode items, locations or lots">'
         +'<button type="button" data-work-back>Back in work inventory</button><p data-work-breadcrumb></p>'
+        +'<div data-work-group-selection></div>'
         +'<p data-work-browser-status></p><div data-work-source-cards class="bloomscapes-work-cards"></div>'
         +'<button type="button" data-work-next>Next 40 rows</button>';
     host.querySelector('[data-work-search]').addEventListener('input',()=>{state.offset=0;renderBloomscapesWorkBrowser(host,state);});
@@ -57,23 +58,29 @@ function bloomscapesWorkBrowseProjection(host,state) {
     const kind=state.options.getWorkView?.();
     const all=bloomscapesWorkBrowserRows(search).filter(row=>kind!=='Y_GRADING' || ['Y','.Y'].includes(String(row.SEASON || row.season).toUpperCase()));
     const rows=all.filter(row=>{
-        const parts=state.mode==='block' ? bloomscapesWorkLocationParts(row) : [bloomscapesWorkBrowserIdentity(row).common];
+        const parts=bloomscapesWorkBrowseParts(row,state.mode);
         return state.path.every((part,index)=>part===parts[index]);
     });
-    const leaf=search.trim()!=='' || state.path.length===(state.mode==='block' ? 3 : 1);
+    const leaf=search.trim()!=='' || state.path.length===3;
     if (leaf) return {rows,leaf,groups:[]};
     const groups=new Map();
     for (const row of rows) {
-        const parts=state.mode==='block' ? bloomscapesWorkLocationParts(row) : [bloomscapesWorkBrowserIdentity(row).common];
+        const parts=bloomscapesWorkBrowseParts(row,state.mode);
         const key=parts[state.path.length] || 'No common name recorded';
         groups.set(key,(groups.get(key) || 0)+1);
     }
     return {rows,leaf,groups:[...groups].sort(([a],[b])=>a.localeCompare(b,undefined,{numeric:true}))};
 }
 
+function bloomscapesWorkBrowseParts(row,mode) {
+    const identity=bloomscapesWorkBrowserIdentity(row);
+    return mode==='block' ? bloomscapesWorkLocationParts(row) : [identity.common,identity.size,identity.lot || identity.season];
+}
+
 function renderBloomscapesWorkBrowser(host,state) {
     if (state.owner!==getSupabaseReadIdentityScope()) return;
     const projection=bloomscapesWorkBrowseProjection(host,state);
+    renderBloomscapesWorkGroupSelection(host,state,projection.rows);
     host.querySelector('[data-work-browser-status]').textContent=`${projection.rows.length} rows · ${getBloomscapesFarm()}`;
     host.querySelector('[data-work-breadcrumb]').textContent=[state.mode==='block' ? 'Block View' : 'Common Name View',...state.path].join(' → ');
     host.querySelector('[data-work-back]').hidden=state.path.length===0;
@@ -86,10 +93,25 @@ function renderBloomscapesWorkBrowser(host,state) {
     host.querySelector('[data-work-next]').disabled=state.offset+40>=projection.rows.length;
 }
 
+function renderBloomscapesWorkGroupSelection(host,state,rows) {
+    const tools=host.querySelector('[data-work-group-selection]');tools.replaceChildren();
+    if (state.mode!=='block' || state.path.length<2 || !rows.length) return;
+    const [alpha,number]=state.path;
+    const badge=tools.appendChild(document.createElement('strong'));badge.dataset.blockLifecycle='true';
+    badge.textContent=alpha+'.'+number+' · '+bloomscapesBlockLifecycleStage(alpha,number);
+    const button=tools.appendChild(document.createElement('button'));button.type='button';button.dataset.selectWorkScope='BLOCK';
+    button.textContent='Select Whole Block '+alpha+'.'+number;button.addEventListener('click',()=>state.onSelect(rows[0],'BLOCK'));
+    if (state.path.length===3) {
+        const location=tools.appendChild(document.createElement('button'));location.type='button';location.dataset.selectWorkScope='LOCATION';
+        location.textContent='Select Location '+state.path[2];location.addEventListener('click',()=>state.onSelect(rows[0],'LOCATION'));
+    }
+}
+
 function bloomscapesWorkBrowseGroup(host,state,key,count) {
     const button=document.createElement('button');
     button.type='button';button.dataset.workBrowseGroup=key;
     button.className='bloomscapes-work-group';button.textContent=key+' · '+count+' rows';
+    if (state.mode==='block' && state.path.length===1) button.textContent+=' · '+bloomscapesBlockLifecycleStage(state.path[0],key);
     button.addEventListener('click',()=>{state.path.push(key);state.offset=0;renderBloomscapesWorkBrowser(host,state);});
     return button;
 }

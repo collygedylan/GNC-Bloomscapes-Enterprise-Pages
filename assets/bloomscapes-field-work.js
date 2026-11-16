@@ -58,6 +58,7 @@ async function completeBloomscapesFieldWork(job,answers) {
     if (receipt?.ok!==true || receipt.work_id!==job.id || receipt.farm_code!==job.farm_code
         || receipt.work_view!==job.work_view) throw new Error('Work completion receipt did not match.');
     applyBloomscapesFieldWorkReceipt(job,answers,receipt);
+    await refreshBloomscapesWarmFarm(job.farm_code);
     const pdf = await client.functions.invoke('request-delivery-worker',{body:{operation:'work_pdf',
         requestId:job.id,farm:job.farm_code,rowId:job.id,workType:'FIELD_WORK'}});
     await requireBloomscapesOwner(owner);

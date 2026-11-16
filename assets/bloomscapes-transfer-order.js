@@ -55,6 +55,7 @@ function bloomscapesTransferProjection(po,target) {
 }
 
 function addBloomscapesTransferLine(po,target,quantity) {
+    if (!target || po.targets && !matchingBloomscapesPoTargets(po).some(row=>row.row_id===target.row_id)) throw new Error('Choose a receiving row matching the PO season and origin.');
     const state=getBloomscapesTransferState(),q=Number(quantity),projection=bloomscapesTransferProjection(po,target);
     if (state.pending.get(po.origin_farm)?.busy) throw new Error('This farm order is being submitted.');
     if (!Number.isSafeInteger(q) || q<=0 || !projection.measured || q>projection.remaining || q>projection.available
@@ -66,6 +67,18 @@ function addBloomscapesTransferLine(po,target,quantity) {
         blockKey:projection.blockKey,cpb:projection.cpb,quantity:q});
     state.pending.delete(po.origin_farm);saveBloomscapesTransferDraft(state);
     return state;
+}
+
+function matchesBloomscapesPoSeason(po,season) {
+    const bucket=po.season_bucket || String(po.po_season || '').split('.').at(-1);
+    return season==='ALL' || (season==='OTHER' ? !['F1','S1'].includes(bucket) : bucket===season);
+}
+
+function matchingBloomscapesPoTargets(po) {
+    const bucket=po.season_bucket || String(po.po_season || '').split('.').at(-1);
+    return (po.targets || []).filter(target=>po.po_season ? target.lotcode===po.po_season
+        : !bucket || bucket==='UNKNOWN' || String(target.lotcode || '').split('.').at(-1)===bucket)
+        .sort((a,b)=>Number(b.lotcode===po.po_season)-Number(a.lotcode===po.po_season));
 }
 
 function removeBloomscapesTransferLine(id) {

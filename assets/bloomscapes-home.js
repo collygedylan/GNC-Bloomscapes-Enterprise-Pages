@@ -11,7 +11,14 @@ function mountBloomscapesHomeModules() {
     grid.dataset.bloomscapesHome = 'true';
     if (!grid.querySelector('#home-tile-drive')) grid.innerHTML = BLOOMSCAPES_BASE_HOME;
     for (const tile of grid.querySelectorAll('[id^="home-bloomscapes-"],#home-tile-smart-moves')) tile.remove();
-    const order=['drive','hl-order','av','sales-office','sales','historical-requests','managers','qc','office','sales-inventory','production'];
+    let studio=grid.querySelector('#home-tile-studio');
+    if (!studio) {
+        studio=document.createElement('button');studio.id='home-tile-studio';studio.type='button';
+        studio.className='home-module-tile';studio.innerHTML='<i class="ph ph-hammer" aria-hidden="true"></i><span>Build Work Studio</span>';
+        studio.addEventListener('click',()=>openBloomscapesDepartmentModule('production','studio'));grid.appendChild(studio);
+    }
+    studio.hidden=!isFullAppAdministrator();
+    const order=['drive','hl-order','av','sales-office','sales','historical-requests','managers','qc','office','sales-inventory','production','studio'];
     for (const id of order) {
         const tile=grid.querySelector('#home-tile-'+id);
         if (tile) grid.appendChild(tile);

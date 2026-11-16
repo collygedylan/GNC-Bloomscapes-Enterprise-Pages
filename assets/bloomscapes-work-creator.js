@@ -9,6 +9,7 @@ function renderBloomscapesWorkCreator(tab) {
       <label>Action <select name="actionType">${['Bunch & Tie','Consolidate / Jam','Spread','House Cover / Poly',
         'Grade & Shift','Can Fill Prep','Custom Bunch Note'].map(action=>`<option>${esc(action)}</option>`).join('')}</select></label>
       <label>Scope <select name="scope"><option value="ITEM_LOCATION">Itemcode @ Location</option>
+        <option value="BLOCK">Whole Block (Alpha + Number)</option><option value="LOCATION">Whole Location</option>
         <option value="ITEM_FARM">Itemcode Across Farm</option><option value="SINGLE_ROW">Single Row</option>
         <option value="ITEM_LOT">Itemcode @ Lot</option></select></label>
       <label>Exact Qty <input name="quantity" type="number" min="1" step="1"></label>
@@ -18,6 +19,7 @@ function renderBloomscapesWorkCreator(tab) {
       <label>Media <input name="media" maxlength="120"></label><label>Fertilizer recipe <input name="fertilizer" maxlength="120"></label>
       <label>Due Date <input name="dueOn" type="date"></label>
       <label>Field Instructions <textarea name="instructions" maxlength="4000"></textarea></label>
+      ${bloomscapesLifecyclePicker()}
       <label><input name="acknowledge" type="checkbox" value="true"> I reviewed the 14-day outbound SOC / hold warning for shear work</label>
       <button type="button" data-simulate-work>Simulate · 7 gates</button><button type="submit">Create Work in Que</button>
       <button type="button" data-clear-work>Clear draft</button>
@@ -34,7 +36,7 @@ async function mountBloomscapesWorkCreator(host,options={}) {
         option.disabled = !isFullAppAdministrator() && bloomscapesFieldQueueState.canCreate?.[option.value]!==true;
     }
     const browser=root.querySelector('[data-work-browser]');
-    mountBloomscapesWorkBrowser(browser,row=>selectBloomscapesWorkSource(root,form,state,row),
+    mountBloomscapesWorkBrowser(browser,(row,scope)=>selectBloomscapesWorkSource(root,form,state,row,scope),
         {getWorkView:()=>form.elements.workView.value});
     form.elements.workView.addEventListener('change',()=>{
         syncBloomscapesWorkCreatorKind(form);refreshBloomscapesWorkBrowser(browser);
@@ -46,6 +48,7 @@ async function mountBloomscapesWorkCreator(host,options={}) {
         browser.hidden=options.quick===true;
     }
     bindBloomscapesWorkCreator(form,state);
+    bindBloomscapesLifecyclePicker(form);
     const locations = [...new Set(bloomscapesWorkBrowserRows().map(row=>row.LOCATIONCODE || row.locationcode))].filter(Boolean).sort();
     locations.forEach(location=>form.elements.targetLocation.appendChild(new Option(location,location)));
     try {
@@ -56,9 +59,11 @@ async function mountBloomscapesWorkCreator(host,options={}) {
     } catch (error) { root.querySelector('[data-work-preview]').textContent = error.message; }
 }
 
-function selectBloomscapesWorkSource(root,form,state,row) {
+function selectBloomscapesWorkSource(root,form,state,row,scope) {
     state.source=row;state.attempt=null;
+    form.hidden=false;
     form.elements.sourceId.value=String(row.UNIQUE_ID || row.unique_id);
+    if (scope) {form.elements.scope.value=scope;form.elements.percent.value='100';form.elements.quantity.value='';}
     root.querySelector('[data-selected-source]').textContent=[row.COMMONNAME || row.commonname,
         row.ITEMCODE || row.itemcode,row.LOCATIONCODE || row.locationcode,row.LOTCODE || row.lotcode].join(' · ');
     let preview=root.querySelector('[data-selected-work-identity]');
@@ -68,9 +73,9 @@ function selectBloomscapesWorkSource(root,form,state,row) {
 
 function syncBloomscapesWorkCreatorKind(form) {
     const kind=form.elements.workView.value;
-    const actions={SHEARING:['Shear %','Whole-group Shear'],HAULING:['Consolidate Inventory','Whole-group Consolidation','Block Haul'],
-        BUNCH_NOTES:['Bunch & Tie','Consolidate / Jam','Spread','House Cover / Poly','Remove Cover','Custom Field Instructions','Custom Bunch Note'],
-        CAN_FILLING:['Can Fill Prep','Can Filling'],Y_GRADING:['Grade & Shift']}[kind];
+    const actions={SHEARING:['Add to Shear List','Shear %','Whole-group Shear'],HAULING:['Haul / Consolidate','Consolidate Inventory','Whole-group Consolidation','Block Haul'],
+        BUNCH_NOTES:['Bunch & Tie','Bunch Count','Cover with Poly','Remove Poly (Spring)','Spread Block (Spring)','Spread Count','Custom Field Instructions','Custom Bunch Note'],
+        CAN_FILLING:['Can Filling','Can Fill Prep'],Y_GRADING:['Grade & Haul','Grade & Shift']}[kind];
     form.elements.actionType.replaceChildren(...actions.map(action=>new Option(action,action)));
     form.elements.targetLocation.required=kind==='HAULING';
 }
@@ -79,7 +84,7 @@ function readBloomscapesWorkCreatorInput(form,state) {
     if (!state.source || state.owner!==getSupabaseReadIdentityScope()) throw new Error('Select an item in the active farm.');
     const input = Object.fromEntries(new FormData(form));
     if (Boolean(input.quantity)===Boolean(input.percent)) throw new Error('Enter either an exact quantity or a percent.');
-    return {...input,sourceId:String(state.source.UNIQUE_ID || state.source.unique_id)};
+    return readBloomscapesLifecycleSteps(form,{...input,sourceId:String(state.source.UNIQUE_ID || state.source.unique_id)});
 }
 
 function bindBloomscapesWorkCreator(form,state) {

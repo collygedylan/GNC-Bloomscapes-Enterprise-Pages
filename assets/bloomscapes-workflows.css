@@ -97,8 +97,8 @@
 [data-bloomscapes-table-counts] { overflow: auto; max-height: 45dvh; }
 [data-bloomscapes-table-counts] th, [data-bloomscapes-table-counts] td { padding: .3rem .6rem; text-align: left; }
 html body.ops-precision-pilot.current-view-home.home-dashboard-mode #app-wrapper #view-home #home-dashboard-grid[data-bloomscapes-home] {
-  grid-template-columns: repeat(var(--home-fit-columns,3),minmax(0,1fr)) !important;
-  grid-template-rows: none !important;
+  grid-template-columns: repeat(3,minmax(0,1fr)) !important;
+  grid-template-rows: repeat(4,minmax(0,1fr)) !important;
   grid-auto-rows: var(--home-fit-tile-height,60px) !important;
   gap: var(--home-fit-row-gap,4px) var(--home-fit-col-gap,4px) !important;
 }
@@ -145,10 +145,29 @@ html body #app-wrapper #view-request #request-filter-toolbar > #request-pending-
   min-height:44px; padding:8px 12px; border:1px solid #35654a; border-radius:10px; background:#103220; color:#e9f7ed;
 }
 [data-work-modes] [aria-pressed=true],[data-studio-work-types] [aria-pressed=true] { background:#007a4d; border-color:#38d88e; }
-.bloomscapes-work-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,310px),1fr)); gap:12px; }
+.bloomscapes-work-cards { display:grid; grid-template-columns:minmax(0,1fr); gap:12px; width:100%; min-width:0; }
 .bloomscapes-work-cards > article,.bloomscapes-work-identity { min-width:0; padding:8px; background:#0b2417; border-radius:12px; }
+[data-bloomscapes-studio], [data-work-creator], [data-work-browser] { min-width:0; width:100%; }
+[data-work-source-cards] > article { display:block; width:100%; max-width:100%; overflow:hidden; white-space:normal; word-break:normal; overflow-wrap:break-word; }
+[data-work-source-cards] .inventory-card { width:100%; min-width:0; max-width:100%; }
+[data-bloomscapes-studio] form[hidden] { display:none !important; }
+[data-work-creator] form { display:flex; flex-wrap:wrap; align-items:end; gap:.6rem; }
+[data-work-creator] :is(button,input:not([type="checkbox"]),select,textarea) { min-height:44px; max-width:100%; padding:.5rem .7rem; color:#e9f7ed; background:#103220; border:1px solid #397b51; border-radius:.5rem; }
+[data-work-creator] textarea { min-width:0; width:100%; }
+[data-work-creator] [type="checkbox"] { width:18px; height:18px; flex:none; }
+.bloomscapes-transfer-card[hidden] { display:none !important; }
+[data-work-steps] { flex-basis:100%; min-width:0; border:1px solid #35654a; padding:.6rem; }
+[data-work-steps] label { flex-direction:row; align-items:center; gap:.5rem; }
+[data-work-group-selection] { display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; margin:.6rem 0; }
+[data-block-lifecycle], [data-po-lot] { display:inline-block; padding:.25rem .5rem; border-radius:.5rem; background:#225a3b; margin:.3rem; }
+[data-po-lot][data-season="F1"] { background:#754317; color:#fff2c9; }
+[data-po-lot][data-season="S1"] { background:#164c6a; color:#d7f4ff; }
+[data-po-seasons] { display:flex; flex-wrap:wrap; gap:.4rem; margin:.5rem 0; }
+[data-po-seasons] [aria-pressed="true"] { background:#38d88e; color:#081c12; }
+[data-measured-work-answers] { width:100%; min-width:0; }
+[data-answer-row] { border:1px solid #35654a; padding:.5rem; min-width:0; }
 .bloomscapes-work-identity { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; }
-.bloomscapes-work-identity dt { font-size:11px; color:#a7cfb6; }.bloomscapes-work-identity dd { margin:0; font-weight:600; overflow-wrap:anywhere; }
+.bloomscapes-work-identity dt { font-size:11px; color:#a7cfb6; }.bloomscapes-work-identity dd { margin:0; font-weight:600; overflow-wrap:break-word; word-break:normal; }
 [data-selected-work-identity] { max-width:750px; margin:12px auto; }
 html body #app-wrapper #view-request #request-filter-toolbar [data-job-board-tools] { grid-template-columns:auto repeat(3,minmax(120px,1fr)) repeat(2,minmax(170px,auto)); }
 @media (max-width:900px) {
@@ -201,3 +220,5 @@ html body :is(.inventory-card,.drive-card,.app-smart-card,.metric-tile,tr)::afte
 #bloomscapes-radio-inbox audio {width:min(100%,320px);}
 
 #view-detail[data-bloomscapes-work-actions="true"] button[onclick^="return submitShearApprovalRequestForActiveDetail"] { display: none; }
+
+#home-dashboard-grid[data-bloomscapes-home] [hidden] { display:none !important; }
