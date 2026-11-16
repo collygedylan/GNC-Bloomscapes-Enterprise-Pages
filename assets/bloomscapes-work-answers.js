@@ -1,5 +1,5 @@
 function isBloomscapesMeasuredWork(job) {
-    return ['Bunch Count','Spread Count','Grade & Haul','Haul / Consolidate'].includes(job.action_type)
+    return ['Bunch Count','Spread Count','Grade & Haul','Haul / Consolidate','Shift Grading','Haul','Consolidate'].includes(job.action_type)
         || job.action_type==='Spread Block (Spring)' && Boolean(job.target_location);
 }
 
@@ -17,11 +17,12 @@ function renderBloomscapesMeasuredRow(job,row) {
     const legend=fieldset.appendChild(document.createElement('legend'));
     legend.textContent=`${row.itemcode} @ ${row.locationcode} · ${row.lotcode} · Previous ${row.stock} · Planned ${row.quantity}`;
     const count=['Bunch Count','Spread Count'].includes(job.action_type);
+    const grading=['Grade & Haul','Shift Grading'].includes(job.action_type);
     if (count) appendBloomscapesAnswerInput(fieldset,'countedQuantity','Physical Counted Qty (Counted On Hand)',row.stock);
     else {
-        appendBloomscapesAnswerInput(fieldset,job.action_type==='Grade & Haul' ? 'gradedQuantity' : 'hauledQuantity',
-            job.action_type==='Grade & Haul' ? 'Graded Qty' : 'Qty Hauled',row.quantity);
-        if (job.action_type==='Grade & Haul') appendBloomscapesAnswerInput(fieldset,'shortQuantity','Short / Scrap Qty',0);
+        appendBloomscapesAnswerInput(fieldset,grading ? 'gradedQuantity' : 'hauledQuantity',
+            grading ? 'Graded Qty' : 'Qty Hauled',grading?bloomscapesPlannedGradedQuantity(job,row):row.quantity);
+        if (grading) appendBloomscapesAnswerInput(fieldset,'shortQuantity',job.action_type==='Shift Grading'?'Short Qty / CF# Balance':'Short / Scrap Qty',grading?Number(row.quantity)-bloomscapesPlannedGradedQuantity(job,row):0);
         const label=fieldset.appendChild(document.createElement('label'));label.textContent='Confirm To Location';
         const select=label.appendChild(document.createElement('select'));select.dataset.answerField='toLocation';select.required=true;
         select.appendChild(new Option('Choose exact destination',''));
@@ -29,6 +30,9 @@ function renderBloomscapesMeasuredRow(job,row) {
             && (candidate.LOTCODE || candidate.lotcode)===row.lotcode && (candidate.LOCATIONCODE || candidate.locationcode)!==row.locationcode);
         [...new Set(locations.map(candidate=>candidate.LOCATIONCODE || candidate.locationcode))].sort()
             .forEach(location=>select.appendChild(new Option(location,location)));
+        if (['Shift Grading','Haul','Consolidate'].includes(job.action_type)) {
+            select.replaceChildren(new Option(job.target_location,job.target_location));
+        }
         select.value=job.target_location || '';
         const confirm=fieldset.appendChild(document.createElement('label'));confirm.textContent=`Confirm From Location: ${row.locationcode} `;
         const check=confirm.appendChild(document.createElement('input'));check.type='checkbox';check.required=true;check.dataset.answerField='confirmFrom';
@@ -59,4 +63,12 @@ function readBloomscapesWorkAnswers(form,job) {
 function bloomscapesBlockLifecycleStage(alpha,number) {
     const row=bloomscapesFieldQueueState.lifecycle?.find(row=>row.blockalpha===alpha && Number(row.blocknumber)===Number(number));
     return row?.stage || 'OPEN_FIELD';
+}
+
+function bloomscapesPlannedGradedQuantity(job,row) {
+    if (job.action_type!=='Shift Grading' || job.command?.plannedGradedQuantity==null) return Number(row.quantity);
+    const planned=Number(job.command.plannedGradedQuantity),total=Number(job.quantity);
+    const index=job.source_rows.findIndex(member=>member.id===row.id);
+    const before=job.source_rows.slice(0,index).reduce((sum,member)=>sum+Number(member.quantity),0);
+    return Math.floor(planned*(before+Number(row.quantity))/total)-Math.floor(planned*before/total);
 }

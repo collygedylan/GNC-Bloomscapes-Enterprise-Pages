@@ -1,11 +1,11 @@
 const BLOOMSCAPES_DEPARTMENT_LINKS = {
-    managers:[['studio','Field Work Studio'],['smart-moves','Smart Sales & Move Intelligence'],
-        ['bunch-notes','Bunch Notes'],['can-filling','Can Filling'],['grading','Season .Y Grading'],
-        ['hauling','Hauling & Consolidation'],['shearing','Shear List'],['replenishment','Intercompany & CPB'],
+    managers:[['studio','Build Work Studio'],['smart-moves','Smart Sales & Move Intelligence'],
+        ['bunch-notes','Bunch Notes'],['can-filling','Can Filling'],['grading','Shift Grading'],
+        ['hauling','Hauling'],['shearing','Shear List'],['replenishment','Intercompany & CPB'],
         ['lab','Plant Health & Lab Reports'],['vault','My Work & Inquiry PDF Vault'],['sales-vault','Sales Rep Vault'],
         ['radio','Walkie-Talkie & AURA Voice'],['architecture','System Architecture & Table Map']],
-    production:[['studio','Field Work Studio'],['bunch-notes','Bunch Notes'],['can-filling','Can Filling'],
-        ['grading','Season .Y Grading'],['hauling','Hauling & Consolidation'],['shearing','Shear List'],['vault','My Work & Inquiry PDF Vault']],
+    production:[['studio','Build Work Studio'],['bunch-notes','Bunch Notes'],['can-filling','Can Filling'],
+        ['grading','Shift Grading'],['hauling','Hauling'],['shearing','Shear List'],['vault','My Work & Inquiry PDF Vault']],
     'hl-order':[['replenishment','Intercompany Replenishment & CPB']],
     sales:[['sales-vault','Sales Rep Vault'],['smart-moves','Smart Sales & Move Intelligence']],
     qc:[['lab','Plant Health & Lab Reports']],communication:[['radio','Walkie-Talkie & AURA Voice']]

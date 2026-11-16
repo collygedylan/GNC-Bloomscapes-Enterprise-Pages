@@ -1,5 +1,5 @@
 const BLOOMSCAPES_WORK_VIEWS = {
-    BUNCH_NOTES:'BUNCH NOTES',CAN_FILLING:'CAN FILLING',SHEARING:'SHEARING',Y_GRADING:'.Y GRADING',HAULING:'HAULING'
+    BUNCH_NOTES:'BUNCH NOTES',CAN_FILLING:'CAN FILLING',SHEARING:'SHEARING',Y_GRADING:'Shift Grading',HAULING:'HAULING'
 };
 
 function bloomscapesWorkViewForPanel(tab) {
@@ -88,6 +88,7 @@ function renderBloomscapesWorkBrowser(host,state) {
     host.querySelector('[data-work-back]').hidden=state.path.length===0;
     for (const button of host.querySelectorAll('[data-work-mode]')) button.setAttribute('aria-pressed',String(button.dataset.workMode===state.mode));
     const list=host.querySelector('[data-work-source-cards]');
+    if (typeof parkBloomscapesWorkRowEditor==='function') parkBloomscapesWorkRowEditor(host);
     const cards=projection.leaf ? projection.rows.map(row=>bloomscapesWorkSourceCard(row,state.onSelect))
         : projection.groups.map(([key,count])=>bloomscapesWorkBrowseGroup(host,state,key,count,projection.rows));
     list.replaceChildren(...cards);
@@ -157,6 +158,7 @@ function bloomscapesWorkSourceCard(row,onSelect) {
     button.type='button';button.dataset.workSourceRow=String(row.UNIQUE_ID || row.unique_id);
     button.textContent='Select this physical row';
     button.addEventListener('click',()=>onSelect(row));
+    appendBloomscapesStudioRowActions(card,row,onSelect);
     return card;
 }
 
@@ -168,4 +170,40 @@ function backBloomscapesActiveWorkBrowser() {
     const root=document.querySelector('dialog[open]') || document.getElementById('view-'+getCurrentVisibleViewId());
     const host=root?.querySelector('[data-work-browser]:not([hidden])');
     return bloomscapesWorkBrowserControllers.get(host)?.back() || false;
+}
+
+function appendBloomscapesStudioRowActions(card,row,onSelect) {
+    const controls=card.appendChild(document.createElement('div'));controls.dataset.workRowActions='true';
+    for (const [action,title] of [['Bunch & Tie','🌿 Bunch'],['Shift Grading','📏 Grade (Shift Grading)'],
+        ['Consolidate','🔗 Consolidate'],['Haul','🚜 Haul'],['Bunch Count','🔢 Count / Poly / Spread']]) {
+        const button=controls.appendChild(document.createElement('button'));button.type='button';button.dataset.workRowAction=action;
+        button.textContent=title;button.addEventListener('click',()=>onSelect(row,'SINGLE_ROW',action));
+    }
+}
+
+function bloomscapesConsolidationCandidates(source) {
+    const setting=typeof getCurrentAppSeasonSettings==='function'?getCurrentAppSeasonSettings().salesYear:null;
+    const year=bloomscapesStudioSaleYear(setting);
+    const sourceYear=bloomscapesStudioSaleYear(source.SALEYEAR ?? source.saleyear);
+    if (year===null || sourceYear===null || sourceYear>year) return [];
+    const item=source.ITEMCODE || source.itemcode,location=source.LOCATIONCODE || source.locationcode;
+    return bloomscapesWorkBrowserRows().map(row=>resolveCanonicalInventoryRow(row)).filter(row=>{
+        const candidateYear=bloomscapesStudioSaleYear(row.SALEYEAR ?? row.saleyear);
+        return (row.ITEMCODE || row.itemcode)===item && (row.LOCATIONCODE || row.locationcode)!==location
+            && candidateYear!==null && candidateYear<=year;
+    }).sort((a,b)=>String(a.LOCATIONCODE || a.locationcode).localeCompare(String(b.LOCATIONCODE || b.locationcode),undefined,{numeric:true}));
+}
+
+function bloomscapesStudioSaleYear(value) {
+    const text=String(value ?? '').trim();
+    if (!/^(?:20)?[0-9]{2}$/.test(text)) return null;
+    return Number(text.length===2?'20'+text:text);
+}
+
+function bloomscapesConsolidationDestinationLabel(row) {
+    const value=key=>String(row[key] ?? row[key.toLowerCase()] ?? 'Not recorded');
+    const beds=row.OPENBEDS ?? row.open_beds ?? 'Not recorded';
+    const space=row.CANSPACE ?? row.can_space ?? 'Not recorded';
+    return 'LOCATIONCODE '+value('LOCATIONCODE')+' · LOTCODE '+value('LOTCODE')+' · PTRAVAILABLE '+value('PTRAVAILABLE')
+        +' · PTRREVIEW '+value('PTRREVIEW')+' · PTRONHAND '+value('PTRONHAND')+' · Open Beds / Can Space '+beds+' beds / '+space+' cans';
 }

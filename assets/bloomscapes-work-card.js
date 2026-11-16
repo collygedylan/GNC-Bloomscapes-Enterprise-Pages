@@ -51,7 +51,7 @@ async function openBloomscapesQuickWork(kind,id) {
         await ensureBloomscapesFieldQueue();
         const source=findItemByUniqueId(id) || findItemByDomId(id);
         if (!source || !bloomscapesFarmRowIsVisible(source)) throw new Error('Open a physical row in your active farm.');
-        await openBloomscapesJobBoardCreator(bloomscapesWorkTab(kind),{source,quick:true});
+        await openBloomscapesJobBoardCreator(bloomscapesWorkTab(kind),{source,quick:true,phase:kind==='HAULING'?'consolidate':undefined});
     } catch (error) { showToast('Work dispatch',error.message,true); }
     return false;
 }

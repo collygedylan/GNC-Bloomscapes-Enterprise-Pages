@@ -237,3 +237,12 @@ html body :is(.inventory-card,.drive-card,.app-smart-card,.metric-tile,tr)::afte
 .bloomscapes-work-scope {max-width:min(850px,96vw);max-height:85dvh;overflow:auto;background:#103220;color:#e1f9e9;border:1px solid #397b51;border-radius:12px;padding:1rem;}
 .bloomscapes-work-scope::backdrop {background:#081c12cc;}
 .bloomscapes-work-scope button {display:block;width:100%;min-height:44px;padding:.6rem;margin:.5rem 0;background:#16472e;color:#e1f9e9;border:1px solid #397b51;border-radius:8px;}
+
+[data-studio-phase-cards] {display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:.6rem;}
+[data-studio-phase-cards] button {display:flex;flex-direction:column;text-align:left;padding:.8rem;min-height:75px;background:#16472e;border:1px solid #397b51;border-radius:10px;}
+[data-studio-phase-cards] span {font-size:12px;line-height:1.4;color:#b4d6bf;}
+[data-work-row-actions] {display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.5rem;}
+[data-work-row-actions] button,[data-consolidation-destinations] button {min-height:44px;padding:.5rem;background:#16472e;border:1px solid #397b51;border-radius:8px;color:#e1f9e9;}
+[data-consolidation-destinations] {display:grid;gap:.4rem;}
+[data-consolidation-destinations] button {text-align:left;overflow-wrap:anywhere;}
+[data-work-row-editor],[data-shift-plan] {min-width:0;}

@@ -1,7 +1,7 @@
 const BLOOMSCAPES_LIFECYCLE_ACTIONS=[
     ['Bunch & Tie','BUNCH_NOTES'],['Bunch Count','BUNCH_NOTES'],['Cover with Poly','BUNCH_NOTES'],
     ['Remove Poly (Spring)','BUNCH_NOTES'],['Spread Block (Spring)','BUNCH_NOTES'],['Spread Count','BUNCH_NOTES'],
-    ['Haul / Consolidate','HAULING'],['Grade & Haul','Y_GRADING'],['Add to Shear List','SHEARING'],['Can Filling','CAN_FILLING']
+    ['Shift Grading','Y_GRADING'],['Haul','HAULING'],['Consolidate','HAULING'],['Haul / Consolidate','HAULING'],['Grade & Haul','Y_GRADING'],['Add to Shear List','SHEARING'],['Can Filling','CAN_FILLING']
 ];
 
 function bloomscapesLifecyclePicker() {
@@ -23,6 +23,7 @@ function bindBloomscapesLifecyclePicker(form) {
 function readBloomscapesLifecycleSteps(form,input) {
     const steps=[...form.querySelectorAll('[name=lifecycleStep]:checked')].map(field=>field.value);
     if (steps.length) return {...input,steps,actionType:steps[0]};
+    if (input.actionType==='Shift Grading') return {...input,steps:['Shift Grading','Haul']};
     return BLOOMSCAPES_LIFECYCLE_ACTIONS.some(([action])=>action===input.actionType) ? {...input,steps:[input.actionType]} : input;
 }
 

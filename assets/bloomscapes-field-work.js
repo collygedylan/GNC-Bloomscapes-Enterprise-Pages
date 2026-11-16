@@ -90,3 +90,15 @@ async function createBloomscapesSuspendWork(command) {
     }
     return receipt;
 }
+
+async function readBloomscapesConsolidationDestinations(sourceId) {
+    const {client,owner}=await requireBloomscapesSession();
+    const farm=getBloomscapesFarm();
+    const result=await client.rpc('gnc_studio_consolidation_candidates',{p_farm:farm,p_source:sourceId});
+    await requireBloomscapesOwner(owner);
+    const data=bloomscapesData(result);
+    if (data?.farm_code!==farm || data.source_id!==sourceId || !Array.isArray(data.rows)) {
+        throw new Error('Consolidation destinations did not match this source and farm.');
+    }
+    return data.rows;
+}
