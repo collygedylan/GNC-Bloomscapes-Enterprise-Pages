@@ -69,7 +69,7 @@ async function executeSuspendRowCommand(command) {
     if (options.requireInventoryReceipt) {
         const identity = options.inventoryIdentity || getSuspendTagInventoryIdentity(mirror, source);
         const receipts = result?.inventoryRows || (result?.inventoryRow ? [result.inventoryRow] : []);
-        if (receipts.length !== 1 || !receipts[0]?.unique_id || !matchesSuspendTagInventoryIdentity(receipts[0], identity)) {
+        if (receipts.some(row => !row?.unique_id || !matchesSuspendTagInventoryIdentity(row,identity))) {
             throw new Error('Inventory did not confirm the evaluation for this item, location and lot. Your entries are retained.');
         }
     }

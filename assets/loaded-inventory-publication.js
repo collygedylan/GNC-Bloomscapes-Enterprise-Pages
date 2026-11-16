@@ -54,6 +54,7 @@ function hydrateLoadedRequestEvalMeta(item) {
 }
 
 function hydrateLoadedRequestRow(item) {
+    hydrateBloomscapesMissingRequestStock(item);
     if (!item.DOM_ID) item.DOM_ID = 'req_' + item.UNIQUE_ID;
     item.REQ_STATUS = normalizeRequestStatus(firstNonEmptyValue(item.REQ_STATUS, item.req_status, item.STATUS, 'Pending')) || 'Pending';
     item.REQ_ARCHIVED = item.REQUEST_HISTORY ? false : (item.REQ_ARCHIVED === true || item.REQ_ARCHIVED === 1

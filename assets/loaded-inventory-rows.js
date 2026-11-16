@@ -91,6 +91,9 @@ function publishLoadedDockInventory(res, hasMaster) {
         suspendTagInventory = uniquePhysicalSuspendTags(hydrateDockSourceRows(suspendTagSource).filter(isDockSuspendDcRequestSource));
         suspendTagInventoryScope = getSupabaseReadIdentityScope();
     }
+    suspendTagRawSourceRows = filterBloomscapesSuspendSnapshot(suspendTagRawSourceRows || [],res);
+    suspendTagInventory = filterBloomscapesSuspendSnapshot(suspendTagInventory || [],res);
+    socInventory = filterBloomscapesSuspendSnapshot(socInventory,res);
 }
 
 function publishLoadedReserveInventory(res, hasMaster) {

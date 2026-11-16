@@ -47,7 +47,7 @@ async function mountBloomscapesWorkCreator(host,options={}) {
         syncBloomscapesWorkCreatorKind(form);refreshBloomscapesWorkBrowser(browser);
     });
     const modes=browser.querySelector('[data-work-modes]');
-    root.querySelector('[data-work-type-bar]').appendChild(modes);
+    root.querySelector('[data-work-type-bar]').appendChild(modes.closest('label'));
     applyInventoryExcelFilters('studio',bloomscapesWorkBrowserRows());
     syncBloomscapesWorkCreatorKind(form);
     bindBloomscapesWorkTypes(root,form,options);

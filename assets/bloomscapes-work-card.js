@@ -27,19 +27,25 @@ function renderBloomscapesDriveShearBadge(row,renderMeta,sourceView) {
 }
 
 function renderBloomscapesDetailDispatch(item,sourceView) {
-    const parent = document.getElementById('det-title-row')?.parentElement;
+    const parent = document.getElementById('view-detail')?.querySelector('[data-inline-detail-share]')?.parentElement;
     if (!parent) return;
+    parent.querySelectorAll('[data-drive-dispatch]').forEach(button=>button.remove());
     let host = document.getElementById('bloomscapes-detail-dispatch');
     if (!host) {
         host = document.createElement('section');
         host.id = 'bloomscapes-detail-dispatch';
-        host.className = 'mt-6';
+        host.className = 'bloomscapes-detail-action-row';
         parent.appendChild(host);
     }
     const source = sourceView || activeDetailSourceView || lastView;
     host.innerHTML = item && source==='drive' ? renderBloomscapesDriveDispatchActions(item) : '';
+    const actions = host.querySelector('.bloomscapes-drive-dispatch');
+    if (actions) {
+        parent.classList.add('bloomscapes-detail-action-row');
+        parent.append(...actions.children);host.replaceChildren();
+    }
     host.hidden = !host.firstChild;
-    document.getElementById('view-detail').dataset.bloomscapesWorkActions = String(!host.hidden);
+    document.getElementById('view-detail').dataset.bloomscapesWorkActions = String(!!parent.querySelector('[data-drive-dispatch]'));
 }
 
 function bloomscapesDriveCardActivation(row,renderMeta,sourceView) {

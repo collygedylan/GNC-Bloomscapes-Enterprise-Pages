@@ -13,7 +13,7 @@ function getInventoryExcelHost(scope) {
         const tab=normalizeRequestTabValue(activeReqTab), tabs={suspend:['suspend-tag'],request:['pending','reps'],evalwork:['eval-work','shear-test'],locationwork:['location-work','moves'],recount:['recount'],queueshear:['shear-list']};
         if(!tabs[scope]?.includes(tab)) return null;
     }
-    if (scope === 'drive') return host.querySelector('#drive-advanced-filters [data-inventory-excel-mount="drive"]');
+    if (scope === 'drive') return host.querySelector('[data-inventory-excel-mount="drive"]');
     if (scope === 'av') return host.querySelector('#av-filter-options');
     if (scope === 'suspend') return host.querySelector('[data-inventory-excel-mount="suspend"]');
     if (hosts[scope] === 'view-request') return host.querySelector('#request-filter-toolbar');
@@ -25,7 +25,7 @@ function getVisibleInventoryExcelFields(scope) {
 }
 function mountInventoryExcelFilters(scope) {
     if (scope === 'drive') mountDriveExcelHeaderFilters();
-    if (scope === 'drive') document.querySelectorAll('[data-inventory-excel-scope="'+scope+'"]').forEach(bar=>{if(!bar.closest('#drive-advanced-filters'))bar.remove();});
+    if (scope === 'drive') document.querySelectorAll('[data-inventory-excel-scope="'+scope+'"]').forEach(bar=>{if(!bar.closest('#view-drive'))bar.remove();});
     const host=getInventoryExcelHost(scope); if(!host) return;
     let bar=host.querySelector('[data-inventory-excel-scope]');
     if(bar && bar.dataset.inventoryExcelScope!==scope) {bar.remove();bar=null;}

@@ -14,7 +14,7 @@ function bloomscapesOwnerValue(row) {
 }
 
 function buildBloomscapesAssignmentIndex(farm,rows,defaults) {
-    const index = {farm,location:new Map(),item:new Map(),normalized:new Map(),size:new Map(),family:new Map()};
+    const index = {farm,location:new Map(),block:new Map(),item:new Map(),normalized:new Map(),size:new Map(),family:new Map()};
     const scoped = [...defaults,...rows].filter(row=>(row.farm_code || row.FARM_CODE || bloomscapesRowFarm(row))===farm);
     scoped.sort((a,b)=>Number(a.revision || a.default_revision || 0)-Number(b.revision || b.default_revision || 0)
         || String(a.master_unique_id || '').localeCompare(String(b.master_unique_id || '')));
@@ -35,6 +35,8 @@ function buildBloomscapesAssignmentIndex(farm,rows,defaults) {
 function rememberBloomscapesAssignment(index,row) {
     const code = bloomscapesOwnerCode(row.itemcode_normalized || row.itemcode || row.ITEMCODE);
     const owner = bloomscapesOwnerValue(row);
+    const block = bloomscapesOwnerCode(row.blockalpha || row.BLOCKALPHA);
+    if (owner && block) index.block.set(block,owner);
     if (!code || !owner) return;
     const normalized = buildManagerEvalAssignmentKey(code);
     const location = bloomscapesOwnerCode(row.locationcode || row.LOCATIONCODE);
@@ -50,7 +52,7 @@ function resolveBloomscapesAssignedOwner(row,index) {
     const code = bloomscapesOwnerCode(row.ITEMCODE || row.itemcode);
     const normalized = buildManagerEvalAssignmentKey(code);
     const location = bloomscapesOwnerCode(row.LOCATIONCODE || row.locationcode);
-    return index.location.get(normalized+'@'+location) || index.item.get(code) || index.normalized.get(normalized)
+    return index.location.get(normalized+'@'+location) || index.block?.get(bloomscapesOwnerCode(row.blockalpha || row.BLOCKALPHA || location.split('.')[0])) || index.item.get(code) || index.normalized.get(normalized)
         || index.size.get(normalized.split('.').slice(0,2).join('.')) || index.family.get(normalized.split('.')[0]) || '';
 }
 

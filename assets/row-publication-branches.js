@@ -5,16 +5,6 @@ function withCanonicalEvaluationMatchQuantity(target, patch) {
     return quantity == null ? patch : { ...patch, match, loc_match_qty: quantity };
 }
 
-function resolveSuspendEvaluationInventoryIdentity(item, target, identity) {
-    if (matchesSuspendTagInventoryIdentity(target, identity)) return identity;
-    const display = getQueueDisplayEvidenceRow(item);
-    const masterUid = canonicalInventoryRowUid(target);
-    if (!masterUid || canonicalInventoryRowUid(display) !== masterUid || !canonicalInventorySameLot(display, target)) {
-        throw new Error('Exact inventory row is required.');
-    }
-    return { ...window.AgMetricQueueInventory.identity(target), masterUid };
-}
-
 function resolveEvaluationProjectionTarget(row, source) {
     const indexed = resolveCanonicalInventoryTarget(row, masterInventoryById, masterInventoryByItemCode);
     if (indexed) return indexed;
@@ -99,23 +89,30 @@ function restoreEvaluationFields(row, fields) {
     }
 }
 
+function isMutableRequestEvidenceRow(row) {
+    const table = String(row?.SOURCE_TABLE || row?.source_table || '').toLowerCase();
+    const kind = String(row?.record_kind || row?.RECORD_KIND || '').toUpperCase();
+    return table !== 'ph_requests_completed_history' && kind !== 'REQUEST_COMPLETED'
+        && row?.REQ_ARCHIVED !== true && row?.req_archived !== true;
+}
+
 function collectEvaluationProjectionRows(target, context) {
     const {source,suspendUid,uploadRows = []} = context;
     const uid = canonicalInventoryRowUid(target);
-    const match = row => {
-        const linked = canonicalInventoryLinkedUid(row);
-        if (linked) return linked === uid && canonicalInventorySameLot(row,target,true);
-        return resolveCanonicalInventoryTarget(row,masterInventoryById,masterInventoryByItemCode) === target;
-    };
+    const code = String(target.ITEMCODE || target.itemcode || '').trim().toUpperCase();
+    const indexed = masterInventoryByItemCode.get(code) || fullInventory;
+    const match = createCanonicalEvidenceGroupMatcher(target,indexed);
     const state = getManagerAssignedColumnState();
-    const exactMaster = row => canonicalInventoryRowUid(row) === uid && canonicalInventorySameLot(row,target,true);
-    const groups = [[new Set([target,masterInventoryById.get(uid),...(state.fullInventory || []),...fullInventory,
-        ...(typeof avOpenInventory === 'undefined' ? [] : avOpenInventory)].filter(exactMaster)),'master']];
+    const exactMaster = row => match(row);
+    const extra = state.fullInventory && state.fullInventory!==fullInventory ? state.fullInventory : [];
+    const masters = canonicalEvidencePhysicalRows([target,masterInventoryById.get(uid),...indexed,...extra]);
+    const groups = [[new Set(masters.filter(exactMaster)),'master']];
+    if (typeof avOpenInventory !== 'undefined') groups.push([avOpenInventory.filter(match),'master']);
     const requests = typeof requestsInventory === 'undefined' ? [] : requestsInventory;
     const suspend = typeof suspendTagInventory === 'undefined' ? [] : suspendTagInventory;
     if (suspendUid) groups.push([collectEvaluationSuspendRows(suspendUid,[source,...uploadRows,...requests,...suspend],target),'tag']);
-    groups.push([suspend.filter(match),'suspend'],[requests.filter(match),'request']);
-    if (Array.isArray(state.requestsInventory)) groups.push([state.requestsInventory.filter(match),'request']);
+    groups.push([suspend.filter(match),'suspend'],[requests.filter(row=>isMutableRequestEvidenceRow(row) && match(row)),'request']);
+    if (Array.isArray(state.requestsInventory)) groups.push([state.requestsInventory.filter(row=>isMutableRequestEvidenceRow(row) && match(row)),'request']);
     if (Array.isArray(state.suspendInventory)) groups.push([state.suspendInventory.filter(match),'suspend']);
     if (Array.isArray(state.docksInventory)) groups.push([state.docksInventory.filter(match),'master']);
     if (typeof dockDisplayInventory !== 'undefined') groups.push([dockDisplayInventory.filter(match),'master']);
@@ -150,6 +147,9 @@ function syncEvaluationProjectionNotes(target, owner, state, scope) {
     state.noteScope = scope;
     const notes = state.locationSalesNotes ||= new Map(), code = getRequestItemCodeOptionItemCode(target);
     const rows = notes.get(code) || [], uid = canonicalInventoryRowUid(target);
+    for (const row of rows.filter(row => canonicalEvidenceGroupMatches(row,target))) {
+        writeEvaluationProjectionRow(owner,row,{...owner.evidence,__pendingEvaluationOwner:owner.token});
+    }
     let note = rows.find(row => (canonicalInventoryLinkedUid(row) || canonicalInventoryRowUid(row)) === uid && canonicalInventorySameLot(row,target,true));
     if (!note) {
         note = {...target,unique_id:uid};
@@ -199,7 +199,8 @@ function refreshEvaluationProjectionViews(state) {
 }
 
 function upsertEvaluationProjectionMaster(target, owner) {
-    if (fullInventory.some(row => canonicalInventoryRowUid(row) === canonicalInventoryRowUid(target))) return;
+    if (target.__queuePhotoOnly) return;
+    if (masterInventoryById.has(canonicalInventoryRowUid(target))) return;
     fullInventory.push(target);
     owner.cleanups.push(() => {
         const index = fullInventory.indexOf(target);
@@ -290,63 +291,3 @@ async function publishSeasonSalesOfficeEvaluation(item, patch, options) {
     return result;
 }
 
-async function publishRequestWorkEvaluation(item, patch, options) {
-    const scope = options.scope || getSupabaseReadIdentityScope();
-    const target = findLinkedMasterRow(item);
-    const evidence = target ? withCanonicalEvaluationMatchQuantity(target, buildRequestMasterUpdatePayloadFromSave(item, patch, target)) : null;
-    if (evidence && patch?.explicit_av_note === true) { evidence.explicit_av_note = true; evidence.av_note = String(patch.av_note ?? ''); }
-    const rollback = options.memoryRollback || beginRowEvaluationMemoryPublication(target, evidence, scope);
-    let outcome, completedReceipt = false, photoReceipt = false;
-    try {
-        outcome = await options.persist();
-        if (scope !== getSupabaseReadIdentityScope()) throw staleSupabaseReadScopeError();
-        if (outcome.status !== 'saved') { rollback(); return outcome; }
-        const result = outcome.result, saved = result?.row;
-        if (result?.ok === false || result?.error || options.complete && result?.active === true || !saved || String(saved.unique_id || saved.UNIQUE_ID || '') !== String(item.UNIQUE_ID || item.unique_id || '')) throw new Error('REQUEST_SAVE_UNCONFIRMED');
-        if (options.complete && (result.lifecycle_state !== 'completed_history' || !hasRequestCompletionState(saved))) throw new Error('REQUEST_COMPLETION_RECEIPT_UNCONFIRMED');
-        if (options.complete) {
-            completedReceipt = true;
-            options.onConfirmed?.(result);
-        }
-        if (options.photoAttachmentUrl) {
-            const queued = options.queuedPhotoId && result.queued_photo_id === options.queuedPhotoId;
-            const valid = result.lifecycle_state === 'pending_active' && result.active !== false
-                || queued && result.lifecycle_state === 'completed_history' && result.active === false && hasRequestCompletionState(saved);
-            if (!valid
-                || !parsePhotoCsvValues(saved.req_photo_link).includes(options.photoAttachmentUrl)) throw new Error('REQUEST_PHOTO_RECEIPT_UNCONFIRMED');
-            photoReceipt = true;
-            options.onConfirmed?.(result);
-        }
-        if (completedReceipt || photoReceipt) rollback.commit?.();
-        reconcileRequestPublicationMaster({ result, saved, item, target, options, completedReceipt, photoReceipt, scope, rollback });
-        acknowledgeDetailEvaluationDraft(item,saved,scope);
-        return outcome;
-    } catch (error) {
-        if (completedReceipt || photoReceipt) {
-            // The exact Request completion/photo is durable; only its local inventory projection is deferred.
-            reportDeferredRequestPublication(error, photoReceipt);
-            queueVisibleDatasetCatchup(0);
-            return outcome;
-        }
-        rollback(); throw error;
-    }
-}
-
-function reconcileRequestPublicationMaster({ result, saved, item, target, options, completedReceipt, photoReceipt, scope, rollback }) {
-    const expected = String(saved.master_id || item.MASTER_ID || item.master_id || target?.UNIQUE_ID || target?.unique_id || '');
-    if (result.master_row) {
-        if (!expected || String(result.master_row.unique_id) !== expected) throw new Error('REQUEST_MASTER_RECEIPT_MISMATCH');
-        if (photoReceipt && !parsePhotoCsvValues(result.master_row.photo_link).includes(options.photoAttachmentUrl)) throw new Error('REQUEST_MASTER_PHOTO_RECEIPT_UNCONFIRMED');
-        if (!completedReceipt && !photoReceipt) options.onConfirmed?.(result);
-        rollback.commit?.();
-        const master = target || formatFetchedRows([result.master_row], 'ph_master_inventory')[0];
-        reconcileConfirmedDriveEvidence({ok:true,row:result.master_row,canonicalConfirmed:true,locationRows:[]},
-            master,'req-',{scope,preserveDetailDraft:true,photoOnly:photoReceipt});
-    } else if (target || expected) throw new Error('REQUEST_MASTER_RECEIPT_UNCONFIRMED');
-    else if (!completedReceipt && !photoReceipt) options.onConfirmed?.(result);
-}
-
-function reportDeferredRequestPublication(error, photoReceipt) {
-    if (error?.message === 'REQUEST_MASTER_RECEIPT_UNCONFIRMED') return;
-    globalThis.reportHandledRuntimeIssue?.('request_work', photoReceipt ? 'REQUEST_PHOTO_PROJECTION_DEFERRED' : 'REQUEST_COMPLETION_PROJECTION_DEFERRED');
-}

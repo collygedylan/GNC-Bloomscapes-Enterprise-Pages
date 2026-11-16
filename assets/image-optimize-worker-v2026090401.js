@@ -1,7 +1,7 @@
 importScripts(new URL('./photo-encoding.js'+self.location.search,self.location.href).href);
 /* Plant-photo optimizer. Produces one bounded display image and two static thumbnails. */
-const DISPLAY_MAX_EDGE = 1920;
-const DISPLAY_MAX_BYTES = 1_310_720;
+const DISPLAY_MAX_EDGE = 1280;
+const DISPLAY_MAX_BYTES = 225_280;
 const THUMBNAIL_LIMITS = Object.freeze({ 144: 81_920, 320: 163_840 });
 
 async function blobHasEncoding(blob, expectedType) {
@@ -33,7 +33,7 @@ async function encodeAtAvailableQuality(canvas, type, qualities, maxBytes) {
 async function encodeBounded(bitmap, target, type, maxBytes) {
   let width = target.width;
   let height = target.height;
-  const qualities = type === 'image/webp' ? [0.82, 0.74, 0.66, 0.56] : [0.90];
+  const qualities = type === 'image/webp' ? [0.82, 0.74, 0.66, 0.56] : [0.82];
   for (let resizeAttempt = 0; resizeAttempt < 4; resizeAttempt += 1) {
     const canvas = new OffscreenCanvas(width, height);
     const context = canvas.getContext('2d', { alpha: false, desynchronized: true });

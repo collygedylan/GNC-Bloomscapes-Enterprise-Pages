@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.00';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.02';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -6798,33 +6798,7 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
 
         async function ensureCurrentShellBuild() { try {localStorage.setItem(APP_SHELL_BUILD_STORAGE_KEY,APP_SHELL_BUILD);localStorage.setItem(APP_BOOTED_VERSION_STORAGE_KEY,APP_SHELL_VERSION);}catch(_){} void window.checkForLiveAppUpdate?.('runtime-shell-ready'); return false; }
 
-        function getAvNoteSpecCaliperValues(prefix = '') {
-            const normalizedPrefix = String(prefix || '').trim();
-            const currentItem = activeItem || {};
 
-            if (normalizedPrefix === 'req-') {
-                const reqSpecEl = document.getElementById('req-spec');
-                const reqCalEl = document.getElementById('req-caliper');
-                return {
-                    spec: String((reqSpecEl && reqSpecEl.value) || getRequestActualSpecValue(currentItem) || '').trim(),
-                    caliper: String((reqCalEl && reqCalEl.value) || getRequestActualCaliperValue(currentItem) || '').trim()
-                };
-            }
-
-            if (normalizedPrefix === 'global-') {
-                return {
-                    spec: String(getRequestActualSpecValue(currentItem) || getMeasuredSpecInputValue(currentItem) || '').trim(),
-                    caliper: String(getRequestActualCaliperValue(currentItem) || getItemDisplayValue(currentItem, 'CALIPER', '') || '').trim()
-                };
-            }
-
-            const specEl = document.getElementById(normalizedPrefix + 'spec');
-            const calEl = document.getElementById(normalizedPrefix + 'caliper');
-            return {
-                spec: String((specEl && specEl.value) || getMeasuredSpecInputValue(currentItem) || '').trim(),
-                caliper: String((calEl && calEl.value) || getItemDisplayValue(currentItem, 'CALIPER', '') || '').trim()
-            };
-        }
 
         function shouldAvNoteIncludeCaliper(prefix = '', values = {}) {
             if (!String(values && values.caliper || '').trim()) return false;
@@ -7309,16 +7283,6 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
         let detailMeasurementKeyboardKeepAliveFrame = null;
         let detailMeasurementKeyboardLastKeepAliveAt = 0;
 
-        function isRequestDetailNativeTypingInput(element = null) {
-            if (!element || !element.matches) return false;
-            const id = String(element.id || '').trim().toLowerCase();
-            return !!(
-                isIOSDevice()
-                && ['req-spec', 'req-caliper', 'req-match'].includes(id)
-                && element.closest('#view-detail.detail-request-mode')
-            );
-        }
-
         function isDetailMeasurementKeyboardInput(element = null) {
             return !!(element
                 && element.matches
@@ -7541,10 +7505,7 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
             return true;
         }
 
-        function shouldApplyDetailMeasurementReadonly(input = null) {
-            if (!input) return false;
-            return shouldPreferDetailMeasurementKeyboard();
-        }
+
 
         function ensureDetailMeasurementKeyboardElement() {
             let keyboard = document.getElementById('detail-measurement-keyboard');
@@ -8219,21 +8180,7 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
             return nextValue;
         }
 
-        function normalizeDetailSpecTextForSave(value = '') {
-            const text = String(value || '')
-                .replace(/\\+(?=[\'"])/g, '')
-                .replace(/'?\s*\\+\s*(?=H\b)/gi, "' ")
-                .trim()
-                .replace(/\s+/g, ' ');
-            const compact = text.replace(/\s+/g, '');
-            const rangeMatch = compact.match(/^(\d{1,3}(?:\.\d+)?)-(\d{1,3}(?:\.\d+)?)(\d)$/);
-            if (!rangeMatch) return text;
-            const lower = rangeMatch[1];
-            const upper = rangeMatch[2];
-            const trailingDigit = rangeMatch[3];
-            if (lower.startsWith(trailingDigit)) return `${lower}-${upper}`;
-            return text;
-        }
+
 
         function dispatchDetailMeasurementKeyboardInput(input = null, inputType = 'insertText', data = null) {
             if (!input) return false;
@@ -20116,6 +20063,14 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
         /* @runtime-fragment assets/canonical-inventory-evidence.js */
         /* @runtime-fragment assets/av-lot-cards.js */
         /* @runtime-fragment assets/inventory-excel-popover.js */ /* @runtime-fragment assets/inventory-excel-state.js */ /* @runtime-fragment assets/inventory-excel-mount.js */ /* @runtime-fragment assets/inventory-excel-refresh.js */ /* @runtime-fragment assets/detail-photo-gallery.js */
+/* @runtime-fragment assets/inventory-evidence-group.js */
+/* @runtime-fragment assets/row-evaluation-publisher.js */
+/* @runtime-fragment assets/photo-upload-transport.js */
+/* @runtime-fragment assets/suspend-inventory-target.js */
+/* @runtime-fragment assets/av-note-preferences.js */
+/* @runtime-fragment assets/detail-av-note-picker.js */
+/* @runtime-fragment assets/detail-field-inputs.js */
+/* @runtime-fragment assets/request-evaluation-publication.js */
 /* @runtime-fragment assets/row-workflow-functions.js */
         /* @runtime-fragment assets/row-access-policy.js */
         /* @runtime-fragment assets/suspend-exact-owner.js */
@@ -20147,6 +20102,7 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
 /* @runtime-fragment assets/photo-workflow-policy.js */
 /* @runtime-fragment assets/photo-workflow-controls.js */
 /* @runtime-fragment assets/bloomscapes-push-prompt.js */
+/* @runtime-fragment assets/row-photo-transfer-lane.js */
 /* @runtime-fragment assets/inventory-photo-domain.js */
         async function ensureLeafAssistantSession(forceRefresh = false) {
             const nativeSession = await getNativeAuthSession().catch(() => null);
@@ -23887,7 +23843,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.00';
+        const APP_VERSION = '3.1.02';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -27264,20 +27220,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             return isRequestComplete(item) && (isRequestDeliverySending(item) || isRequestDeliveryNeedsAttention(item));
         }
 
-        function isRequestPendingVisible(item) {
-            const status = normalizeRequestStatus(firstNonEmptyValue(item && item.REQ_STATUS, item && item.req_status, item && item.STATUS, item && item.status, '')).toLowerCase();
-            const historyOnly = isTruthishHistoryValue(item && item.REQUEST_HISTORY_ONLY)
-                || (isTruthishHistoryValue(item && item.REQUEST_HISTORY) && !isTruthishHistoryValue(item && item.REQUEST_ACTIVE));
-            return !!(item
-                && (item.REQUEST_ACTIVE === true || isRequestVisibleForCurrentUser(item))
-                && !isMoveRequestRow(item)
-                && !historyOnly
-                && !item.REQ_ARCHIVED
-                && !hasCompletionDateValue(item)
-                && !hasConfirmedRequestCompletion(item)
-                && !isOptimisticallyCompletedRow(item)
-                && ['', 'pending', 'open'].includes(status));
-        }
+        /* @runtime-fragment assets/bloomscapes-queue-lifecycle.js */
 
         function applyRequestStatusHintsToLocalRows(rows = [], options = {}) {
             const safeRows = Array.isArray(rows) ? rows : [];
@@ -42904,29 +42847,7 @@ let avTopControlsRenderToken = 0;
             return modal;
         }
 
-        function buildMarkDoneConfirmBodyHtml(plan = {}) {
-            const photoLines = Array.isArray(plan.photoLines) ? plan.photoLines.filter((line) => String(line || '').trim()) : [];
-            const inventoryLines = Array.isArray(plan.inventoryLines) ? plan.inventoryLines.filter((line) => String(line || '').trim()) : [];
-            const buildList = (lines) => lines.map((line) => `
-                <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-base font-extrabold leading-snug text-slate-800">${esc(line)}</div>
-            `).join('');
-            const sections = [
-                `<section>
-                    <div class="mb-2 text-[11px] font-black uppercase tracking-[0.2em] text-emerald-700">Photo/spec that will be sent</div>
-                    <div class="space-y-2">${photoLines.length ? buildList(photoLines) : '<div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-base font-extrabold text-slate-500">No photo/spec fields entered</div>'}</div>
-                </section>`
-            ];
-            if (inventoryLines.length) {
-                sections.push(`
-                    <section>
-                        <div class="mb-2 text-[11px] font-black uppercase tracking-[0.2em] text-amber-700">Inventory edits that will be saved</div>
-                        <div class="space-y-2">${buildList(inventoryLines)}</div>
-                    </section>
-                `);
-            }
-            sections.push('<div class="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-900">OK sends the work. Cancel leaves the row open.</div>');
-            return `<div class="space-y-4">${sections.join('')}</div>`;
-        }
+/* @runtime-fragment assets/detail-completion-summary.js */
 
         function closeMarkDoneConfirmModal(choice = 'cancel') {
             const modal = document.getElementById('mark-done-confirm-modal');
@@ -57337,9 +57258,7 @@ function toggleDriveQuickRequestItem(domId) {
             if (prompt) prompt.remove();
         }
 
-        function dismissMobilePushEnablePrompt() {
-            hideMobilePushEnablePrompt();
-        }
+
 
         async function enablePushNotificationsFromPrompt() {
             const button = document.getElementById('mobile-push-enable-button');
@@ -102100,8 +102019,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
         let requestViewRenderCatchupTimer = null;
         let lastRequestViewRenderCatchupAt = 0;
         let requestBadgeLiveSyncTimer = null;
-        let pendingRequestSourceCompletionReconcileTimer = null;
-        let pendingRequestSourceCompletionReconcileInFlight = false;
         let requestQueueSideRefreshInFlight = false;
         let requestQueueSideRefreshPending = null;
         let requestQueueSideRefreshLastAt = 0;
@@ -102519,109 +102436,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             });
         }
 
-        async function runRequestViewLiveSync(options = {}) {
-            const navigationSeq = navTransitionSeq;
-            if (typeof canUseProductionLiveSync === 'function' && canUseProductionLiveSync()) return getProductionLiveSyncCoordinator().check('request-check');
-            const safeOptions = options && typeof options === 'object' ? options : {};
-            if (isRequestViewReadTerminalForCurrentIdentity() && safeOptions.manualRetry !== true) return false;
-            if (safeOptions.manualRetry === true) {
-                clearSupabaseReadTerminalDenialsForIdentity();
-                requestViewTerminalReadIdentityScope = '';
-                clearRequestViewReadFailure();
-            }
-            if (requestViewLiveSyncInFlight) return false;
-            if (!shouldRunRequestViewLiveSync(safeOptions)) {
-                if (!safeOptions.once) clearRequestViewLiveSync();
-                return false;
-            }
-            const readCooldown = requestViewReadCooldownRemaining();
-            if (readCooldown > 0) {
-                if (!safeOptions.once) syncRequestViewLiveSync(Math.max(readCooldown, getRequestViewLiveSyncInterval(safeOptions)), safeOptions);
-                return false;
-            }
-            const pauseDelay = requestViewLiveSyncPausedUntil - Date.now();
-            if (pauseDelay > 0) {
-                if (!safeOptions.once) syncRequestViewLiveSync(pauseDelay + 120, safeOptions);
-                return false;
-            }
-            if (!safeOptions.allowWhileInteractive && shouldDeferInteractiveBackgroundWork()) {
-                if (!safeOptions.once) syncRequestViewLiveSync(INTERACTION_REFRESH_DEFER_MS, safeOptions);
-                return false;
-            }
-            const minInterval = Math.max(0, Number(safeOptions.minIntervalMs) || 0);
-            const now = Date.now();
-            if (!safeOptions.force && minInterval && lastRequestViewSignatureSyncAt && (now - lastRequestViewSignatureSyncAt) < minInterval) return false;
-            lastRequestViewSignatureSyncAt = now;
-            requestViewLiveSyncInFlight = true;
-            try {
-                const signatureRows = await fetchActiveRequestLiveRows(REQUEST_LIVE_SIGNATURE_SELECT_FIELDS);
-                if (!safeOptions.allowWhileInteractive && shouldDeferInteractiveBackgroundWork()) {
-                    if (!safeOptions.once) syncRequestViewLiveSync(INTERACTION_REFRESH_DEFER_MS, safeOptions);
-                    return false;
-                }
-                const nextSignature = buildRequestLiveSyncSignature(signatureRows);
-                if (nextSignature === requestViewLiveSyncSignature) {
-                    requestViewRetryAttempts = 0;
-                    clearRequestViewReadFailure();
-                    const sideDataChanged = await refreshActiveRequestQueueSideData('request-live-sync-unchanged', {
-                        allowWhileInteractive: true,
-                        minIntervalMs: REQUEST_QUEUE_SIDE_REFRESH_MIN_INTERVAL_MS
-                    });
-                    updateFooterRequestBadge();
-                    if (sideDataChanged) {
-                        refreshLocalRequestViewState('request-live-sync-side-data', {
-                            renderVisible: isCurrentNavigationTransition(navigationSeq, 'request'),
-                            forceRender: true,
-                            preferImmediate: true,
-                            typingDelay: REQUEST_REALTIME_UI_DELAY_MS
-                        });
-                    }
-                    return true;
-                }
-                const formattedSignatureRows = formatFetchedRows(signatureRows || [], ACTIVE_REQUEST_TABLE);
-                applyRequestStatusHintsToLocalRows(formattedSignatureRows.filter((row) => hasRequestCompletionState(row) || !!row.REQ_ARCHIVED), {
-                    reason: 'request-signature-status-hint',
-                    skipRefresh: !isCurrentNavigationTransition(navigationSeq, 'request')
-                });
-                const rows = await fetchActiveRequestLiveRows('*', { force_fresh: true, cache: 'no-store' });
-                if (!safeOptions.allowWhileInteractive && shouldDeferInteractiveBackgroundWork()) {
-                    if (!safeOptions.once) syncRequestViewLiveSync(INTERACTION_REFRESH_DEFER_MS, safeOptions);
-                    return false;
-                }
-                const formattedRows = buildDatasetPayload('requests', rows).requestsData;
-                requestViewRetryAttempts = 0;
-                clearRequestViewReadFailure();
-                if (requestViewForceRefreshRetryTimer) clearTimeout(requestViewForceRefreshRetryTimer);
-                requestViewForceRefreshRetryTimer = null;
-                processAndLoadData({ requestsData: formattedRows });
-                await refreshActiveRequestQueueSideData('request-live-sync', {
-                    allowWhileInteractive: true,
-                    minIntervalMs: REQUEST_QUEUE_SIDE_REFRESH_MIN_INTERVAL_MS
-                });
-                const state = getDatasetState('requests');
-                state.initialLoaded = true;
-                state.fullLoaded = true;
-                state.lastLoadedAt = new Date().toISOString();
-                requestViewLiveSyncSignature = buildRequestLiveSyncSignature(formattedRows);
-                updateFooterRequestBadge();
-                schedulePendingRequestSourceCompletionReconcile(36, 'request-live-sync');
-                refreshLocalRequestViewState('request-live-sync', {
-                    renderVisible: isCurrentNavigationTransition(navigationSeq, 'request'),
-                    forceRender: true,
-                    forceReportsRender: isCurrentNavigationTransition(navigationSeq, 'reports'),
-                    preferImmediate: true,
-                    typingDelay: REQUEST_REALTIME_UI_DELAY_MS
-                });
-                touchSyncTimestamp();
-                return true;
-            } catch (error) {
-                recordRequestViewReadFailure(error);
-                return false;
-            } finally {
-                requestViewLiveSyncInFlight = false;
-                if (!safeOptions.once && !isRequestViewReadTerminalForCurrentIdentity() && shouldRunRequestViewLiveSync(safeOptions)) syncRequestViewLiveSync(getRequestViewLiveSyncInterval(safeOptions), safeOptions);
-            }
-        }
+        /* @runtime-fragment assets/bloomscapes-request-refresh.js */
 
         function getNativeForegroundRequestRefreshAdapter() {
             if (!productionLiveSyncCoordinator || !canUseProductionLiveSync()) return null;
@@ -109982,10 +109797,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return `${root} > ${blockLabel} > ${managerEvalReport2SelectedLocationCode || 'LocationCode'} > ITEMCODEs`;
         }
 
-        function renderManagerEvalReport2BrowseModeSwitch() {
-            const itemcodesActive = managerEvalReport2BrowseMode !== 'location';
-            return `<div class="manager-eval2-view-switch grid grid-cols-2 gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 p-1" role="group" aria-label="Eval Reports #2 result view"><button id="manager-eval-report-2-view-itemcodes" type="button" class="min-h-[44px] rounded-xl px-3 text-[10px] font-black uppercase tracking-[0.1em] ${itemcodesActive ? 'bg-[#007a4d] text-white shadow-sm' : 'bg-white text-[#007a4d]'}" aria-pressed="${itemcodesActive ? 'true' : 'false'}" onclick="return setManagerEvalReport2BrowseMode('plant')"><i class="ph-bold ph-list-bullets mr-1"></i>ITEMCODEs</button><button id="manager-eval-report-2-view-location" type="button" class="min-h-[44px] rounded-xl px-3 text-[10px] font-black uppercase tracking-[0.1em] ${itemcodesActive ? 'bg-white text-[#007a4d]' : 'bg-[#007a4d] text-white shadow-sm'}" aria-pressed="${itemcodesActive ? 'false' : 'true'}" onclick="return setManagerEvalReport2BrowseMode('location')"><i class="ph-bold ph-map-pin-line mr-1"></i>Block / Location</button></div>`;
-        }
+        /* @runtime-fragment assets/bloomscapes-filter-bar-compact.js */
 
         function renderManagerEvalReport2BrowseRegionHtml() {
             const itemcodeLevel = isManagerEvalReport2ItemcodeBrowseLevel();
@@ -117200,7 +117012,8 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
 /* @runtime-fragment assets/bloomscapes-transfer-submit.js */
 /* @runtime-fragment assets/bloomscapes-transfer-filters.js */ /* @runtime-fragment assets/bloomscapes-transfer-builder.js */
 /* @runtime-fragment assets/bloomscapes-history.js */
-/* @runtime-fragment assets/inventory-browse-workspaces.js */ /* @runtime-fragment assets/inventory-excel-facts.js */ /* @runtime-fragment assets/bloomscapes-message-state.js */ /* @runtime-fragment assets/bloomscapes-message-transport.js */ /* @runtime-fragment assets/bloomscapes-messages.js */ /* @runtime-fragment assets/bloomscapes-planning-card.js */ /* @runtime-fragment assets/bloomscapes-planning-transport.js */ /* @runtime-fragment assets/bloomscapes-planning-state.js */ /* @runtime-fragment assets/bloomscapes-module-access.js */ /* @runtime-fragment assets/bloomscapes-module-access-editor.js */ /* @runtime-fragment assets/bloomscapes-home.js */ /* @runtime-fragment assets/bloomscapes-job-board.js */
+/* @runtime-fragment assets/inventory-browse-workspaces.js */ /* @runtime-fragment assets/inventory-excel-facts.js */ /* @runtime-fragment assets/bloomscapes-message-state.js */ /* @runtime-fragment assets/bloomscapes-message-transport.js */ /* @runtime-fragment assets/bloomscapes-messages.js */ /* @runtime-fragment assets/bloomscapes-planning-card.js */ /* @runtime-fragment assets/bloomscapes-planning-transport.js */ /* @runtime-fragment assets/bloomscapes-planning-state.js */ /* @runtime-fragment assets/bloomscapes-module-access.js */ /* @runtime-fragment assets/bloomscapes-module-access-editor.js */ /* @runtime-fragment assets/bloomscapes-viewport-scaler.js */
+        /* @runtime-fragment assets/bloomscapes-home.js */ /* @runtime-fragment assets/bloomscapes-job-board.js */
 /* @runtime-fragment assets/bloomscapes-field-controls.js */ /* @runtime-fragment assets/bloomscapes-lab.js */ /* @runtime-fragment assets/bloomscapes-lab-controls.js */ /* @runtime-fragment assets/bloomscapes-radio.js */ /* @runtime-fragment assets/bloomscapes-radio-controls.js */
 /* @runtime-fragment assets/bloomscapes-battery-governor.js */
 /* @runtime-fragment assets/bloomscapes-ptt-drafts.js */
@@ -139242,21 +139055,9 @@ ${folderNote ? `Folder Note: ${folderNote}
 
 
 
-        function schedulePendingRequestSourceCompletionReconcile(delay = 80, reason = 'request-source-completion') {
-            if (!currentUser || !canAccessView('request') || navigator.onLine === false) return false;
-            if (pendingRequestSourceCompletionReconcileTimer) clearTimeout(pendingRequestSourceCompletionReconcileTimer);
-            pendingRequestSourceCompletionReconcileTimer = setTimeout(() => {
-                pendingRequestSourceCompletionReconcileTimer = null;
-                reconcilePendingRequestsFromCompletedSources(reason).catch((error) => {
-                    console.warn('Pending request source completion reconcile failed', error);
-                });
-            }, Math.max(0, Number(delay) || 0));
-            return true;
-        }
 
-        async function reconcilePendingRequestsFromCompletedSources(reason = 'request-source-completion') {
-            return reconcileExactPendingRequestsFromCompletedSources(reason);
-        }
+
+
 
         function applyLinkedRequestCompletionToLocalRow(requestRow = null, sourceItem = null, payload = {}) {
             if (!requestRow || !payload) return null;
@@ -139975,22 +139776,6 @@ ${folderNote ? `Folder Note: ${folderNote}
 
         let autoSaveTimer = null;
 
-        function getDockSuspendDcRequestFormValues(item = activeItem) {
-            const draft = suspendTagFormDrafts.get(getSuspendTagFormDraftKey(item)) || {};
-            const valueOf = (id) => {
-                if (Object.prototype.hasOwnProperty.call(draft, id)) return normalizeQueueNoteText(draft[id]);
-                const el = item === activeItem ? document.getElementById(id) : null;
-                return el ? normalizeQueueNoteText(el.value).trim() : '';
-            };
-            return {
-                avNote: valueOf('req-av-note'),
-                match: getEditableLocMatchPercentValue(valueOf('req-match')),
-                spec: valueOf('req-spec'),
-                caliper: valueOf('req-caliper'),
-                pick: valueOf('req-pick'),
-                comments: valueOf('req-comments')
-            };
-        }
 
         function buildDockSuspendDcRequestNote(values = {}, fallbackNote = '') {
             const noteParts = [];
@@ -140660,76 +140445,11 @@ ${folderNote ? `Folder Note: ${folderNote}
         const suspendTagInventoryReconciliations = new Map();
         let suspendTagInventoryRetryTimer = null;
 
-        function getSuspendTagInventoryIdentity(mirror, source = null) {
-            const row = source || findDockSuspendDcRequestSourceRow(mirror) || mirror;
-            const value = key => String(firstNonEmptyValue(row?.[key], row?.[key.toLowerCase()], mirror?.[key], mirror?.[key.toLowerCase()], '') || '').trim();
-            const masterSource = candidate => {
-                const normalized = normalizeMasterInventorySourceCode(candidate);
-                return normalized && !['DOCK', 'DOCKS', 'SOC'].includes(normalized) ? normalized : '';
-            };
-            const sourceCandidates = [row?.MASTER_SOURCE, row?.master_source, row?.SOURCECODE, row?.sourcecode,
-                row?.SOURCE_CODE, row?.source_code, row?.SOURCE, row?.source,
-                mirror?.MASTER_SOURCE, mirror?.master_source, mirror?.SOURCECODE, mirror?.sourcecode,
-                mirror?.SOURCE_CODE, mirror?.source_code, mirror?.SOURCE, mirror?.source];
-            return { itemCode: value('ITEMCODE'), locationCode: value('LOCATIONCODE'), lotCode: value('LOTCODE'),
-                source: sourceCandidates.map(masterSource).find(Boolean) || '',
-                season: value('SEASON'), salesYear: value('SALEYEAR'), priority: value('PRIORITY') || value('PRI'), desigItem: value('DESIGITEM'),
-                masterUid: value('MASTER_UNIQUE_ID') || value('MASTER_ID') };
-        }
 
-        function matchesSuspendTagInventoryIdentity(row, identity) {
-            if (!identity || (!identity.masterUid && !(identity.itemCode && identity.locationCode && identity.lotCode))) return false;
-            if (typeof window !== 'undefined' && window.AgMetricQueueInventory) return window.AgMetricQueueInventory.matches(row, identity);
-            const value = key => String(firstNonEmptyValue(row?.[key], row?.[key.toLowerCase()], '') || '').trim().toUpperCase();
-            return !!row && !!identity.itemCode && !!identity.locationCode
-                && value('ITEMCODE') === identity.itemCode.toUpperCase()
-                && value('LOCATIONCODE') === identity.locationCode.toUpperCase()
-                && value('LOTCODE') === identity.lotCode.toUpperCase()
-                && (!identity.source || getMasterInventorySourceCode(row) === identity.source)
-                && (!identity.masterUid || value('UNIQUE_ID') === identity.masterUid.toUpperCase());
-        }
 
-        async function resolveSuspendTagInventoryRow(mirror, source, identity, options = {}) {
-            const linked = identity.masterUid || (typeof window !== 'undefined' && window.AgMetricQueueInventory)
-                ? null : getDockSuspendDcRequestLinkedMasterRow(mirror, source);
-            if (linked && !matchesSuspendTagInventoryIdentity(linked, identity)) {
-                throw new Error('The linked inventory identity changed. Reopen Photo / Specs to retry.');
-            }
-            // An inferred cache link can hide duplicates in an incomplete inventory.
-            // Resolve all candidates unless the source carries an explicit master ID.
-            let uid = identity.masterUid;
-            if (!uid && typeof window !== 'undefined' && window.AgMetricQueueInventory) {
-                const exact = window.AgMetricQueueInventory.identity(identity);
-                const result = await requestInventoryRead('master_identity_batch', { queueIdentities: [exact] },
-                    { signal: options.signal, label: 'Suspend Tag inventory' });
-                validateInventoryReadProjection(result, { projection: 'full' });
-                const match = result.rows?.[0];
-                if (result.rows?.length !== 1 || match?.inputIndex !== 0 || ![0, 1, 2].includes(match?.matchCount)) throw new Error('The inventory identity could not be verified.');
-                if (match.matchCount === 0) return null;
-                if (match.matchCount !== 1 || !window.AgMetricQueueInventory.matches(match.row, exact)) throw new Error('More than one inventory row matches, or its identity changed. Reopen Photo / Specs after correcting the row link.');
-                uid = String(match.row.unique_id || match.row.UNIQUE_ID || '');
-            }
-            if (!uid) {
-                if (!identity.itemCode || !identity.locationCode) throw new Error('The inventory identity is incomplete. Reopen Photo / Specs to retry.');
-                const lookup = { dataset: 'lookup', projection: 'full', itemCode: identity.itemCode, locationCode: identity.locationCode };
-                if (identity.lotCode && identity.source) {
-                    lookup.lotCode = identity.lotCode;
-                    lookup.source = identity.source;
-                }
-                const rows = await fetchAllInventoryReadRows('master_page', lookup,
-                    { signal:options.signal, requireComplete:true, label:'Suspend Tag inventory' });
-                validateInventoryReadProjection(rows.readMeta, { projection: 'full' });
-                const matches = rows.filter(row => matchesSuspendTagInventoryIdentity(row, identity));
-                if (!matches.length) return null;
-                if (matches.length !== 1) throw new Error('More than one inventory row matches. Reopen Photo / Specs after correcting the row link.');
-                uid = String(matches[0].unique_id || matches[0].UNIQUE_ID || '');
-            }
-            const canonical = await loadExactMasterDetailRow(uid, {detached:true, signal:options.signal});
-            if (!matchesSuspendTagInventoryIdentity(canonical, { ...identity, masterUid: uid })) {
-                throw new Error('The saved inventory identity changed. Reopen Photo / Specs to retry.');
-            }
-            return canonical;
-        }
+
+
+
 
         function scheduleSuspendTagInventoryRetry() {
             if (suspendTagInventoryRetryTimer) return;
@@ -140946,8 +140666,7 @@ ${folderNote ? `Folder Note: ${folderNote}
                 SUSPEND_TAG_REVIEW_REQUIRED: 'Review and mark this row done before sending it.', SUSPEND_TAG_REP_EMAIL_MISSING: 'The assigned Sales Rep could not be matched to a verified account.',
                 SUSPEND_TAG_RECIPIENT_EMAIL_MISSING: 'The Sales Rep or completer has no verified email address.', SUSPEND_TAG_APPROVAL_SUPERSEDED: 'This approval has been replaced. Open the newest request.',
                 SUSPEND_TAG_DECISION_CONFLICT: 'A different decision has already been recorded.', SUSPEND_TAG_VERSION_CHANGED: 'This row changed. Refresh it before retrying.',
-                SUSPEND_TAG_INVENTORY_AMBIGUOUS: 'More than one inventory row matches this tag. Correct the inventory link and retry; the tag is still available.',
-                SUSPEND_TAG_SOURCE_CHANGED: 'The source row changed. Refresh it before retrying.', SUSPEND_TAG_FORBIDDEN: 'Your account cannot perform this action.' };
+                                SUSPEND_TAG_SOURCE_CHANGED: 'The source row changed. Refresh it before retrying.', SUSPEND_TAG_FORBIDDEN: 'Your account cannot perform this action.' };
             return Object.keys(messages).find(key => message.includes(key)) ? messages[Object.keys(messages).find(key => message.includes(key))] : message;
         }
 
@@ -143870,126 +143589,7 @@ ${folderNote ? `Folder Note: ${folderNote}
         }
 
         let pendingRequestWorkFlushPromise = null;
-        async function flushPendingRequestWorkEdits(reason = 'manual') {
-            if (pendingRequestWorkFlushPromise) return pendingRequestWorkFlushPromise;
-            pendingRequestWorkFlushPromise = (async () => {
-                if (!currentUser || navigator.onLine === false) return 0;
-                const pendingEdits = getPendingEditsCache();
-                let savedCount = 0;
-                let cacheChanged = false;
-                for (const [requestId, entry] of Object.entries(pendingEdits)) {
-                    const row = entry && entry.data;
-                    if (!isRequestLikeLocalEditRow(row) || (entry.requestWorkOwnerKey && entry.requestWorkOwnerKey !== getRequestSubmissionOwnerKey())) continue;
-                    if (entry.requestWorkDraft && entry.requestWorkDraft.acknowledged === true
-                        && !Object.keys(entry.requestWorkDraft.dirtyValues || {}).length && !entry.requestWorkDraft.complete) {
-                        delete pendingEdits[requestId]; cacheChanged = true; continue;
-                    }
-                    if (!entry.requestWorkDraft) {
-                        entry.requestWorkDraft = { requestId, baseVersion: 0, baseValues: null, dirtyValues: getRequestWorkValuesFromRow(row), complete: hasRequestCompletionState(row), legacy: true,
-                            conflictPlan: { status: 'review-required', reason: 'legacy-draft', conflictFields: [], canonical: null } };
-                        entry.autoRetryBlocked = true; entry.conflictType = 'request-work'; entry.conflictedAt = new Date().toISOString();
-                        cacheChanged = true;
-                        continue;
-                    }
-                    if (entry && entry.autoRetryBlocked === true) continue;
-                    let expectedVersion = Math.max(1, Number(firstNonEmptyValue(row.ROW_VERSION, row.row_version, 1)) || 1);
-                    const draft = entry.requestWorkDraft && typeof entry.requestWorkDraft === 'object' ? entry.requestWorkDraft : null;
-                    const complete = draft ? !!draft.complete : hasRequestCompletionState(row);
-                    let patch = draft ? buildNarrowRequestWorkRpcPatch(draft.dirtyValues, row) : {
-                        req_match: firstNonEmptyValue(row.REQ_MATCH, row.req_match, null),
-                        req_spec: firstNonEmptyValue(row.REQ_SPEC, row.req_spec, null),
-                        req_caliper: firstNonEmptyValue(row.REQ_CALIPER, row.req_caliper, null),
-                        req_pic_note: firstNonEmptyValue(row.REQ_PIC_NOTE, row.req_pic_note, row.REQ_PICK, null),
-                        req_comments: firstNonEmptyValue(row.REQ_COMMENTS, row.req_comments, null),
-                        req_reserve: firstNonEmptyValue(row.REQ_RESERVE, row.req_reserve, null),
-                        av_note: firstNonEmptyValue(row.AV_NOTE, row.av_note, null),
-                        req_photo_link: firstNonEmptyValue(row.REQ_PHOTO_LINK, row.req_photo_link, ''),
-                        req_photo_name: firstNonEmptyValue(row.REQ_PHOTO_NAME, row.req_photo_name, ''),
-                        loc_match_qty: calculateLocMatchQtyValue({
-                            MATCH: firstNonEmptyValue(row.REQ_MATCH, row.req_match, ''),
-                            PTRAVAILABLE: firstNonEmptyValue(row.PTRAVAILABLE, row.ptravailable, '')
-                        }),
-                        drive_photo_link: firstNonEmptyValue(row.REQ_PHOTO_LINK, row.req_photo_link, ''),
-                        drive_photo_name: firstNonEmptyValue(row.REQ_PHOTO_NAME, row.req_photo_name, '')
-                    };
-                    if (complete) patch.req_status = 'Complete';
-                    let attempt = 0;
-                    const requestIdentityScope = getSupabaseReadIdentityScope();
-                    const requestAuthEpoch = nativeAuthRecoveryEpoch;
-                    const requestScopeIsCurrent = () => requestIdentityScope === getSupabaseReadIdentityScope()
-                        && requestAuthEpoch === nativeAuthRecoveryEpoch;
-                    const assertPendingRequestScope = () => { if (!requestScopeIsCurrent()) throw staleSupabaseReadScopeError(); };
-                    const requestWorkFormValuesAtDispatch = getRequestWorkFormValues(findRequestInventoryRowByUniqueId(requestId)) || {};
-                    const requestWorkCacheEntryTimestampAtDispatch = Number(entry.timestamp || 0);
-                    try {
-                        const reconciliation = await publishRowEvaluationToMasterAndNotes(row,patch,{requestWork:true,scope:requestIdentityScope,complete,
-                            onConfirmed:receipt => { if (complete) applyConfirmedRequestCompletionReceipt(row,receipt,requestIdentityScope); },
-                            persist:() => saveRequestWorkWithReconciliation({
-                            assertScope: assertPendingRequestScope, complete,
-                            draft, expectedVersion, initialPatch: patch, maxRebases: REQUEST_WORK_CONFLICT_RETRY_LIMIT,
-                            readCanonical: async () => { assertPendingRequestScope(); const canonical = await fetchCanonicalRequestWorkRow(requestId); assertPendingRequestScope(); return canonical; },
-                            send: async (input) => {
-                                assertPendingRequestScope();
-                                return supabaseRpc('save_request_work', {
-                                    request_id: requestId, expected_version: input.expectedVersion,
-                                    patch: input.attempt > 0 ? buildNarrowRequestWorkRpcPatch(input.patch, row) : input.patch,
-                                    complete: !!input.complete
-                                }, { timeoutMs: 30000 });
-                            }
-                        })});
-                        if (!requestScopeIsCurrent()) continue;
-                        attempt = reconciliation.attempts || 0;
-                        if (reconciliation.status === 'review-required') {
-                            const nextDraft = draft || { requestId, baseVersion: 0, baseValues: null, dirtyValues: getRequestWorkValuesFromRow(row), complete, legacy: true };
-                            const blocked = await blockRequestWorkConflict(row, nextDraft, reconciliation.canonical || null,
-                                reconciliation.error || new Error('REQUEST_VERSION_CONFLICT'), attempt);
-                            entry.requestWorkDraft = blocked; entry.autoRetryBlocked = true;
-                            entry.conflictType = blocked.complete && blocked.intentPolicy === 'local-command' ? 'request-completion' : 'request-work';
-                            cacheChanged = true;
-                            const local = findRequestInventoryRowByUniqueId(requestId);
-                            if (local) { if (!blocked.legacy) applyRequestWorkValuesToItem(local, blocked.dirtyValues); updateRequestWorkConflictReview(local); }
-                            continue;
-                        }
-                        if (reconciliation.status === 'error') throw reconciliation.error;
-                        const result = reconciliation.result;
-                        entry.requestWorkDraft = reconciliation.draft;
-                        if (String(result?.row?.unique_id || result?.row?.UNIQUE_ID || '') !== requestId) throw new Error('REQUEST_SAVE_UNCONFIRMED');
-                        const formatted = formatFetchedRows([result.row], ACTIVE_REQUEST_TABLE)[0];
-                        const local = findRequestInventoryRowByUniqueId(requestId);
-                        const requestWorkValuesAtResponse = getRequestWorkFormValues(local || row) || {};
-                        if (local && formatted && getQueueCompletionVersion(local) <= getQueueCompletionVersion(formatted)) Object.assign(local, formatted);
-                        if (formatted) {
-                            if (complete && isRequestComplete(formatted)) {
-                                confirmQueueCompletion(formatted);
-                                scheduleRequestDeliveryWake('request_completed_retry');
-                            }
-                            if (draft) finalizeRequestWorkDraftAfterSuccess(local || row, reconciliation.draft, { ...(reconciliation.draft.dirtyValues || {}) }, formatted, requestWorkFormValuesAtDispatch, requestWorkCacheEntryTimestampAtDispatch, requestWorkValuesAtResponse);
-                            else { delete pendingEdits[requestId]; cacheChanged = true; }
-                            await deleteAcknowledgedRequestBlobs(requestId,formatted).catch(() => {});
-                            savedCount += 1;
-                        }
-                    } catch (error) {
-                        if (!requestScopeIsCurrent()) continue;
-                        globalThis.GncRuntimeWatchdog?.capture?.(error,'flushPendingRequestWorkEdits');
-                        if (isRequestWorkVersionConflict(error)) {
-                            const legacyDraft = draft || { requestId, baseVersion: 0, baseValues: null, dirtyValues: getRequestWorkValuesFromRow(row), complete, legacy: true };
-                            const canonical = await fetchCanonicalRequestWorkRow(requestId).catch(() => null);
-                            entry.requestWorkDraft = await blockRequestWorkConflict(row, legacyDraft, canonical, error, attempt);
-                            entry.autoRetryBlocked = true;
-                            entry.conflictType = legacyDraft.complete && legacyDraft.intentPolicy === 'local-command' ? 'request-completion' : 'request-work';
-                            entry.conflictedAt = new Date().toISOString();
-                            cacheChanged = true;
-                        }
-                    }
-                }
-                if (cacheChanged) flushPendingEditsCache(true);
-                if (savedCount) {
-                    refreshLocalRequestViewState(`pending-request-work:${reason}`, { renderVisible: true, forceRender: true });
-                }
-                return savedCount;
-            })().finally(() => { pendingRequestWorkFlushPromise = null; });
-            return pendingRequestWorkFlushPromise;
-        }
+        /* @runtime-fragment assets/bloomscapes-request-retry.js */
 
         const verifiedAvNoteLoads = new Map();
         function ensureVerifiedAvNoteChoices(list, panelKey, onReady) {
@@ -144011,89 +143611,7 @@ ${folderNote ? `Folder Note: ${folderNote}
             }
             return false;
         }
-        function filterAvNotes(prefix, options = {}) {
-            const safePrefix = String(prefix || '');
-            const safeOptions = options && typeof options === 'object' ? options : {};
-            if (!safeOptions.inline && !safeOptions.fromDropdownButton && !safeOptions.fromRequestSheet) return;
-            const avNoteContextItem = safePrefix === 'hold-release-' && holdReleasePromptItem ? holdReleasePromptItem : activeItem;
-            if (!avNoteContextItem) return;
-            const list = document.getElementById(safePrefix + 'av-dropdown-list');
-            if (!list) return;
-            const itemcodeKey = normalizeAvNoteItemcode(firstNonEmptyValue(avNoteContextItem.ITEMCODE, avNoteContextItem.itemcode, ''));
-            const commonKey = String(firstNonEmptyValue(avNoteContextItem.COMMONNAME, avNoteContextItem.commonname, '') || '').trim().toUpperCase();
-            const serverKey = `${itemcodeKey}|${commonKey}`;
-            void ensureItemcodeAvNoteOptions(avNoteContextItem, () => {
-                const currentItem = safePrefix === 'hold-release-' && holdReleasePromptItem ? holdReleasePromptItem : activeItem;
-                const currentItemcode = normalizeAvNoteItemcode(firstNonEmptyValue(currentItem && currentItem.ITEMCODE, currentItem && currentItem.itemcode, ''));
-                const currentCommonName = String(firstNonEmptyValue(currentItem && currentItem.COMMONNAME, currentItem && currentItem.commonname, '') || '').trim().toUpperCase();
-                if (`${currentItemcode}|${currentCommonName}` !== serverKey || list.classList.contains('hidden')) return;
-                avNoteRenderedKeys[safePrefix] = '';
-                filterAvNotes(safePrefix, safeOptions);
-            });
-            const inputEl = document.getElementById(safePrefix + 'av-note');
-            if (!inputEl) return;
-            const requestSheetSearch = requestAvNoteSheetState.prefix === safePrefix && document.body.classList.contains('request-av-note-sheet-open')
-                ? document.getElementById('request-av-note-sheet-search')
-                : null;
-            const fromRequestSheet = safeOptions.fromRequestSheet === true || !!requestSheetSearch;
-            const inputText = String(safeOptions.searchText !== undefined
-                ? safeOptions.searchText
-                : (requestSheetSearch ? requestSheetSearch.value : inputEl.value) || '').trim();
-            const inputVal = safeOptions.showAll === true ? '' : inputText.toUpperCase();
-            const keyboardOwnsInput = !fromRequestSheet && (detailMeasurementKeyboardTarget === inputEl || (inputEl.dataset && inputEl.dataset.detailMeasurementKeyboard === 'true'));
-            const shouldRestoreFocus = !safeOptions.fromDropdownButton && !fromRequestSheet && (document.activeElement === inputEl || keyboardOwnsInput);
-            const restoreStart = typeof inputEl.selectionStart === 'number' ? inputEl.selectionStart : inputText.length;
-            const restoreEnd = typeof inputEl.selectionEnd === 'number' ? inputEl.selectionEnd : restoreStart;
-            const scrollState = captureAvNoteScrollState(inputEl);
-            const mobileLocked = !fromRequestSheet && (isMobileTextEntryPositionLocked(inputEl) || (shouldUseMobileTextEntryStabilizer() && document.activeElement === inputEl));
-            const keepAvNoteFocus = () => {
-                if (!shouldRestoreFocus) {
-                    if (mobileLocked) restoreAvNoteScrollState(scrollState);
-                    return;
-                }
-                requestAnimationFrame(() => {
-                    if (keyboardOwnsInput) keepDetailMeasurementKeyboardAlive(inputEl, restoreStart, restoreEnd);
-                    else if (mobileLocked) preserveAvNoteTextFocus(inputEl, restoreStart, restoreEnd, { force: false });
-                    else restoreDetailMeasurementFieldFocus(inputEl, restoreStart, restoreEnd);
-                    if (mobileLocked) restoreAvNoteScrollState(scrollState);
-                });
-            };
-            const cacheKey = `${itemcodeKey}::${commonKey}::${inputVal}::${document.getElementById(safePrefix+'spec')?.value || ''}::${list.dataset.avNotePresentation || ''}`;
-            let matchingNotes = avNoteFilterResultCache.get(cacheKey);
-            if (!matchingNotes) {
-                matchingNotes = getAvNotePickerLabels(avNoteContextItem);
-                if (inputVal) matchingNotes = matchingNotes.filter(n => String(n).toUpperCase().includes(inputVal));
-                if (avNoteFilterResultCache.size >= 500) {
-                    avNoteFilterResultCache.delete(avNoteFilterResultCache.keys().next().value);
-                }
-                avNoteFilterResultCache.set(cacheKey, matchingNotes);
-            }
-            if (matchingNotes.length === 0) {
-                avNoteRenderedKeys[safePrefix] = cacheKey;
-                const emptyText = inputText
-                    ? `No saved AV notes match "${inputText.toUpperCase()}". Keep typing to use your custom note.`
-                    : 'No saved AV notes for this row. Type your own AV note above.';
-                list.innerHTML = buildAvNoteSpecialOptions(safePrefix) + `<div class="av-note-dropdown-header">AV Note Options</div><div class="av-note-dropdown-empty">${esc(emptyText)}</div>`;
-                list.classList.remove('hidden');
-                setAvNoteDropdownExpanded(safePrefix, true);
-                keepAvNoteFocus();
-                return;
-            }
-            if (avNoteRenderedKeys[safePrefix] === cacheKey && !list.classList.contains('hidden')) {
-                keepAvNoteFocus();
-                return;
-            }
-            const renderedNotes = matchingNotes;
-            const listLabel = inputVal ? `${matchingNotes.length} Matching AV Note${matchingNotes.length === 1 ? '' : 's'}` : `${matchingNotes.length} Saved AV Note${matchingNotes.length === 1 ? '' : 's'}`;
-            const footerHtml = matchingNotes.length > renderedNotes.length
-                ? `<div class="av-note-dropdown-footer">Showing first ${renderedNotes.length}. Type to narrow the list.</div>`
-                : (inputText ? `<div class="av-note-dropdown-footer">Type anything above to use a custom AV note.</div>` : '');
-            list.innerHTML = buildAvNoteSpecialOptions(safePrefix) + `<div class="av-note-dropdown-header">${esc(listLabel)}</div>` + renderedNotes.map(n => `<button type="button" class="av-note-dropdown-option" data-av-note-option="${esc(n)}" data-av-note-prefix="${esc(safePrefix)}" role="option" tabindex="-1" onmousedown="event.preventDefault()" onclick="return selectAvNote(this.dataset.avNoteOption || '', this.dataset.avNotePrefix || '', event)">${esc(n)}</button>`).join('') + footerHtml;
-            avNoteRenderedKeys[safePrefix] = cacheKey;
-            list.classList.remove('hidden');
-            setAvNoteDropdownExpanded(safePrefix, true);
-            keepAvNoteFocus();
-        }
+
 
         function selectAvNote(note, prefix, event = null, options = {}) {
             const normalizedPrefix = String(prefix || '').trim();

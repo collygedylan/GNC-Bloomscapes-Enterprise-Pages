@@ -2,7 +2,8 @@ function getInventoryExcelFields(scope = '') {
     if (scope==='reclass') return [];
     const fields=[['username','Assigned To'],['stock','Stock / Season'],['view','View'],['genus','Genus'],
         ['plantgroupcode','Plant Group'],['contsize','Container Size'],['salesrep','Sales Rep'],['customer','Customer / Consignee']];
-    return scope==='av'?fields.filter(([key])=>!['username','stock','view'].includes(key)):fields;
+    return fields.filter(([key])=>scope==='av' ? !['username','stock','view'].includes(key)
+        : key!=='view' || !['drive','eval2','studio'].includes(scope));
 }
 function getInventoryExcelState(scope) {
     const owner = getSupabaseReadIdentityScope()+(nativeAuthSessionActive?':'+getBloomscapesFarm():'');
@@ -45,6 +46,7 @@ function applyInventoryExcelFilters(scope, rows) {
     const state = getInventoryExcelState(scope);
     const allowed = new Set(getInventoryExcelFields(scope).map(([key]) => key));
     for (const key of Object.keys(state.filters)) if (!allowed.has(key)) delete state.filters[key];
+    if (state.rows!==rows) state.revision++;
     state.rows = Array.isArray(rows) ? rows : []; state.facts = new WeakMap();
     if (typeof document !== 'undefined' && !state.paintPending) { state.paintPending=true; setTimeout(()=>{state.paintPending=false;mountInventoryExcelFilters(scope);},0); }
     return Object.keys(state.filters).length ? state.rows.filter(row=>inventoryExcelRowMatches(row,state,scope === 'av' && getAvPhotoMode() === 'valid_photos' ? 'season' : '')) : state.rows;

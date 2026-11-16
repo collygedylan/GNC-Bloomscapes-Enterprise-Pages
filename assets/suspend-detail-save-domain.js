@@ -8,8 +8,7 @@ async function resolveSuspendPhotoMaster(item, signal) {
         ? linked
         : await resolveSuspendTagInventoryRow(item, source, identity, { signal });
     if (signal.aborted || scope !== getSupabaseReadIdentityScope()) throw staleSupabaseReadScopeError();
-    if (!master || !(master.UNIQUE_ID || master.unique_id)) throw new Error('Exact inventory row is required.');
-    return master;
+    return master || {...source,UNIQUE_ID:getDockSuspendDcRequestSourceUid(item),__queuePhotoOnly:true};
 }
 
 async function prepareSuspendDetailSource(row,options,writeScope) {

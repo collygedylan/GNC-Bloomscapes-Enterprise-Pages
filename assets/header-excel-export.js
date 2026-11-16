@@ -10,6 +10,7 @@ function inventoryExcelBarHtml(scope) {
 }
 
 function renderInventoryExcelHeader(scope, state, key, label) {
+    if (key==='username' || key==='view') return renderBloomscapesCountedSelect(scope,state,key,label);
     const summary = (state.filters[key] ? state.filters[key].size + ' selected' : 'All') + ' ▾';
     const title = escapeHtml(label);
     const trigger = '<button type="button" data-field="' + key + '" onclick="return openInventoryExcelFilter(\'' + scope + '\',this.dataset.field';
@@ -48,7 +49,7 @@ function syncHeaderExcelExport(view) {
     scheduleAssignedItemsPrewarm();
     const button = document.getElementById('global-excel-export');
     if (!button) return;
-    if (button.parentElement) button.parentElement.dataset.exportView = view || '';
+    button.dataset.exportView = view || '';
     button.hidden = !getHeaderExcelExportCommand(view);
     if (view !== 'av') button.removeAttribute('title');
 }

@@ -40,11 +40,11 @@ function canCurrentUserViewDockSuspendDcRequests(item = null) {
 function resolveSuspendOwner(item) {
     const code = buildManagerEvalAssignmentKey(item?.ITEMCODE || item?.itemcode || item?.ITEM || item?.item);
     const state = getManagerAssignedColumnState();
-    if (item?.DOCK_SUSPEND_DC_REQUEST === true || isDockSuspendDcRequestSource(item)) {
-        return resolveExactSuspendOwner(item, code, state);
-    }
     if (typeof nativeAuthSessionActive!=='undefined' && nativeAuthSessionActive && typeof getBloomscapesAssignmentIndex==='function') {
         return resolveBloomscapesAssignedOwner(item,getBloomscapesAssignmentIndex()) || bloomscapesOwnerValue(item) || 'Unassigned';
+    }
+    if (item?.DOCK_SUSPEND_DC_REQUEST === true || isDockSuspendDcRequestSource(item)) {
+        return resolveExactSuspendOwner(item, code, state);
     }
     const { exact, family } = getCardEvalOwnerIndex(state);
     const owner = exact.get(code) || family.get(code.split('.')[0]);
@@ -114,3 +114,13 @@ function collectSuspendOwnerCandidates(entries, inventory, code, family) {
     }
     return owners;
 }
+
+function getAssignedQueueOwner(row, index = getCardEvalOwnerIndex(getManagerAssignedColumnState(), true)) {
+    if (nativeAuthSessionActive) return resolveSuspendOwner(row);
+    if (isDockSuspendDcRequestMirrorRow(row) || isDockSuspendDcRequestSource(row)) return resolveSuspendOwner(row);
+    const code = buildManagerEvalAssignmentKey(row?.ITEMCODE || row?.itemcode || row?.ITEM || row?.item);
+    const mapped=index.exact.get(code) || index.family.get(code.slice(0,6));
+    if(mapped) return mapped;
+    return '';
+}
+

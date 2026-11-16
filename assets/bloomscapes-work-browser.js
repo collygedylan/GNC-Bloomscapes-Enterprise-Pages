@@ -28,8 +28,7 @@ const bloomscapesWorkBrowserControllers=new WeakMap();
 
 function mountBloomscapesWorkBrowser(host,onSelect,options={}) {
     const state={owner:getSupabaseReadIdentityScope(),mode:'block',path:[],onSelect,options};
-    host.innerHTML='<nav data-work-modes><button type="button" data-work-mode="block">📍 Block View</button>'
-        +'<button type="button" data-work-mode="common">🌿 Common Name View</button></nav>'
+    host.innerHTML='<label class="bloomscapes-compact-select">View<select data-work-modes aria-label="Work View"><option value="block">Block / Location</option><option value="common">Itemcodes / Common Name</option><option value="all">All Cards</option></select></label>'
         +'<h3>Step 2: BlockAlpha → BlockNumber → All Rows / Cards</h3>'
         +'<input type="search" data-work-search aria-label="Search work source inventory" placeholder="Search Names, ItemCodes, or Locations...">'
         +'<details data-work-more><summary>More</summary><div data-work-filters></div></details>'
@@ -38,8 +37,8 @@ function mountBloomscapesWorkBrowser(host,onSelect,options={}) {
         +'<p data-work-browser-status></p><div data-work-source-cards class="bloomscapes-work-cards"></div>';
     mountBloomscapesWorkFilters(host,state);
     host.querySelector('[data-work-search]').addEventListener('input',()=>{renderBloomscapesWorkBrowser(host,state);});
-    host.querySelector('[data-work-modes]').addEventListener('click',event=>{
-        const mode=event.target.closest('[data-work-mode]')?.dataset.workMode;
+    host.querySelector('[data-work-modes]').addEventListener('change',event=>{
+        const mode=event.target.value;
         if (!mode) return;
         state.mode=mode;state.path=[];renderBloomscapesWorkBrowser(host,state);
     });
@@ -63,7 +62,7 @@ function bloomscapesWorkBrowseProjection(host,state) {
         const parts=bloomscapesWorkBrowseParts(row,state.mode);
         return state.path.every((part,index)=>part===parts[index]);
     });
-    const leaf=search.trim()!=='' || state.path.length>=(state.mode==='block'?2:3);
+    const leaf=state.mode==='all' || search.trim()!=='' || state.path.length>=(state.mode==='block'?2:3);
     if (leaf) return {rows,leaf,groups:[]};
     const groups=new Map();
     for (const row of rows) {

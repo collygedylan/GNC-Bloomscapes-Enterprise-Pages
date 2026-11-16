@@ -86,7 +86,7 @@ function mountBloomscapesDepartmentShortcuts(view) {
         root.prepend(nav);
     }
     if (nav.dataset.owner===getSupabaseReadIdentityScope()) return;
-    nav.replaceChildren(...links.filter(([id])=>id!=='architecture' || canViewBloomscapesArchitecture(currentUser,nativeAuthProfile,true))
+    nav.replaceChildren(...links.filter(([id])=>id!=='studio' && (id!=='architecture' || canViewBloomscapesArchitecture(currentUser,nativeAuthProfile,true)))
         .map(([id,title])=>bloomscapesDepartmentButton(view,id,title)));
     nav.dataset.owner = getSupabaseReadIdentityScope();
 }

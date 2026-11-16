@@ -16,7 +16,9 @@ function syncInlineItemDetailShare(root) {
                 await copyTextWithFallback(request ? formatRequestItemsText([activeItem]) : formatInventoryItemsText([activeItem]), request ? formatRequestItemsHtml([activeItem]) : formatInventoryItemsHtml([activeItem]));
                 showToast('Copied', 'Card and all photos copied.');
             };
-            root.prepend(button);
+            const row = document.createElement('div');
+            row.className = 'bloomscapes-detail-action-row';row.appendChild(button);root.prepend(row);
+            renderBloomscapesDetailDispatch(activeItem,activeDetailSourceView || lastView);
         }
 
 function collectStrictItemDetailPhotos(targetRow = null, prefix = '') {

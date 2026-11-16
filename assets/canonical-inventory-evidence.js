@@ -49,19 +49,6 @@ function canonicalInventorySameLot(row, target) {
     return !!left && left === right;
 }
 
-function resolveCanonicalInventoryTarget(row, byId, byItem) {
-    const uid = canonicalInventoryLinkedUid(row);
-    const ownUid = canonicalInventoryRowUid(row);
-    const direct = byId.get(uid || ownUid);
-    if (direct && canonicalInventorySameLot(row, direct, true)) return direct;
-    if (uid || direct) return null;
-    const code = normalizeCanonicalInventoryPart(canonicalInventoryValue(row, 'ITEMCODE'));
-    const locationRows = (byItem.get(code) || []).filter(candidate => canonicalInventorySameLocation(row, candidate));
-    const candidates = locationRows.filter(candidate => canonicalInventorySameLot(row, candidate, true));
-    if (candidates.length === 1) return candidates[0];
-    return null;
-}
-
 function projectCanonicalInventoryRow(row) {
     if (!row) return row;
     if (row.__canonicalAvLotRows) {
@@ -389,7 +376,6 @@ function reconcileConfirmedDriveEvidence(result, item, prefix = '', options = {}
         touchDatasetLoadStateForLocalChange(changedKeys);
         propagateCommittedEdit('ph_master_inventory',master,changedKeys,null,{prefix,
             preserveDetailDraft:options.preserveDetailDraft === true || options.photoOnly === true,delay:0,typingDelay:120});
-        if (options.photoOnly !== true && hasCompletionDateValue(master)) schedulePendingRequestSourceCompletionReconcile(0);
     } finally {
         reapplyPendingEvaluationProjection(masterUid,getManagerAssignedColumnState(),scope);
         restoreDriveEvidenceEditor(item,draft,master,prefix);

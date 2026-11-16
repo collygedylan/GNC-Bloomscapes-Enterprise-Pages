@@ -12,40 +12,20 @@ function syncBloomscapesJobBoardToolbar(toolbar) {
     if (!tools) {
         tools = toolbar.appendChild(document.createElement('div'));
         tools.dataset.jobBoardTools = 'true';
-        tools.innerHTML = '<span data-job-board-farm></span><label>Assigned To <select data-job-filter="assigned" aria-label="Job Assigned To"></select></label>'
+        tools.innerHTML = '<span data-job-board-farm></span>'
             + '<label>Block / Location <input data-job-filter="block" type="search" aria-label="Job Block or Location"></label>'
-            + '<label>Search <input data-job-filter="search" type="search" aria-label="Search Job Board"></label>'
-            + '<button type="button" data-create-board-work></button>';
+            + '<label>Search <input data-job-filter="search" type="search" aria-label="Search Job Board"></label>';
         tools.addEventListener('input',event=>{
             const key = event.target.dataset.jobFilter;
             if (key) setBloomscapesJobBoardFilter(key,event.target.value);
         });
-        tools.querySelector('[data-create-board-work]').addEventListener('click',()=>void openBloomscapesJobBoardCreator(activeReqTab));
     }
     const filters = getBloomscapesJobBoardFilters();
     tools.querySelector('[data-job-board-farm]').textContent = 'Farm · '+getBloomscapesFarm();
-    const roster = bloomscapesFieldQueueState.owner===getSupabaseReadIdentityScope() ? bloomscapesFieldQueueState.roster : [];
-    const options = [['all','All Users'],['mine','My Jobs'],['unassigned','Unassigned'],
-        ...roster.map(user=>[user.username,user.name || user.username])];
-    const select = tools.querySelector('select');
-    const signature = JSON.stringify(options);
-    if (select.dataset.roster!==signature) {
-        select.replaceChildren(...options.map(([value,name])=>new Option(name,value)));
-        select.dataset.roster = signature;
-    }
     for (const field of tools.querySelectorAll('[data-job-filter]')) {
         if (field!==document.activeElement) field.value = filters[field.dataset.jobFilter];
     }
-    let studio=tools.querySelector('[data-open-work-studio]');
-    if (!studio) {
-        studio=document.createElement('button');studio.type='button';studio.dataset.openWorkStudio='true';
-        studio.textContent='+ Build Work in Studio';studio.addEventListener('click',()=>openBloomscapesDepartmentModule('production','studio'));
-        tools.appendChild(studio);
-    }
-    const label = BLOOMSCAPES_JOB_BOARD.find(([tab])=>tab===activeReqTab)?.[1] || 'Field';
-    const button = tools.querySelector('[data-create-board-work]');
-    button.textContent = '+ Create '+label+' Work';
-    button.disabled = !canCreateBloomscapesJobBoardWork(activeReqTab);
+
 }
 
 function canCreateBloomscapesJobBoardWork(tab) {

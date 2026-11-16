@@ -292,6 +292,67 @@ html body #app-wrapper #av-filter-options .inventory-excel-chips {display:none;}
 body.bloomscapes-farm-choosing #mobile-push-enable-prompt {display:none!important}
 @media(max-width:899px) {input,select,textarea {font-size:16px!important}}
 
+html { --app-vh:100dvh; --app-vw:100vw; --ui-scale:1; --card-cols:1; }
+html body #app-wrapper { max-width:100%; min-width:0; }
+html body #main-scroll-area { min-width:0; }
+html body #global-header-search-row { min-width:0; }
+html body #global-header-search-row .global-header-search-field { flex:1 1 0; min-width:0; }
+html body.ops-precision-pilot.current-view-home.home-dashboard-mode #app-wrapper #view-home #home-dashboard-grid[data-bloomscapes-home] .home-module-tile span {
+  display:block !important; white-space:normal !important; overflow:visible !important;
+  text-overflow:clip !important; -webkit-line-clamp:unset !important; overflow-wrap:normal; word-break:normal;
+  line-height:1.16 !important; max-width:100%; letter-spacing:0 !important; text-transform:none !important;
+}
+html body.ops-precision-pilot #bottom-nav .footer-nav-btn {
+  min-width:0 !important; padding:4px 1px !important; gap:3px !important;
+}
+html body.ops-precision-pilot #app-wrapper #bottom-nav .footer-nav-btn > span:not(.footer-nav-badge) {
+  white-space:normal !important; overflow:visible !important; text-overflow:clip !important;
+  font-size:var(--nav-label-size,9px) !important; line-height:1.08 !important;
+  letter-spacing:0 !important; text-transform:none !important; max-width:100%;
+}
+html body.ops-precision-pilot #bottom-nav .footer-nav-btn > i,
+html body.ops-precision-pilot #bottom-nav .footer-nav-btn > svg {
+  font-size:clamp(17px,2.8vw,24px) !important; width:clamp(17px,2.8vw,24px) !important;
+  height:clamp(17px,2.8vw,24px) !important;
+}
+html body .inventory-excel-fields, html body [data-main-browse-filters],
+html body .manager-eval2-persistent-filters {
+  display:grid !important; grid-template-columns:repeat(auto-fit,minmax(105px,1fr)) !important;
+  gap:6px !important; padding:6px 8px !important; min-width:0;
+}
+html body .inventory-excel-field,html body .bloomscapes-compact-select { min-width:0; display:flex; flex-direction:column; gap:3px; }
+html body .bloomscapes-compact-select select {
+  width:100%; min-width:0; min-height:36px; padding:5px 6px; border:1px solid #357755;
+  border-radius:8px; background:#103220; color:#e3f7eb; font-size:calc(14px * var(--ui-scale));
+}
+html body #drive-drill-tabs { display:none !important; }
+html body #drive-mobile-mode { display:block !important; }
+html body .bloomscapes-work-cards { grid-template-columns:repeat(var(--card-cols),minmax(0,1fr)); }
+html body [data-card-window-total] {
+  display:grid !important; grid-template-columns:repeat(var(--card-cols),minmax(0,1fr)) !important;
+  gap:calc(12px * var(--ui-scale)); min-width:0;
+}
+html body .av-top-controls-row {
+  display:grid !important; grid-template-columns:repeat(auto-fit,minmax(105px,1fr)) !important; gap:6px !important;
+}
+html body .av-top-controls-row .inventory-excel-bar,
+html body .av-top-controls-row .inventory-excel-fields { display:contents !important; }
+html body .modal-content,html body .gnc-settings-dialog {
+  max-width:96vw; max-height:90dvh; overflow:auto; box-sizing:border-box;
+}
+html body dialog { max-width:96vw !important; max-height:90dvh !important; box-sizing:border-box; overflow:auto; }
+html body .bloomscapes-detail-action-row {
+  display:flex; align-items:stretch; gap:6px; width:100%; min-width:0;
+}
+html body .bloomscapes-detail-action-row > button { flex:1 1 0; min-width:0; white-space:normal; padding:6px; font-size:clamp(10px,1.2vw,14px); }
+html body #bloomscapes-detail-dispatch:empty { display:none; }
+html body [data-department-shortcuts] [data-department-module="studio"] { display:none; }
+@media (max-width:639px) {
+  html body input,html body select,html body textarea { font-size:16px; }
+  html body.ops-precision-pilot.current-view-home.home-dashboard-mode #app-wrapper #view-home #home-dashboard-grid[data-bloomscapes-home] .home-module-tile span { font-size:10px !important; }
+  html body .bloomscapes-compact-select select { font-size:16px; }
+}
+
 [data-comm-hub] {--comm-line:#356346;--comm-soft:#a5c9af;color:#eefbf1;background:linear-gradient(145deg,#103220,#081c12);border:1px solid var(--comm-line);border-radius:16px;min-width:0;padding:14px;}
 [data-comm-hub] * {box-sizing:border-box;}
 [data-comm-hub] button,[data-comm-hub] input,[data-comm-hub] select,[data-comm-hub] textarea {font:inherit;color:inherit;}

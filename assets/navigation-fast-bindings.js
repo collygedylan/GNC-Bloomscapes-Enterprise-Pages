@@ -1,4 +1,5 @@
 function initializeInventoryAndDetailFastPressBindings() {
+    mountBloomscapesViewportScaler();
 bindFastInvokeById('footer-menu-btn', 'toggleMenu', [], 'Menu');
 bindFastInvokeById('footer-sales-btn', 'switchView', ['sales'], 'Sales');
 bindFastInvokeById('footer-request-btn', 'switchView', ['request'], 'Que');

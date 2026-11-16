@@ -1,7 +1,7 @@
 function ensureAvTopControlsShell(container) {
     if (!container) return false;
     ensureAvControlsVisible(container);
-    const shellSignature = 'av-top-controls-shell:v18';
+    const shellSignature = 'av-top-controls-shell:v19';
     if (container.dataset.avTopControlsShell === shellSignature) {
         ensureAvControlsVisible(container);
         return false;
@@ -50,17 +50,19 @@ function toggleAvToolbarKioskMode(button) {
 }
 
 function buildAvRailViewFields() {
-    return `<div class="task-top-control-shell av-filter-shell" data-av-filter-shell="season">
-        <button type="button" data-role="button" ${buildExcelFilterFastAttrs('toggleAvSeasonDropdown')}>
-            <span class="task-top-control-title">View</span><span data-role="summary">All Rows</span>
-        </button>
-        <div class="task-top-control-panel excel-filter-panel av-excel-filter-panel hidden" data-role="panel"><div data-role="body"></div></div>
-    </div>`;
+    return '<label class="bloomscapes-compact-select av-filter-shell" data-av-filter-shell="season">View'
+        +'<select data-av-view-select aria-label="AV View" onchange="return setAvPhotoMode(this.value)">'
+        +'<option value="all">All Rows</option><option value="valid_photos">Photos</option></select></label>';
 }
 
 function syncAvTopControlShell(container, shellName, config = {}) {
     if (!container) return;
     const shell = container.querySelector(`[data-av-filter-shell="${shellName}"]`);
+    if (shellName==='season') {
+        const select = shell?.querySelector('[data-av-view-select]');
+        if (select) select.value = getAvPhotoMode();
+        return;
+    }
     if (!shell) return;
     shell.classList.toggle('hidden', !!config.hidden);
     shell.classList.toggle('av-filter-shell--open', !!config.open);
