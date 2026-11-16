@@ -1,6 +1,7 @@
 const bloomscapesRadioCaptures=new Set(),bloomscapesRadioFinalizing=new Set();
 function getBloomscapesRadioUpdateBlocker() {
-    return bloomscapesRadioCaptures.size>0 || bloomscapesRadioFinalizing.size>0 || hasVolatileBloomscapesRadioDrafts();
+    return bloomscapesRadioCaptures.size>0 || bloomscapesRadioFinalizing.size>0 || hasVolatileBloomscapesRadioDrafts()
+        || typeof bloomscapesCommState!=='undefined' && bloomscapesCommState.cacheFailed===true;
 }
 function releaseBloomscapesHardwareStream(stream) {
     stream?.getTracks().forEach(track=>track.stop());
@@ -10,9 +11,9 @@ function radioRecordingMime() {
         .find(mime=>MediaRecorder.isTypeSupported(mime));
 }
 async function commitBloomscapesRecording(state,recording) {
-    if (!recording.parts.length) {bloomscapesRadioFinalizing.delete(recording.id);return;}
+    if (recording.cancelled || !recording.parts.length) {bloomscapesRadioFinalizing.delete(recording.id);return;}
     const draft={id:recording.id,owner:state.owner,channelId:state.channelId,farm:recording.farm,
-        blob:new Blob(recording.parts,{type:recording.recorder.mimeType}),
+        blob:new Blob(recording.parts,{type:recording.recorder.mimeType}),conversation:state.conversation===true,transcript:state.transcript || '',
         duration:Math.max(1,Math.min(31000,(recording.endedAt || Date.now())-recording.startedAt))};
     try {
         const storage=await saveBloomscapesRadioDraft(draft);
@@ -71,6 +72,7 @@ function startBloomscapesRadioRecorder(state,stream,farm) {
 }
 function endBloomscapesTransmission(state) {
     if (!state) return;
+    stopBloomscapesTransmissionTranscript(state);
     state.speaking=false;
     bloomscapesRadioCaptures.delete(state);
     state.captureGeneration=(state.captureGeneration || 0)+1;
@@ -84,4 +86,12 @@ function endBloomscapesTransmission(state) {
     for(const peer of state.peers.values()) {
         void peer.sender.replaceTrack(null).catch(error=>state.callbacks.status(error.message));
     }
+}
+
+function stopBloomscapesTransmissionTranscript(state) {
+    const recognition=state.recognition;
+    if (!recognition) return;
+    state.recognition=null;
+    try {recognition.stop();}
+    catch {state.callbacks.status('Speech transcription ended; your voice recording is retained.');}
 }

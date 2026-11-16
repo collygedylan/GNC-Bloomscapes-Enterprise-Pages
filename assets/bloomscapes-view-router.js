@@ -1,4 +1,6 @@
 function renderViewContent(viewId, forceReset = false, forceRender = false) {
+    mountBloomscapesCalendarShell(viewId);
+    syncBloomscapesCommLifecycle(viewId);
     detachInactiveBloomscapesReceivingPanels(viewId);
     const changedView=bloomscapesThumbnailView!==viewId;
     if (forceReset || changedView) abortBloomscapesCardThumbnails(document);

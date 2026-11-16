@@ -57,6 +57,7 @@ function bloomscapesDepartmentKey(view) {
 
 function openBloomscapesDepartmentModule(view,tab) {
     if (!canAccessView(view)) return false;
+    if (tab==='bloomscapes-radio' || tab==='radio') bloomscapesCommState.mode='voice';
     if (tab==='smart-moves') return switchView('smart-moves');
     const module = tab.startsWith('bloomscapes-') ? tab : 'bloomscapes-'+tab;
     if (view==='managers') return openBloomscapesHomeModule(module);
@@ -109,7 +110,10 @@ function renderBloomscapesDepartmentWorkspace(view) {
         mounted?.remove();restoreBloomscapesDepartmentChildren(root);
         return false;
     }
-    if (mounted?.dataset.departmentScope===key+':'+tab && !mounted.querySelector('[data-radio-disposed]')) return true;
+    if (mounted?.dataset.departmentScope===key+':'+tab && !mounted.querySelector('[data-radio-disposed]')) {
+        if (tab==='bloomscapes-radio') renderBloomscapesComm();
+        return true;
+    }
     mounted?.remove();
     for (const child of root.children) {
         if (child.hidden || child.dataset.departmentShortcuts) continue;

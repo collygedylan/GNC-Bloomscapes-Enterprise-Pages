@@ -39,9 +39,10 @@ function buildSalesWorkspaceSideBindings(array, read, stateReady) {
 function buildChatSideBindings(array, read, stateReady, emitCommunicationSourceRefresh) {
     return {
         'side:chat': {
-            enabled:()=>!nativeAuthSessionActive,
+            enabled:(ctx)=>!nativeAuthSessionActive || ctx.view==='chat',
             scope: (ctx) => ctx.username,
             stage: async (ctx) => {
+                if (nativeAuthSessionActive) {await connectBloomscapesMessages();return {native:true};}
                 const own = array(await chatApiGet(CHAT_PARTICIPANTS_TABLE, `select=*&username=eq.${encodeURIComponent(ctx.username)}&is_archived=eq.false&order=joined_at.desc`, 'Chat participants', ctx)).map(normalizeChatParticipant).filter(Boolean);
                 const ids = Array.from(new Set(own.map((entry) => entry.conversationId).filter(Boolean)));
                 if (!ids.length) return { conversations: [], participants: own, messages: [], ids };
@@ -54,6 +55,7 @@ function buildChatSideBindings(array, read, stateReady, emitCommunicationSourceR
                 return { ids, conversations: array(conversations).map(normalizeChatConversation).filter(Boolean), participants: array(participants).map(normalizeChatParticipant).filter(Boolean), messages: array(messages).map(normalizeChatMessage).filter(Boolean).sort((a, b) => (Date.parse(a.createdAt) || 0) - (Date.parse(b.createdAt) || 0)) };
             },
             commit: (value) => {
+                if (value.native) return;
                 chatConversations = value.conversations; chatParticipants = value.participants; chatMessages = value.messages; chatDataLoaded = true;
                 if (activeChatConversationId && !value.ids.includes(activeChatConversationId)) activeChatConversationId = '';
                 emitCommunicationSourceRefresh('communications-chat',

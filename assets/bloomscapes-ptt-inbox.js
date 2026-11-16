@@ -16,6 +16,7 @@ async function refreshBloomscapesRadioInbox() {
         if(!Array.isArray(receipt?.calls) || !Number.isSafeInteger(receipt.count) || receipt.count<0)throw Error('Radio inbox receipt unavailable; saved calls are retained.');
         state.calls=receipt.calls;state.count=receipt.count;
         renderBloomscapesRadioInbox();
+        void refreshBloomscapesComm().catch(reportBloomscapesRadioInboxFailure);
         if (bloomscapesRadioAutoPlay() && !document.hidden && !state.audio && state.calls.length) void playNextBloomscapesRadioCall();
     }).finally(()=>{if(generation===state.generation)state.pending=null;});
     return state.pending;
@@ -36,13 +37,12 @@ async function connectBloomscapesRadioInbox() {
     await refreshBloomscapesRadioInbox();
 }
 async function disconnectBloomscapesRadioInbox() {
-    await disconnectBloomscapesMessages();
     const state=bloomscapesRadioInbox,channel=state.channel;
     state.generation++;
     releaseBloomscapesRadioPlayback();
     state.channel=null;state.owner='';state.calls=[];state.count=0;state.pending=null;
     renderBloomscapesRadioInbox();
-    if (channel) await getSupabaseBrowserClient()?.removeChannel(channel);
+    await Promise.all([disconnectBloomscapesMessages(),channel?getSupabaseBrowserClient()?.removeChannel(channel):null]);
 }
 async function playNextBloomscapesRadioCall() {
     const state=bloomscapesRadioInbox,call=state.calls[0];
@@ -61,6 +61,7 @@ async function playNextBloomscapesRadioCall() {
         audio.src=objectUrl;
         audio.onended=()=>{void finishBloomscapesRadioPlayback(audio,objectUrl,call.id,owner,generation);};
         audio.onerror=()=>{URL.revokeObjectURL(objectUrl);state.audio=null;showBloomscapesRadioMessage('Call could not play. Tap Play Next to retry.');};
+        if (bloomscapesRadioAutoPlay()) await chirpBloomscapesWalkie();
         await audio.play();
         mountBloomscapesRadioAudio(audio);
     } catch (error) {

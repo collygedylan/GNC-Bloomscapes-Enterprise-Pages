@@ -102,7 +102,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.0.98';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.0.99';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -16348,65 +16348,7 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
             initializeInventoryAndDetailFastPressBindings();
         }
 
-        function initializeInventoryAndDetailFastPressBindings() {
-        bindFastInvokeById('footer-menu-btn', 'toggleMenu', [], 'Menu');
-        bindFastInvokeById('footer-sales-btn', 'switchView', ['sales'], 'Sales');
-        bindFastInvokeById('footer-request-btn', 'switchView', ['request'], 'Que');
-        bindFastInvokeById('footer-communication-btn', 'switchView', ['communication'], 'Communication');
-            bindFastInvokeById('footer-cart-btn', 'toggleCartPanel', [], 'Bloom Picker');
-            bindFastInvokeById('sales-open-request', 'switchView', ['request'], 'Que');
-            bindFastInvokeById('sales-open-tasks', 'switchView', ['tasks'], 'Task');
-            bindFastInvokeById('sales-open-bloom-orders', 'openSalesOfficeView', [], 'Sales Office');
-            bindFastInvokeById('sales-open-advertisement', 'switchView', ['advertisement'], 'Advertisement');
-            bindFastInvokeById('qc-open-tasks', 'switchView', ['tasks'], 'Task');
-            bindFastInvokeById('qc-open-request', 'switchView', ['request'], 'Que');
-            bindFastInvokeById('production-open-take-back', 'switchView', ['take-back'], 'Take Back');
-            bindFastInvokeById('production-open-84rd', 'open84RdInventoryView', [], '84 R.D');
-            bindFastInvokeById('production-open-disease-pest', 'switchView', ['disease-pest'], 'Disease & Pest Management');
-            bindFastInvokeById('production-open-tasks', 'switchView', ['tasks'], 'Task');
-            bindFastInvokeById('production-open-request', 'switchView', ['request'], 'Que');
-            bindFastInvokeById('inventory-open-tasks', 'switchView', ['tasks'], 'Task');
-            bindFastInvokeById('inventory-open-drive', 'switchView', ['drive'], 'Drive Mode');
-            bindFastInvokeById('inventory-open-po-management', 'switchView', ['po-management'], 'PO Management');
-            bindFastInvokeById('inventory-open-request', 'switchView', ['request'], 'Que');
-            bindFastInvokeById('inventory-open-inventory-office', 'openInventoryOfficeView', [], 'Inventory Office');
-            bindFastInvokeById('inventory-open-docks', 'switchView', ['docks'], 'Docks');
-            bindFastInvokeById('inventory-open-communication', 'switchView', ['communication'], 'Communication');
-            bindFastInvokeById('inventory-open-av', 'switchView', ['av'], 'AV');
-            bindFastInvokeById('inventory-open-bloom-orders', 'openSalesOfficeOrdersView', [], 'Bloom Picker Orders');
-            bindFastInvokeById('inventory-open-weather-hold', 'switchView', ['weather-hold'], 'Weather & Hold Risk');
-            bindFastInvokeById('custom-rep-btn', 'selectCustomRequestRepFromInput', [], 'Assign custom sales rep');
-            bindFastInvokeById('request-customer-next-btn', 'processCustStep', [], 'Next: Item Details');
-            document.querySelectorAll('#bottom-nav [data-footer-view]').forEach((element) => {
-                const viewId = String(element.getAttribute('data-footer-view') || '').trim();
-                if (!viewId) return;
-                bindFastPressTarget(element, 'invoke', 'switchView', [viewId], element.getAttribute('aria-label') || viewId);
-            });
-            bindFastInvokeById('run-google-script-btn', 'runGoogleAppsScriptTrigger', [], 'Run Script');
-            bindFastInvokeById('tab-av-open', 'setAVTab', ['open'], 'Open Stock');
-            bindFastInvokeById('tab-av-reserves', 'setAVTab', ['reserves'], 'My Reserves');
-            bindFastInvokeById('tab-av-secondary-all', 'setAvSecondaryTab', ['all'], 'ALL Open Stock');
-            bindFastInvokeById('tab-av-secondary-photos', 'setAvSecondaryTab', ['photos'], 'Photos');
-            ['ALL','REQUEST_HISTORY','NON_SALEABLE_BUCKETS','S1','F1','U1','U2','U3','X','Y','Z'].forEach((tabId) => bindFastInvokeById(`rtab-${tabId}`, 'setReportTab', [tabId], `Report ${tabId}`));
-            bindFastInvokeById('dock-mode-btn-docks', 'setDockViewMode', ['docks'], 'Docks');
-            bindFastInvokeById('dock-mode-btn-mistakes', 'setDockViewMode', ['mistakes'], 'Mistake');
-            bindFastInvokeById('dock-mode-btn-dropoff', 'setDockViewMode', ['dropoff'], 'Drop Off');
-            bindFastInvokeById('sales-office-tab-orders', 'setSalesOfficeTab', ['orders'], 'Bloom Picker Orders');
-            bindFastInvokeById('sales-office-tab-season', 'setSalesOfficeTab', ['season'], 'Season Sales Notes');
-            bindFastInvokeById('sales-office-bloomscapes-pending', 'openBloomscapesPendingOrders', [], 'BloomScapes Pending');
-            bindFastInvokeById('moves-tab-main', 'setMovesTab', ['main'], 'Location Move Main');
-            bindFastInvokeById('moves-tab-office', 'setMovesTab', ['office'], 'Location Move Inventory Office');
-            bindFastInvokeById('tab-drive-name', 'setDriveTab', ['name'], 'COMMONNAME');
-            bindFastInvokeById('tab-drive-loc', 'setDriveTab', ['loc'], 'LOCATION');
-            bindFastInvokeById('tab-drive-card', 'setDriveTab', ['card'], 'CARD');
-            bindFastInvokeById('tab-drive-hold', 'setDriveTab', ['hold'], 'Reports');
-            bindFastInvokeById('tab-review-name', 'setReviewBrowseMode', ['item'], 'COMMONNAME');
-            bindFastInvokeById('tab-review-loc', 'setReviewBrowseMode', ['block'], 'LOCATION');
-            bindFastInvokeById('tab-review-card', 'setReviewBrowseMode', ['card'], 'CARD');
-            bindFastInvokeById('tab-move-up-name', 'setMoveUpBrowseMode', ['item'], 'COMMONNAME');
-            bindFastInvokeById('tab-move-up-loc', 'setMoveUpBrowseMode', ['block'], 'LOCATION');
-            bindFastInvokeById('tab-move-up-card', 'setMoveUpBrowseMode', ['card'], 'CARD');
-        }
+        /* @runtime-fragment assets/navigation-fast-bindings.js */
 
         function handleGlobalGhostClickCapture(event) {
             if (!shouldSuppressFastPressSessionClick(event)) return;
@@ -24170,7 +24112,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.0.98';
+        const APP_VERSION = '3.0.99';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -144998,3 +144940,11 @@ function syncHeaderBloomPlacement(viewId = getCurrentVisibleViewId()) {
 }
 /* @runtime-fragment assets/bloomscapes-dock-write-context.js */
 /* @runtime-fragment assets/bloomscapes-dock-issue-save.js */
+
+/* @runtime-fragment assets/bloomscapes-comm-state.js */
+/* @runtime-fragment assets/bloomscapes-comm-transport.js */
+/* @runtime-fragment assets/bloomscapes-comm-playback.js */
+/* @runtime-fragment assets/bloomscapes-comm-hub.js */
+/* @runtime-fragment assets/bloomscapes-comm-thread.js */
+/* @runtime-fragment assets/bloomscapes-walkie-talkie.js */
+/* @runtime-fragment assets/communication-calendar-shell.js */

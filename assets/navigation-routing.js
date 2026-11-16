@@ -63,6 +63,9 @@ function switchView(viewId, options = {}) {
         return false;
     }
     if (!canAccessView(target)) return openDisplayOnlyNavigation(target, options);
+    if (nativeAuthSessionActive && target==='communication') {
+        bloomscapesCommState.mode='voice';markViewDirty('communication');
+    }
     pendingNavigationDisplay = null;
     syncNavigationDisplayStatus(getViewElementById(target));
     if (options.boot === true && shouldPreserveMountedBootView()) return false;

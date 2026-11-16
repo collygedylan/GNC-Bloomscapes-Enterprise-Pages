@@ -31,7 +31,7 @@ function mountBloomscapesHomeModules() {
 function mountBloomscapesCommunicationTiles(grid) {
     const modules=[['smart-moves','Smart Sales & Move Intelligence','ph-chart-line-up',()=>switchView('smart-moves')],
         ['messages','Messages','ph-chat-circle-text',()=>openBloomscapesMessages()],
-        ['walkie','Push to Talk Walkie','ph-microphone',()=>openBloomscapesDepartmentModule('communication','bloomscapes-radio')]];
+        ['walkie','Push to Talk Walkie','ph-microphone',()=>openBloomscapesComm('voice')]];
     for (const [id,title,icon,open] of modules) {
         let tile=grid.querySelector('#home-tile-'+id);
         if (!tile) {

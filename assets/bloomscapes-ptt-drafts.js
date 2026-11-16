@@ -39,8 +39,9 @@ async function publishBloomscapesRadioDraft(draft) {
     const bytes=new Uint8Array(await draft.blob.arrayBuffer());
     let binary='';
     for(let offset=0;offset<bytes.length;offset+=8192) binary+=String.fromCharCode(...bytes.subarray(offset,offset+8192));
-    const receipt=await bloomscapesRadioRpc(client,'gnc_publish_radio_call',{p_id:draft.id,p_channel:draft.channelId,
-        p_farm:draft.farm,p_audio:btoa(binary),p_mime:draft.blob.type,p_duration:draft.duration});
+    const receipt=await bloomscapesRadioRpc(client,draft.conversation?'gnc_publish_comm_voice':'gnc_publish_radio_call',{p_id:draft.id,p_channel:draft.channelId,
+        p_farm:draft.farm,p_audio:btoa(binary),p_mime:draft.blob.type,p_duration:draft.duration,
+        ...(draft.conversation?{p_transcript:draft.transcript || ''}:{})});
     if (receipt?.id!==draft.id || receipt.saved!==true) throw Error('The radio call has no confirmed save receipt.');
     await requireBloomscapesOwner(owner);
     const key=owner+':'+draft.id;

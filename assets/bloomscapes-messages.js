@@ -10,7 +10,9 @@ const BLOOMSCAPES_LEGACY_CHAT=`                    <div class="freeze-panel">
                     <div id="chat-content"></div>
                 `;
 function openBloomscapesMessages() {
+    bloomscapesCommState.mode='text';
     switchView('chat');
+    renderBloomscapesComm();
     return false;
 }
 
@@ -18,41 +20,17 @@ function renderBloomscapesMessagesView(view) {
     if (view!=='chat') return false;
     if (!nativeAuthSessionActive) {mountBloomscapesLegacyChat();return false;}
     const root=document.getElementById('view-chat');
-    if (!root.querySelector('[data-bloomscapes-messages]')) {
-        root.innerHTML='<section data-bloomscapes-messages><h2>Messages</h2>'
-            +'<button type="button" data-message-refresh>Refresh</button><button type="button" data-message-read>Mark shown messages read</button>'
-            +'<form><label>Recipient <input name="recipient" placeholder="Farm channel or exact username"></label>'
-            +'<label>Message <textarea name="body" maxlength="4000" required></textarea></label><button type="submit" disabled>Send Message</button></form>'
-            +'<p role="status"></p><div data-message-list></div></section>';
-        root.querySelector('form').addEventListener('submit',event=>{event.preventDefault();void dispatchBloomscapesMessage(event.target);});
-        root.querySelector('[data-message-refresh]').addEventListener('click',()=>void refreshBloomscapesMessages().catch(reportBloomscapesMessagesFailure));
-        root.querySelector('[data-message-read]').addEventListener('click',()=>void markBloomscapesMessagesRead().catch(reportBloomscapesMessagesFailure));
-    }
-    renderBloomscapesMessageRows();
+    if (!root.querySelector('[data-comm-hub]')) root.innerHTML=renderBloomscapesCommHub();
+    mountBloomscapesCommHub(root);
+    renderBloomscapesComm();
     void connectBloomscapesMessages().catch(reportBloomscapesMessagesFailure);
     return true;
-}
-
-function renderBloomscapesMessageRows() {
-    const root=document.querySelector('[data-bloomscapes-messages]');
-    if (!root || getCurrentVisibleViewId()!=='chat') return;
-    const state=bloomscapesMessagesState;
-    if (state.farm!==getBloomscapesFarm() || state.owner!==nativeAuthProfile?.id) return;
-    root.querySelector('[type=submit]').disabled=state.access!=='FULL_EDIT';
-    const list=root.querySelector('[data-message-list]');list.replaceChildren();
-    for (const message of state.rows) {
-        const card=list.appendChild(document.createElement('article'));
-        card.appendChild(document.createElement('strong')).textContent=message.sender+' → '+(message.recipient || message.farm_code);
-        card.appendChild(document.createElement('time')).textContent=' · '+new Date(message.created_at).toLocaleString();
-        card.appendChild(document.createElement('p')).textContent=message.body;
-    }
-    root.querySelector('[role=status]').textContent=state.farm+' · '+state.unread+' unread · '+state.rows.length+' recent messages';
 }
 
 function updateFooterChatBadge() {
     const badge = document.getElementById('footer-chat-badge');
     if (!badge) return;
-    const unread = nativeAuthSessionActive ? bloomscapesMessagesState.unread : getTotalChatUnreadCount() + getDepartmentCalendarUnreadCount();
+    const unread = nativeAuthSessionActive ? bloomscapesMessagesState.unread + bloomscapesRadioInbox.count : getTotalChatUnreadCount() + getDepartmentCalendarUnreadCount();
     badge.textContent = unread > 99 ? '99+' : String(unread);
     badge.classList.toggle('hidden', unread <= 0);
 }
