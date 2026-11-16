@@ -1,12 +1,12 @@
 function renderBloomscapesWorkCreator(tab) {
     const kind = bloomscapesWorkViewForPanel(tab);
-    return `<section data-work-creator="${kind}"><h3>Replicated Drive Mode · ${esc(getBloomscapesFarm())}</h3>
-      <div data-work-browser></div><p data-selected-source>Select a Drive Mode row below.</p>
-      <form data-create-field-work>
+    return `<section data-work-creator="${kind}">${bloomscapesWorkTypeBar()}
+      <div data-work-browser hidden></div><p data-selected-source>Select a work type, then a Drive Mode row.</p>
+      <form data-create-field-work hidden>
       <input name="sourceId" type="hidden">
-      <label>Work View <select name="workView">${Object.entries(BLOOMSCAPES_WORK_VIEWS).map(([key,label])=>
+      <label hidden>Work View <select name="workView">${Object.entries(BLOOMSCAPES_WORK_VIEWS).map(([key,label])=>
         `<option value="${key}"${key===kind?' selected':''}>${label}</option>`).join('')}</select></label>
-      <label>Action <select name="actionType">${['Bunch & Tie','Consolidate / Jam','Spread','House Cover / Poly',
+      <label hidden>Action <select name="actionType">${['Bunch & Tie','Consolidate / Jam','Spread','House Cover / Poly',
         'Grade & Shift','Can Fill Prep','Custom Bunch Note'].map(action=>`<option>${esc(action)}</option>`).join('')}</select></label>
       <label>Scope <select name="scope"><option value="ITEM_LOCATION">Itemcode @ Location</option>
         <option value="BLOCK">Whole Block (Alpha + Number)</option><option value="LOCATION">Whole Location</option>
@@ -21,7 +21,7 @@ function renderBloomscapesWorkCreator(tab) {
       <label>Field Instructions <textarea name="instructions" maxlength="4000"></textarea></label>
       ${bloomscapesLifecyclePicker()}
       <label><input name="acknowledge" type="checkbox" value="true"> I reviewed the 14-day outbound SOC / hold warning for shear work</label>
-      <button type="button" data-simulate-work>Simulate · 7 gates</button><button type="submit">Create Work in Que</button>
+      <button type="button" data-simulate-work>Simulate · 7 gates</button><button type="submit">💾 Save / Queue Row</button>
       <button type="button" data-clear-work>Clear draft</button>
       <div data-work-preview role="status"></div></form></section>`;
 }
@@ -42,9 +42,10 @@ async function mountBloomscapesWorkCreator(host,options={}) {
         syncBloomscapesWorkCreatorKind(form);refreshBloomscapesWorkBrowser(browser);
     });
     syncBloomscapesWorkCreatorKind(form);
+    bindBloomscapesWorkTypes(root,form,options);
     if (options.source) {
         selectBloomscapesWorkSource(root,form,state,options.source);
-        form.elements.scope.value='ITEM_LOCATION';form.elements.percent.value='100';
+        form.elements.scope.value='SINGLE_ROW';form.elements.percent.value='100';
         browser.hidden=options.quick===true;
     }
     bindBloomscapesWorkCreator(form,state);
@@ -63,7 +64,8 @@ function selectBloomscapesWorkSource(root,form,state,row,scope) {
     state.source=row;state.attempt=null;
     form.hidden=false;
     form.elements.sourceId.value=String(row.UNIQUE_ID || row.unique_id);
-    if (scope) {form.elements.scope.value=scope;form.elements.percent.value='100';form.elements.quantity.value='';}
+    form.elements.scope.value=scope || 'SINGLE_ROW';
+    form.elements.percent.value='100';form.elements.quantity.value='';
     root.querySelector('[data-selected-source]').textContent=[row.COMMONNAME || row.commonname,
         row.ITEMCODE || row.itemcode,row.LOCATIONCODE || row.locationcode,row.LOTCODE || row.lotcode].join(' · ');
     let preview=root.querySelector('[data-selected-work-identity]');
@@ -90,12 +92,14 @@ function readBloomscapesWorkCreatorInput(form,state) {
 function bindBloomscapesWorkCreator(form,state) {
     const status = form.querySelector('[data-work-preview]');
     form.querySelector('[data-clear-work]').addEventListener('click',()=>{
-        form.reset();
+        const kind=form.elements.workView.value,action=form.elements.actionType.value;
+        form.reset();form.elements.workView.value=kind;syncBloomscapesWorkCreatorKind(form);form.elements.actionType.value=action;
         form.closest('[data-work-creator]').querySelector('[data-selected-work-identity]')?.remove();
         form.elements.sourceId.value = '';
         form.elements.assignedTo.value = currentUser;
         state.source = null;
         state.attempt = null;
+        form.hidden=true;
         status.textContent = '';
     });
     form.querySelector('[data-simulate-work]').addEventListener('click',async()=>{
@@ -121,10 +125,13 @@ async function submitBloomscapesWorkCreator(form,state,status) {
     try {
         const input = readBloomscapesWorkCreatorInput(form,state);
         const farm = getBloomscapesFarm();
-        const signature = JSON.stringify([farm,input]);
-        if (state.attempt?.signature!==signature) state.attempt = {signature,id:crypto.randomUUID(),farm,input};
-        const receipt = await createBloomscapesFieldWork(state.attempt);
-        if (state.owner!==getSupabaseReadIdentityScope()) return;
+        const selection=await confirmBloomscapesWorkRowScope(state.source,input);
+        if (state.owner!==getSupabaseReadIdentityScope() || farm!==getBloomscapesFarm() || !form.isConnected) return;
+        const inputs=planBloomscapesWorkSelection(input,state.source,selection);
+        if (!inputs.length) return;
+        const receipts=await dispatchBloomscapesWorkSelection(state,inputs,farm);
+        if (state.owner!==getSupabaseReadIdentityScope() || farm!==getBloomscapesFarm()) return;
+        const receipt=receipts[0];
         state.attempt = null;
         status.textContent = 'Created '+receipt.id;
         form.dispatchEvent(new CustomEvent('gnc-field-work-created',{bubbles:true,detail:{id:receipt.id}}));

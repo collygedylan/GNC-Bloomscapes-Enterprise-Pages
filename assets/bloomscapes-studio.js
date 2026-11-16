@@ -1,5 +1,5 @@
 function renderBloomscapesWorkStudio() {
-    return '<section data-bloomscapes-studio><h2>Build Work Studio · Drive Mode → Scope → Work → Que</h2>'
+    return '<section data-bloomscapes-studio><h2>Build Work Studio</h2>'
         +renderBloomscapesWorkCreator('bloomscapes-field-jobs')+'</section>';
 }
 

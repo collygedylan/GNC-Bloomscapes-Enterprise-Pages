@@ -20,30 +20,32 @@ function bloomscapesWorkBrowserRows(search='',filters={}) {
 function bloomscapesWorkBrowserIdentity(row) {
     return {common:row.COMMONNAME || row.commonname || '',size:row.CONTSIZE || row.contsize || '',
         season:row.SEASON || row.season || '',location:row.LOCATIONCODE || row.locationcode || '',
-        item:row.ITEMCODE || row.itemcode || '',lot:row.LOTCODE || row.lotcode || ''};
+        item:row.ITEMCODE || row.itemcode || '',lot:row.LOTCODE || row.lotcode || '',
+        year:String(row.SALEYEAR || row.saleyear || ''),hold:String(row.HOLDSTOPCODE || row.holdstopcode || 'None')};
 }
 
 const bloomscapesWorkBrowserControllers=new WeakMap();
 
 function mountBloomscapesWorkBrowser(host,onSelect,options={}) {
-    const state={owner:getSupabaseReadIdentityScope(),mode:'block',path:[],offset:0,onSelect,options};
+    const state={owner:getSupabaseReadIdentityScope(),mode:'block',path:[],onSelect,options};
     host.innerHTML='<nav data-work-modes><button type="button" data-work-mode="block">📍 Block View</button>'
         +'<button type="button" data-work-mode="common">🌿 Common Name View</button></nav>'
-        +'<input type="search" data-work-search aria-label="Search work source inventory" placeholder="Search Drive Mode items, locations or lots">'
+        +'<h3>Step 2: BlockAlpha → BlockNumber → All Rows / Cards</h3>'
+        +'<input type="search" data-work-search aria-label="Search work source inventory" placeholder="Search Names, ItemCodes, or Locations...">'
+        +'<div data-work-filters></div>'
         +'<button type="button" data-work-back>Back in work inventory</button><p data-work-breadcrumb></p>'
         +'<div data-work-group-selection></div>'
-        +'<p data-work-browser-status></p><div data-work-source-cards class="bloomscapes-work-cards"></div>'
-        +'<button type="button" data-work-next>Next 40 rows</button>';
-    host.querySelector('[data-work-search]').addEventListener('input',()=>{state.offset=0;renderBloomscapesWorkBrowser(host,state);});
+        +'<p data-work-browser-status></p><div data-work-source-cards class="bloomscapes-work-cards"></div>';
+    mountBloomscapesWorkFilters(host,state);
+    host.querySelector('[data-work-search]').addEventListener('input',()=>{renderBloomscapesWorkBrowser(host,state);});
     host.querySelector('[data-work-modes]').addEventListener('click',event=>{
         const mode=event.target.closest('[data-work-mode]')?.dataset.workMode;
         if (!mode) return;
-        state.mode=mode;state.path=[];state.offset=0;renderBloomscapesWorkBrowser(host,state);
+        state.mode=mode;state.path=[];renderBloomscapesWorkBrowser(host,state);
     });
-    const back=()=>{if (!state.path.length) return false;state.path.pop();state.offset=0;renderBloomscapesWorkBrowser(host,state);return true;};
+    const back=()=>{if (!state.path.length) return false;state.path.pop();renderBloomscapesWorkBrowser(host,state);return true;};
     host.querySelector('[data-work-back]').addEventListener('click',back);
-    host.querySelector('[data-work-next]').addEventListener('click',()=>{state.offset+=40;renderBloomscapesWorkBrowser(host,state);});
-    bloomscapesWorkBrowserControllers.set(host,{back,refresh:()=>{state.path=[];state.offset=0;renderBloomscapesWorkBrowser(host,state);}});
+    bloomscapesWorkBrowserControllers.set(host,{back,refresh:()=>{state.path=[];renderBloomscapesWorkBrowser(host,state);}});
     renderBloomscapesWorkBrowser(host,state);
 }
 
@@ -55,13 +57,13 @@ function bloomscapesWorkLocationParts(row) {
 
 function bloomscapesWorkBrowseProjection(host,state) {
     const search=host.querySelector('[data-work-search]').value;
-    const kind=state.options.getWorkView?.();
-    const all=bloomscapesWorkBrowserRows(search).filter(row=>kind!=='Y_GRADING' || ['Y','.Y'].includes(String(row.SEASON || row.season).toUpperCase()));
+    const filters=Object.fromEntries([...host.querySelectorAll('[data-work-filter]')].map(select=>[select.dataset.workFilter,select.value]));
+    const all=bloomscapesWorkBrowserRows(search,filters);
     const rows=all.filter(row=>{
         const parts=bloomscapesWorkBrowseParts(row,state.mode);
         return state.path.every((part,index)=>part===parts[index]);
     });
-    const leaf=search.trim()!=='' || state.path.length===3;
+    const leaf=search.trim()!=='' || state.path.length>=(state.mode==='block'?2:3);
     if (leaf) return {rows,leaf,groups:[]};
     const groups=new Map();
     for (const row of rows) {
@@ -86,11 +88,9 @@ function renderBloomscapesWorkBrowser(host,state) {
     host.querySelector('[data-work-back]').hidden=state.path.length===0;
     for (const button of host.querySelectorAll('[data-work-mode]')) button.setAttribute('aria-pressed',String(button.dataset.workMode===state.mode));
     const list=host.querySelector('[data-work-source-cards]');
-    const cards=projection.leaf ? projection.rows.slice(state.offset,state.offset+40).map(row=>bloomscapesWorkSourceCard(row,state.onSelect))
-        : projection.groups.map(([key,count])=>bloomscapesWorkBrowseGroup(host,state,key,count));
+    const cards=projection.leaf ? projection.rows.map(row=>bloomscapesWorkSourceCard(row,state.onSelect))
+        : projection.groups.map(([key,count])=>bloomscapesWorkBrowseGroup(host,state,key,count,projection.rows));
     list.replaceChildren(...cards);
-    host.querySelector('[data-work-next]').hidden=!projection.leaf;
-    host.querySelector('[data-work-next]').disabled=state.offset+40>=projection.rows.length;
 }
 
 function renderBloomscapesWorkGroupSelection(host,state,rows) {
@@ -100,20 +100,54 @@ function renderBloomscapesWorkGroupSelection(host,state,rows) {
     const badge=tools.appendChild(document.createElement('strong'));badge.dataset.blockLifecycle='true';
     badge.textContent=alpha+'.'+number+' · '+bloomscapesBlockLifecycleStage(alpha,number);
     const button=tools.appendChild(document.createElement('button'));button.type='button';button.dataset.selectWorkScope='BLOCK';
-    button.textContent='Select Whole Block '+alpha+'.'+number;button.addEventListener('click',()=>state.onSelect(rows[0],'BLOCK'));
+    button.textContent='⚡ Queue Whole Block '+alpha+'.'+number+' ('+rows.length+' rows)';button.addEventListener('click',()=>state.onSelect(rows[0],'BLOCK'));
+    if (state.path.length===2) renderBloomscapesWorkLocations(tools,host,state,rows);
     if (state.path.length===3) {
         const location=tools.appendChild(document.createElement('button'));location.type='button';location.dataset.selectWorkScope='LOCATION';
         location.textContent='Select Location '+state.path[2];location.addEventListener('click',()=>state.onSelect(rows[0],'LOCATION'));
     }
 }
 
-function bloomscapesWorkBrowseGroup(host,state,key,count) {
-    const button=document.createElement('button');
+function bloomscapesWorkBrowseGroup(host,state,key,count,rows) {
+    const group=document.createElement('section');
+    const button=group.appendChild(document.createElement('button'));
     button.type='button';button.dataset.workBrowseGroup=key;
-    button.className='bloomscapes-work-group';button.textContent=key+' · '+count+' rows';
+    const cohort=rows.filter(row=>bloomscapesWorkBrowseParts(row,state.mode)[state.path.length]===key);
+    const beds=new Set(cohort.map(row=>row.LOCATIONCODE || row.locationcode)).size;
+    button.className='bloomscapes-work-group';button.textContent=key+' · '+count+' rows · '+beds+' beds';
     if (state.mode==='block' && state.path.length===1) button.textContent+=' · '+bloomscapesBlockLifecycleStage(state.path[0],key);
-    button.addEventListener('click',()=>{state.path.push(key);state.offset=0;renderBloomscapesWorkBrowser(host,state);});
-    return button;
+    button.addEventListener('click',()=>{state.path.push(key);renderBloomscapesWorkBrowser(host,state);});
+    if (state.mode==='block' && state.path.length===1) {
+        const quick=group.appendChild(document.createElement('button'));quick.type='button';quick.dataset.queueWorkBlock=key;
+        quick.textContent='⚡ Queue Whole Block '+state.path[0]+'.'+key+' ('+count+' rows)';
+        quick.addEventListener('click',()=>state.onSelect(cohort[0],'BLOCK'));
+    }
+    return group;
+}
+
+function renderBloomscapesWorkLocations(tools,host,state,rows) {
+    for (const key of new Set(rows.map(row=>row.LOCATIONCODE || row.locationcode))) {
+        const button=tools.appendChild(document.createElement('button'));button.type='button';button.dataset.workBrowseGroup=key;
+        button.textContent='Location '+key;
+        button.addEventListener('click',()=>{state.path.push(key);renderBloomscapesWorkBrowser(host,state);});
+    }
+}
+
+function mountBloomscapesWorkFilters(host,state) {
+    const filters=host.querySelector('[data-work-filters]');
+    for (const [key,title] of [['common','Common name'],['year','Year'],['season','Season'],['lot','Lot'],['size','Size'],['hold','Hold']]) {
+        const label=filters.appendChild(document.createElement('label'));label.textContent=title;
+        const select=label.appendChild(document.createElement('select'));select.dataset.workFilter=key;
+        const all=document.createElement('option');all.textContent='All';all.value='';select.appendChild(all);
+        const values=[...new Set(bloomscapesWorkBrowserRows().map(row=>bloomscapesWorkBrowserIdentity(row)[key]))].filter(Boolean).sort();
+        values.forEach(value=>{const option=document.createElement('option');option.textContent=value;option.value=value;select.appendChild(option);});
+        select.addEventListener('change',()=>{state.path=[];renderBloomscapesWorkBrowser(host,state);});
+    }
+    const clear=filters.appendChild(document.createElement('button'));clear.type='button';clear.textContent='Clear Filters';
+    clear.addEventListener('click',()=>{
+        for (const select of filters.querySelectorAll('select')) select.value='';
+        host.querySelector('[data-work-search]').value='';state.path=[];renderBloomscapesWorkBrowser(host,state);
+    });
 }
 
 function bloomscapesWorkSourceCard(row,onSelect) {

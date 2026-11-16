@@ -222,3 +222,18 @@ html body :is(.inventory-card,.drive-card,.app-smart-card,.metric-tile,tr)::afte
 #view-detail[data-bloomscapes-work-actions="true"] button[onclick^="return submitShearApprovalRequestForActiveDetail"] { display: none; }
 
 #home-dashboard-grid[data-bloomscapes-home] [hidden] { display:none !important; }
+
+[data-work-type-bar] {position:sticky;top:0;z-index:32;background:#103220;border:1px solid #397b51;border-radius:12px;padding:.75rem;}
+[data-work-type-bar] label {display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
+[data-work-type-bar] select {flex:1;min-width:180px;max-width:100%;min-height:44px;background:#081c12;color:#e1f9e9;}
+[data-work-filters] {display:flex;flex-wrap:wrap;gap:.5rem;margin:.6rem 0;}
+[data-work-filters] label {display:flex;flex-direction:column;min-width:100px;flex:1;}
+[data-work-filters] select {min-height:44px;width:100%;background:#103220;color:#e1f9e9;}
+[data-work-creator] [hidden] {display:none !important;}
+[data-work-siblings] {padding:.5rem;border:1px solid #397b51;border-radius:8px;background:#103220;}
+.bloomscapes-sibling-scroll {overflow-x:auto;max-width:100%;}
+[data-sibling-table] {width:100%;border-collapse:collapse;font-size:12px;}
+[data-sibling-table] th,[data-sibling-table] td {padding:.45rem;text-align:left;white-space:nowrap;border-bottom:1px solid #397b51;}
+.bloomscapes-work-scope {max-width:min(850px,96vw);max-height:85dvh;overflow:auto;background:#103220;color:#e1f9e9;border:1px solid #397b51;border-radius:12px;padding:1rem;}
+.bloomscapes-work-scope::backdrop {background:#081c12cc;}
+.bloomscapes-work-scope button {display:block;width:100%;min-height:44px;padding:.6rem;margin:.5rem 0;background:#16472e;color:#e1f9e9;border:1px solid #397b51;border-radius:8px;}

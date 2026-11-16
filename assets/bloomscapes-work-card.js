@@ -8,7 +8,8 @@ function bloomscapesWorkIdentityMarkup(source,options={}) {
         ['Hold Stop Reason',row.HOLDSTOPREASON || row.holdstopreason || 'None']];
     return generateCard(row,'drive','status-green',{workBuilder:true,originView:getCurrentVisibleViewId()})
         +'<dl class="bloomscapes-work-identity">'+identity.map(([title,value])=>
-            '<div><dt>'+escapeHtml(title)+'</dt><dd>'+escapeHtml(String(value || 'Not recorded'))+'</dd></div>').join('')+'</dl>';
+            '<div><dt>'+escapeHtml(title)+'</dt><dd>'+escapeHtml(String(value || 'Not recorded'))+'</dd></div>').join('')+'</dl>'
+        +bloomscapesWorkSiblingMarkup(row);
 }
 
 function renderBloomscapesDriveDispatchActions(row) {
