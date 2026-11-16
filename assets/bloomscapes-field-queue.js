@@ -149,11 +149,27 @@ function applyBloomscapesFieldWorkReceipt(job,answers,receipt) {
     if (!canonical) return false;
     const wasOpen = canonical.status==='OPEN';
     Object.assign(canonical,{status:'DONE',completion_answers:structuredClone(answers),completion_receipt:receipt});
+    applyBloomscapesBlockLifecycleReceipt(receipt);
     for (const next of bloomscapesFieldQueueState.rows) {
         if (next.farm_code===job.farm_code && next.blocked_by===job.id) next.blocked=false;
     }
     if (wasOpen && bloomscapesFieldQueueState.counts) bloomscapesFieldQueueState.counts[job.work_view] = Math.max(0,(bloomscapesFieldQueueState.counts[job.work_view] || 0)-1);
     renderRequestCategoryToolbar();
+    return true;
+}
+
+function applyBloomscapesBlockLifecycleReceipt(receipt) {
+    const row=receipt.block_lifecycle;
+    if (!row || row.farm_code!==receipt.farm_code || row.work_id!==receipt.work_id || !row.blockalpha || !row.blocknumber
+        || !['OPEN_FIELD','BUNCHED','BUNCH_COUNTED','POLY_COVERED','POLY_REMOVED','SPREAD','SPREAD_COUNTED'].includes(row.stage)
+        || !Number.isFinite(Date.parse(row.updated_at))) return false;
+    const rows=bloomscapesFieldQueueState.lifecycle ||= [];
+    const index=rows.findIndex(item=>item.farm_code===row.farm_code && item.blockalpha===row.blockalpha && item.blocknumber===row.blocknumber);
+    const current=rows[index];
+    if (current && (Date.parse(current.updated_at)>Date.parse(row.updated_at)
+        || Date.parse(current.updated_at)===Date.parse(row.updated_at) && current.work_id!==row.work_id)) return false;
+    if (index<0) rows.push(structuredClone(row));
+    else rows[index]=structuredClone(row);
     return true;
 }
 
