@@ -130,7 +130,7 @@ function createManagerReportPageController() {
         permission: getSupabaseReadIdentityScope,
         variant: surface => surface === 'approval' ? activeHomeTab : '',
         allowed: isManagerReportSurfaceAllowed,
-        serverAuthorizedSurfaces: ['eval2'],
+        serverAuthorizedSurfaces: nativeAuthSessionActive?[]:['eval2'],
         loadModule: loadReportPagesModule,
         onSuspend: () => managerReportVisibleRows.clear(),
         onClear: clearManagerReportPageState,
@@ -139,4 +139,11 @@ function createManagerReportPageController() {
         onMetadata: onManagerReportPageMetadata,
         onState: onManagerReportPageState
     });
+}
+
+function useManagerReportPages(surface) {
+    if (nativeAuthSessionActive) return false;
+    if (!window.GncReportPagesLive || !currentUser) return false;
+    if (surface === 'eval2') return canViewManagerEvalReports2();
+    return getManagerReportPageController().enabled(surface);
 }

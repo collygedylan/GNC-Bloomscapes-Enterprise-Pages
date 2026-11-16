@@ -22,6 +22,7 @@ async function refreshBloomscapesRadioInbox() {
 }
 async function connectBloomscapesRadioInbox() {
     if (!nativeAuthSessionActive || !currentUser) return disconnectBloomscapesRadioInbox();
+    void connectBloomscapesMessages().catch(reportBloomscapesMessagesFailure);
     const {client,owner}=await requireBloomscapesSession(),state=bloomscapesRadioInbox;
     if (state.channel && state.owner!==owner) await disconnectBloomscapesRadioInbox();
     await requireBloomscapesOwner(owner);
@@ -35,6 +36,7 @@ async function connectBloomscapesRadioInbox() {
     await refreshBloomscapesRadioInbox();
 }
 async function disconnectBloomscapesRadioInbox() {
+    await disconnectBloomscapesMessages();
     const state=bloomscapesRadioInbox,channel=state.channel;
     state.generation++;
     releaseBloomscapesRadioPlayback();

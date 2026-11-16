@@ -61,7 +61,7 @@ function resolveNavigationViewFlag(view, flags = {}) {
         return yes(flags.view_que_request) || yes(flags.view_que_suspend) ? 'Y' : 'N';
     }
     const keys = {
-        drive:'drive_mode', communication:'comm', chat:'comm', 'department-calendar':'comm',
+        drive:'drive_mode', communication:nativeAuthSessionActive?'walkie':'comm', chat:nativeAuthSessionActive?'messages':'comm', 'department-calendar':'comm',
         'sales-inventory':'inventory', 'inventory-suggestion':'inventory', 'inv-consolidation':'inventory',
         'hl-order':'hl_order', 'sales-office':'sales_office', 'historical-requests':'historical_requests',
         'request-history':'historical_requests', tasks:'flyers', flyer:'flyers',

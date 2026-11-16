@@ -48,6 +48,8 @@ function getProductionLiveSyncContext() {
 
 
 function describeProductionLiveAdapters(registry,targetView,targetContext) {
+    const nativeKeys=getBloomscapesNativeBrowseKeys(targetView);
+    if (nativeKeys) return nativeKeys.map(key=>createProductionCoreLiveAdapter(key,'full',{pageConcurrency:1}));
     const fastPagedViews = targetView === 'tasks' || targetView === 'drive' || targetView === 'av' || targetView === 'docks'
         || targetView === 'request' && targetContext.surfaces.includes('request:suspend-tag');
     const result = [

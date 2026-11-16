@@ -97,8 +97,8 @@
 [data-bloomscapes-table-counts] { overflow: auto; max-height: 45dvh; }
 [data-bloomscapes-table-counts] th, [data-bloomscapes-table-counts] td { padding: .3rem .6rem; text-align: left; }
 html body.ops-precision-pilot.current-view-home.home-dashboard-mode #app-wrapper #view-home #home-dashboard-grid[data-bloomscapes-home] {
-  grid-template-columns: repeat(3,minmax(0,1fr)) !important;
-  grid-template-rows: repeat(4,minmax(0,1fr)) !important;
+  grid-template-columns: repeat(5,minmax(0,1fr)) !important;
+  grid-template-rows: repeat(3,minmax(0,1fr)) !important;
   grid-auto-rows: var(--home-fit-tile-height,60px) !important;
   gap: var(--home-fit-row-gap,4px) var(--home-fit-col-gap,4px) !important;
 }
@@ -223,7 +223,7 @@ html body :is(.inventory-card,.drive-card,.app-smart-card,.metric-tile,tr)::afte
 
 #home-dashboard-grid[data-bloomscapes-home] [hidden] { display:none !important; }
 
-[data-work-type-bar] {position:sticky;top:0;z-index:32;background:#103220;border:1px solid #397b51;border-radius:12px;padding:.75rem;}
+[data-work-type-bar] {display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;background:#103220;padding:.25rem;}
 [data-work-type-bar] label {display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
 [data-work-type-bar] select {flex:1;min-width:180px;max-width:100%;min-height:44px;background:#081c12;color:#e1f9e9;}
 [data-work-filters] {display:flex;flex-wrap:wrap;gap:.5rem;margin:.6rem 0;}
@@ -246,3 +246,42 @@ html body :is(.inventory-card,.drive-card,.app-smart-card,.metric-tile,tr)::afte
 [data-consolidation-destinations] {display:grid;gap:.4rem;}
 [data-consolidation-destinations] button {text-align:left;overflow-wrap:anywhere;}
 [data-work-row-editor],[data-shift-plan] {min-width:0;}
+
+[data-transfer-filter-bar] {display:flex;align-items:end;gap:.5rem;flex-wrap:nowrap;max-width:100%;overflow-x:auto;}
+[data-transfer-filter-bar] label {min-width:0;flex:1;}
+[data-transfer-filter-bar] [data-po-seasons] {width:100%;min-width:170px;}
+[data-work-creator] > [data-studio-excel] {order:-1;}
+[data-work-type-bar] {padding:0;gap:.4rem;}
+[data-work-type-bar] > [data-phase-heading] {display:none;}
+[data-work-type-bar] > [data-studio-phase-cards] {order:4;width:100%;}
+[data-work-type-bar] [data-active-phase],[data-work-type-bar] [data-chain-label] {flex-direction:row;align-items:center;margin:.2rem;}
+[data-work-type-bar] [data-work-modes] {margin:0;padding:0;}
+[data-work-type-bar] [data-active-phase] select {min-width:135px;}
+[data-planning-card] {border:1px solid #397b51;border-radius:8px;padding:.6rem;background:#103220;overflow-wrap:anywhere;}
+[data-planning-card] dl {display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:.4rem;}
+[data-planning-card] dd {font-weight:650;}
+[data-bloomscapes-messages] {padding:.75rem;max-width:100%;}
+[data-bloomscapes-messages] label {display:flex;flex-direction:column;}
+[data-bloomscapes-messages] :is(input,textarea,button) {min-height:44px;border:1px solid #397b51;border-radius:8px;padding:.5rem;background:#103220;color:#e1f9e9;max-width:100%;}
+[data-message-list] article {border:1px solid #397b51;border-radius:8px;padding:.5rem;margin:.5rem 0;overflow-wrap:anywhere;}
+#av-filter-options {display:flex;align-items:stretch;gap:.35rem;flex-wrap:nowrap;overflow-x:auto;max-width:100%;}
+#av-filter-options .inventory-excel-bar,#av-filter-options .inventory-excel-fields {display:contents;}
+#av-filter-options .inventory-excel-field {flex:0 0 112px;min-width:112px;}
+#av-filter-options .inventory-excel-field button {min-height:44px;width:100%;}
+#av-filter-options .inventory-excel-field span {display:block;white-space:nowrap;}
+[data-studio-excel] .inventory-excel-fields,[data-transfer-excel] .inventory-excel-fields {display:flex;flex-wrap:nowrap;overflow-x:auto;gap:.35rem;}
+[data-studio-excel] .inventory-excel-field,[data-transfer-excel] .inventory-excel-field {flex:0 0 112px;min-width:112px;}
+#home-dashboard-grid [data-home-count] {position:absolute;top:.2rem;right:.2rem;background:#b9f7cc;color:#081c12;border-radius:1rem;padding:.1rem .3rem;}
+#home-dashboard-grid .home-module-tile {position:relative;}
+
+[data-main-inventory-browse] {padding:.5rem;min-width:0;max-width:100%;}
+[data-main-browse-filters] .inventory-excel-fields {display:flex;flex-wrap:nowrap;gap:.35rem;overflow-x:auto;}
+[data-main-browse-filters] .inventory-excel-field {flex:0 0 112px;min-width:112px;}
+[data-main-browse-filters] .inventory-excel-field button {min-height:44px;}
+[data-work-more] {border:1px solid #397b51;border-radius:8px;padding:.3rem;}
+
+html body #app-wrapper #av-filter-options {display:flex !important;flex-wrap:nowrap !important;overflow-x:auto !important;gap:.35rem !important;max-width:100% !important;}
+html body #app-wrapper #av-filter-options > .av-filter-shell {flex:0 0 112px !important;min-width:112px !important;max-width:112px !important;}
+html body #app-wrapper #av-filter-options :is(.inventory-excel-bar,.inventory-excel-fields) {display:contents !important;}
+html body #app-wrapper #av-filter-options .inventory-excel-chips {display:none;}
+[data-av-more] > summary {cursor:pointer;padding:.35rem;color:#b9f7cc;}

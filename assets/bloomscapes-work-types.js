@@ -12,9 +12,9 @@ function bloomscapesWorkTypeBar() {
     return '<header data-work-type-bar><h3 data-phase-heading>Step 1: Select the Active Studio Phase</h3>'
         +'<div data-studio-phase-cards>'+BLOOMSCAPES_STUDIO_PHASES.map(([id,title,,,description])=>
             '<button type="button" data-studio-phase="'+id+'"><strong>'+esc(title)+'</strong><span>'+esc(description)+'</span></button>').join('')+'</div>'
-        +'<label data-active-phase hidden>Active Phase: <select data-active-work-type><option value="">Select phase…</option>'
+        +'<label data-active-phase>Active Phase: <select data-active-work-type><option value="">Select phase…</option>'
         +BLOOMSCAPES_STUDIO_PHASES.map(([id,title,kind])=>'<option value="'+id+'" data-kind="'+kind+'">'+esc(title)+'</option>').join('')
-        +'</select></label><label data-chain-label hidden><input type="checkbox" data-work-chain> Chain overwinter / spring steps</label></header>';
+        +'</select></label><label data-chain-label><input type="checkbox" data-work-chain> Chain overwinter / spring steps</label></header>';
 }
 
 function bindBloomscapesWorkTypes(root,form,options) {
@@ -36,8 +36,8 @@ function bindBloomscapesWorkTypes(root,form,options) {
         root.querySelector('[data-work-row-editor]').hidden=true;
         root.querySelector('[data-studio-phase-cards]').hidden=Boolean(phase);
         root.querySelector('[data-phase-heading]').hidden=Boolean(phase);
-        root.querySelector('[data-active-phase]').hidden=!phase;
-        root.querySelector('[data-chain-label]').hidden=!phase;
+        root.querySelector('[data-active-phase]').hidden=false;
+        root.querySelector('[data-chain-label]').hidden=false;
         if (!phase) return;
         root.dataset.studioPhase=phase[0];
         selectBloomscapesStudioAction(form,phase[3]);
@@ -104,9 +104,17 @@ function syncBloomscapesWorkDestinations(root,form) {
     let choices=root.querySelector('[data-consolidation-destinations]');
     if (!choices) {choices=document.createElement('div');choices.dataset.consolidationDestinations='true';form.elements.targetLocation.closest('label').after(choices);}
     choices.replaceChildren();choices.hidden=!consolidate;
+    prefillBloomscapesPlanningWork(form,source);
     if (!consolidate) return;
     if (!rows.length) choices.textContent='No other location holds this item within the active App SaleYear.';
     void hydrateBloomscapesConsolidationSpace(root,form,choices,source);
+    void ensureBloomscapesPlanningRows([source,...rows]).then(()=>{
+        if (!choices.isConnected || form.elements.sourceId.value!==String(source.UNIQUE_ID || source.unique_id)) return;
+        for (const button of choices.querySelectorAll('[data-consolidation-destination]')) {
+            const row=rows.find(row=>(row.LOCATIONCODE || row.locationcode)===button.dataset.consolidationDestination);
+            if (row) decorateBloomscapesConsolidationChoice(button,row,source);
+        }
+    });
     for (const row of rows) {
         const button=choices.appendChild(document.createElement('button'));button.type='button';
         const location=row.LOCATIONCODE || row.locationcode;button.dataset.consolidationDestination=location;button.dataset.consolidationLot=String(row.LOTCODE || row.lotcode);
@@ -127,7 +135,10 @@ async function hydrateBloomscapesConsolidationSpace(root,form,choices,source) {
             const matches=rows.filter(row=>row.LOCATIONCODE===button.dataset.consolidationDestination);
             const lot=button.dataset.consolidationLot;
             const row=matches.find(row=>String(row.LOTCODE)===lot);
-            if (row) button.textContent=bloomscapesConsolidationDestinationLabel({...resolveCanonicalInventoryRow(row),open_beds:row.open_beds,can_space:row.can_space});
+            if (row) {
+                button.textContent=bloomscapesConsolidationDestinationLabel({...resolveCanonicalInventoryRow(row),open_beds:row.open_beds,can_space:row.can_space});
+                decorateBloomscapesConsolidationChoice(button,row,source);
+            }
         }
     } catch (error) {
         if (root.isConnected && root.dataset.destinationRevision===revision && form.elements.sourceId.value===id) {

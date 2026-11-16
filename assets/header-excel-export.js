@@ -186,7 +186,7 @@ async function exportManagerReportSurface(surface, title) {
 
 function exportHlCurrentRows() {
     if (!canUseHlOrder()) return false;
-    return exportObjectRows('HL Order ' + hlOrderTab, getHlExcelRows());
+    return exportObjectRows('PO Management ' + hlOrderTab, getHlExcelRows());
 }
 
 function exportInventoryExcelScope(scope, title) {

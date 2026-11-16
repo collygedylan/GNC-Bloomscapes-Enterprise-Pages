@@ -9,6 +9,7 @@ async function mountBloomscapesFarmAccessEditor(container,selected) {
     const status = host.appendChild(document.createElement('p'));
     status.setAttribute('role','status');
     const owner = getSupabaseReadIdentityScope();
+    if (selected==='user-role-access') void mountBloomscapesModuleAccess(host);
     try {
         const rows = await readBloomscapesPanel('farm-access');
         if (!host.isConnected || owner!==getSupabaseReadIdentityScope()) return;

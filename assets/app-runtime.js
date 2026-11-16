@@ -102,7 +102,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.0.97';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.0.98';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -20403,7 +20403,7 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
         /* @runtime-fragment assets/confirmed-evaluation-ui.js */
         /* @runtime-fragment assets/canonical-inventory-evidence.js */
         /* @runtime-fragment assets/av-lot-cards.js */
-        /* @runtime-fragment assets/row-workflow-functions.js */
+        /* @runtime-fragment assets/inventory-excel-popover.js */ /* @runtime-fragment assets/inventory-excel-state.js */ /* @runtime-fragment assets/inventory-excel-mount.js */ /* @runtime-fragment assets/inventory-excel-refresh.js */ /* @runtime-fragment assets/row-workflow-functions.js */
         /* @runtime-fragment assets/row-access-policy.js */
         /* @runtime-fragment assets/suspend-exact-owner.js */
         /* @runtime-fragment assets/que-header.js */
@@ -24170,7 +24170,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.0.97';
+        const APP_VERSION = '3.0.98';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -25002,7 +25002,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             'LOC NOTE DATE': Object.freeze(['LOCATIONNOTEDATE', 'LOCATION_NOTE_DATE', 'LOC_NOTE_DATE', 'locationnotedate', 'loc_note_date', 'LOCATIONPTN1', 'locationptn1'])
         });
         const GLOBAL_HEADER_SEARCH_CONFIG = {
-            av: 'av-search-container',
+            av: 'av-search-container', 'hl-order':'hl-order-search-container',
             reserves: 'reserves-search-container',
             docks: 'docks-search-container',
             drive: 'drive-search-container',
@@ -55176,7 +55176,7 @@ function toggleDriveQuickRequestItem(domId) {
 
         const HOME_MODULE_REGISTRY = Object.freeze([
             { view: 'drive', label: 'Drive Mode', icon: 'ph-car', action: "switchView('drive')" },
-            { view: 'hl-order', label: 'HL Order', icon: 'ph-truck', action: "switchView('hl-order')" },
+            { view: 'hl-order', label: 'PO Management', icon: 'ph-truck', action: "switchView('hl-order')" },
             { view: 'av', label: 'AV', icon: 'ph-notebook', action: "switchView('av')" },
             { view: 'sales-office', label: 'Sales Office', icon: 'ph-flower-lotus', action: "switchView('sales-office')" },
             { view: 'sales', label: 'Sales', icon: 'ph-handshake', action: "switchView('sales')" },
@@ -56744,13 +56744,6 @@ function toggleDriveQuickRequestItem(domId) {
             return chatConversations.reduce((total, conversation) => total + getChatUnreadCount(conversation.id), 0);
         }
 
-        function updateFooterChatBadge() {
-            const badge = document.getElementById('footer-chat-badge');
-            if (!badge) return;
-            const unread = getTotalChatUnreadCount() + getDepartmentCalendarUnreadCount();
-            badge.textContent = unread > 99 ? '99+' : String(unread);
-            badge.classList.toggle('hidden', unread <= 0);
-        }
 
         function syncDepartmentCalendarBadgeData(force = false) {
             if (!currentUser || departmentCalendarState.loading) {
@@ -56885,60 +56878,7 @@ function toggleDriveQuickRequestItem(domId) {
                 .sort((a, b) => String(a.displayName || a.username).localeCompare(String(b.displayName || b.username)));
         }
 
-        async function fetchChatData(force = false) {
-            if (typeof shouldUseProductionLiveSyncSideLoad === 'function' && shouldUseProductionLiveSyncSideLoad()) return ensureProductionLiveSyncSideData('chat', force);
-            if (!currentUser) return false;
-            if (!force && chatDataLoaded) return true;
-            if (chatLoadPromise && !force) return chatLoadPromise;
-            chatLoadPromise = (async () => {
-                const schemaReady = await ensureChatSchemaReady();
-                if (!schemaReady) return false;
-                const currentUsername = getCurrentChatUsername();
-                if (!currentUsername) return false;
-                const [participantRows, userRows] = await Promise.all([
-                    chatApiGet(CHAT_PARTICIPANTS_TABLE, `select=*&username=eq.${encodeURIComponent(currentUsername)}&is_archived=eq.false&order=joined_at.desc`, 'Chat participants'),
-                    chatApiGet('ph_app_users', 'select=username,role&order=username.asc&limit=500', 'Chat users').catch(() => [])
-                ]);
-                const currentParticipants = (Array.isArray(participantRows) ? participantRows : []).map(normalizeChatParticipant).filter(Boolean);
-                const conversationIds = [...new Set(currentParticipants.map((participant) => participant.conversationId).filter(Boolean))];
-                chatUsers = (Array.isArray(userRows) ? userRows : []).map(normalizeChatUser).filter(Boolean);
-                const currentUserEntry = { username: currentUsername, displayName: getCurrentChatDisplayName(), role: currentRole || '' };
-                if (!chatUsers.some((user) => user.username === currentUsername)) chatUsers.push(currentUserEntry);
-                if (!conversationIds.length) {
-                    chatConversations = [];
-                    chatParticipants = currentParticipants;
-                    chatMessages = [];
-                    activeChatConversationId = '';
-                    chatDataLoaded = true;
-                    updateFooterChatBadge();
-                    return true;
-                }
-                const idList = conversationIds.join(',');
-                const [conversationRows, allParticipantRows, messageRows] = await Promise.all([
-                    chatApiGet(CHAT_CONVERSATIONS_TABLE, `select=*&id=in.(${idList})&order=updated_at.desc`, 'Chat conversations'),
-                    chatApiGet(CHAT_PARTICIPANTS_TABLE, `select=*&conversation_id=in.(${idList})&order=display_name.asc`, 'Chat participants'),
-                    chatApiGet(CHAT_MESSAGES_TABLE, `select=*&conversation_id=in.(${idList})&order=created_at.desc&limit=500`, 'Chat messages')
-                ]);
-                chatConversations = (Array.isArray(conversationRows) ? conversationRows : []).map(normalizeChatConversation).filter(Boolean);
-                chatParticipants = (Array.isArray(allParticipantRows) ? allParticipantRows : []).map(normalizeChatParticipant).filter(Boolean);
-                chatMessages = (Array.isArray(messageRows) ? messageRows : []).map(normalizeChatMessage).filter(Boolean);
-                chatMessages.sort((a, b) => (Date.parse(a.createdAt || '') || 0) - (Date.parse(b.createdAt || '') || 0));
-                if (pendingChatOpenConversationId && conversationIds.includes(pendingChatOpenConversationId)) {
-                    activeChatConversationId = pendingChatOpenConversationId;
-                    pendingChatOpenConversationId = '';
-                }
-                if (activeChatConversationId && !conversationIds.includes(activeChatConversationId)) activeChatConversationId = '';
-                chatDataLoaded = true;
-                if (activeChatConversationId) markChatConversationRead(activeChatConversationId).catch(() => {});
-                updateFooterChatBadge();
-                return true;
-            })();
-            try {
-                return await chatLoadPromise;
-            } finally {
-                chatLoadPromise = null;
-            }
-        }
+        /* @runtime-fragment assets/chat-load.js */
 
         function handleChatRealtimeChange(tableName = '', payload = null) {
             const eventType = String(payload && payload.eventType ? payload.eventType : '').toUpperCase();
@@ -83865,40 +83805,7 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
             }, 15000);
         }
 
-        async function loadHlOrderState(force = false) {
-            if (!canUseHlOrder() || navigator.onLine === false) return null;
-            if (hlOrderTimeoutPaused) return null;
-            scheduleHlOrderRefresh();
-            if (hlOrderStatePending) return hlOrderStatePending;
-            if (hlOrderBusy || (!force && Date.now() - hlOrderStateLoadedAt < 15000)) return hlOrderStateData;
-            const owner = captureHlOrderOwnership();
-            hlOrderStateLoadedAt = Date.now();
-            const pending = (async () => {
-                try {
-                    const result = await supabaseRpc('hl_order_state', {});
-                    if (isHlOrderOwnershipCurrent(owner) && canUseHlOrder()) applyHlOrderState(result, { deferRender: true });
-                    return result;
-                } catch (error) {
-                    if (isHlOrderOwnershipCurrent(owner)) {
-                        hlOrderTimeoutPaused = isHlOrderTimeout(error);
-                        hlOrderStateError = getHlOrderErrorMessage(error);
-                        refreshHlOrderWarning();
-                        scheduleHlOrderDisplayRefresh();
-                    }
-                    return null;
-                }
-            })();
-            hlOrderStatePending = pending;
-            try { return await pending; }
-            finally {
-                if (hlOrderStatePending === pending) {
-                    hlOrderStatePending = null;
-                    // Startup can establish the permission revision during this
-                    // read. A discarded response must not throttle its replacement.
-                    hlOrderStateLoadedAt = isHlOrderOwnershipCurrent(owner) ? Date.now() : 0;
-                }
-            }
-        }
+        /* @runtime-fragment assets/hl-order-load.js */
 
         function isHlOrderTimeout(error) {
             return String(error?.code || '') === '57014' || /statement timeout|timed?\s*out|timeout/i.test(String(error?.message || ''));
@@ -107627,64 +107534,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             managerEvalReportCache = null;
         }
 
-        async function loadManagerEvalReportSettings(force = false) {
-            if (typeof shouldUseProductionLiveSyncSideLoad === 'function' && shouldUseProductionLiveSyncSideLoad()) {
-                const owner = getSupabaseReadIdentityScope();
-                return ensureProductionLiveSyncSideData('managerEvalSettings', force, { state: managerEvalReportSettingsState })
-                    .then(() => managerEvalReportSettings)
-                    .catch((error) => {
-                        const status = getProductionLiveSyncCoordinator()?.getStatus?.() || {};
-                        const errorMessage = String(error?.message || error || '').trim();
-                        const denied = isSupabaseReadTerminalDenial(error)
-                            || status.authorizationDenied === true
-                            || [401, 403].includes(Number(error?.status || status.status || 0))
-                            || window.GncUserAccessControl?.getSelfState?.().denied === true
-                            || nativeAuthProfile?.active === false || nativeAuthProfile?.disabled_at != null;
-                        // ensureProductionLiveSyncSideData reports the current
-                        // coordinator message when ensure() joins an ordinary
-                        // in-flight revision check. Keep the current settings
-                        // as the read-only SWR value; the coordinator will
-                        // publish the refreshed settings when its check ends.
-                        if (owner === getSupabaseReadIdentityScope() && !denied
-                            && status.state === 'Syncing' && errorMessage && errorMessage === String(status.message || '').trim()) {
-                            managerEvalReportSettingsState.error = '';
-                            return managerEvalReportSettings;
-                        }
-                        throw error;
-                    });
-            }
-            if (!canViewManagerEvalReports() && !canViewManagerEvalReports2()) return null;
-            const state = managerEvalReportSettingsState;
-            if (state.loading && state.promise) return state.promise;
-            if (state.loaded && !force) return managerEvalReportSettings;
-            state.loading = true;
-            state.error = '';
-            state.promise = supabaseRpc('get_eval_report_settings', {}, { timeoutMs: 15000 })
-                .then((result) => {
-                    managerEvalReportSettings = normalizeManagerEvalReportSettings(result);
-                    state.loaded = true;
-                    state.fallback = false;
-                    state.error = '';
-                    invalidateManagerEvalReportCache();
-                    return managerEvalReportSettings;
-                })
-                .catch((error) => {
-                    managerEvalReportSettings = normalizeManagerEvalReportSettings(null);
-                    state.loaded = true;
-                    state.fallback = true;
-                    state.error = getFriendlyBackendErrorMessage(error, 'Could not load Eval Report settings.');
-                    invalidateManagerEvalReportCache();
-                    reportSemanticHealthEvent('eval_report_settings_load_failed', 'eval_reports', 'EVAL_REPORT_SETTINGS_LOAD_FAILED', {});
-                    return managerEvalReportSettings;
-                })
-                .finally(() => {
-                    state.loading = false;
-                    state.promise = null;
-                    if (getCurrentVisibleViewId() === 'managers' && [MANAGER_EVAL_REPORTS_VIEW, MANAGER_EVAL_REPORTS_2_VIEW].includes(activeHomeTab)) scheduleManagersRender(true);
-                });
-            if (getCurrentVisibleViewId() === 'managers' && [MANAGER_EVAL_REPORTS_VIEW, MANAGER_EVAL_REPORTS_2_VIEW].includes(activeHomeTab)) scheduleManagersRender(true);
-            return state.promise;
-        }
+        /* @runtime-fragment assets/bloomscapes-native-browse.js */
 
         async function saveManagerEvalReportSettings(event = null) {
             if (event && typeof event.preventDefault === 'function') event.preventDefault();
@@ -107766,11 +107616,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
         function getManagerReportPageController() {
             return managerReportPageController ||= createManagerReportPageController();
         }
-        function useManagerReportPages(surface) {
-            if (!window.GncReportPagesLive || !currentUser) return false;
-            if (surface === 'eval2') return canViewManagerEvalReports2();
-            return getManagerReportPageController().enabled(surface);
-        }
+
         function getActiveManagerReportPageSurface(viewId = getCurrentVisibleViewId()) {
             if (viewId === 'low-stock') return 'ncr';
             if (viewId !== 'managers') return '';
@@ -109123,59 +108969,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return index && Array.isArray(index.assignedToOptions) ? index.assignedToOptions.slice() : [];
         }
 
-        function getManagerEvalReport2UserFilterOptions(rows = null) {
-            if (!Array.isArray(rows) && useManagerReportPages('eval2')) {
-                const metadata = getManagerReportPageController().state('eval2').metadata;
-                const local = getManagerEvalReports2Api()?.browseUserOptions(metadata, buildManagerReportPageQuery('eval2').filters);
-                if (local) return local;
-                return [{ value:'all', label:'All Users ('+Number(metadata.filteredRowCount || 0)+')' },
-                    ...(metadata.evaluatorDirectory || metadata.assignedToOptions || []).map(value => ({value,label:value}))];
-            }
-            const sourceRows = Array.isArray(rows) ? rows : getManagerEvalReport2Rows();
-            const itemCodesByUser = new Map();
-            const allItemCodes = new Set();
-            const unassignedItemCodes = new Set();
-            const selectedSeasons = getManagerEvalReport2SeasonFilters();
-            sourceRows.forEach((row) => {
-                if (!doesManagerEvalReport2RowMatchSeasonFilter(row, selectedSeasons)) return;
-                if (managerEvalReport2ContSizeFilter !== 'all' && getManagerEvalReportRowContSize(row) !== managerEvalReport2ContSizeFilter) return;
-                if (managerEvalReport2LocationFilter !== 'all' && getManagerEvalReportRowLocation(row) !== managerEvalReport2LocationFilter) return;
-                const priority = getManagerEvalReportRowPriority(row);
-                if (managerEvalReport2PriorityFilter === 'with' && !priority) return;
-                if (managerEvalReport2PriorityFilter === 'without' && priority) return;
-                if (!managerEvalReportRowMatchesSearch(row)) return;
-                const itemCode = getManagerEvalReport2ItemCode(row);
-                if (!itemCode) return;
-                allItemCodes.add(itemCode);
-                const users = getManagerEvalReportRowAssignedToUsers(row).map(normalizeManagerEvalAssignedUser).filter(Boolean);
-                const namedUsers = users.filter((value) => value !== '(Unassigned)');
-                if (!namedUsers.length) unassignedItemCodes.add(itemCode);
-                namedUsers.forEach((value) => {
-                    const key = value.toLocaleLowerCase();
-                    if (!itemCodesByUser.has(key)) itemCodesByUser.set(key, { label:value, itemCodes:new Set() });
-                    itemCodesByUser.get(key).itemCodes.add(itemCode);
-                });
-            });
-            const options = [{ value:'all', label:`All Users (${allItemCodes.size})` }];
-            const selectedUser = getManagerEvalAssignedUsers('eval2')[0] || '';
-            if (unassignedItemCodes.size || selectedUser.toLocaleLowerCase() === '(unassigned)') {
-                options.push({ value:'(Unassigned)', label:`Unassigned (${unassignedItemCodes.size})` });
-            }
-            const users = Array.from(itemCodesByUser.values());
-            if (selectedUser && selectedUser.toLocaleLowerCase() !== '(unassigned)'
-                && !itemCodesByUser.has(selectedUser.toLocaleLowerCase())) users.push({ label:selectedUser, itemCodes:new Set() });
-            users.sort((left, right) => compareManagerEvalReport2Natural(left.label, right.label))
-                .forEach((entry) => options.push({ value:entry.label, label:`${entry.label} (${entry.itemCodes.size})` }));
-            return options;
-        }
-
-        function getManagerEvalReport2LocationOptions(rows = null) {
-            if (useManagerReportPages('eval2')) return getManagerReportPageController().state('eval2').metadata.filterOptions?.locations || [];
-            const sourceRows = Array.isArray(rows) ? rows : getManagerEvalReport2Rows();
-            const assignedRows = sourceRows.filter((row) => managerEvalAssignedUserMatches(row, 'eval2'));
-            return Array.from(new Set(assignedRows.map(getManagerEvalReportRowLocation).filter(Boolean)))
-                .sort((left, right) => String(left).localeCompare(String(right), undefined, { numeric: true, sensitivity: 'base' }));
-        }
 
         function normalizeManagerEvalReport2SeasonFilterValue(value = '') {
             const normalized = String(value == null ? '' : value).trim().toUpperCase().replace(/\s+/g, '');
@@ -117800,9 +117593,9 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
         function copyRuntimeWatchdogFixBrief() { return runtimeWatchdogPanel.copyFixBrief(); }
         /* @runtime-fragment assets/bloomscapes-farm-identity.js */ /* @runtime-fragment assets/master-snapshot-preparation.js */ /* @runtime-fragment assets/bloomscapes-farm-cache.js */ /* @runtime-fragment assets/bloomscapes-farm-publication.js */ /* @runtime-fragment assets/bloomscapes-farm-snapshot.js */ /* @runtime-fragment assets/drive-plant-filter-state.js */ /* @runtime-fragment assets/bloomscapes-farm-state.js */ /* @runtime-fragment assets/bloomscapes-farm-read.js */ /* @runtime-fragment assets/bloomscapes-transfer-order.js */
 /* @runtime-fragment assets/bloomscapes-transfer-submit.js */
-/* @runtime-fragment assets/bloomscapes-transfer-builder.js */
+/* @runtime-fragment assets/bloomscapes-transfer-filters.js */ /* @runtime-fragment assets/bloomscapes-transfer-builder.js */
 /* @runtime-fragment assets/bloomscapes-history.js */
-/* @runtime-fragment assets/bloomscapes-home.js */ /* @runtime-fragment assets/bloomscapes-job-board.js */
+/* @runtime-fragment assets/inventory-browse-workspaces.js */ /* @runtime-fragment assets/inventory-excel-facts.js */ /* @runtime-fragment assets/bloomscapes-message-state.js */ /* @runtime-fragment assets/bloomscapes-message-transport.js */ /* @runtime-fragment assets/bloomscapes-messages.js */ /* @runtime-fragment assets/bloomscapes-planning-card.js */ /* @runtime-fragment assets/bloomscapes-planning-transport.js */ /* @runtime-fragment assets/bloomscapes-planning-state.js */ /* @runtime-fragment assets/bloomscapes-module-access.js */ /* @runtime-fragment assets/bloomscapes-module-access-editor.js */ /* @runtime-fragment assets/bloomscapes-home.js */ /* @runtime-fragment assets/bloomscapes-job-board.js */
 /* @runtime-fragment assets/bloomscapes-field-controls.js */ /* @runtime-fragment assets/bloomscapes-lab.js */ /* @runtime-fragment assets/bloomscapes-lab-controls.js */ /* @runtime-fragment assets/bloomscapes-radio.js */ /* @runtime-fragment assets/bloomscapes-radio-controls.js */
 /* @runtime-fragment assets/bloomscapes-battery-governor.js */
 /* @runtime-fragment assets/bloomscapes-ptt-drafts.js */

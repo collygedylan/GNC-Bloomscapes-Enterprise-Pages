@@ -1,6 +1,6 @@
 function renderBloomscapesWorkCreator(tab) {
     const kind = bloomscapesWorkViewForPanel(tab);
-    return `<section data-work-creator="${kind}">${bloomscapesWorkTypeBar()}
+    return `<section data-work-creator="${kind}"><div data-studio-excel></div>${bloomscapesWorkTypeBar()}
       <div data-work-browser hidden></div><section data-work-row-editor hidden>
       <p data-selected-source>Select a work type, then a Drive Mode row.</p>
       <form data-create-field-work hidden>
@@ -46,6 +46,9 @@ async function mountBloomscapesWorkCreator(host,options={}) {
     form.elements.workView.addEventListener('change',()=>{
         syncBloomscapesWorkCreatorKind(form);refreshBloomscapesWorkBrowser(browser);
     });
+    const modes=browser.querySelector('[data-work-modes]');
+    root.querySelector('[data-work-type-bar]').appendChild(modes);
+    applyInventoryExcelFilters('studio',bloomscapesWorkBrowserRows());
     syncBloomscapesWorkCreatorKind(form);
     bindBloomscapesWorkTypes(root,form,options);
     bindBloomscapesShiftPlan(form);

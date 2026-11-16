@@ -39,7 +39,7 @@ function buildSalesWorkspaceSideBindings(array, read, stateReady) {
 function buildChatSideBindings(array, read, stateReady, emitCommunicationSourceRefresh) {
     return {
         'side:chat': {
-            enabled:ctx=>!nativeAuthSessionActive || ctx.view==='chat',
+            enabled:()=>!nativeAuthSessionActive,
             scope: (ctx) => ctx.username,
             stage: async (ctx) => {
                 const own = array(await chatApiGet(CHAT_PARTICIPANTS_TABLE, `select=*&username=eq.${encodeURIComponent(ctx.username)}&is_archived=eq.false&order=joined_at.desc`, 'Chat participants', ctx)).map(normalizeChatParticipant).filter(Boolean);
@@ -130,8 +130,8 @@ function buildHoldRiskSideBindings(array, read, stateReady) {
         },
         'side:managerEvalSettings': {
             enabled: () => canViewManagerEvalReports() || canViewManagerEvalReports2(),
-            stage: async () => normalizeManagerEvalReportSettings(await supabaseRpc('get_eval_report_settings', {}, { timeoutMs: 15000 })),
-            commit: (value) => { managerEvalReportSettings = value; stateReady(managerEvalReportSettingsState, { fallback: false }); invalidateManagerEvalReportCache(); }
+            stage: async () => nativeAuthSessionActive ? loadBloomscapesEvalSettings() : normalizeManagerEvalReportSettings(await supabaseRpc('get_eval_report_settings', {}, { timeoutMs: 15000 })),
+            commit: (value) => { managerEvalReportSettings = value; stateReady(managerEvalReportSettingsState, { fallback: nativeAuthSessionActive }); invalidateManagerEvalReportCache(); }
         }
     };
 }

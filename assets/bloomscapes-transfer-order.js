@@ -34,8 +34,8 @@ function bloomscapesTransferBlockKey(target) {
     return ['10-PH',target.blockalpha || parts[0],String(target.blocknumber || parts[1] || '').replace(/^0+/, '')].join(':');
 }
 
-function bloomscapesTransferProjection(po,target) {
-    const lines=getBloomscapesTransferState().lines;
+function bloomscapesTransferProjection(po,target,excludeId='') {
+    const lines=getBloomscapesTransferState().lines.filter(line=>line.id!==excludeId);
     const blockKey=bloomscapesTransferBlockKey(target);
     const cpb=Number(target.cpb),total=Number(target.block_total_beds ?? target.bed_capacity);
     const occupied=Number(target.occupied_beds),queued=Number(target.queued_beds || 0);
@@ -56,12 +56,13 @@ function bloomscapesTransferProjection(po,target) {
 
 function addBloomscapesTransferLine(po,target,quantity) {
     if (!target || po.targets && !matchingBloomscapesPoTargets(po).some(row=>row.row_id===target.row_id)) throw new Error('Choose a receiving row matching the PO season and origin.');
-    const state=getBloomscapesTransferState(),q=Number(quantity),projection=bloomscapesTransferProjection(po,target);
+    const state=getBloomscapesTransferState(),q=Number(quantity);
+    const previous=state.lines.find(line=>line.poId===po.po_id && line.targetId===target.row_id);
+    const projection=bloomscapesTransferProjection(po,target,previous?.id);
     if (state.pending.get(po.origin_farm)?.busy) throw new Error('This farm order is being submitted.');
     if (!Number.isSafeInteger(q) || q<=0 || !projection.measured || q>projection.remaining || q>projection.available
         || q>Math.max(projection.space,projection.demand)) throw new Error('Choose a quantity within the available PO, origin stock and receiving plan.');
-    const previous=state.lines.find(line=>line.poId===po.po_id && line.targetId===target.row_id);
-    if (previous) previous.quantity+=q;
+    if (previous) previous.quantity=q;
     else state.lines.push({id:crypto.randomUUID(),poId:po.po_id,targetId:target.row_id,origin:po.origin_farm,
         itemcode:po.itemcode,commonname:po.commonname,location:target.locationcode,lotcode:target.lotcode,
         blockKey:projection.blockKey,cpb:projection.cpb,quantity:q});

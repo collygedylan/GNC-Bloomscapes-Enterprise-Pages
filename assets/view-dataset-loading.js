@@ -18,6 +18,8 @@ function retainPendingRequestDisplayOnReadFailure(viewId) {
 }
 
 function getViewLoadingConfig(viewId) {
+    const nativeKeys=getBloomscapesNativeBrowseKeys(viewId);
+    if (nativeKeys) return {required:nativeKeys.map(key=>({key,mode:'full'})),background:[],label:'Loading inventory cards…'};
     const pagedSurface = getActiveManagerReportPageSurface(viewId);
     if (viewId === 'sales-inventory' || pagedSurface && useManagerReportPages(pagedSurface)) return { required:[], background:[], label:'Loading report rows...' };
     if (canUseProductionLiveSync() && window.AgMetricLiveSyncRegistry.views[viewId]) {

@@ -3,6 +3,7 @@ function bloomscapesRadioAutoPlay() {
     catch {return false;}
 }
 function renderBloomscapesRadioInbox() {
+    syncBloomscapesHomeBadges();
     let host=document.getElementById('bloomscapes-radio-inbox');
     if (!host) {
         const shell=document.getElementById('main-scroll-area');

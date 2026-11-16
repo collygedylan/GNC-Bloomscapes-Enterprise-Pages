@@ -44,7 +44,7 @@ function resolveSuspendOwner(item) {
         return resolveExactSuspendOwner(item, code, state);
     }
     if (typeof nativeAuthSessionActive!=='undefined' && nativeAuthSessionActive && typeof getBloomscapesAssignmentIndex==='function') {
-        return resolveBloomscapesAssignedOwner(item,getBloomscapesAssignmentIndex()) || 'Unassigned';
+        return resolveBloomscapesAssignedOwner(item,getBloomscapesAssignmentIndex()) || bloomscapesOwnerValue(item) || 'Unassigned';
     }
     const { exact, family } = getCardEvalOwnerIndex(state);
     const owner = exact.get(code) || family.get(code.split('.')[0]);

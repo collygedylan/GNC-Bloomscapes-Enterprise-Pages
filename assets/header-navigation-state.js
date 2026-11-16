@@ -6,7 +6,8 @@ function getGlobalHeaderChromeState() {
     const meta = currentView === 'moves' && activeMovesTab === 'office'
         ? { eyebrow: 'Location Move', title: 'Inventory Office' }
         : baseMeta;
-    const moduleTitle = currentView === 'managers' ? bloomscapesWorkflowTab(activeHomeTab)?.label : '';
+    const moduleTitle = bloomscapesDepartmentTitle(currentView)
+        || (currentView === 'managers' ? bloomscapesWorkflowTab(activeHomeTab)?.label : '');
     const resolvedTitle = moduleTitle || meta.title || formatGlobalHeaderTitle(currentView);
     const showHomeBack = currentView === 'home' && backState.showBack;
     const searchContainerId = currentView === 'tasks'

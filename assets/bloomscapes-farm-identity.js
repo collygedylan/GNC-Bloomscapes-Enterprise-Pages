@@ -9,7 +9,7 @@ function bloomscapesOwnerCode(value) {
 }
 
 function bloomscapesOwnerValue(row) {
-    const value = normalizeEvalAssignableUser(row.effective_worker ?? row.assignedto ?? row.ASSIGNEDTO ?? row.default_owner ?? '');
+    const value = normalizeEvalAssignableUser(row.effective_worker_username ?? row.default_owner_username ?? row.effective_worker ?? row.assignedto ?? row.ASSIGNEDTO ?? row.default_owner ?? row.eval_owner ?? row.assigned_to ?? row.eval_user ?? row.EFFECTIVE_WORKER_ID ?? '');
     return ['none','null','unassigned','n_a'].includes(value) ? '' : value;
 }
 
