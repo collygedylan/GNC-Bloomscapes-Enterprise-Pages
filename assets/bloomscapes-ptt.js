@@ -7,7 +7,10 @@ function releaseBloomscapesHardwareStream(stream) {
     stream?.getTracks().forEach(track=>track.stop());
 }
 function radioRecordingMime() {
-    return ['audio/webm;codecs=opus','audio/mp4','audio/ogg;codecs=opus']
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || /Mac/.test(navigator.userAgent) && navigator.maxTouchPoints>1;
+    const formats = ios ? ['audio/mp4','audio/aac','audio/webm;codecs=opus','audio/ogg;codecs=opus']
+        : ['audio/webm;codecs=opus','audio/mp4','audio/aac','audio/ogg;codecs=opus'];
+    return formats
         .find(mime=>MediaRecorder.isTypeSupported(mime));
 }
 async function commitBloomscapesRecording(state,recording) {

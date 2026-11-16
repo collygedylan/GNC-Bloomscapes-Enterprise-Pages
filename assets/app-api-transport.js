@@ -314,15 +314,6 @@ async function uploadNativeDrivePhotoPart(path, blob, headers, currentOwner, opt
         await write();
     }
 }
-function readNativeDrivePhotoContent(file) {
-    return new Promise((resolve,reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result).split(',')[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-    });
-}
-
 async function uploadDrivePhotoWithNativeSession(formData, options = {}) {
     const prefix = String(formData.get('prefix') || '');
     if (!SECURE_DRIVE_EVIDENCE_PREFIXES.has(prefix)) throw new Error('Native photo upload requires a Drive evidence row.');
@@ -338,47 +329,14 @@ async function uploadDrivePhotoWithNativeSession(formData, options = {}) {
     if (!headers?.Authorization) headers = await readHeaders(true);
     assertCurrentPhotoUpload(currentOwner, options);
     if (!headers?.Authorization) throw nativeSessionRecoveryError();
-    const { file, filePath, parts, bucketName } = await getNativeDrivePhotoObject(formData, prefix, masterUid);
-    const state = getDrivePhotoGatewayState();
-    const uploaded = {ok:true, publicUrl:SUPABASE_URL + '/storage/v1/object/public/' + bucketName + '/' + filePath, filePath, bucketName};
-    try {
-        if ((options.attachPhoto && parts.some(([,blob]) => !blob)) || Date.now() < state.storageGatewayCooldownUntil) {
-            throw Object.assign(new Error('Storage cooldown.'), { code:'STORAGE_COOLDOWN' });
-        }
-        const send = ([path, blob]) => uploadNativeDrivePhotoPart(bucketName + '/' + path, blob, headers, currentOwner, options);
-        await send(parts.at(-1));
-        assertCurrentPhotoUpload(currentOwner, options);
-        uploaded.thumbnailUploads = Promise.allSettled(parts.slice(0,-1).filter(([,blob]) => blob).map(send));
-        options.onStorageUploaded?.(uploaded);
-        return uploaded;
-    } catch (error) {
-        assertCurrentPhotoUpload(currentOwner, options);
-        if (error?.code === '42501') throw error;
-        if (options.singleUploadAttempt && isTransientPhotoUploadFailure(error)) throw error;
-        if (currentOwner() && state.owner === owner && isTransientPhotoUploadFailure(error)) rememberDrivePhotoGatewayFailure(state);
-    }
-    const content = await readNativeDrivePhotoContent(file);
-    const attachPhoto = options.attachPhoto === true;
-    const command = attachPhoto ? {p_workflow:getSecureDriveEvidenceWorkflow(prefix), p_idempotency_key:'photo-' + options.attachmentId} : {};
-    const store = auth => fetchWithTimeout(SUPABASE_URL + '/rest/v1/rpc/' + (attachPhoto ? 'attach_drive_photo_blob_v1' : 'store_drive_photo_blob_v1'), {
-        method:'POST', headers:{...auth,'Content-Type':'application/json'}, referrerPolicy:'no-referrer', signal:options.signal, photoUploadAttempt:true,
-        body:JSON.stringify({p_path:filePath,p_content:content,p_content_type:file.type,...command})
-    }, 25000, 'Database photo recovery', async response => ({ok:response.ok, status:response.status, saved:await response.json()}));
-    assertCurrentPhotoUpload(currentOwner, options);
-    let response = await store(headers);
-    if (response.status === 401) {
-        const failure = response.saved;
-        if (['PGRST301','PGRST303','AUTH_REQUIRED'].includes(failure?.code)) {
-            const renewed = await readHeaders(true);
-            assertCurrentPhotoUpload(currentOwner, options);
-            if (renewed?.Authorization) response = await store(renewed);
-        }
-    }
-    const saved = response.saved;
-    assertCurrentPhotoUpload(currentOwner, options);
-    if (!response.ok || !saved?.id) throw Object.assign(new Error(saved?.message || 'Photo recovery did not confirm the upload.'),{status:response.status});
-    return {ok:true,publicUrl:APP_API_FUNCTION_URL + '?photo_blob=' + saved.id,filePath,fileName:String(formData.get('fileName')||''),bucketName,
-        storage:'postgres',...(saved.receipt ? {receipt:{...saved.receipt,writeConfirmed:true}} : {})};
+    const { filePath, parts, bucketName } = await getNativeDrivePhotoObject(formData, prefix, masterUid);
+    const uploaded = {ok:true,publicUrl:SUPABASE_URL+'/storage/v1/object/public/'+bucketName+'/'+filePath,filePath,bucketName};
+    const send = ([path,blob])=>uploadNativeDrivePhotoPart(bucketName+'/'+path,blob,headers,currentOwner,options);
+    await send(parts.at(-1));
+    assertCurrentPhotoUpload(currentOwner,options);
+    uploaded.thumbnailUploads = Promise.allSettled(parts.slice(0,-1).filter(([,blob])=>blob).map(send));
+    options.onStorageUploaded?.(uploaded);
+    return uploaded;
 }
 async function postAppFunctionJson(url, body, options = {}) {
     const command = JSON.parse(JSON.stringify(body || {}));

@@ -17,6 +17,8 @@ function confirmBloomscapesFarmSwitch(previous,next,initial=false) {
     state.promise = new Promise(resolve=>bindBloomscapesFarmDialog(state,select,resolve,initial,next));
     bloomscapesFarmDialog = state;
     document.body.appendChild(dialog);
+    document.getElementById('mobile-push-enable-prompt')?.remove();
+    document.body.classList.add('bloomscapes-farm-choosing');
     dialog.showModal();
     return state.promise;
 }
@@ -39,18 +41,21 @@ function bindBloomscapesFarmDialog(state,select,resolve,initial,next) {
         bloomscapesFarmDialog = null;
         state.dialog.close();
         state.dialog.remove();
+        document.body.classList.remove('bloomscapes-farm-choosing');
         resolve(state.owner===String(currentUser) ? value : false);
     };
     const confirm = state.dialog.appendChild(document.createElement('button'));
     confirm.type = 'button';
     confirm.textContent = initial ? 'Use this farm' : `Confirm Switch to ${next}`;
-    const prepare = prepareBloomscapesFarmConfirmation(state,confirm,select,next);
-    confirm.addEventListener('click',event=>{
-        event.stopPropagation();
-        const farm = select ? select.value : next;
-        if (!getBloomscapesWarmFarm(farm)) { prepare();return; }
-        finish(select ? select.value : true);
-    });
+    const choose = farm => {
+        if (bloomscapesFarmDialog!==state || state.owner!==String(currentUser)
+            || !getBloomscapesAllowedFarms().includes(farm)) return;
+        const pending = selectBloomscapesFarm(farm);
+        finish(initial ? farm : true);
+        void pending.catch(error=>showToast('Farm selection',error.message,true));
+    };
+    bindBloomscapesFarmTouch(confirm,()=>choose(select ? select.value : next));
+    appendBloomscapesFarmPills(state.dialog,choose);
     if (!initial) {
         const cancel = state.dialog.appendChild(document.createElement('button'));
         cancel.type = 'button';
@@ -63,26 +68,27 @@ function bindBloomscapesFarmDialog(state,select,resolve,initial,next) {
     });
 }
 
-function prepareBloomscapesFarmConfirmation(state,confirm,select,next) {
-    const title = confirm.textContent;
-    const prepare = () => {
-        const farm = select ? select.value : next;
-        confirm.disabled = true;
-        void ensureBloomscapesWarmFarm(farm).then(()=>{
-            if (bloomscapesFarmDialog!==state || select && select.value!==farm) return;
-            confirm.disabled = false;
-            confirm.textContent = title;
-        }).catch(error=>{
-            if (bloomscapesFarmDialog!==state) return;
-            const status = state.dialog.querySelector('p');
-            status.textContent = error.message;
-            confirm.textContent = 'Retry inventory';
-            confirm.disabled = false;
-        });
+function bindBloomscapesFarmTouch(button,command) {
+    let activated = false;
+    const activate = event => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (activated) return;
+        activated = true;
+        command();
     };
-    select?.addEventListener('change',prepare);
-    prepare();
-    return prepare;
+    for (const type of ['click','touchend','pointerup']) button.addEventListener(type,activate);
+}
+
+function appendBloomscapesFarmPills(dialog,choose) {
+    const pills = dialog.appendChild(document.createElement('div'));
+    pills.className = 'bloomscapes-farm-pills';
+    for (const farm of getBloomscapesAllowedFarms()) {
+        const button = pills.appendChild(document.createElement('button'));
+        button.type = 'button';
+        button.textContent = farm;
+        bindBloomscapesFarmTouch(button,()=>choose(farm));
+    }
 }
 
 async function syncBloomscapesFarmSelector() {

@@ -16,24 +16,31 @@ function bloomscapesFarmRowIsVisible(row) {
     return rowFarm === farm;
 }
 
-async function selectBloomscapesFarm(farm) {
+function selectBloomscapesFarm(farm) {
     getBloomscapesFarm();
-    if (!bloomscapesFarmState.loaded) await ensureBloomscapesFarmAccess();
-    const state = bloomscapesFarmState, previous = state.farm;
-    if (!state.allowed.includes(farm)) throw new Error('Choose one of your permitted farms.');
-    if (state.busy) return previous;
+    const state = bloomscapesFarmState;
+    if (!state.loaded) return ensureBloomscapesFarmAccess().then(()=>selectBloomscapesFarm(farm));
+    if (!state.allowed.includes(farm)) return Promise.reject(new Error('Choose one of your permitted farms.'));
+    if (state.busy) return farm===state.farm ? state.selection : Promise.reject(new Error('Farm inventory is still loading.'));
+    const previous = state.farm;
+    rememberBloomscapesFarmPublication();
+    state.farm = farm;
+    state.confirmed = true;
     state.busy = true;
+    persistBloomscapesSessionFarm(state);
+    const selector = document.getElementById('bloomscapes-farm-selector');
+    if (selector) selector.value = farm;
+    if (previous!==farm) { resetBloomscapesFarmNavigation(); switchView('home'); }
+    state.selection = hydrateBloomscapesChosenFarm(state,farm);
+    return state.selection;
+}
+
+async function hydrateBloomscapesChosenFarm(state,farm) {
     try {
-        const warm = getBloomscapesWarmFarm(farm);
-        const snapshot = warm || await ensureBloomscapesWarmFarm(farm);
-        if (state!==bloomscapesFarmState) throw new Error('Signed-in account changed.');
-        rememberBloomscapesFarmPublication();
-        state.farm = farm;
-        if (previous!==farm) resetBloomscapesFarmNavigation();
+        const snapshot = getBloomscapesWarmFarm(farm) || await ensureBloomscapesWarmFarm(farm);
+        if (state!==bloomscapesFarmState || state.farm!==farm) throw new Error('Signed-in account changed.');
         activateBloomscapesWarmFarm(snapshot);
         state.readyFarm = farm;
-        state.confirmed = true;
-        persistBloomscapesSessionFarm(state);
         globalThis.dispatchEvent?.(new CustomEvent('bloomscapes-farm-ready'));
         renderBloomscapesFarmNavigation();
         void refreshBloomscapesWarmFarm(farm);
@@ -41,10 +48,9 @@ async function selectBloomscapesFarm(farm) {
         if (typeof ensureBloomscapesFieldQueue==='function') void ensureBloomscapesFieldQueue(true).catch(error=>
             globalThis.reportHandledRuntimeIssue?.('field_work_queue',error.code || 'FIELD_WORK_READ_FAILED'));
         return farm;
-    } catch(error) {
-        if (state===bloomscapesFarmState) state.farm = previous;
-        throw error;
-    } finally { state.busy = false; }
+    } finally {
+        if (state===bloomscapesFarmState) { state.busy = false; state.selection = null; }
+    }
 }
 
 function bloomscapesFarmNeedsHydration() {
@@ -96,7 +102,8 @@ async function readBloomscapesFarmAccess(state) {
 
 function readBloomscapesSessionFarm(state) {
     try {
-        const saved = JSON.parse(globalThis.sessionStorage?.getItem(BLOOMSCAPES_SESSION_FARM_KEY) || 'null');
+        const saved = JSON.parse(globalThis.sessionStorage?.getItem(BLOOMSCAPES_SESSION_FARM_KEY)
+            || globalThis.localStorage?.getItem(BLOOMSCAPES_SESSION_FARM_KEY) || 'null');
         return saved?.owner===state.owner && state.allowed.includes(saved.farm) ? saved.farm : '';
     } catch {
         globalThis.reportHandledRuntimeIssue?.('farm_session_restore','HANDLED_OPERATION_FAILURE');
@@ -106,8 +113,9 @@ function readBloomscapesSessionFarm(state) {
 
 function persistBloomscapesSessionFarm(state) {
     try {
-        globalThis.sessionStorage?.setItem(BLOOMSCAPES_SESSION_FARM_KEY,
-            JSON.stringify({owner:state.owner,farm:state.farm}));
+        const saved=JSON.stringify({owner:state.owner,farm:state.farm});
+        globalThis.sessionStorage?.setItem(BLOOMSCAPES_SESSION_FARM_KEY,saved);
+        globalThis.localStorage?.setItem(BLOOMSCAPES_SESSION_FARM_KEY,saved);
     } catch {
         globalThis.reportHandledRuntimeIssue?.('farm_session_save','HANDLED_OPERATION_FAILURE');
     }

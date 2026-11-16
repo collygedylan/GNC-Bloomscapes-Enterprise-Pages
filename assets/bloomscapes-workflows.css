@@ -97,8 +97,8 @@
 [data-bloomscapes-table-counts] { overflow: auto; max-height: 45dvh; }
 [data-bloomscapes-table-counts] th, [data-bloomscapes-table-counts] td { padding: .3rem .6rem; text-align: left; }
 html body.ops-precision-pilot.current-view-home.home-dashboard-mode #app-wrapper #view-home #home-dashboard-grid[data-bloomscapes-home] {
-  grid-template-columns: repeat(5,minmax(0,1fr)) !important;
-  grid-template-rows: repeat(3,minmax(0,1fr)) !important;
+  grid-template-columns: repeat(var(--home-fit-columns,3),minmax(0,1fr)) !important;
+  grid-template-rows: repeat(var(--home-fit-rows,5),var(--home-fit-tile-height,60px)) !important;
   grid-auto-rows: var(--home-fit-tile-height,60px) !important;
   gap: var(--home-fit-row-gap,4px) var(--home-fit-col-gap,4px) !important;
 }
@@ -285,6 +285,12 @@ html body #app-wrapper #av-filter-options > .av-filter-shell {flex:0 0 112px !im
 html body #app-wrapper #av-filter-options :is(.inventory-excel-bar,.inventory-excel-fields) {display:contents !important;}
 html body #app-wrapper #av-filter-options .inventory-excel-chips {display:none;}
 [data-av-more] > summary {cursor:pointer;padding:.35rem;color:#b9f7cc;}
+
+.bloomscapes-farm-dialog button {touch-action:manipulation;position:relative;z-index:2147483647;pointer-events:auto;min-height:44px}
+.bloomscapes-farm-pills {display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.bloomscapes-farm-pills button {flex:1;min-width:85px;border-radius:999px}
+body.bloomscapes-farm-choosing #mobile-push-enable-prompt {display:none!important}
+@media(max-width:899px) {input,select,textarea {font-size:16px!important}}
 
 [data-comm-hub] {--comm-line:#356346;--comm-soft:#a5c9af;color:#eefbf1;background:linear-gradient(145deg,#103220,#081c12);border:1px solid var(--comm-line);border-radius:16px;min-width:0;padding:14px;}
 [data-comm-hub] * {box-sizing:border-box;}

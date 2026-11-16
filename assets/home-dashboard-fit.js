@@ -22,7 +22,7 @@ function calculateHomeDashboardFit(input) {
     const {profile,tileCount,gridWidth,availableHeight,expanded} = input;
     const clamp = (value,min,max)=>Math.max(min,Math.min(max,value));
     const compact = profile.width<768;
-    const columns = expanded ? 5 : compact?2:getHomeDesktopColumnCount(tileCount);
+    const columns = expanded ? (profile.width>=900 ? 5 : 3) : compact?2:getHomeDesktopColumnCount(tileCount);
     const rows = Math.max(1,Math.ceil(tileCount/columns));
     const minimum = expanded ? 44 : compact?54:72;
     let rowGap = compact?4:12;
@@ -47,6 +47,7 @@ function applyHomeDashboardFit(homeView,fit,key) {
         '--home-phone-tile-gap':fit.gap,'--home-phone-icon-size':fit.icon,'--home-phone-label-size':fit.label};
     for (const [name,value] of Object.entries(values)) homeView.style.setProperty(name,value+'px');
     homeView.style.setProperty('--home-fit-columns',String(fit.columns));
+    homeView.style.setProperty('--home-fit-rows',String(fit.rows));
     homeView.dataset.homeFitComplete = String(fit.fitHeight>=fit.minimum);
     homeView.dataset.homeFitColumns = String(fit.columns);
     homeView.dataset.homeFitRows = String(fit.rows);

@@ -28,7 +28,8 @@ async function persistDrivePhotoAttachment(job) {
         job.baseline = buildSecureDriveEvidenceBaseline(current);
         job.payload = {
             photo_link: appendPhotoCsvValue(job.baseline.photo_link, job.upload.publicUrl),
-            photo_name: appendPhotoCsvValue(job.baseline.photo_name, job.upload.fileName)
+            photo_name: appendPhotoCsvValue(job.baseline.photo_name, job.upload.fileName),
+            photo_date:rowPhotoCaptureDate(new Date(job.preview.createdAt))
         };
     }
     // The location-scoped RPC owns authorization, replay, and serialization.
@@ -91,6 +92,7 @@ function stageDetailPhotoCapture(job) {
 }
 
 function queueDrivePhotoAttachment(item, prefix, file, fileName, formFields = null, inquiry = null) {
+    if (!isPhotoMutationSurface(prefix)) return false;
     markLocalRowSaveRefreshQuiet('photo-attachment');
     const localBlobUrl = URL.createObjectURL(file);
     const preview = createPendingPhotoPreview(item, prefix, localBlobUrl, fileName);
