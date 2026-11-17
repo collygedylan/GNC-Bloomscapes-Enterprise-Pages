@@ -361,7 +361,7 @@ html body #app-wrapper #view-drive .inventory-excel-bar[data-inventory-excel-sco
 html body #request-filter-toolbar .request-category-options { display:block; min-width:110px; flex:1 1 110px; }
 html body #request-filter-toolbar [data-job-board-tools] { flex:2 1 210px; }
 html body #view-drive #drive-toolbar-rail > [data-inventory-excel-scope="drive"] { grid-column:auto; padding:0; min-width:100px; }
-html body #app-wrapper #view-request [data-inventory-excel-scope="request"] { display:block!important; }
+html body #app-wrapper #view-request [data-inventory-excel-scope="request"] { display:contents!important; }
 html body #global-header-search-slot { flex:1 1 0; min-width:0; }
 html body #global-header-search-row > #footer-cart-btn { order:2; }
 html body #bloomscapes-home-search { width:100%; min-width:0; height:36px; }

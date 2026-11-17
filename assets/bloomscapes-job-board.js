@@ -12,8 +12,7 @@ function syncBloomscapesJobBoardToolbar(toolbar) {
     if (!tools) {
         tools = toolbar.appendChild(document.createElement('div'));
         tools.dataset.jobBoardTools = 'true';
-        tools.innerHTML = '<label>Block / Location <input data-job-filter="block" type="search" aria-label="Job Block or Location"></label>'
-            + '<label>Search <input data-job-filter="search" type="search" aria-label="Search Job Board"></label>';
+        tools.innerHTML = '<label>Block / Location <input data-job-filter="block" type="search" aria-label="Job Block or Location"></label>';
         tools.addEventListener('input',event=>{
             const key = event.target.dataset.jobFilter;
             if (key) setBloomscapesJobBoardFilter(key,event.target.value);

@@ -73,7 +73,8 @@ function mountBloomscapesDepartmentShortcuts(view) {
     const links = BLOOMSCAPES_DEPARTMENT_LINKS[view];
     const root = document.getElementById('view-'+view);
     if (!links || !root || !nativeAuthSessionActive || !canAccessView(view)) return;
-    if (view==='hl-order' || bloomscapesDepartmentTabs.get(bloomscapesDepartmentKey(view))==='bloomscapes-studio') {
+    if (view==='hl-order' || view==='managers' && activeHomeTab===MANAGER_EVAL_REPORTS_2_VIEW
+        || bloomscapesDepartmentTabs.get(bloomscapesDepartmentKey(view))==='bloomscapes-studio') {
         root.querySelector(':scope > [data-department-shortcuts]')?.remove();
         return;
     }

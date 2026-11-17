@@ -68,91 +68,6 @@ html body:is(.current-view-drive, .current-view-av, .current-view-request, .curr
   }
 }
 
-/* The two rows share a grid. Common name gets two shares in the first row. */
-#view-drive .drive-controls-sticky {
-  container: drive-filter-band / inline-size;
-}
-
-html body #app-wrapper #view-drive #drive-toolbar-rail {
-  display: grid !important;
-  grid-template-columns: repeat(15, minmax(0, 1fr));
-  gap: 6px !important;
-  overflow: visible !important;
-}
-
-html body #app-wrapper #view-drive #drive-toolbar-rail
-  > :is(#drive-mobile-mode, .drive-excel-filter-pill, #drive-filters-btn) {
-  justify-content: center;
-  width: 100% !important;
-  min-width: 0 !important;
-  height: 38px !important;
-  min-height: 38px !important;
-  max-height: 38px !important;
-  padding-inline: 4px !important;
-  font-size: 13px !important;
-  background-position: right 2px center !important;
-}
-
-html body #app-wrapper #view-drive #drive-toolbar-rail > #drive-mobile-mode {
-  grid-column: span 6;
-  max-width: 320px !important;
-  padding-inline: 8px 16px !important;
-  background-position: right 6px center !important;
-}
-
-#drive-toolbar-rail > :is(#drive-excel-salesyear-btn, #drive-excel-season-btn, #drive-excel-lotcode-btn) {
-  grid-column: span 3;
-}
-
-#drive-toolbar-rail > :is(#drive-excel-contsize-btn, #drive-excel-holdstopcode-btn, #drive-filters-btn) {
-  grid-column: span 5;
-}
-
-@container drive-filter-band (max-width: 340px) {
-  html body #app-wrapper #view-drive #drive-toolbar-rail {
-    grid-template-columns: repeat(18, minmax(0, 1fr));
-    column-gap: 4px !important;
-  }
-
-  html body #app-wrapper #view-drive #drive-toolbar-rail > #drive-mobile-mode {
-    grid-column: span 8;
-    padding-inline: 4px 13px !important;
-    background-position: right 4px center !important;
-  }
-
-  html body #app-wrapper #view-drive #drive-toolbar-rail > .drive-excel-filter-pill {
-    padding-inline: 2px 7px !important;
-  }
-
-  #drive-toolbar-rail > #drive-excel-season-btn {
-    grid-column: span 4;
-  }
-
-  #drive-toolbar-rail > :is(#drive-excel-contsize-btn, #drive-excel-holdstopcode-btn, #drive-filters-btn) {
-    grid-column: span 6;
-  }
-}
-
-/* 180px + six 105px columns, six 6px gaps, and 12px rail padding. */
-@container drive-filter-band (min-width: 858px) {
-  html body #app-wrapper #view-drive #drive-toolbar-rail {
-    grid-template-columns: minmax(180px, var(--drive-mode-column, 1.8fr)) repeat(6, minmax(105px, 1fr));
-  }
-
-  html body #app-wrapper #view-drive #drive-toolbar-rail
-    > :is(#drive-mobile-mode, .drive-excel-filter-pill, #drive-filters-btn) {
-    grid-column: auto;
-    font-size: 14px !important;
-  }
-}
-
-/* The 1.8fr column reaches its 320px cap at this container width. */
-@container drive-filter-band (min-width: 1435px) {
-  #drive-toolbar-rail {
-    --drive-mode-column: 320px;
-  }
-}
-
 /* Que keeps Back/search first, then category buttons and the other commands. */
 html body.current-view-request #app-wrapper :is(#view-request, #request-content) {
   box-sizing: border-box;
@@ -389,4 +304,56 @@ html body.ops-precision-pilot #view-detail button[aria-label="Delete photo"] {
 
 html body.ops-precision-pilot #view-detail button[aria-label="Delete photo"] > span {
   display: none;
+}
+
+/* Compact operational filter owners: shared controls retain their commands. */
+html body #app-wrapper #view-drive #drive-toolbar-rail {
+  display:grid!important; grid-template-columns:1fr 1fr!important; gap:6px!important;
+  padding:6px 8px!important; height:auto!important; min-height:0!important; overflow:visible!important;
+}
+html body #app-wrapper #view-drive #drive-toolbar-rail > :is(#drive-excel-salesyear-btn,#drive-excel-season-btn,#drive-excel-lotcode-btn,#drive-filters-btn) { display:none!important; }
+html body #app-wrapper #view-drive #drive-toolbar-rail[data-universal-drive-toolbar] > :is(#drive-mobile-mode,#drive-excel-contsize-btn,#drive-excel-holdstopcode-btn) {
+  width:100%!important; min-width:0!important; max-width:none!important; height:36px!important; min-height:36px!important; max-height:36px!important; grid-column:auto!important;
+}
+html body #app-wrapper #view-drive #drive-toolbar-rail > [data-inventory-excel-scope="drive"] {
+  display:block!important; min-width:0!important; padding:0!important; margin:0!important; border:0!important; background:none!important;
+}
+html body #app-wrapper #view-drive [data-inventory-excel-scope="drive"] .inventory-excel-field { gap:0!important; }
+html body #app-wrapper #view-drive [data-inventory-excel-scope="drive"] .inventory-excel-field > span { display:none!important; }
+html body #app-wrapper #view-drive [data-inventory-excel-scope="drive"] select {
+  height:36px!important; min-height:36px!important; margin:0!important; border-radius:8px!important;
+}
+html body #app-wrapper #view-drive #drive-advanced-filters { display:none!important; }
+html body #app-wrapper #view-request > [data-job-board-header] { padding:0!important; overflow:visible!important; }
+html body #app-wrapper #view-request #request-filter-toolbar {
+  display:grid!important; grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important; align-items:end;
+  gap:6px!important; padding:6px 8px!important; overflow:visible!important; height:auto!important; max-height:none!important;
+}
+html body #app-wrapper #view-request #request-filter-toolbar :is([data-job-board-tools],[data-inventory-excel-scope]) { display:contents!important; }
+html body #app-wrapper #request-filter-toolbar .request-category-options { order:0; min-width:0!important; }
+html body #app-wrapper #request-filter-toolbar .bloomscapes-compact-select { order:1; }
+html body #app-wrapper #request-filter-toolbar [data-job-board-tools] > label { order:2; min-width:0; }
+html body #app-wrapper #request-filter-toolbar .bloomscapes-extra-filters { order:3; min-width:0; align-self:end; }
+html body #app-wrapper #request-filter-toolbar :is(select,input,summary) {
+  width:100%!important; min-width:0!important; min-height:36px!important; box-sizing:border-box; margin:0!important;
+}
+html body #app-wrapper #request-filter-toolbar :is(label,span) { white-space:nowrap; overflow:visible; }
+html body #app-wrapper #request-filter-toolbar .bloomscapes-extra-filters[open] { grid-column:1/-1; }
+html body #app-wrapper #view-docks [data-docks-excel-drawer] { position:static!important; width:100%; min-width:0; }
+html body #app-wrapper #view-docks [data-docks-excel-fields] .inventory-excel-bar {
+  position:static!important; inset:auto!important; transform:none!important; width:100%!important; max-height:none!important;
+}
+html body #app-wrapper #view-docks [data-docks-excel-drawer]:not([open]) > [data-docks-excel-fields] { display:none!important; }
+html body #app-wrapper #view-drive [data-inventory-excel-scope="drive"] .bloomscapes-extra-filters { display:none!important; }
+
+html body #app-wrapper #view-request #request-filter-toolbar > .request-category-options:not([hidden]) {
+  grid-area:auto!important; height:auto!important; display:block!important; overflow:visible!important;
+}
+html body #app-wrapper #view-request #request-filter-toolbar label { display:flex; flex-direction:column; gap:3px; margin:0!important; padding:0!important; border:0!important; min-height:0!important; line-height:14px; }
+html body #app-wrapper #view-request #request-filter-toolbar label > span { display:block; height:14px; line-height:14px; font-size:11px; margin:0!important; }
+html body #app-wrapper #view-request #request-filter-toolbar :is(select,input) { height:36px!important; min-height:36px!important; font-size:12px!important; }
+html body #app-wrapper #view-request #request-filter-toolbar input[data-job-filter] { height:36px!important; min-height:36px!important; font-size:12px!important; }
+
+@media(max-width:430px) {
+  html body.current-view-drive #app-wrapper #app-top-chrome #global-header-search-row > #footer-cart-btn { display:none!important; }
 }

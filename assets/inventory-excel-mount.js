@@ -15,11 +15,29 @@ function getInventoryExcelHost(scope) {
     }
     if (scope === 'drive') return host.querySelector('#drive-toolbar-rail');
     if (scope === 'av') return host.querySelector('#av-filter-options');
-    if (scope === 'suspend') return host.querySelector('[data-inventory-excel-mount="suspend"]');
+    if (scope === 'docks') return getBloomscapesDocksFilterHost(host);
+    if (scope === 'suspend') return host.querySelector('#request-filter-toolbar');
     if (hosts[scope] === 'view-request') return host.querySelector('#request-filter-toolbar');
     if (scope === 'eval2') return host.querySelector('.manager-eval2-native-filters .mobile-browse-filter-panel');
     return host;
 }
+
+function getBloomscapesDocksFilterHost(root) {
+    mountDocksFilterDisclosure(root);
+    const controls=root.querySelector('#docks-filter-controls');
+    if (!controls) return null;
+    controls.parentElement.dataset.docksExcelDrawer='true';
+    let host=controls.querySelector('[data-docks-excel-fields]');
+    if (!host) {
+        host=document.createElement('div');
+        host.dataset.docksExcelFields='true';
+        controls.appendChild(host);
+    }
+    const existing=root.querySelector(':scope > [data-inventory-excel-scope="docks"]');
+    if (existing) host.appendChild(existing);
+    return host;
+}
+
 function getVisibleInventoryExcelFields(scope) {
     return getInventoryExcelFields(scope).filter(([field]) => scope !== 'av' || getAvPhotoMode() !== 'valid_photos' || field !== 'season');
 }
@@ -36,4 +54,58 @@ function mountInventoryExcelFilters(scope) {
     if(bar.dataset.signature===signature) return;
     bar.dataset.signature=signature;
     bar.innerHTML=inventoryExcelBarHtml(scope);
+}
+
+function ensureDriveToolbarControls() {
+    const rail = document.getElementById('drive-toolbar-rail');
+    if (!rail) return false;
+    rail.classList.remove('mobile-browse-rail', 'hidden');
+    rail.hidden = false;
+    const mode = document.getElementById('drive-mobile-mode');
+    if (mode && mode.parentElement !== rail) rail.prepend(mode);
+
+    const retained=document.getElementById('drive-advanced-filters');
+    for (const id of ['drive-excel-salesyear-btn','drive-excel-season-btn','drive-excel-lotcode-btn','drive-filters-btn']) {
+        const control=document.getElementById(id);
+        if (control && retained && rail.contains(control)) retained.appendChild(control);
+    }
+
+    const state = getInventoryExcelState('drive');
+    let next = rail.querySelector('[data-inventory-excel-scope="drive"]');
+    for (const [key, label] of getDriveExcelHeaderFields().filter(([key])=>['contsize','holdstopcode'].includes(key)).reverse()) {
+        let button = document.getElementById('drive-excel-' + key + '-btn')
+            || rail.querySelector('[data-drive-excel-field="' + key + '"]');
+        if (!button) {
+            button = document.createElement('button');
+            button.type = 'button';
+        }
+        button.id = 'drive-excel-' + key + '-btn';
+        button.classList.add('drive-excel-filter-pill');
+        button.classList.remove('hidden');
+        button.hidden = false;
+        button.dataset.excelField = key;
+        button.dataset.driveExcelField = key;
+        button.setAttribute('aria-haspopup', 'dialog');
+        const action = "return openInventoryExcelFilter('drive',this.dataset.excelField,this)";
+        if (button.getAttribute('onclick') !== action) button.setAttribute('onclick', action);
+        const text = label;
+        if (state.filters[key]) button.dataset.filterCount = String(state.filters[key].size); else delete button.dataset.filterCount;
+        button.setAttribute('aria-label',label + (state.filters[key] ? ' (' + state.filters[key].size + ' selected)' : ''));
+        if (button.textContent !== text) button.textContent = text;
+        for (const [property, value] of [['display', 'inline-flex'], ['visibility', 'visible'], ['opacity', '1']]) {
+            if (button.style.getPropertyValue(property) !== value || button.style.getPropertyPriority(property) !== 'important')
+                button.style.setProperty(property, value, 'important');
+        }
+        if (button.parentElement !== rail || button.nextElementSibling !== next) rail.insertBefore(button, next);
+        next = button;
+    }
+    if (mode && mode.nextElementSibling !== next) rail.insertBefore(mode, next);
+
+    // Recover controls from older mobile disclosure markup before removing its wrapper.
+    for (const id of ['drive-advanced-filters', 'drive-drill-tabs']) {
+        const control = document.getElementById(id);
+        if (control && rail.contains(control)) rail.after(control);
+    }
+    rail.querySelectorAll(':scope > .mobile-browse-filters,#drive-excel-header-filters').forEach(node => node.remove());
+    return true;
 }

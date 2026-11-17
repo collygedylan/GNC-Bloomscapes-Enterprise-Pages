@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.08';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.09';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -23822,7 +23822,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.08';
+        const APP_VERSION = '3.1.09';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -143417,65 +143417,6 @@ function finishAppSessionBootFallback(reason) {
 }
 
 // One DOM toolbar for every Drive level and device; preserve mounted nodes and focus.
-function ensureDriveToolbarControls() {
-    const rail = document.getElementById('drive-toolbar-rail');
-    if (!rail) return false;
-    rail.classList.remove('mobile-browse-rail', 'hidden');
-    rail.hidden = false;
-    const mode = document.getElementById('drive-mobile-mode');
-    if (mode && mode.parentElement !== rail) rail.prepend(mode);
-
-    let filtersBtn = document.getElementById('drive-filters-btn');
-    if (!filtersBtn) {
-        filtersBtn = document.createElement('button');
-        filtersBtn.id = 'drive-filters-btn';
-        filtersBtn.type = 'button';
-        filtersBtn.textContent = 'Filters';
-        filtersBtn.setAttribute('onclick', 'return toggleDriveAdvancedFilters(this)');
-        filtersBtn.setAttribute('aria-controls', 'drive-advanced-filters');
-        filtersBtn.setAttribute('aria-haspopup', 'dialog');
-    }
-    if (filtersBtn.parentElement !== rail) rail.appendChild(filtersBtn);
-
-    const state = getInventoryExcelState('drive');
-    let next = filtersBtn;
-    for (const [key, label] of getDriveExcelHeaderFields().slice().reverse()) {
-        let button = document.getElementById('drive-excel-' + key + '-btn')
-            || rail.querySelector('[data-drive-excel-field="' + key + '"]');
-        if (!button) {
-            button = document.createElement('button');
-            button.type = 'button';
-        }
-        button.id = 'drive-excel-' + key + '-btn';
-        button.classList.add('drive-excel-filter-pill');
-        button.classList.remove('hidden');
-        button.hidden = false;
-        button.dataset.excelField = key;
-        button.dataset.driveExcelField = key;
-        button.setAttribute('aria-haspopup', 'dialog');
-        const action = "return openInventoryExcelFilter('drive',this.dataset.excelField,this)";
-        if (button.getAttribute('onclick') !== action) button.setAttribute('onclick', action);
-        const text = label;
-        if (state.filters[key]) button.dataset.filterCount = String(state.filters[key].size); else delete button.dataset.filterCount;
-        button.setAttribute('aria-label',label + (state.filters[key] ? ' (' + state.filters[key].size + ' selected)' : ''));
-        if (button.textContent !== text) button.textContent = text;
-        for (const [property, value] of [['display', 'inline-flex'], ['visibility', 'visible'], ['opacity', '1']]) {
-            if (button.style.getPropertyValue(property) !== value || button.style.getPropertyPriority(property) !== 'important')
-                button.style.setProperty(property, value, 'important');
-        }
-        if (button.parentElement !== rail || button.nextElementSibling !== next) rail.insertBefore(button, next);
-        next = button;
-    }
-    if (mode && mode.nextElementSibling !== next) rail.insertBefore(mode, next);
-
-    // Recover controls from older mobile disclosure markup before removing its wrapper.
-    for (const id of ['drive-advanced-filters', 'drive-drill-tabs']) {
-        const control = document.getElementById(id);
-        if (control && rail.contains(control)) rail.after(control);
-    }
-    rail.querySelectorAll(':scope > .mobile-browse-filters,#drive-excel-header-filters').forEach(node => node.remove());
-    return true;
-}
 
 function toggleDriveAdvancedFilters() {
     const details = document.getElementById('drive-advanced-filters');

@@ -1,6 +1,7 @@
 function renderManagers() {
     if(typeof syncInventoryExcelBars==='function') syncInventoryExcelBars();
     if (getCurrentVisibleViewId() !== 'managers') return;
+    mountBloomscapesDepartmentShortcuts('managers');
     if (activeHomeTab === AV_BLANKS_PHOTO_BYPASS_SETTINGS_VIEW) ensureSeasonSalesNoteAccessFresh();
     const container = document.getElementById('managers-content');
     if (!container) return;
