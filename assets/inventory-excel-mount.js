@@ -26,6 +26,7 @@ function getBloomscapesDocksFilterHost(root) {
     mountDocksFilterDisclosure(root);
     const controls=root.querySelector('#docks-filter-controls');
     if (!controls) return null;
+    ensureDockFilterControlsShell(controls);
     controls.parentElement.dataset.docksExcelDrawer='true';
     let host=controls.querySelector('[data-docks-excel-fields]');
     if (!host) {

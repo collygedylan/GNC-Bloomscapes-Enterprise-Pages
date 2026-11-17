@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.09';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.10';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -23822,7 +23822,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.09';
+        const APP_VERSION = '3.1.10';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -88138,34 +88138,7 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
             return 'Bloom Picker is prefilled. Review the customer, lot, quantity, and order number before submitting.';
         }
 
-        function toggleCartPanel(forceOpen = null) {
-            if (forceOpen !== false && !canAccessView('bloom')) { showToast('Access unavailable','You do not have permission to open Bloom Picker.',true); return false; }
-            if (forceOpen !== false) restoreBloomCartSelection();
-            if (!selectedItems.size && forceOpen !== false && !hasSavedBloomCartRows()) {
-                restoreBloomPickerOrderDraftSelection(true);
-            }
-            if (!selectedItems.size && forceOpen !== false && hasSavedBloomCartRows()) {
-                cartPanelOpen = true;
-                showToast('Bloom Picker', 'Saved rows will appear as inventory becomes available.');
-                return false;
-            }
-            if (!selectedItems.size) {
-                cartPanelOpen = false;
-                bloomPickerActionsOpen = false;
-                bloomShareMenuOpen = false;
-                updateGlobalActionBar();
-                if (forceOpen !== false) showToast('Bloom Picker Empty', 'Tap the Bloom Picker button on a row to add it first.', true);
-                return false;
-            }
-            const nextOpen = forceOpen === null ? !cartPanelOpen : !!forceOpen;
-            if (nextOpen !== cartPanelOpen) {
-                bloomPickerActionsOpen = false;
-                if (!nextOpen) bloomShareMenuOpen = false;
-            }
-            cartPanelOpen = nextOpen;
-            updateGlobalActionBar();
-            return false;
-        }
+
 
         function toggleBloomPickerActions(event = null) {
             if (event) {
@@ -117796,73 +117769,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             });
         }
 
-        function updateGlobalActionBar() {             const bar=document.getElementById('global-action-bar');
-            const footerCartBtn=document.getElementById('footer-cart-btn');
-            const footerCartBadge=document.getElementById('footer-cart-badge');
-            const countLabel=document.getElementById('sel-count');
-            const helper=document.getElementById('cart-helper-text');
-            const actionsToggle=document.getElementById('bloom-picker-actions-toggle');
-            const actionsIcon=document.getElementById('bloom-picker-actions-icon');
-            const actionsList=document.getElementById('bloom-picker-actions-list');
-            const shareWrap=document.getElementById('batch-share-menu-wrap');
-            const btnAssign=document.getElementById('batch-btn-assign');
-            const btnEvalTask=document.getElementById('batch-btn-eval-task');
-            const btnNcr=document.getElementById('batch-btn-ncr');
-            const btnRequest=document.getElementById('batch-btn-request');
-            const btnMove=document.getElementById('batch-btn-move');
-            const btnFlyer=document.getElementById('batch-btn-flyer');
-            const btnTakeBack=document.getElementById('batch-btn-take-back');
-            const btnEndCap=document.getElementById('batch-btn-endcap');
-            const btnShear=document.getElementById('batch-btn-shear');
-            const btnBloomOrder=document.getElementById('batch-btn-bloom-order');
-            const btnProject=document.getElementById('batch-btn-project');
-            const hasItems=selectedItems.size>0;
-            const items=getCartSelectedItems();
-            const actionVisibility=getBloomPickerActionVisibility(items);
-            const hasShareOptions=!!(actionVisibility.showCopy || actionVisibility.showEmail || actionVisibility.showText);
-            const hasAnyAction=!!(hasShareOptions || actionVisibility.showAssign || actionVisibility.showEvalTask || actionVisibility.showNcr || actionVisibility.showRequest || actionVisibility.showMove || actionVisibility.showFlyer || actionVisibility.showTakeBack || actionVisibility.showEndCap || actionVisibility.showShear || actionVisibility.showBloomOrder || actionVisibility.showProject);
-            if(!hasItems || !cartPanelOpen || !hasAnyAction){
-                bloomPickerActionsOpen=false;
-                bloomShareMenuOpen=false;
-            }
-            renderBloomPickerTrayRows(items);
-            if(countLabel)countLabel.innerText=selectedItems.size;
-            if(footerCartBtn){
-                footerCartBtn.classList.toggle('hidden', !currentUser || !canAccessView('bloom'));
-                footerCartBtn.classList.toggle('active', cartPanelOpen&&hasItems);
-            }
-            if(footerCartBadge){
-                footerCartBadge.innerText=selectedItems.size>99?'99+':String(selectedItems.size);
-                footerCartBadge.classList.toggle('hidden', !hasItems);
-            }
-            if(actionsToggle){
-                actionsToggle.classList.toggle('hidden', !hasItems || !cartPanelOpen || !hasAnyAction);
-                actionsToggle.classList.toggle('flex', hasItems && cartPanelOpen && hasAnyAction);
-                actionsToggle.setAttribute('aria-expanded', bloomPickerActionsOpen ? 'true' : 'false');
-                actionsToggle.classList.toggle('bg-[#007a4d]', bloomPickerActionsOpen);
-                actionsToggle.classList.toggle('text-white', bloomPickerActionsOpen);
-                actionsToggle.classList.toggle('bg-emerald-50', !bloomPickerActionsOpen);
-                actionsToggle.classList.toggle('text-[#007a4d]', !bloomPickerActionsOpen);
-            }
-            if(actionsIcon)actionsIcon.className=`ph-bold ${bloomPickerActionsOpen ? 'ph-caret-up' : 'ph-caret-down'}`;
-            if(actionsList)actionsList.classList.toggle('hidden', !bloomPickerActionsOpen);
-            if(shareWrap)shareWrap.classList.toggle('hidden', !bloomPickerActionsOpen || !hasItems || !hasShareOptions);
-            if(btnAssign)btnAssign.classList.toggle('hidden', !bloomPickerActionsOpen || !actionVisibility.showAssign);
-            if(btnEvalTask)btnEvalTask.classList.toggle('hidden', !bloomPickerActionsOpen || !actionVisibility.showEvalTask);
-            if(btnNcr)btnNcr.classList.toggle('hidden', !bloomPickerActionsOpen || !actionVisibility.showNcr);
-            if(btnRequest)btnRequest.classList.toggle('hidden', !bloomPickerActionsOpen || !actionVisibility.showRequest);
-            if(btnMove)btnMove.classList.toggle('hidden', !bloomPickerActionsOpen || !actionVisibility.showMove);
-            if(btnFlyer)btnFlyer.classList.toggle('hidden', !bloomPickerActionsOpen || !actionVisibility.showFlyer);
-            if(btnTakeBack)btnTakeBack.classList.toggle('hidden', !bloomPickerActionsOpen || !actionVisibility.showTakeBack);
-            if(btnEndCap)btnEndCap.classList.toggle('hidden', !bloomPickerActionsOpen || !actionVisibility.showEndCap);
-            if(btnShear)btnShear.classList.toggle('hidden', !bloomPickerActionsOpen || !actionVisibility.showShear);
-            if(btnBloomOrder)btnBloomOrder.classList.toggle('hidden', !bloomPickerActionsOpen || !actionVisibility.showBloomOrder);
-            if(btnProject)btnProject.classList.toggle('hidden', !bloomPickerActionsOpen || !actionVisibility.showProject);
-            if(helper)helper.classList.toggle('hidden', !bloomPickerActionsOpen || !hasItems || actionVisibility.canUseInventoryActions || actionVisibility.canUseBloomOrders);
-            if(bar)bar.classList.toggle('hidden', !hasItems||!cartPanelOpen);
-            syncBloomShareMenuUi(actionVisibility);
-            syncGlobalHeaderChrome({ reason: 'selection' });
-        }
+
 
         function copyTextToClipboard(text,label) {
             const safeText = String(text == null ? '' : text);
@@ -143446,12 +143353,7 @@ function hasExplicitViewPermission(view, userOverride = '') {
     return resolveNavigationViewFlag(view, matrix.view_permissions) === 'Y';
 }
 
-function syncHeaderBloomPlacement(viewId = getCurrentVisibleViewId()) {
-    const bloom = document.getElementById('footer-cart-btn');
-    const home = viewId === 'home';
-    const host = home ? document.querySelector('.nav-header-meta-row') : document.getElementById('global-header-search-row');
-    if (bloom && host && bloom.parentElement !== host) host.appendChild(bloom);
-}
+/* @runtime-fragment assets/bloom-picker-shell.js */
 /* @runtime-fragment assets/bloomscapes-dock-write-context.js */
 /* @runtime-fragment assets/bloomscapes-dock-issue-save.js */
 

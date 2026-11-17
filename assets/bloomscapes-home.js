@@ -19,7 +19,7 @@ function mountBloomscapesHomeModules() {
     }
     studio.hidden=!isFullAppAdministrator();
     mountBloomscapesCommunicationTiles(grid);
-    const order=['drive','hl-order','av','sales-office','sales','historical-requests','managers','qc','office','sales-inventory','production','studio','smart-moves','messages','walkie'];
+    const order=['drive','hl-order','av','sales-office','sales','historical-requests','managers','qc','office','sales-inventory','production','studio','smart-moves','messages','walkie','bloom'];
     for (const id of order) {
         const tile=grid.querySelector('#home-tile-'+id);
         if (tile) grid.appendChild(tile);
@@ -31,6 +31,7 @@ function mountBloomscapesHomeModules() {
 function mountBloomscapesCommunicationTiles(grid) {
     const modules=[['smart-moves','Smart Sales & Move Intelligence','ph-chart-line-up',()=>switchView('smart-moves')],
         ['messages','Messages','ph-chat-circle-text',()=>openBloomscapesMessages()],
+        ['bloom','Bloom Picker','ph-flower',()=>openBloomPicker()],
         ['walkie','Push to Talk Walkie','ph-microphone',()=>openBloomscapesComm('voice')]];
     for (const [id,title,icon,open] of modules) {
         let tile=grid.querySelector('#home-tile-'+id);
@@ -64,7 +65,6 @@ function mountBloomscapesFarmSelector() {
     if (!header) return;
     const label = document.createElement('label');
     label.className = 'bloomscapes-farm-selector';
-    label.textContent = 'Farm ';
     const select = label.appendChild(document.createElement('select'));
     select.id = 'bloomscapes-farm-selector';
     select.setAttribute('aria-label','Farm');

@@ -203,7 +203,7 @@ html body.current-view-request #global-excel-export span::after {
   content: 'Export';
   font-size: 11px;
 }
-html body.current-view-request :is(#footer-cart-btn, #request-crumb, #request-suspend-tag-filter-shell) {
+html body.current-view-request :is(#request-crumb, #request-suspend-tag-filter-shell) {
   display: none !important;
 }
 html body.current-view-request #view-request > .freeze-panel {
@@ -353,7 +353,3 @@ html body #app-wrapper #view-request #request-filter-toolbar label { display:fle
 html body #app-wrapper #view-request #request-filter-toolbar label > span { display:block; height:14px; line-height:14px; font-size:11px; margin:0!important; }
 html body #app-wrapper #view-request #request-filter-toolbar :is(select,input) { height:36px!important; min-height:36px!important; font-size:12px!important; }
 html body #app-wrapper #view-request #request-filter-toolbar input[data-job-filter] { height:36px!important; min-height:36px!important; font-size:12px!important; }
-
-@media(max-width:430px) {
-  html body.current-view-drive #app-wrapper #app-top-chrome #global-header-search-row > #footer-cart-btn { display:none!important; }
-}
