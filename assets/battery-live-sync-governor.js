@@ -6,7 +6,9 @@ function batteryVisible(state) {
 }
 
 function batteryReport(state, error) {
-    if (error?.name !== 'AbortError') state.report(error);
+    if (!batteryVisible(state) || error?.name === 'AbortError'
+        || ['REQUEST_ABORTED', 'ABORT_ERR', 'FARM_PREPARATION_PAUSED'].includes(error?.code)) return;
+    state.report(error);
 }
 
 function batteryClearTimer(state) {
@@ -129,11 +131,13 @@ function createBatteryLiveSyncGovernor(options = {}) {
         jobs: new Map(), resources: new Map(), timer: null, paused: false, stopped: false,
         flight: null, wake: null, nextWakeAt: 0, battery: null };
     state.controller = new state.AbortController();
+    const viewController = new state.AbortController();
     const api = {
         schedule: (name, run, interval) => batterySchedule(state, name, run, interval),
         wake: reason => batteryWake(state, reason),
         visible: () => batteryVisible(state),
         signal: () => state.controller.signal,
+        viewSignal: () => viewController.signal,
         canPrewarm: () => batteryPrewarmAllowed(state),
         setWakeHandler: handler => { state.wake = handler; },
         register(name, resource) {
@@ -141,7 +145,7 @@ function createBatteryLiveSyncGovernor(options = {}) {
             if (!batteryVisible(state)) resource.pause?.();
             return () => state.resources.delete(name);
         },
-        dispose() { state.stopped = true; batteryPause(state); unbind(); state.jobs.clear(); },
+        dispose() { state.stopped = true; batteryPause(state); viewController.abort(); unbind(); state.jobs.clear(); },
         snapshot: () => ({ paused: state.paused, timerActive: state.timer !== null, jobs: state.jobs.size })
     };
     const unbind = batteryBind(state, api);

@@ -68,10 +68,10 @@ async function completeBloomscapesFieldWork(job,answers) {
     return {...receipt,pdf:archive};
 }
 
-async function readBloomscapesJobBoardRevision() {
+async function readBloomscapesJobBoardRevision(signal = window.BloomscapesBatteryGovernor.viewSignal()) {
     const {client,owner} = await requireBloomscapesSession();
     const farm = getBloomscapesFarm(),ownerScope = getSupabaseReadIdentityScope();
-    const result = await client.rpc('gnc_read_job_board_revision',{p_farm:farm}).abortSignal(window.BloomscapesBatteryGovernor.signal());
+    const result = await client.rpc('gnc_read_job_board_revision',{p_farm:farm}).abortSignal(signal);
     await requireBloomscapesOwner(owner);
     const data = bloomscapesData(result);
     if (data?.farm_code!==farm || typeof data.revision!=='string' || !data.counts) throw new Error('Job counts scope was not confirmed.');

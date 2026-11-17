@@ -61,14 +61,14 @@ async function loadBloomscapesWarmFarm(cache,farm,refresh) {
     const assertCurrent = ()=>{
         assertBloomscapesFarmCache(cache,farm);
         if (cache.prewarming && farm !== getBloomscapesFarm() && !window.BloomscapesBatteryGovernor.canPrewarm()) throw Object.assign(new Error('Farm prewarming paused.'),{code:'FARM_PREPARATION_PAUSED'});
-        if (document.hidden || navigator.onLine===false) throw Object.assign(new Error('Farm preparation paused while the page is inactive.'),{code:'FARM_PREPARATION_PAUSED'});
+        if (cache.prewarming && (document.hidden || navigator.onLine===false)) throw Object.assign(new Error('Farm prewarming paused.'),{code:'FARM_PREPARATION_PAUSED'});
     };
     const key = 'bloomscapes-farm-v3104:'+cache.owner+':'+farm;
     const existing = cache.snapshots.get(farm);
-    if (refresh && existing && await readBloomscapesFarmRevision(farm)===existing.revision) return existing;
+    if (refresh && existing?.lastSyncRevisionAt && await readBloomscapesFarmRevision(farm)===existing.revision) return existing;
     const saved = refresh ? null : await loadCacheValue(key);
     assertCurrent();
-    const raw = saved?.owner===cache.owner && saved.farm===farm && Array.isArray(saved.inventory) && Date.now()-saved.loadedAt<1800000
+    const raw = saved?.lastSyncRevisionAt && saved.owner===cache.owner && saved.farm===farm && Array.isArray(saved.inventory) && Date.now()-saved.loadedAt<1800000
         ? saved : await readBloomscapesFarmSnapshot(farm,assertCurrent);
     const snapshot = await prepareBloomscapesFarmPublication(raw,cache.owner,assertCurrent);
     assertCurrent();

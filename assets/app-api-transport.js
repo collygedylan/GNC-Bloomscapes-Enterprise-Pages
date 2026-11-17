@@ -27,7 +27,7 @@ function reportAppFunctionFailure(action, body, response, responseCode) {
         || [409,423].includes(response.status) && /SOURCE_CHANGED|REVISION_CHANGED|REFRESH|NOT_READY/.test(responseCode);
     const reconciling = action === 'request_work' && body.operation === 'save' && response.status === 409;
     if (!action.startsWith('watchdog_') && !preLogin && !reconciling) window.GncRuntimeWatchdog?.observeError?.(action,responseCode + ' HTTP ' + response.status,false,'RPC_FAILURE');
-    if (!action.startsWith('watchdog_') && !preLogin && !policy && !reconciling) window.GncRuntimeWatchdog?.record('APP_API_FAILURE', {severity:response.status >= 500 ? 'high' : 'medium',error_message:'App API returned HTTP ' + response.status});
+    if (!action.startsWith('watchdog_') && !preLogin && !policy && !reconciling) window.GncRuntimeWatchdog?.record('APP_API_FAILURE', {severity:response.status >= 500 ? 'high' : 'medium',error_message:'action=' + action + ' HTTP=' + response.status,suspected_functions:[action]});
 }
 
 function createAppFunctionError(message, response, payload, responseCode, options) {
@@ -240,6 +240,7 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = SUPABASE_WRITE_TI
         const send = () => fetchTimedTransport(url, options, timeoutMs, photoTimeout && !options.photoUploadAttempt, consumeResponse);
         return await recoverDirectOperationalRead(url, options, send, consumeResponse);
     } catch (error) {
+        if (error && typeof error === 'object') Object.assign(error, describeWatchdogRequest(url, options));
         if (error && error.name === 'AbortError') {
             const leftView = !photoTimeout && startedView && startedView !== document.body?.dataset?.currentView;
             if (options.signal?.aborted || leftView || (!photoTimeout && typeof document !== 'undefined' && document.hidden)) {
@@ -248,7 +249,7 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = SUPABASE_WRITE_TI
                 throw aborted;
             }
             const readPage = isRecoverableRequestRead(url, options);
-            if (!readPage && !options.recoverableRpcAttempt && !/watchdog|Suspend Tag/i.test(label)) window.GncRuntimeWatchdog?.observeError?.(label,'TIMEOUT',false,'RPC_FAILURE');
+            if (!readPage && !options.recoverableRpcAttempt && !/watchdog|Suspend Tag/i.test(label)) window.GncRuntimeWatchdog?.observeError?.(describeWatchdogRequest(url, options),'TIMEOUT',false,'RPC_FAILURE');
             throw Object.assign(new Error(`${label} timed out after ${Math.ceil(timeoutMs / 1000)}s`), {code:'TRANSPORT_TIMEOUT'});
         }
         throw error;
@@ -257,7 +258,7 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = SUPABASE_WRITE_TI
 
 function createSupabaseTransportClient(sdk, url, key) {
     return sdk.createClient(url, key, {
-        global:{fetch:(input, init) => fetchWithTimeout(input, init, SUPABASE_WRITE_TIMEOUT_MS, 'Supabase SDK')},
+        global:{fetch:fetchObservedSupabaseRequest},
         auth:{
             persistSession:true,
             autoRefreshToken:false,
@@ -267,6 +268,22 @@ function createSupabaseTransportClient(sdk, url, key) {
         },
         realtime:{params:{eventsPerSecond:2}}
     });
+}
+
+async function fetchObservedSupabaseRequest(input, init) {
+    const operation = describeWatchdogRequest(input, init);
+    const label = operation.rpcName || operation.tableName || operation.action || 'Supabase SDK';
+    try {
+        const response = await fetchWithTimeout(input, init, SUPABASE_WRITE_TIMEOUT_MS, label);
+        if (!response.ok && !/watchdog/i.test(label)) {
+            window.GncRuntimeWatchdog?.capture(Object.assign(new Error('Endpoint failed'),
+                operation, { status: response.status, code: 'HTTP_' + response.status }), operation);
+        }
+        return response;
+    } catch (error) {
+        Object.assign(error, operation);
+        throw error;
+    }
 }
 
 function assertCurrentPhotoUpload(currentOwner, options) {

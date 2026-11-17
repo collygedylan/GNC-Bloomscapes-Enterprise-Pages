@@ -97,8 +97,7 @@ function syncBloomscapesWalkieRecording() {
 function dispatchBloomscapesWalkieClick(data) {
     const actions={commPlay:value=>void playBloomscapesCommVoice(value),commSpeed:toggleBloomscapesCommSpeed,
         commCancelRecord:()=>stopBloomscapesWalkie(true),commMic:toggleBloomscapesWalkie,
-        commRetry:()=>void retryBloomscapesRadioDrafts().then(refreshBloomscapesComm).catch(error=>showBloomscapesCommStatus(error.message)),
-        commNotifications:()=>void enableBloomscapesRadioNotifications().then(showBloomscapesCommStatus).catch(error=>showBloomscapesCommStatus(error.message))};
+        commRetry:()=>void retryBloomscapesRadioDrafts().then(refreshBloomscapesComm).catch(error=>showBloomscapesCommStatus(error.message))};
     const key=Object.keys(data).find(name=>actions[name]);
     if (key) actions[key](data[key]);
 }

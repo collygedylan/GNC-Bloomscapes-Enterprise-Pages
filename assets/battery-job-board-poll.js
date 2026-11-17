@@ -34,7 +34,7 @@ async function refreshBloomscapesJobBoardRevision() {
     state.pending = true;
     const owner = getSupabaseReadIdentityScope();
     try {
-        const next = await readBloomscapesJobBoardRevision();
+        const next = await readBloomscapesJobBoardRevision(window.BloomscapesBatteryGovernor.signal());
         if (owner!==getSupabaseReadIdentityScope() || !canRefreshBloomscapesJobBoard()) return;
         if (next.revision!==bloomscapesFieldQueueState.revision) {
             await ensureBloomscapesFieldQueue(true);

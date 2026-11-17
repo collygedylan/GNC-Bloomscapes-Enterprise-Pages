@@ -27,7 +27,8 @@ async function fetchDirectPostgrestReadPage(table, queryString = '', options = {
     const response = await window.GncDatabase.fetchTable(SUPABASE_URL, safeTable, String(queryString || '').trim(), {
         method: 'GET', headers, signal: opts.signal, cache:'no-store', referrerPolicy:'no-referrer'
     }, timeoutMs, `${safeTable} direct read`);
-    if (!response.ok) throw await createSupabaseReadResponseError(response, 'Supabase direct read failed');
+    if (!response.ok) throw Object.assign(await createSupabaseReadResponseError(response, 'Supabase direct read failed'),
+        {tableName:safeTable,status:response.status});
     let rows = response.__gncValidatedData;
     if (!Array.isArray(rows)) {
         const text = await response.text();

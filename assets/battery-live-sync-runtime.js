@@ -14,14 +14,9 @@ async function requestBatteryMediaStream(constraints) {
     return stream;
 }
 
-async function checkBatteryActiveView({ signal, reason }) {
+async function checkBatteryActiveView({ signal }) {
     if (!currentUser || signal.aborted || !window.BloomscapesBatteryGovernor.visible()) return false;
-    await getProductionLiveSyncCoordinator()?.check('battery-foreground');
-    if (signal.aborted) return false;
-    if (bloomscapesFarmState.loaded) await refreshBloomscapesWarmFarm(getBloomscapesFarm());
-    if (signal.aborted) return false;
-    if (reason !== 'tick' && getCurrentVisibleViewId() === 'request') await refreshBloomscapesJobBoardRevision();
-    return true;
+    return runBatteryRevisionSync(signal);
 }
 
 function pauseBatteryMedia() {
@@ -48,12 +43,14 @@ async function resumeBatteryAuthRefresh() {
 function resumeBatteryMedia() {
     void resumeBatteryAuthRefresh().catch(batteryRuntimeError);
     connectBatteryRealtime();
-    if (nativeAuthSessionActive && currentUser) void connectBloomscapesRadioInbox().catch(batteryRuntimeError);
+    if (nativeAuthSessionActive && currentUser) void connectBloomscapesRadioInbox(false).catch(batteryRuntimeError);
 }
 
 function installBatteryLiveSyncRuntime() {
     const governor = window.BloomscapesBatteryGovernor;
     governor.setWakeHandler(checkBatteryActiveView);
+    subscribeBatteryRealtime('revision-pulse', queueBatteryRevisionEvents);
+    installMandatoryWalkiePush();
     window.AgMetricLifecycle.subscribe(({type}) => { if (type === 'view') releaseSavedDetailPreviewUrls(); });
     governor.register('media', { pause: pauseBatteryMedia, resume: resumeBatteryMedia });
     governor.schedule('active-revision', signal => checkBatteryActiveView({ signal, reason: 'tick' }));

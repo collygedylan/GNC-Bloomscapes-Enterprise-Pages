@@ -36,7 +36,8 @@ function handleBloomscapesShellPush(event) {
         catch {data={title:'Ag Data Message',body:event.data.text()};}
     }
     const assigned=data.homeTab==='assigned-items-export';
-    const title=assigned?'New Unassigned Item Code(s)':data.title || 'Ag Data Message';
+    const title=data.type==='bloomscapes_radio' ? '📻 Walkie: '+String(data.sender || data.title || 'Team').replace(/^📻\s*/, '').split(' · ')[0]
+        : assigned?'New Unassigned Item Code(s)':data.title || 'Ag Data Message';
     event.waitUntil(self.registration.showNotification(title,shellNoticeOptions(data,assigned)));
 }
 async function retainSuspendNoticeAction(event,payload) {
@@ -58,13 +59,13 @@ async function openShellNotice(event) {
     const client=windows.find(candidate=>isProductionShellUrl(candidate.url) && 'focus' in candidate);
     if(client) {
         await client.focus();
-        postShellNotice(client,payload,event.action);
+        postShellNotice(client,payload,event.action || 'play_radio');
         return client;
     }
     const target=new URL(shellNoticeTarget(payload.url));
     if(payload.type==='bloomscapes_radio') {
         target.searchParams.set('radioCall',payload.radioCallId);
-        target.searchParams.set('radioAction',event.action || 'open_walkie');
+        target.searchParams.set('radioAction',event.action || 'play_radio');
         target.searchParams.set('radioFarm',payload.farm);
     }
     const opened=await clients.openWindow?.(target.href);

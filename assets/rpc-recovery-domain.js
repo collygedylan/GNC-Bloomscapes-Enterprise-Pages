@@ -94,7 +94,7 @@ async function finishSupabaseRpc(response, rpcName, body, request, timeoutMs, in
                 const error = new Error(await getResponseError(response, `${rpcName} failed (${response.status})`));
                 error.status = response.status;
                 if (responseCode) error.code = responseCode;
-                if (!(response.status === 409 && /^save_request_work/.test(rpcName))) window.GncRuntimeWatchdog?.observeError?.(rpcName, responseCode + ' HTTP ' + response.status,false,'RPC_FAILURE',rpcName === 'save_drive_evidence_v3' ? body.p_idempotency_key : '');
+                if (!(response.status === 409 && /^save_request_work/.test(rpcName))) window.GncRuntimeWatchdog?.observeError?.({rpcName}, responseCode + ' HTTP ' + response.status,false,'RPC_FAILURE',rpcName === 'save_drive_evidence_v3' ? body.p_idempotency_key : '');
                 error.hlOrderCommandDispatch = 'response_received';
                 throw error;
             }
@@ -326,7 +326,7 @@ async function dispatchRpcWithRecovery(options) {
         });
     } catch (error) {
         if (options.inScope() && !options.request.signal?.aborted) {
-            globalThis.window?.GncRuntimeWatchdog?.observeError?.(options.rpcName,error.code || 'TRANSPORT_FAILURE',false,'RPC_FAILURE');
+            globalThis.window?.GncRuntimeWatchdog?.observeError?.({rpcName:options.rpcName},error.code || 'TRANSPORT_FAILURE',false,'RPC_FAILURE');
         }
         throw error;
     }

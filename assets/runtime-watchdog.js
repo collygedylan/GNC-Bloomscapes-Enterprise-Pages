@@ -44,31 +44,10 @@ if (!window.GncRuntimeWatchdog) {
   }
   const bannerSelector = '.error-banner,.workflow-error-banner,.load-error,[data-kind="error"],[role="alert"][aria-live="assertive"]';
   function observeError(title, message, shown = false, kind = 'UI_ERROR_BANNER_SHOWN', driveCommand = '') {
-    const value = (String(title || '').slice(0,160) + ' ' + String(message || '').slice(0,900)).trim();
-    if (kind === 'RPC_FAILURE' && (document.hidden || document.visibilityState === 'hidden' || message?.name === 'AbortError' || message?.code === 'REQUEST_ABORTED')) return false;
-    if (kind === 'UI_ERROR_BANNER_SHOWN' && !shown) return false;
-    if (!value || isIgnorableRuntimeNoise(value) || /REQUEST_ABORTED|AbortError|watchdog_(log|list|resolve)_event|resolve_runtime_watchdog_events_v23158/i.test(value)) return false;
-    const sql = value.match(/(?:^|[^a-z0-9])(55P03|42501|P0001)(?![a-z0-9])/i);
-    const http = value.match(/\b(?:http|status|returned|rpc)[\s:_(]*(400|401|403|409|500|504)\b/i);
-    const code = /lock.*timed? ?out|lock timeout/i.test(value) ? 'LOCK_TIMEOUT' : sql ? sql[1].toUpperCase() : http ? 'HTTP_' + http[1] :
-      /timed?\s*out|timeout/i.test(value) ? 'TIMEOUT' : /remains? locked|unlock not confirmed/i.test(value) ? 'ROW_LOCKED' :
-      /move not saved/i.test(value) ? 'MOVE_NOT_SAVED' : /restricted|forbidden|denied|do not have access|only update rows assigned/i.test(value) ? 'RESTRICTED' :
-      /failed to fetch|networkerror|connection lost/i.test(value) ? 'NETWORK' : shown || /could not|failed|\berror\b|DATABASE_/i.test(value) ? (/save|write/i.test(value) ? 'SAVE_FAILED' : /load|refresh/i.test(value) ? 'LOAD_FAILED' : /required|invalid/i.test(value) ? 'VALIDATION_REQUIRED' : 'OPERATION_FAILED') : '';
-    if (!code || code === 'VALIDATION_REQUIRED') return false;
-    const scope = /suspend|complete tag/i.test(value) ? 'suspend-tag' : /unlock|row remains locked/i.test(value) ? 'unlock' :
-      /reclass|move not saved/i.test(value) ? 'reclass' : /request/i.test(value) ? 'request' : kind === 'RPC_FAILURE' ? 'rpc' : FIELD_SCOPES.has(view()) ? view() : 'ui';
-    return reportField(kind, scope, code, driveCommand);
+    return observeWatchdogError({document,isIgnorableRuntimeNoise,FIELD_SCOPES,view,reportField},title,message,shown,kind,driveCommand);
   }
-  function reportField(type, scope, code, driveCommand = '') {
-    if (!state.configured || !state.username || !FIELD_TYPES.has(type) || !FIELD_SCOPES.has(scope) || !FIELD_CODES.has(code)) return false;
-    const current = view().replace(/[^a-z0-9-]/g,'').slice(0,60) || 'unknown';
-    const command = /^drive-[a-z0-9_-]{8,175}$/i.test(driveCommand) ? driveCommand : '';
-    const key = [state.username,current,scope,type,code,command].join('|'), now = Date.now();
-    if (fieldSeen.has(key) && now - fieldSeen.get(key) < 60000) return false;
-    fieldSeen.delete(key); fieldSeen.set(key,now);
-    if (fieldSeen.size > MAX_QUEUED_REPORTS) fieldSeen.delete(fieldSeen.keys().next().value);
-    record(type,{view_id:current,sub_module:scope,error_message:[type,scope,code].join(':'),driveCommand:command,suspected_functions:[scope]});
-    return true;
+  function reportField(type, scope, code, driveCommand = '', operation = {}) {
+    return reportWatchdogField({state,FIELD_TYPES,FIELD_SCOPES,FIELD_CODES,view,fieldSeen,MAX_QUEUED_REPORTS,record},type,scope,code,driveCommand,operation);
   }
   function inspectIntegrity(root,current) {
     if (!state.username || document.hidden || !global.innerHeight || current === 'login' || current === 'unknown') return;
@@ -316,16 +295,7 @@ if (!window.GncRuntimeWatchdog) {
     send(event); return event;
   }
   function capture(error, operation = 'unknown') {
-    if (error?.name === 'AbortError' || error?.code === 'ABORT_ERR' || isIgnorableRuntimeNoise(error?.code || error?.message)) return false;
-    const owner = String(operation).replace(/[^a-zA-Z0-9_.:-]/g, '').slice(0, 160) || 'unknown';
-    const code = String(error?.code || error?.name || 'Error').replace(/[^a-zA-Z0-9_.:-]/g, '').slice(0, 64);
-    // Do not send payloads, credentials, row data or arbitrary exception messages.
-    // This sensor never mutates app state or repairs code. Its own transport failure
-    // is intentionally terminal, so observing an error cannot recurse into itself.
-    if (state.memoryOnly && state.configured) return reportField('RPC_FAILURE', 'rpc', FIELD_CODES.has(code) ? code : 'ERROR');
-    try { record('OPERATIONAL_FAILURE', { severity: 'high', error_message: `${owner} failed (${code || 'Error'})`, suspected_functions: [owner] }); }
-    catch { return false; }
-    return true;
+    return captureWatchdogOperation({document,state,isIgnorableRuntimeNoise,FIELD_CODES,reportField,record},error,operation);
   }
   function isVisibleParityNode(node) { return !!node && !node.hidden && !node.closest?.('.hidden, [hidden], [aria-hidden="true"]'); }
   function hasEvalLoadingText(root) {

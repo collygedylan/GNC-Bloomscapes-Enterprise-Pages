@@ -50,7 +50,7 @@ function renderBloomscapesCommComposer() {
         +(!text?' disabled':'')+'>'+commEscape(thread.draft || '')+'</textarea><button type="submit" '+(!text || thread.sending?'disabled':'')+'>Send</button>'
         +'<button type="button" data-comm-mic '+(!voice?'disabled':'')+' aria-label="Record Walkie">🎙 Walkie</button></form>'
         +'<div class="comm-quick-replies">'+['Copy that','On my way','Check Block','Ready on Dock'].map(label=>'<button type="button" data-comm-reply="'+label+'">'+label+'</button>').join('')+'</div>'
-        +'<div class="comm-tools"><button type="button" data-comm-retry>Retry unsent Walkies</button><button type="button" data-comm-notifications>Enable notifications</button></div>';
+        +'<div class="comm-tools"><button type="button" data-comm-retry>Retry unsent Walkies</button></div>';
     root.querySelector('[data-comm-talk]').dataset.recordingLabel=root.querySelector('[data-comm-talk]').textContent;
     host.dataset.mode=state.mode;
 }

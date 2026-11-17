@@ -15,7 +15,7 @@ async function prepareBloomscapesFarmPublication(raw,owner,assertCurrent) {
     const assignedMap = buildBloomscapesAssignmentIndex(raw.farm,raw.assigned,raw.defaults);
     const driveProjection = prepareBloomscapesDriveProjection(inventory);
     assertCurrent();
-    return {owner,farm:raw.farm,revision:raw.revision,inventory,soc,reserves,assigned,assignedMap,defaults:raw.defaults,
+    return {owner,farm:raw.farm,revision:raw.revision,lastSyncRevisionAt:raw.lastSyncRevisionAt,inventory,soc,reserves,assigned,assignedMap,defaults:raw.defaults,
         purchaseOrders:raw.purchaseOrders || [],indexes:master.indexMaps,av:master.avOpenRows,socRaw,driveProjection,loadedAt:Date.now()};
 }
 

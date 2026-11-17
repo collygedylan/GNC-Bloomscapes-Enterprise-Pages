@@ -23,7 +23,7 @@ async function refreshBloomscapesRadioInbox() {
     }).finally(()=>{if(generation===state.generation)state.pending=null;});
     return state.pending;
 }
-async function connectBloomscapesRadioInbox() {
+async function connectBloomscapesRadioInbox(refresh = true) {
     if (!nativeAuthSessionActive || !currentUser) return disconnectBloomscapesRadioInbox();
     if (!window.BloomscapesBatteryGovernor.visible()) return;
     void connectBloomscapesMessages().catch(reportBloomscapesMessagesFailure);
@@ -34,7 +34,7 @@ async function connectBloomscapesRadioInbox() {
         state.owner=owner;
         state.channel=subscribeBatteryRealtime('radio-inbox',refreshBatteryRadioInbox);
     }
-    await refreshBloomscapesRadioInbox();
+    if (refresh) await refreshBloomscapesRadioInbox();
 }
 async function disconnectBloomscapesRadioInbox() {
     const state=bloomscapesRadioInbox,channel=state.channel;
