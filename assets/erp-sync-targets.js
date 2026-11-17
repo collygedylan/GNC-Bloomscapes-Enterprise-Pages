@@ -1,3 +1,31 @@
+const ERP_DROP_FOLDERS_ROOT = '18JVGiQDQwBNHDHxbliH92Noa1DZGS10r';
+const ERP_PENDING_FOLDER_IDS = Object.freeze({
+    "PH_DRIVE_AROUND": "1hpTjQsfWGSmDv_VWQssjbTOOxSXjMREc",
+    "HL_DRIVE_AROUND": "1GgHAy9VK22uLogHNO8Pl6DreelkcKsjX",
+    "TX_DRIVE_AROUND": "1-Dw9ma1xBrYODrlkwvQDFEQr9jRpZkNE",
+    "NC_DRIVE_AROUND": "1yEI2Il3v7vhqi6r50K8J3EMZa51eIE3m",
+    "PH_SOC_RESERVES": "1u8fpBackNXtCNeYgO2Zp42iOVPwqhChv",
+    "TX_SOC_RESERVES": "18733tW_xDL9wQQhPraeolZPn1AmMCInp",
+    "NC_SOC_RESERVES": "1dEk3xC7cP4feO6UDPHBdYpWwF3yr0Lvg",
+    "PH_SOC_OPEN": "1JDK2URVkeiSA9VTpgky-wMqbqoTj3RIq",
+    "TX_SOC_OPEN": "1WQNbmRIbfj7sUglMFhgBfzu5cBR6okya",
+    "NC_SOC_OPEN": "1N5JRxuX6PdpmF_Mw9_Qsx2WmVv3jCMNY",
+    "PH_HL_PO": "1mWk3YQLwyWB-Tr4EPmtdrM3unPQkedtK",
+    "PH_NC_PO": "1s0wSrV8LjdbXda6sJDab9P5j6f79nXhJ",
+    "PH_TX_PO": "1oR4eU3jC9wjSphkMuX38gYQAcfl--5kM",
+    "PH_TRANS_KEYED": "1dm2DpnNVG7qtE9aBe4LRc13ctL0qV_94",
+    "PH_PRE_POST_PO": "1OuIVsrHNGgDjHBBEn-Taz0L7li3dXHi_",
+    "AUX_SHIPPED_CYCLE": "18jkkqZTcuJcmoDp90pn_OmA8cvuhsPrf",
+    "AUX_PTR_OUT_OF_BALANCE": "1hnZlXCnDiAf6EzYmdwKoO2RVpjVGuqE1",
+    "AUX_PRODUCTION_SCHEDULE": "1qK-rO1yzqj5QPwsk_ppTBZMC_d31ivUF",
+    "AUX_ASSIGNED_ITEMS": "192o27aXYpYTR5Zkk8mvJakeocS63MkQx",
+    "AUX_MASTER_DATABASE": "1BOfTKegAHRJnRHr0OUm5M_bphH4ZmC1r",
+    "AUX_OVER_WINTERING": "1oEwOgzAPddXDiLEjJb-TAuqw9w_532S1",
+    "AUX_DRAPE_VARIETIES": "1uM-WjfNWTJjUf-DM4E-c45DqTf57HS8C",
+    "AUX_SPRING_SPREADING": "1-16la9Nbfaluq-cui_w1g9Tf8lkwBhkg",
+    "AUX_SHORT_PIT": "1dElg_vrC3xA6Rdi8gOsJ7l80o0aVcgUM"
+});
+
 const ERP_TEST_BUILD_ROOT = '14e9rccxkU8Co4Q4CibyMgCRm3RVqLeid';
 const ERP_SELECTION_STORAGE_KEY = 'bloomscapes_erp_sync_selected_targets_v1';
 const ERP_FARM_CODES = {PH:'10-PH', HL:'60-HL', TX:'20-TX', NC:'40-NC'};
@@ -6,7 +34,9 @@ function erpTarget(key, farm, group, folderPath, suffix, defaultChecked, dropLab
     const label = folderPath.split('/').at(-1);
     const core = ['assigned_items','master_database'].includes(suffix);
     const processed = key==='PH_DRIVE_AROUND' ? 'Drive Around' : key==='PH_SOC_OPEN' ? 'Open Orders' : dropLabel;
-    return Object.freeze({key, label, shortLabel:dropLabel, group, farm:ERP_FARM_CODES[farm], folderPath,
+    return Object.freeze({key, label, shortLabel:dropLabel, group, farm:ERP_FARM_CODES[farm], archiveFolderPath:folderPath,
+        folderPath:'Drop Folders / Pending '+dropLabel, dropRootId:ERP_DROP_FOLDERS_ROOT,
+        pendingFolderId:ERP_PENDING_FOLDER_IDS[key],
         pendingFolder:'Pending '+dropLabel, processedFolder:'Processed '+processed,
         tableName:'gnc_'+(core ? '00_core' : ERP_FARM_CODES[farm].replace('-','_').toLowerCase())+'_'+suffix,
         defaultChecked});
