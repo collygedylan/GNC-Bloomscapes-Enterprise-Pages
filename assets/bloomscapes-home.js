@@ -57,7 +57,10 @@ function syncBloomscapesHomeBadges() {
 }
 
 function mountBloomscapesFarmSelector() {
-    void ensureBloomscapesFarmAccess().then(syncBloomscapesFarmSelector).catch(error=>
+    void ensureBloomscapesFarmAccess().then(() => {
+        syncBloomscapesFarmSelector();
+        void resumeRequestPhotoGalleryDeepLink();
+    }).catch(error=>
         globalThis.reportHandledRuntimeIssue?.('farm_access',error.code || 'FARM_ACCESS_UNAVAILABLE'));
     const mounted = document.getElementById('bloomscapes-farm-selector');
     if (mounted) { mounted.value = getBloomscapesFarm(); return; }

@@ -49,6 +49,11 @@ function applyInventoryExcelFilters(scope, rows) {
     for (const key of Object.keys(state.filters)) if (!allowed.has(key)) delete state.filters[key];
     if (state.rows!==rows) state.revision++;
     state.rows = Array.isArray(rows) ? rows : []; state.facts = new WeakMap();
-    if (typeof document !== 'undefined' && !state.paintPending) { state.paintPending=true; setTimeout(()=>{state.paintPending=false;mountInventoryExcelFilters(scope);},0); }
+    const committed=typeof document !== 'undefined' && typeof commitActiveRequestExcelFilters === 'function'
+        && commitActiveRequestExcelFilters(scope);
+    if (typeof document !== 'undefined' && !committed && !state.paintPending) {
+        state.paintPending=true;
+        setTimeout(()=>{state.paintPending=false;mountInventoryExcelFilters(scope);},0);
+    }
     return Object.keys(state.filters).length ? state.rows.filter(row=>inventoryExcelRowMatches(row,state,scope === 'av' && getAvPhotoMode() === 'valid_photos' ? 'season' : '')) : state.rows;
 }

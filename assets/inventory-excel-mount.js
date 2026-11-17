@@ -42,6 +42,15 @@ function getBloomscapesDocksFilterHost(root) {
 function getVisibleInventoryExcelFields(scope) {
     return getInventoryExcelFields(scope).filter(([field]) => scope !== 'av' || getAvPhotoMode() !== 'valid_photos' || field !== 'season');
 }
+
+function commitActiveRequestExcelFilters(scope) {
+    if (getCurrentVisibleViewId() !== 'request') return false;
+    const host=getInventoryExcelHost(scope);
+    if (host?.id !== 'request-filter-toolbar') return false;
+    mountInventoryExcelFilters(scope);
+    return true;
+}
+
 function mountInventoryExcelFilters(scope) {
     if (scope === 'drive') mountDriveExcelHeaderFilters();
     if (scope === 'drive') document.querySelectorAll('[data-inventory-excel-scope="'+scope+'"]').forEach(bar=>{if(!bar.closest('#view-drive'))bar.remove();});

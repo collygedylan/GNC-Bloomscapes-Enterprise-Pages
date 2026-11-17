@@ -40,7 +40,7 @@ function connectBatteryRealtime() {
     const forward = (kind,event) => { if (state.channel === channel && state.owner === owner) queueBatteryRealtime(kind,event); };
     for (const table of ['gnc_radio_inbox', 'gnc_messages', 'gnc_radio_queue',
         'gnc_00_core_erp_sync_status', 'gnc_live_overrides_ledger', 'gnc_inventory_master',
-        'gnc_soc_orders_reserves', 'gnc_fulfillment_work', 'gnc_field_work']) {
+        'gnc_soc_orders_reserves', 'gnc_fulfillment_work', 'gnc_field_work', 'gnc_field_jobs_y_grading']) {
         state.channel.on('postgres_changes', { event: '*', schema: 'public', table }, event => forward(table, event));
     }
     state.channel.subscribe(status => {
@@ -73,6 +73,6 @@ function subscribeBatteryLiveRevisions(onReconnect) {
             if (connected) void window.BloomscapesBatteryGovernor.wake('realtime-reconnect');
             connected = true;
         }
-        if (events.some(event => ['gnc_soc_orders_reserves', 'gnc_fulfillment_work', 'gnc_field_work'].includes(event.kind))) onReconnect();
+        if (events.some(event => ['gnc_soc_orders_reserves', 'gnc_fulfillment_work', 'gnc_field_work', 'gnc_field_jobs_y_grading'].includes(event.kind))) onReconnect();
     });
 }
