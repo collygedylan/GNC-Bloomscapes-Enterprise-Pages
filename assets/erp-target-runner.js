@@ -3,7 +3,9 @@ function confirmErpTargetReceipt(target, response) {
     const receipt = response?.results?.length===1 ? response.results[0] : response;
     if ((receipt?.targetKey || receipt?.target_key)!==target.key) throw new Error('ERP target receipt mismatch.');
     if (receipt.status==='no_new_file' && receipt.skipped===true) return receipt;
-    if (receipt.status==='published' && receipt.archived===true && receipt.run_id && receipt.file_id
+    const retainedSource=receipt.verified===true && receipt.source_verified===true
+        && receipt.live_row_count===receipt.row_count && /^[a-f0-9]{64}$/.test(receipt.sha256 || '');
+    if (receipt.status==='published' && (receipt.archived===true || retainedSource) && receipt.run_id && receipt.file_id
         && receipt.file_name && Number.isInteger(receipt.row_count) && receipt.row_count>0) return receipt;
     throw new Error('ERP publication is not confirmed.');
 }

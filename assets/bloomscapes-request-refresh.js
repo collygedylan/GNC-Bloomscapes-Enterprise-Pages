@@ -107,3 +107,36 @@ async function refreshBloomscapesUnchangedPendingQueue(navigationSeq) {
     }
     return true;
 }
+
+async function fetchRequestCustomerMapRows() {
+    if (!hasAuthenticatedOperationalReadIdentity()) {
+        throw Object.assign(new Error('Customer mappings need an authenticated session.'), {code:'DATASET_AUTH_REQUIRED'});
+    }
+    const identity = getSupabaseReadIdentityScope();
+    const key = JSON.stringify([identity, getDatasetLoadSignature('customerRepMap')]);
+    const inflight = fetchRequestCustomerMapRows.inflight || (fetchRequestCustomerMapRows.inflight = new Map());
+    if (inflight.has(key)) return inflight.get(key);
+    const pending = supabaseRpc('gnc_request_customer_directory', {}, {timeoutMs:20000}).then(result => {
+        if (identity !== getSupabaseReadIdentityScope()) throw new Error('Request customer account changed.');
+        const rows = result?.rows;
+        if (!result?.complete || !Array.isArray(rows) || result.total !== rows.length
+            || !rows.every(isActiveRequestCustomerMapping) || new Set(rows.map(row => row.unique_id)).size !== rows.length) {
+            throw new Error('Customer mapping snapshot is incomplete.');
+        }
+        for (const row of rows) row.salesrep_canonical_key = String(row.salesrepid).trim().toLowerCase();
+        Object.defineProperty(rows, 'mappingRevision', {value:result.revision});
+        return rows;
+    }).finally(() => { if (inflight.get(key) === pending) inflight.delete(key); });
+    inflight.set(key, pending);
+    return pending;
+}
+
+function hasVerifiedRequestRepCanonicalDirectory(entry, owner = getRequestModalLookupOwnerSignature()) {
+    if (!entry || entry.owner !== owner || entry.universal === true || !Array.isArray(entry.rows)) return false;
+    const canonicalKey = String(entry.salesrepCanonicalKey || entry.rows[0]?.salesrep_canonical_key || '').trim().toLowerCase();
+    if (!canonicalKey) return false;
+    return entry.rows.filter(row => !isRequestNaCustomerValue(getCustomerRepMapCustomerValue(row))).every(row => {
+        const rowKey = String(firstNonEmptyValue(row.SALESREP_CANONICAL_KEY, row.salesrep_canonical_key, '')).trim().toLowerCase();
+        return rowKey === canonicalKey;
+    });
+}

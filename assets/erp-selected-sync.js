@@ -32,7 +32,10 @@ function runSelectedErpSyncTargets(targetKeysOverride) {
     openErpSyncProgressModal();
     selectedErpRun = runner(keys).then(async receipts=>{
         assertSelectedErpOwner(owner);
-        await refreshBloomscapesWarmFarm(getBloomscapesFarm());
+        await refreshManualErpHomeRevisionMetadata(true).catch(error=>
+            globalThis.reportHandledRuntimeIssue?.('erp_home_metadata',error.message));
+        assertSelectedErpOwner(owner);
+        void refreshBloomscapesWarmFarm(getBloomscapesFarm());
         return receipts;
     }).finally(()=>{ selectedErpRun=null; });
     return selectedErpRun;

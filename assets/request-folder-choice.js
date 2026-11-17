@@ -352,3 +352,47 @@ function getSelectedExistingRequestFolderGroups(groups = null) {
     retainedRequestFolderSelection = customerGroup ? { owner, rep: tempSelectedReqRep, customerGroup, consigneeGroup } : null;
     return { customerGroup, consigneeGroup };
 }
+
+function getAutomaticRequestRecipients(entries = getRequestSourceDomIds().map(id=>findItemByDomId(id)).filter(Boolean)) {
+    const names = ['dylan_collyge', 'jd_jones', 'megan_kelly', currentUser, tempSelectedReqRep];
+    for (const entry of entries || []) {
+        const row = resolveCanonicalInventoryRow(entry.item || entry) || entry.item || entry;
+        names.push(firstNonEmptyValue(row.ASSIGNEDTO, row.assignedto, row.ASSIGNED_TO,
+            row.assigned_to, row.EVAL_USER, row.eval_user, row.EVAL_OWNER, row.eval_owner, ''));
+    }
+    const recipients = new Map();
+    for (const name of names.flatMap(value => String(value || '').split(/[,;|]/))) {
+        const username = normalizePushUsername(name);
+        if (!username || username === 'kayla_knepp') continue;
+        const email = normalizeRequestEmailAddress(resolveRequestRecipientEmail(name));
+        const key = email || username;
+        recipients.set(key, {username, name: name.trim(), email});
+    }
+    return [...recipients.values()];
+}
+
+function canUseRequestEmailChainPicker() {
+    return !!currentUser && (canAccessView('request') || canUseRequestRepScopedAccess());
+}
+
+function getRequestEmailChainSelectedRecipients() {
+    return getAutomaticRequestRecipients();
+}
+
+function renderRequestEmailChainPanel() {
+    const panel = document.getElementById('request-email-chain-panel');
+    if (!panel) return false;
+    if (!requestQtyEmailStepActive) {
+        hideRequestEmailChainPanel();
+        return false;
+    }
+    const recipients = getAutomaticRequestRecipients();
+    const labels = recipients.map(recipient => esc(recipient.name.replaceAll('_', ' '))).join(', ');
+    panel.innerHTML = `<div class="text-[10px] font-black uppercase tracking-[0.16em] text-[#007a4d]">Email Chain</div>
+        <div class="mt-1 text-[12px] font-bold leading-snug text-slate-600">Dylan, JD, Nelly (Megan), the submitter, the selected sales rep, and each item's Assigned To user are included automatically.</div>
+        <div class="mt-2 text-[12px] font-bold text-slate-700" data-request-automatic-recipients>${labels}</div>
+        <div class="mt-2 text-[11px] text-slate-500">Test delivery: dylan_collyge@greenleafnursery.com only.</div>`;
+    panel.style.display = '';
+    panel.classList.remove('hidden');
+    return false;
+}

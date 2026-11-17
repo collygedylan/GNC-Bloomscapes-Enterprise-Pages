@@ -22613,7 +22613,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         const REQUEST_EMAIL_THREAD_SELECT_FIELDS = 'request_folder,request_customer,sales_rep_name,sales_rep_email,recipients,initial_thread_id,initial_message_id,initial_email_sent_at,last_reply_sent_at,status,metadata';
         const REQUEST_HISTORY_SELECT_FIELDS = '*';
         const REQUEST_LIVE_SIGNATURE_SELECT_FIELDS = 'unique_id,req_status,req_archived,req_rep_action,request_folder,req_customer,req_qty,date_completed,req_match,req_spec,req_caliper,desired_spec,desired_caliper,req_pic_note,request_note,req_comments,av_note,req_photo_link,req_photo_name,move_batch_id,move_approval_stage,move_status,move_group_key,move_from_locationcode,move_to_locationcode,move_planned_qty,move_actual_qty,move_destination_needs_row,move_dylan_approved_at,move_jd_approved_at,move_completed_at,move_completed_by,delivery_status,delivery_attempt_count,delivery_error_code,delivery_display_state,delivery_delivered_at';
-        const REQUEST_EMAIL_REQUIRED_RECIPIENTS = Object.freeze(['dylan_collyge@greenleafnursery.com', 'kayla_knepp@greenleafnursery.com', 'jd_jones@greenleafnursery.com']);
+        const REQUEST_EMAIL_REQUIRED_RECIPIENTS = Object.freeze(['dylan_collyge@greenleafnursery.com', 'jd_jones@greenleafnursery.com', 'megan_kelly@greenleafnursery.com']);
         const REQUEST_EMAIL_INTERNAL_RECIPIENTS = Object.freeze(['dylan_collyge@greenleafnursery.com', 'jd_jones@greenleafnursery.com', 'megan_kelly@greenleafnursery.com']);
         const INVENTORY_TRANSACTION_REQUIRED_RECIPIENT_USERS = Object.freeze(['dylan_collyge', 'megan_kelly', 'sharon_combs']);
         const REQUEST_EMAIL_LINKED_REP_RECIPIENTS = Object.freeze({
@@ -46652,15 +46652,7 @@ function toggleDriveQuickRequestItem(domId) {
                 salesrepCanonicalKey: String(first.salesrepCanonicalKey || ''), universal: first.universal === true };
         }
 
-        function hasVerifiedRequestRepCanonicalDirectory(entry, owner = getRequestModalLookupOwnerSignature()) {
-            if (!entry || entry.owner !== owner || entry.universal === true || !Array.isArray(entry.rows)) return false;
-            const canonicalKey = String(entry.salesrepCanonicalKey || '').trim().toLowerCase();
-            if (!canonicalKey) return false;
-            return entry.rows.filter(row => !isRequestNaCustomerValue(getCustomerRepMapCustomerValue(row))).every(row => {
-                const rowKey = String(firstNonEmptyValue(row.SALESREP_CANONICAL_KEY, row.salesrep_canonical_key, '') || '').trim().toLowerCase();
-                return !!rowKey && rowKey === canonicalKey;
-            });
-        }
+        
 
 
         function buildRequestModalCustomerOptionsCache(force = false) {
@@ -46826,31 +46818,6 @@ function toggleDriveQuickRequestItem(domId) {
             return load.finally(() => { if (loads.get(inflightKey) === load) loads.delete(inflightKey); });
         }
 
-        async function fetchRequestCustomerMapRows(options = {}) {
-            if (!hasAuthenticatedOperationalReadIdentity()) {
-                throw Object.assign(new Error('Customer mappings load after an authenticated session is ready.'), { code: 'DATASET_AUTH_REQUIRED' });
-            }
-            const identity = getSupabaseReadIdentityScope();
-            const datasetRevision = getDatasetLoadSignature('customerRepMap');
-            const key = JSON.stringify([identity, datasetRevision]);
-            const inflight = fetchRequestCustomerMapRows.inflight instanceof Map
-                ? fetchRequestCustomerMapRows.inflight : (fetchRequestCustomerMapRows.inflight = new Map());
-            if (inflight.has(key)) return inflight.get(key);
-            const fields = 'unique_id,customername,consigneename,salesrepname,salesrepid,customeridentityid,consigneeid,territorycode,territorydesc,customerstatus,consigneestatus';
-            const pending = fetchAllSupabaseRows('ph_customer_consignee_sales_reps', `select=${fields}&customerstatus=eq.A&consigneestatus=eq.A&order=customername.asc,consigneename.asc`, {
-                ...options, signal: undefined, retainOnGenerationChange: true,
-                count: true, requireComplete: true, skipCustomerMapShortcut: true
-            }).then(rows => {
-                if (identity !== getSupabaseReadIdentityScope()) throw new Error('Request customer account changed.');
-                if (datasetRevision !== getDatasetLoadSignature('customerRepMap')) throw new Error('Customer mappings changed during loading. Refresh to retry.');
-                if (!Array.isArray(rows) || !rows.every(isActiveRequestCustomerMapping)
-                    || new Set(rows.map(row => row.unique_id)).size !== rows.length) throw new Error('Customer mapping snapshot is incomplete.');
-                Object.defineProperty(rows, 'mappingRevision', { value: getRequestModalCustomerMappingCacheSignature() });
-                return rows;
-            }).finally(() => { if (inflight.get(key) === pending) inflight.delete(key); });
-            inflight.set(key, pending);
-            return pending;
-        }
 
         function prefetchRequestModalCustomerOptions(force = false) {
             if (!currentUser || (!canAccessView('request') && !canUseRequestRepScopedAccess())) return Promise.resolve(false);
@@ -74305,11 +74272,7 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
             return dedupeRequestEmailRecipients(linkedEmails);
         }
 
-        function canUseRequestEmailChainPicker() {
-            const username = normalizePushUsername(currentUser || currentUserDisplay || '');
-            const displayUser = normalizePushUsername(currentUserDisplay || currentUser || '');
-            return DYLAN_EQUIVALENT_USER_KEYS.has(username) || DYLAN_EQUIVALENT_USER_KEYS.has(displayUser);
-        }
+        
 
         function resetRequestEmailChainState() {
             tempRequestEmailChainSelectedEmails = new Set();
@@ -74383,23 +74346,13 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
             return Array.from(byEmail.values());
         }
 
-        function getRequestEmailChainSelectedRecipients() {
-            const allRecipients = getRequestEmailChainAllRecipients();
-            const byEmail = new Map(allRecipients.map((rep) => [rep.email, rep]));
-            return Array.from(tempRequestEmailChainSelectedEmails)
-                .map((email) => byEmail.get(email) || tempRequestEmailChainRecipientByEmail.get(email) || { name: email, email, group: 'EXTRA', groups: ['EXTRA'] })
-                .filter((rep) => rep && rep.email);
-        }
+        
 
         function getRequestEmailChainSelectedEmails() {
             return dedupeRequestEmailRecipients(getRequestEmailChainSelectedRecipients().map((rep) => rep.email));
         }
 
-        function getRequestEmailChainGroupRecipients(groupKey = '') {
-            const safeGroupKey = normalizeEmailRecipientGroupKey(groupKey);
-            const group = getRequestEmailChainGroups().find((entry) => entry.key === safeGroupKey);
-            return group ? group.reps.slice() : [];
-        }
+        
 
         function syncRequestEmailChainSelectionFromInputs() {
             const selected = new Set();
@@ -74416,111 +74369,14 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
             tempRequestEmailChainRecipientByEmail = byEmail;
         }
 
-        function handleRequestEmailChainRecipientChange(groupKey = '') {
-            syncRequestEmailChainSelectionFromInputs();
-            renderRequestEmailChainPanel();
-            updateEmailRecipientDropdownGroupCount('request', groupKey);
-            return false;
-        }
+        
 
-        function applyRequestEmailChainPreset(groupKey = '') {
-            const safeGroupKey = normalizeEmailRecipientGroupKey(groupKey);
-            if (safeGroupKey === 'CLEAR') {
-                tempRequestEmailChainSelectedEmails = new Set();
-                renderRequestEmailChainPanel();
-                return false;
-            }
-            const recipients = safeGroupKey === 'ALL'
-                ? getRequestEmailChainAllRecipients()
-                : getRequestEmailChainGroupRecipients(safeGroupKey);
-            if (!recipients.length) {
-                showToast('No Recipients', safeGroupKey === 'ADMIN' && !appAdminRecipientUsersLoaded ? 'Admin users are still loading.' : 'No email addresses found for that group.', true);
-                return false;
-            }
-            const allSelected = recipients.every((rep) => tempRequestEmailChainSelectedEmails.has(rep.email));
-            recipients.forEach((rep) => {
-                tempRequestEmailChainRecipientByEmail.set(rep.email, rep);
-                if (allSelected) tempRequestEmailChainSelectedEmails.delete(rep.email);
-                else tempRequestEmailChainSelectedEmails.add(rep.email);
-            });
-            renderRequestEmailChainPanel();
-            return false;
-        }
+        
 
-        function buildRequestEmailChainGroupButton(group = null) {
-            if (!group) return '';
-            const selectedCount = group.reps.filter((rep) => tempRequestEmailChainSelectedEmails.has(rep.email)).length;
-            const totalCount = group.reps.length;
-            const isActive = totalCount > 0 && selectedCount >= totalCount;
-            const isPartial = selectedCount > 0 && !isActive;
-            const tone = isActive
-                ? 'border-[#007a4d] bg-[#007a4d] text-white'
-                : (isPartial ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-emerald-200 bg-white text-emerald-700');
-            return `<button type="button" class="rounded-xl border px-3 py-2 text-left shadow-sm active:scale-[.98] ${tone}" onclick="return applyRequestEmailChainPreset('${escJsAttrValue(group.key)}')"><div class="flex items-center gap-2"><i class="ph-bold ph-users text-sm"></i><span class="min-w-0 flex-1 text-[10px] font-black uppercase tracking-[0.12em]">${esc(group.key)}</span><span class="text-[10px] font-black">${selectedCount}/${totalCount}</span></div></button>`;
-        }
+        
 
-        function buildRequestEmailChainRecipientHtml() {
-            const openGroup = getEmailRecipientOpenGroup('request');
-            const searchTerm = getEmailRecipientSearchTerm('request');
-            const selectedEmails = tempRequestEmailChainSelectedEmails;
-            return getRequestEmailChainGroups().map((group) => {
-                const groupKey = normalizeEmailRecipientGroupKey(group.key);
-                const isOpen = openGroup === groupKey;
-                const safeSearch = isOpen ? searchTerm : '';
-                const repsHtml = group.reps.map((rep) => {
-                    const checked = selectedEmails.has(rep.email) ? 'checked' : '';
-                    const hiddenClass = emailRecipientOptionMatchesSearch(rep.name, rep.email, safeSearch) ? '' : ' hidden';
-                    tempRequestEmailChainRecipientByEmail.set(rep.email, rep);
-                    return `<label class="flex min-h-[42px] items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 shadow-sm active:scale-[.99]${hiddenClass}" data-email-recipient-option="true" data-email-recipient-option-text="${esc(getEmailRecipientOptionSearchText(rep.name, rep.email))}"><input type="checkbox" class="h-5 w-5 accent-[#007a4d]" data-request-email-chain-recipient="true" data-request-email-chain-group="${esc(groupKey)}" data-rep-name="${esc(rep.name)}" data-rep-email="${esc(rep.email)}" ${checked} onchange="return handleRequestEmailChainRecipientChange('${esc(groupKey)}')"><span class="min-w-0 flex-1 truncate">${esc(rep.name)}</span><span class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">${esc(groupKey)}</span></label>`;
-                }).join('');
-                const selectedInGroup = group.reps.reduce((count, rep) => selectedEmails.has(rep.email) ? count + 1 : count, 0);
-                const groupToggleLabel = getEmailRecipientDropdownToggleLabel(selectedInGroup, group.reps.length);
-                const emptyText = groupKey === 'APP' && requestQtyEmailStepActive && canUseRequestEmailChainPicker() && !hasCurrentRequestRecipientDirectory()
-                    ? getRequestRecipientDirectoryStatusText()
-                    : groupKey === 'ADMIN' && !appAdminRecipientUsersLoaded
-                    ? 'Loading admin users...'
-                    : (groupKey === 'APP' && !appEmailRecipientUsersLoaded ? 'Loading app users...' : 'No recipients found in this group.');
-                const openHtml = isOpen
-                    ? `<div class="mt-3" data-email-recipient-panel="request:${esc(groupKey)}"><label class="block min-w-0"><span class="ml-1 text-[9px] font-black uppercase tracking-[0.14em] text-slate-500">Search ${esc(group.label)}</span><input type="search" class="mt-1 w-full rounded-xl border border-emerald-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-800 outline-none focus:border-[#007a4d] focus:ring-2 focus:ring-emerald-100" value="${esc(safeSearch)}" placeholder="Search users..." oninput="return setEmailRecipientDropdownSearch('request','${esc(groupKey)}',this.value)" onclick="event.stopPropagation()"></label><div class="mt-1 flex items-center justify-between text-[9px] font-black uppercase tracking-[0.12em] text-slate-400"><span data-email-recipient-search-count="true"></span><span data-email-recipient-selected-count="true">${selectedInGroup}/${group.reps.length} selected</span></div><div class="mt-3 grid grid-cols-1 gap-2">${repsHtml || `<div class="rounded-xl border border-dashed border-slate-200 bg-white px-4 py-5 text-center text-[11px] font-bold text-slate-400">${esc(emptyText)}</div>`}</div><button type="button" class="mt-3 w-full rounded-xl border border-emerald-200 bg-white px-3 py-3 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-700 shadow-sm active:scale-[.98]" onclick="return applyRequestEmailChainPreset('${escJsAttrValue(groupKey)}')">${esc(groupToggleLabel)}</button></div>`
-                    : `<div class="hidden">${repsHtml}</div>`;
-                return `<div class="rounded-xl border ${isOpen ? 'border-emerald-300 bg-white' : 'border-emerald-100 bg-white/80'} p-3 shadow-sm"><button type="button" class="flex min-h-[44px] w-full items-center justify-between gap-3 text-left" onclick="return setEmailRecipientDropdownOpen('request','${escJsAttrValue(groupKey)}')"><span class="min-w-0"><span class="block text-sm font-black text-emerald-900">${esc(group.label)}</span><span class="mt-0.5 block text-[10px] font-black uppercase tracking-[0.12em] text-emerald-600" data-email-recipient-header-count="request:${esc(groupKey)}">${selectedInGroup}/${group.reps.length} selected</span></span><i class="ph-bold ${isOpen ? 'ph-caret-up' : 'ph-caret-down'} text-lg text-emerald-700"></i></button>${openHtml}</div>`;
-            }).join('');
-        }
+        
 
-        function renderRequestEmailChainPanel() {
-            const panel = document.getElementById('request-email-chain-panel');
-            if (!panel) return false;
-            if (!requestQtyEmailStepActive || !canUseRequestEmailChainPicker()) {
-                hideRequestEmailChainPanel();
-                return false;
-            }
-            const groups = getRequestEmailChainGroups();
-            const selectedRecipients = getRequestEmailChainSelectedRecipients();
-            const selectedPreview = selectedRecipients.slice(0, 4).map((rep) => rep.name || rep.email).join(', ');
-            const extraCount = Math.max(0, selectedRecipients.length - 4);
-            const selectedText = selectedRecipients.length
-                ? `${selectedRecipients.length} added${selectedPreview ? ': ' + selectedPreview : ''}${extraCount ? ' +' + extraCount : ''}`
-                : 'No extra people selected';
-            const groupButtons = groups.map(buildRequestEmailChainGroupButton).join('');
-            const allButton = buildRequestEmailChainGroupButton({ key: 'ALL', label: 'All Recipients', reps: getRequestEmailChainAllRecipients() });
-            const directoryNotice = appEmailRecipientDirectoryError
-                ? `<div class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-bold text-amber-900" role="alert">Recipient list could not be refreshed. <button type="button" class="underline" onclick="return retryRequestRecipientDirectory('request')">Retry</button></div>`
-                : '';
-            panel.innerHTML = `
-                <div class="flex items-start gap-3">
-                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-white text-[#007a4d] shadow-sm"><i class="ph-bold ph-envelope-simple text-lg"></i></div>
-                    <div class="min-w-0 flex-1">
-                        <div class="text-[10px] font-black uppercase tracking-[0.16em] text-[#007a4d]">Email Chain</div>
-                        <div class="mt-1 text-[12px] font-bold leading-snug text-slate-600">Dylan, Kayla, JD, Megan, the submitter, and the selected sales rep are included automatically. Add anyone else below.</div>
-                    </div>
-                </div>
-                <div id="request-email-chain-count" class="mt-3 rounded-xl border border-emerald-100 bg-white px-3 py-2 text-[11px] font-black text-slate-700">${esc(selectedText)}</div>
-                ${directoryNotice}<div class="mt-3 grid grid-cols-2 gap-2">${groupButtons}${allButton}<button type="button" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-slate-600 shadow-sm active:scale-[.98]" onclick="return applyRequestEmailChainPreset('CLEAR')"><div class="flex items-center gap-2"><i class="ph-bold ph-x-square text-sm"></i><span class="min-w-0 flex-1 text-[10px] font-black uppercase tracking-[0.12em]">Clear</span></div></button></div>
-                <div class="mt-3 space-y-2">${buildRequestEmailChainRecipientHtml()}</div>`;
-            panel.style.display = '';
-            panel.classList.remove('hidden');
-            return false;
-        }
 
         function resolveRequestEmailThreadId(source = null) {
             return String(firstNonEmptyValue(source && source.threadId, source && source.thread_id, source && source.threadID, source && source.gmailThreadId, '')).trim();
@@ -102094,17 +101950,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
 
         /* @runtime-fragment assets/erp-foreground-recovery.js */
 
-        async function prefetchDashboardSyncMetadataAfterLogin() {
-            if (!currentUser || navigator.onLine === false || !canViewDashboardSyncStatus()) return false;
-            const owner = getSupabaseReadIdentityScope();
-            const username = String(currentUser || '').trim().toLowerCase();
-            const profileId = String(nativeAuthProfile?.id || '').trim();
-            const keys = ['ph_master_inventory', 'ph_soc_master', 'ph_reserves', 'ph_cav_import', 'hl_po_parsed'];
-            const metadata = await supabaseRpc('get_my_dataset_revisions_v1', { p_dataset_keys: keys }, { timeoutMs: 2500 });
-            if (username !== String(currentUser || '').trim().toLowerCase()
-                || profileId !== String(nativeAuthProfile?.id || '').trim()) return false;
-            return applyDashboardPublishedRevisionMetadata(metadata, owner);
-        }
 
         function applyDashboardPublishedRevisionMetadata(metadata, owner) {
             if (metadata?.contractVersion !== 1 || owner !== getSupabaseReadIdentityScope()
