@@ -218,6 +218,13 @@ function reportManualErpStartFailure(error, start) {
 }
 
 async function runGoogleAppsScriptTrigger() {
+    if (!nativeAuthSessionActive) return runLegacyGoogleAppsScriptTrigger();
+    try { await runSelectedErpSyncTargets(); }
+    catch (error) { showToast('ERP sync',error.message,true); }
+    return false;
+}
+
+async function runLegacyGoogleAppsScriptTrigger() {
     releaseStaleManualSyncClientStateIfNeeded();
     const recovering = isManualErpScanStalled(manualSyncStatusState || {});
     if (!canRunManualInventoryImport() || !recovering && (manualSyncStartPending || window.googleScriptRunInFlight)) return false;

@@ -51,10 +51,8 @@ function completeOperationalErpSyncStatus(status = {}, now = Date.now()) {
     return { ...status, percent, ...(status.status === 'complete' ? { status: status.active ? 'running' : 'incomplete', finishedAt: '' } : {}) };
 }
 
-function driveManualErpSyncFromStatus(status = {}, resume = false) {
+function driveManualErpSyncFromStatus(status = {}) {
     if (manualSyncStartPending || !status.active || !status.runId || document.hidden || navigator.onLine === false || !canRunManualInventoryImport()) return false;
-    const soc = status.currentStage === 'soc' && status.sourceProgress?.soc;
-    const readyToPublish = soc && !soc.publicationConfirmed && Number(soc.rowsTotal)>0 && Number(soc.rowsStaged)>=Number(soc.rowsTotal);
     // The sequential foreground driver keeps advancing even while cloud status is running.
     const owner = getSupabaseReadIdentityScope(), current = window.erpSyncContinuationDriver;
     if (current?.owner === owner && current?.runId === status.runId) return false;
@@ -73,6 +71,7 @@ function renderErpSyncProgressModal() {
         closeErpSyncProgressModal();
         return;
     }
+    if (nativeAuthSessionActive) return renderSelectedErpSyncModal(modal);
     const state = completeOperationalErpSyncStatus(manualSyncStatusState || {});
     const cards = erpSyncProgressCards(state, dashboardSyncMetadataSummaries || []);
     const overall = Math.floor(cards.reduce((sum, card) => sum + card.percent, 0) / (cards.length || 5));
@@ -145,6 +144,7 @@ function erpHomeRunScriptLabel(manualSyncActive, progress) {
 function syncGoogleScriptButton() {
     const button = document.getElementById('run-google-script-btn');
     if (!button) return;
+    mountHomeSyncMultiselect(button);
     const label = button.querySelector('[data-run-script-label]');
     const isVisible = canRunManualInventoryImport();
     const panel = document.getElementById('dashboard-sync-accordion');
@@ -172,7 +172,7 @@ function openErpSyncProgressModal() {
     modal.style.display = 'flex';
     renderErpSyncProgressModal();
     if (manualSyncStatusState?.active) driveManualErpSyncFromStatus(manualSyncStatusState, true);
-    startErpSyncProgressPolling(modal);
+    if (!nativeAuthSessionActive) startErpSyncProgressPolling(modal);
     modal.querySelector('[data-sync-close]')?.focus();
     updateGlobalBackButton();
     return false;

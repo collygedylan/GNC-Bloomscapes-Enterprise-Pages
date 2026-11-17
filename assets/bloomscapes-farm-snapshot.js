@@ -1,22 +1,18 @@
-const BLOOMSCAPES_SNAPSHOT_READS = [
-    ['inventory','gnc_all_master_inventory','warehousei','unique_id'],
-    ['soc','gnc_all_soc_master','warehouseid','unique_id'],
-    ['reserves','gnc_all_reserves','warehouseid','unique_id'],
-    ['assigned','ph_inventory_row_assignments','farm_code','master_unique_id'],
-    ['defaults','ph_itemcode_default_owners','farm_code','itemcode_normalized']
-];
 
 async function readBloomscapesFarmRevision(farm) {
     const {data,error} = await getSupabaseBrowserClient().rpc('gnc_read_farm_snapshot_revision',{p_farm:farm});
     if (error) throw error;
     if (data?.farm_code!==farm || typeof data.revision!=='string') throw new Error('Farm revision scope was not confirmed.');
-    return data.revision;
+    const status=await fetchDirectPostgrestReadPage('gnc_00_core_erp_sync_status',
+        'select=target_key,last_synced_at&farm_code=eq.'+farm+'&order=target_key.asc',{count:false},false);
+    if (!status) throw new Error('ERP snapshot revision was not confirmed.');
+    return JSON.stringify([data.revision,status.rows]);
 }
 
 async function readBloomscapesFarmSnapshot(farm,assertCurrent) {
     const revision = await readBloomscapesFarmRevision(farm);
     assertCurrent();
-    const entries = await Promise.all(BLOOMSCAPES_SNAPSHOT_READS.map(async ([key,table,column,order])=>
+    const entries = await Promise.all(getErpFarmReadContracts(farm).map(async ([key,table,column,order])=>
         [key,await readBloomscapesFarmTable(table,column,order,farm,assertCurrent)]));
     assertCurrent();
     if (await readBloomscapesFarmRevision(farm)!==revision) throw Object.assign(
@@ -25,13 +21,13 @@ async function readBloomscapesFarmSnapshot(farm,assertCurrent) {
 }
 
 async function readBloomscapesFarmTable(table,column,order,farm,assertCurrent) {
-    const client = getSupabaseBrowserClient(), rows = [];
+    const rows = [];
     let total = null;
     for (let offset=0;offset<100000;offset+=1000) {
         assertCurrent();
-        const {data,error,count} = await client.from(table).select('*',offset===0 ? {count:'exact'} : {})
-            .eq(column,column==='farm_code' ? farm : farm.slice(0,2)).order(order).range(offset,offset+999);
-        if (error) throw error;
+        const page = await fetchDirectPostgrestReadPage(table,erpFarmReadQuery(table,column,order,farm,offset),{count:offset===0},false);
+        if (!page) throw new Error('Authenticated farm read unavailable.');
+        const {rows:data,total:count}=page;
         assertCurrent();
         if (!Array.isArray(data) || offset===0 && !Number.isSafeInteger(count)) throw new Error('Farm snapshot count was not confirmed.');
         if (offset===0) total = count;

@@ -62,7 +62,7 @@ async function loadBloomscapesWarmFarm(cache,farm,refresh) {
         assertBloomscapesFarmCache(cache,farm);
         if (document.hidden || navigator.onLine===false) throw Object.assign(new Error('Farm preparation paused while the page is inactive.'),{code:'FARM_PREPARATION_PAUSED'});
     };
-    const key = 'bloomscapes-farm-v94:'+cache.owner+':'+farm;
+    const key = 'bloomscapes-farm-v3104:'+cache.owner+':'+farm;
     const existing = cache.snapshots.get(farm);
     if (refresh && existing && await readBloomscapesFarmRevision(farm)===existing.revision) return existing;
     const saved = refresh ? null : await loadCacheValue(key);

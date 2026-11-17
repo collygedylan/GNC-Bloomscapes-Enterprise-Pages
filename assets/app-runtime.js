@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.03';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.04';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -23822,7 +23822,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.03';
+        const APP_VERSION = '3.1.04';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -24806,7 +24806,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         function canUseNcrTaskView() {
             return isExecutiveAccessUser();
         }
-        /* @runtime-fragment assets/erp-sync-ui-functions.js */
+        /* @runtime-fragment assets/home-sync-multiselect.js */ /* @runtime-fragment assets/erp-sync-ui-functions.js */
 
         function normalizeRetiredManualSyncStageKey(value = '') {
             return String(value || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
@@ -30625,45 +30625,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             }
         }
 
-        async function fetchDirectPostgrestReadPage(table, queryString = '', options = {}, allowAnonFallback = false) {
-            const safeTable = normalizeAppTableName(table);
-            const authenticatedOnlyTable = ['ph_itemcode_default_owners', 'ph_requests_pending', 'ph_active_request', 'ph_active_suspend', 'ph_request_queue_live_rows', 'ph_active_request_live_rows'].includes(safeTable) || safeTable === 'ph_master_inventory'
-                || safeTable === 'ph_customer_consignee_sales_reps'
-                || safeTable === 'ph_soc_master'
-                || safeTable === WAREHOUSE_ASSIGNED_ITEMS_TABLE
-                || safeTable === 'ph_warehouse_assigned_items';
-            if (authenticatedOnlyTable && !hasAuthenticatedOperationalReadIdentity()) {
-                throw Object.assign(new Error(`${safeTable} read requires the active authenticated account.`), { code: 'DATASET_AUTH_REQUIRED' });
-            }
-            const opts = options && typeof options === 'object' ? options : {};
-            const timeoutMs = Math.max(1000, Number(opts.timeoutMs) || SUPABASE_READ_TIMEOUT_MS);
-            const nativeHeaders = opts.preferAnon === true ? null : await getNativeAuthRequestHeaders().catch(() => null);
-            if (opts.signal?.aborted) throw Object.assign(new Error(`${safeTable} read cancelled.`), { code: 'REQUEST_ABORTED' });
-            if (!nativeHeaders && !allowAnonFallback) return null;
-            const headers = nativeHeaders ? { ...nativeHeaders } : {
-                apikey: SUPABASE_KEY,
-                Authorization: 'Bearer ' + SUPABASE_KEY,
-                'Content-Type': 'application/json'
-            };
-            headers['Cache-Control'] = 'private, no-store';
-            if (opts.count === true) headers.Prefer = 'count=exact';
-            const inventoryCsvColumns = safeTable === 'ph_master_inventory' && Array.isArray(opts.inventoryCsvColumns)
-                && window.GncDatabase.supportsInventoryCsv === true
-                && typeof window.AgMetricInventoryList?.decodeCsvRows === 'function' ? opts.inventoryCsvColumns : null;
-            if (inventoryCsvColumns) headers.Accept = 'text/csv';
-            const response = await window.GncDatabase.fetchTable(SUPABASE_URL, safeTable, String(queryString || '').trim(), {
-                method: 'GET', headers, signal: opts.signal
-            }, timeoutMs, `${safeTable} direct read`);
-            if (!response.ok) throw await createSupabaseReadResponseError(response, 'Supabase direct read failed');
-            let rows = response.__gncValidatedData;
-            if (!Array.isArray(rows)) {
-                const text = await response.text();
-                rows = text ? inventoryCsvColumns && String(response.headers?.get?.('Content-Type') || '').toLowerCase().includes('text/csv')
-                    ? window.AgMetricInventoryList.decodeCsvRows(text, inventoryCsvColumns) : JSON.parse(text) : [];
-            }
-            if (!Array.isArray(rows)) throw new Error(`${safeTable} returned an invalid row response; previous verified data was retained.`);
-            return { rows, total: parseSupabaseContentRangeTotal(response), authSource: nativeHeaders ? 'native' : 'anon' };
-        }
+        /* @runtime-fragment assets/erp-sync-targets.js */ /* @runtime-fragment assets/erp-target-runner.js */ /* @runtime-fragment assets/erp-selected-sync.js */ /* @runtime-fragment assets/erp-farm-datasets.js */ /* @runtime-fragment assets/erp-target-transport.js */ /* @runtime-fragment assets/erp-target-progress.js */ /* @runtime-fragment assets/direct-postgrest-read.js */
 
         function classifyDatasetLoadFailureCode(error = null) {
             if (error?.name === 'AbortError' || ['REQUEST_ABORTED', 'DATASET_READ_SCOPE_CHANGED', 'DATASET_READ_RETAINED'].includes(String(error?.code || '').toUpperCase())) return null;

@@ -16,7 +16,7 @@ async function prepareBloomscapesFarmPublication(raw,owner,assertCurrent) {
     const driveProjection = prepareBloomscapesDriveProjection(inventory);
     assertCurrent();
     return {owner,farm:raw.farm,revision:raw.revision,inventory,soc,reserves,assigned,assignedMap,defaults:raw.defaults,
-        indexes:master.indexMaps,av:master.avOpenRows,socRaw,driveProjection,loadedAt:Date.now()};
+        purchaseOrders:raw.purchaseOrders || [],indexes:master.indexMaps,av:master.avOpenRows,socRaw,driveProjection,loadedAt:Date.now()};
 }
 
 async function prepareBloomscapesSupportRows(rows,kind,resolveMaster,assertCurrent) {
