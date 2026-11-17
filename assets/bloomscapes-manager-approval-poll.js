@@ -19,7 +19,7 @@ function managerApprovalPollContext() {
 
 function clearManagerApprovalLiveRefresh() {
     if (!managerApprovalPoll || managerApprovalPoll.timer === null) return;
-    clearInterval(managerApprovalPoll.timer);
+    managerApprovalPoll.timer();
     managerApprovalPoll.timer = null;
 }
 
@@ -76,6 +76,6 @@ function scheduleManagerApprovalLiveRefresh() {
         };
     }
     if (managerApprovalPoll.timer === null) {
-        managerApprovalPoll.timer = setInterval(runManagerApprovalLiveRefresh, MANAGER_APPROVAL_LIVE_REFRESH_MS);
+        managerApprovalPoll.timer = window.BloomscapesBatteryGovernor.schedule('manager-approval',runManagerApprovalLiveRefresh,MANAGER_APPROVAL_LIVE_REFRESH_MS);
     }
 }

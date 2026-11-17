@@ -69,7 +69,7 @@ function startNurseryInventoryObserver(context) {
             if (context.options.authorized?.() === false) {
                 context.state.destroyed = true;
                 context.root.replaceChildren();
-                clearInterval(timer);
+                timer();
                 return;
             }
             const next = context.options.inventory(), rev = context.options.revision?.();
@@ -84,7 +84,7 @@ function startNurseryInventoryObserver(context) {
             globalThis.GncRuntimeWatchdog?.captureHandled?.('nursery_inventory_refresh');
         } finally { inFlight = false; }
     }
-    const timer = setInterval(poll, 1000);
+    const timer = window.BloomscapesBatteryGovernor.schedule(context.root,poll,45000);
     return timer;
 }
 

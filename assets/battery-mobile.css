@@ -1,0 +1,22 @@
+@layer bloomscapes-battery {
+@media (max-width: 900px) {
+  html body #app-wrapper :is(.inventory-card, .drive-card, .app-smart-card,
+    .bloomscapes-field-work-card, .bloomscapes-transfer-card, .app-drive-compact-card,
+    [data-docks-dock-card], [data-docks-drop-card], [data-docks-stop-card],
+    [data-bloomscapes-workflow] article, [data-replenishment-card]) {
+    content-visibility: auto !important;
+    contain-intrinsic-size: auto 340px !important;
+  }
+
+  html body :is(header, .sticky, #top-nav, #global-header, #av-filter-options,
+    .inventory-card, .drive-card, .app-smart-card, .app-drive-compact-card,
+    .bloomscapes-field-work-card, .inventory-excel-bar, .ps-toolbar, .ps-filters,
+    .alpha-toolbar, .manager-module-freeze, [data-main-browse-filters]),
+  html body :is(.inventory-card, .drive-card, .app-smart-card)::before,
+  html body :is(.inventory-card, .drive-card, .app-smart-card)::after {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: #0d291a !important;
+  }
+}
+}

@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.06';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.07';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -23822,7 +23822,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.06';
+        const APP_VERSION = '3.1.07';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -26594,241 +26594,13 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
 
         function applyUniversalLiveSyncPatch(tableName, payload) {
             if (!getUniversalLiveSyncTables().includes(tableName) || !payload?.eventType) return false;
-            const anchor = captureProductionRefreshAnchor(getCurrentVisibleViewId());
-            const keepDraft = activeItem && (hasProductionLiveSyncDraft() || hasActiveTextEntryFocus());
-            const draft = keepDraft ? { ...activeItem } : null;
-            // A detail editor can point directly at a cached inventory row. Keep
-            // its draft object isolated before the authoritative cache patch so
-            // restoring form state cannot put stale fields back into fullInventory.
-            if (draft && Array.isArray(fullInventory) && fullInventory.includes(activeItem)) {
-                activeItem = { ...activeItem };
-            }
-            let changed = false;
-            try {
-                changed = applyRealtimeChange(tableName, payload, true);
-                if (changed) {
-                    flushRealtimeDatasetUpdates([tableName]);
-                    if (tableName === 'ph_master_inventory') {
-                        rebuildMasterInventoryIndexes();
-                        markViewDirty('docks');
-                        if (isViewVisible('docks')) scheduleDocksRender(0);
-                        if (cartPanelOpen) updateGlobalActionBar();
-                    }
-                }
-            } finally {
-                if (draft && activeItem) Object.assign(activeItem, draft);
-                restoreProductionRefreshAnchor(anchor);
-            }
-            if (changed) scheduleProductionLiveSyncRender(true);
-            return changed;
+            return applyBatteryLivePatchBatch([{table:tableName,eventType:payload.eventType,
+                rows:[payload.eventType === 'DELETE' ? payload.old : payload.new]}]);
         }
 
-        function getProductionLiveSyncCoordinator() {
-            if (productionLiveSyncCoordinator) return productionLiveSyncCoordinator;
-            if (!canUseProductionLiveSync()) return null;
-            const readySources = new Map();
-            const handoff = (owner, {payload}) => {
-                if (document.hidden || owner !== getSupabaseReadIdentityScope() || coordinator !== productionLiveSyncCoordinator ||
-                    !getUniversalLiveSyncTables().includes(payload?.table) || readySources.get(payload.table) === false ||
-                    !isRowPatchSourceReady(payload.table) || !Array.isArray(payload.rows) || payload.rows.length > 16) return;
-                payload.rows.forEach(row=>applyUniversalLiveSyncPatch(payload.table,{eventType:payload.eventType,
-                    new:payload.eventType === 'DELETE' ? null : row, old:payload.eventType === 'DELETE' ? row : {}}));
-            };
-            const coordinator = productionLiveSyncCoordinator = window.AgMetricLiveSync.createCoordinator({
-                subscribe: (onChange, onReconnect) => {
-                    const owner = getSupabaseReadIdentityScope();
-                    const channel = supabaseClient.channel('agdata-live-sync', { config: { private: true } });
-                    let active = true;
-                    channel.on('broadcast', { event: 'row_patch' }, event => { if (active) handoff(owner, event); })
-                        .on('postgres_changes', { event: '*', schema: 'public', table: 'app_dataset_revisions' },
-                            event => {
-                                if (!active || owner !== getSupabaseReadIdentityScope()) return;
-                                navigationRevisionCache = null;
-                                onChange(event);
-                            })
-                        .subscribe(status => {
-                            if (active && status === 'SUBSCRIBED') { navigationRevisionCache = null; onReconnect(); }
-                        });
-                    return () => { active = false; readySources.clear(); return supabaseClient.removeChannel(channel); };
-                },
-                setTimeout: (fn, delay) => {
-                    const scope = window.AgMetricLifecycle.createScope({ lifetime: 'session', foreground: true });
-                    const cancel = scope.timeout(() => { try { fn(); } finally { scope.dispose(); } }, delay);
-                    return () => { cancel(); scope.dispose(); };
-                },
-                clearTimeout: cancel => cancel(),
-                getContext: getProductionLiveSyncContext,
-                eventDrivenRevisions: true,
-                realtimeDebounceMs: 2500,
-                connectionSourceKeys: () => ['ph_master_inventory'],
-                onRevisionRead: (value, metadata, context) => {
-                    for (const source of value.sources || []) readySources.set(source.key,source.state==='ready');
-                    recordDatasetRevisionConnection(value,metadata,context);
-                },
-                readRevisions: (keys, options = {}) => withProductionLiveSyncSignal(options.signal, async (signal) => {
-                    const owner = getSupabaseReadIdentityScope();
-                    let metadata;
-                    try {
-                        metadata = await supabaseRpc('get_my_dataset_revisions_v1', { p_dataset_keys: keys }, { timeoutMs: 15000, signal });
-                        metadata = normalizeOptionalBunchRevisionMetadata(metadata, keys);
-                        if (metadata?.contractVersion === 1 && Array.isArray(metadata.sources)) {
-                            window.GncRuntimeWatchdog?.setDatasetRevisions(Object.fromEntries(metadata.sources.map(source => [String(source.key || ''), { revision: String(source.revision ?? ''), state: String(source.state || '') }])));
-                        }
-                    } catch (error) {
-                        if (keys.includes('ph_master_inventory') && owner === getSupabaseReadIdentityScope() && !signal.aborted) {
-                            inventoryStatusSync?.setSourceReady(false);
-                        }
-                        throw error;
-                    }
-                    if (keys.includes('ph_master_inventory') && owner === getSupabaseReadIdentityScope() && !signal.aborted) {
-                        const master = metadata?.sources?.find(source => source.key === 'ph_master_inventory');
-                        inventoryStatusSync?.setSourceReady(metadata?.contractVersion === 1
-                            && metadata.permissionVersion === appAccessSnapshotState.snapshot?.dataPermissionVersion
-                            && master?.state === 'ready' && /^\d+$/.test(String(master.revision)) && isRowPatchSourceReady('ph_master_inventory'));
-                    }
-                    applyDashboardPublishedRevisionMetadata(metadata, owner);
-                    return metadata;
-                }),
-                readCachedSnapshot: readProductionVerifiedSnapshot,
-                readDisplaySnapshot: readProductionDisplaySnapshot,
-                previewSnapshots: previewProductionSnapshots,
-                retainAppliedDisplay: retainAppliedProductionDisplay,
-                writeCachedSnapshot: writeProductionVerifiedSnapshot,
-                concurrency: isTouchConstrainedDevice() ? 1 : 2,
-                getForegroundConcurrency: (context) => context.view === 'docks'
-                    || context.view === 'request' && context.surfaces.includes('request:suspend-tag') ? 2
-                    : isTouchConstrainedDevice() ? 1 : 2,
-                onStageStart: (context, metadata) => {
-                    if (context.priority !== 'background') {
-                        productionLiveSyncReadGeneration += 1;
-                        abortSupabaseReadsBeforeGeneration();
-                    }
-                    const permissionVersion = String(metadata.permissionVersion || '');
-                    productionLiveSyncReadPermissionVersion = permissionVersion;
-                },
-                onStatus: (status) => {
-                    if (!updateProductionLiveSyncProofFromStatus(status)) {
-                        const context = getProductionLiveSyncContext();
-                        if (hasCurrentProductionReadStatus(status, context)) {
-                            // A server-authorized read can render during a local
-                            // access refresh without granting exact write proof.
-                            scheduleProductionLiveSyncRender(true, { cachedPreview: true });
-                        }
-                        return;
-                    }
-                    if (status.state === 'Offline' || status.unavailableSources?.includes('ph_master_inventory')) inventoryStatusSync?.setSourceReady(false);
-                    if (applyCurrentVerifiedSyncTimestamp(status)) updateSyncDiagnostics();
-                    captureHlOrderVerificationStatus(status);
-                    renderProductionDataFreshness(status);
-                    if (status.unavailableSources?.length) {
-                        const currentView = getCurrentVisibleViewId();
-                        const retained = hasProgressiveViewData() && !hasConfirmedCurrentAccountRevocation();
-                        if (!retained && !['av', 'drive'].includes(currentView)) {
-                            productionDisplayGroups.clear(); productionDisplayVerifiedAt.clear(); productionDisplaySnapshotTimes.clear();
-                        }
-                        // Eval Reports #2 surfaces its own source status while
-                        // retaining its last complete index on a failed proof.
-                        if (!retained && VIEW_LOAD_UI[currentView] && !shouldLetManagerEvalReport2OwnLoadState(currentView)) {
-                            const statusError = Object.assign(new Error(status.message || 'This data is inaccessible. Please retry.'), {
-                                status: Number(status.status || 0), code: String(status.code || '').trim().toUpperCase()
-                            });
-                            showViewErrorState(currentView, status.message || 'This data is inaccessible. Please retry.', true, statusError);
-                        }
-                    }
-                    if (getCurrentVisibleViewId() === 'drive' && activeDriveTab === 'name' && ['Needs attention', 'Importing', 'Offline'].includes(status.state) && !hasProgressiveViewData()) {
-                        showViewErrorState('drive', status.message || 'Current inventory could not be verified. Please retry.', true);
-                    }
-                    const failedView = getCurrentVisibleViewId();
-                    const failedUi = VIEW_LOAD_UI[failedView];
-                    if (failedUi && !shouldLetManagerEvalReport2OwnLoadState(failedView)
-                        && ['Needs attention', 'Importing', 'Offline'].includes(status.state)
-                        && getContainerUiState(document.getElementById(failedUi.container)) === 'loading'
-                        && !hasProgressiveViewData() && !hasProductionLiveSyncDraft()) {
-                        showViewErrorState(failedView, getProductionDataStatusMessage(status), true);
-                    }
-                    driveDemandStatus = status;
-                    const demand = getDriveDemandContext();
-                    if (demand) renderDriveDemandPanel(demand.kind);
-                    const waitingForDisplay = isProductionDisplayWaitingForRender(getCurrentVisibleViewId());
-                    if (['Up to date', 'Published data'].includes(status.state) && (waitingForDisplay || driveCommonNameNeedsPreparation()
-                        || (productionLiveSyncRenderPending && !productionLiveSyncActiveRender && !hasProductionLiveSyncDraft()))) {
-                        cancelScheduledUiRenderByPrefix(`view-switch-render:${getCurrentVisibleViewId()}`);
-                        scheduleProductionLiveSyncRender(true);
-                    }
-                    if (canUseHlOrder() && status.state === 'Up to date') {
-                        if (getCurrentVisibleViewId() === 'hl-order') {
-                            void loadHlOrderState();
-                            // Verification and time-dependent photo eligibility can
-                            // change without an HL revision. Refresh only these regions.
-                            const owner = captureHlOrderOwnership();
-                            scheduleTypingAwareUiRender('hl-drive-proof-display', () => {
-                                if (!isHlOrderOwnershipCurrent(owner) || getCurrentVisibleViewId() !== 'hl-order') return;
-                                const container = document.getElementById('hl-order-content');
-                                const anchor = captureProductionRefreshAnchor('hl-order');
-                                if (container) refreshHlOrderDriveRegions(container);
-                                restoreProductionRefreshAnchor(anchor);
-                            }, 0, 120, { deferUntilIdle: true, ignoreChunkDuringInteraction: true });
-                        }
-                    }
-                },
-                onPermissionChange: () => refreshNativeRoleAndCapabilities('live-permissions'),
-                commitSnapshots: (snapshots, context, metadata) => {
-                    const incomingMaster = snapshots.some(({ adapter }) => adapter.id === 'core:master');
-                    if (incomingMaster && !isConfirmedInventoryReadRevisionCurrent(metadata.sources.get('ph_master_inventory')?.revision)) {
-                        throw new Error('Inventory changed after this read started. Refreshing the confirmed changes.');
-                    }
-                    if (context.progressive) productionDisplayGroups.add(productionDisplayGroupKey(context));
-                    const locOnHandSource = metadata.sources.get('ph_master_inventory');
-                    acceptQueueInventorySourceRevision(locOnHandSource, metadata.permissionVersion);
-                    const payload = { _verifiedLiveSync: true, _locOnHandReceiptScope: getSupabaseReadIdentityScope(), _locOnHandReceiptPermission: metadata.permissionVersion,
-                        _locOnHandReceiptRevision: locOnHandSource?.revision || '' };
-                    const core = snapshots.filter(({ adapter }) => adapter.id.startsWith('core:'));
-                    // Settings and operational maps are applied in the same JS turn.
-                    snapshots.filter(({ adapter }) => adapter.id.startsWith('side:')).forEach(({ adapter, value }) => adapter.commit(value));
-                    core.forEach(({ value }) => Object.assign(payload, value.payload));
-                    const seasonChanged = snapshots.some(({ adapter }) => adapter.id === 'side:settings');
-                    const masterState = getDatasetState('master');
-                    const masterRevision = metadata.sources.get('ph_master_inventory');
-                    const canReuseMaster = masterState.rowCompleteness === 'complete' && masterState.liveVerifiedScope === context.scope
-                        && masterState.liveVerifiedPermission === metadata.permissionVersion
-                        && masterRevision?.state === 'ready' && masterState.liveVerifiedRevision === masterRevision.revision;
-                    if (seasonChanged && !Object.prototype.hasOwnProperty.call(payload, 'data') && canReuseMaster) {
-                        // Season changes alter derived AV/current-season collections,
-                        // not the already-verified all-season master snapshot itself.
-                        payload.data = fullInventory.map((row) => ({ ...row }));
-                    }
-                    core.forEach(({ value }) => Object.assign(getDatasetState(value.key), {
-                        initialLoaded: true, fullLoaded: value.fieldCoverage === 'full', fieldCoverage: value.fieldCoverage,
-                        rowCompleteness: value.rowCompleteness === 'complete' ? 'complete' : 'unknown', firstPagePreviewLoaded: false, lastLoadedAt: new Date().toISOString(),
-                        liveVerifiedScope: context.scope, liveVerifiedPermission: metadata.permissionVersion,
-                        liveVerifiedRevision: metadata.sources.get(DATASET_DEFINITIONS[value.key].sourceTable || DATASET_DEFINITIONS[value.key].table)?.revision
-                    }));
-                    core.forEach(({ value }) => {
-                        if (value.key === 'master') captureHlOrderInventorySnapshot(value.hlOrderInventory, context, metadata);
-                    });
-                    if (core.length || Object.prototype.hasOwnProperty.call(payload, 'data')) processAndLoadData(payload);
-                    if (core.some(({ value }) => value.key === 'master' && value.rowCompleteness === 'complete')) {
-                        productionDisplayMasterReceipt = { rows: fullInventory, readScope: getSupabaseReadIdentityScope(), permission: metadata.permissionVersion };
-                    }
-                    replayHydratedRowPatches();
-                    refreshLiveLocMatchQuantityPreviews();
-                    if (incomingMaster && inventoryFieldCountingMode) void ensureFieldCountingIsland();
-                    if (core.some(({ value }) => value.key === 'warehouseAssignedItems')) applyEvalRecipientUsersToRepGroups(getEvalAssignableUserList());
-                    if (core.some(({ value }) => value.key === 'master')) Object.assign(getDatasetState('avOpen'), getDatasetState('master'));
-                    invalidateResolvedViewStateCaches({ preserveAvPreparation: true });
-                    TRACKED_VIEW_IDS.forEach(markViewDirty);
-                    if (core.length) persistCurrentCache();
-                    const visibleAdapters = new Set(getProductionLiveSyncContext().adapters.map(adapter => adapter.id));
-                    if (snapshots.some(({ adapter }) => visibleAdapters.has(adapter.id))) {
-                        window.GncRuntimeWatchdog?.recoverReadTimeout?.();
-                        scheduleProductionLiveSyncRender();
-                    }
-                },
-                explicitNavigationOnly: false,
-                recentlyActive: () => document.visibilityState === 'visible' && Date.now()-lastUserInteractionAt < 60000
-            });
-            return productionLiveSyncCoordinator;
-        }
+        
+        
+        
 
         function beginProductionVerifiedNavigation(viewId) {
             if (typeof managerReportPageController !== 'undefined') managerReportPageController?.suspendMounts();
@@ -26939,7 +26711,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
                 productionLiveSyncCoordinator?.suspend();
                 if (type !== 'session') invalidateProductionLiveSyncProofForSuspend();
             } else if (['resume', 'visibility', 'online', 'offline'].includes(type)) {
-                signalProductionLiveSync(navigator.onLine !== false ? 'reconnect' : reason, 0);
+                void window.BloomscapesBatteryGovernor.wake(reason);
                 resumePendingInventoryMutations();
             }
         });
@@ -56143,55 +55915,7 @@ function toggleDriveQuickRequestItem(domId) {
             };
         }
 
-        async function beginChatVoiceRecording(forComposer = false) {
-            if (chatVoiceUploadInFlight) {
-                showToast('Upload In Progress', 'Wait for the current voice note to finish uploading.', true);
-                return false;
-            }
-            if (!isChatVoiceSupported()) {
-                showToast('Voice Notes Unavailable', 'This device does not support in-app voice recording here.', true);
-                return false;
-            }
-            if (navigator.onLine === false) {
-                showToast('Offline', 'Reconnect before recording a voice note.', true);
-                return false;
-            }
-            if (!forComposer && !activeChatConversationId) {
-                showToast('Open Chat', 'Choose a conversation first.', true);
-                return false;
-            }
-            const mimeType = getSupportedChatVoiceMimeType();
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-                const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
-                chatVoiceRecorderStream = stream;
-                chatVoiceRecorder = recorder;
-                chatVoiceChunks = [];
-                chatVoiceRecordingForComposer = !!forComposer;
-                chatVoiceRecordingActive = true;
-                chatVoiceRecordingStartAt = Date.now();
-                chatVoiceRecordMimeType = mimeType || recorder.mimeType || 'audio/webm';
-                recorder.ondataavailable = (event) => {
-                    if (event && event.data && event.data.size > 0) chatVoiceChunks.push(event.data);
-                };
-                recorder.onerror = () => {
-                    showToast('Voice Note Error', 'Recording stopped unexpectedly.', true);
-                    resetChatVoiceRecording({ preserveRecorder: false }).catch(() => {});
-                };
-                recorder.start();
-                clearChatVoiceRecordTimer();
-                updateChatVoiceRecordingUi();
-                syncChatVoiceRecordTimerVisibility();
-                chatLastRenderSignature = '';
-                renderChat();
-                return true;
-            } catch (error) {
-                showToast('Microphone Blocked', 'Allow microphone access to send voice notes.', true);
-                await resetChatVoiceRecording({ preserveRecorder: false });
-                return false;
-            }
-        }
-
+        
         async function cancelChatVoiceRecording() {
             if (!chatVoiceRecorder) return false;
             try {
@@ -104546,52 +104270,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return false;
         }
 
-        async function startGrowerScoutRecording(event = null) {
-            if (event && typeof event.preventDefault === 'function') event.preventDefault();
-            if (growerScoutRecordingActive) return stopGrowerScoutRecording(event);
-            if (!isGrowerScoutAudioSupported()) {
-                showToast('Voice Unavailable', 'This device does not support in-app recording here.', true);
-                return false;
-            }
-            if (navigator.onLine === false) {
-                showToast('Offline', 'Reconnect before recording a scouting note.', true);
-                return false;
-            }
-            try {
-                const mimeType = getGrowerScoutAudioMimeType();
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-                const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
-                growerScoutRecorderStream = stream;
-                growerScoutRecorder = recorder;
-                growerScoutAudioChunks = [];
-                growerScoutAudioBlob = null;
-                growerScoutAudioDurationSeconds = 0;
-                growerScoutRecordMimeType = mimeType || recorder.mimeType || 'audio/webm';
-                growerScoutRecordingActive = true;
-                growerScoutRecordingStartedAt = Date.now();
-                recorder.ondataavailable = (recordEvent) => {
-                    if (recordEvent && recordEvent.data && recordEvent.data.size > 0) growerScoutAudioChunks.push(recordEvent.data);
-                };
-                recorder.onerror = () => {
-                    showToast('Recording Stopped', 'The voice note stopped unexpectedly.', true);
-                    stopGrowerScoutRecorderStream();
-                    growerScoutRecordingActive = false;
-                    clearGrowerScoutRecordingTimer();
-                    updateGrowerScoutRecordingUi();
-                };
-                recorder.start(1000);
-                clearGrowerScoutRecordingTimer();
-                updateGrowerScoutRecordingUi();
-                syncGrowerScoutRecordingTimerVisibility();
-            } catch (error) {
-                stopGrowerScoutRecorderStream();
-                growerScoutRecordingActive = false;
-                clearGrowerScoutRecordingTimer();
-                showToast('Microphone Blocked', 'Allow microphone access to record scouting notes.', true);
-            }
-            return false;
-        }
-
+        // Recording startup shares the visibility-fenced battery media owner above.
         async function stopGrowerScoutRecording(event = null) {
             if (event && typeof event.preventDefault === 'function') event.preventDefault();
             if (!growerScoutRecorder || !growerScoutRecordingActive) return false;
@@ -116770,11 +116449,17 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
 /* @runtime-fragment assets/inventory-browse-workspaces.js */ /* @runtime-fragment assets/inventory-excel-facts.js */ /* @runtime-fragment assets/bloomscapes-message-state.js */ /* @runtime-fragment assets/bloomscapes-message-transport.js */ /* @runtime-fragment assets/bloomscapes-messages.js */ /* @runtime-fragment assets/bloomscapes-planning-card.js */ /* @runtime-fragment assets/bloomscapes-planning-transport.js */ /* @runtime-fragment assets/bloomscapes-planning-state.js */ /* @runtime-fragment assets/bloomscapes-module-access.js */ /* @runtime-fragment assets/bloomscapes-module-access-editor.js */ /* @runtime-fragment assets/bloomscapes-viewport-scaler.js */
         /* @runtime-fragment assets/bloomscapes-home.js */ /* @runtime-fragment assets/bloomscapes-job-board.js */
 /* @runtime-fragment assets/bloomscapes-field-controls.js */ /* @runtime-fragment assets/bloomscapes-lab.js */ /* @runtime-fragment assets/bloomscapes-lab-controls.js */ /* @runtime-fragment assets/bloomscapes-radio.js */ /* @runtime-fragment assets/bloomscapes-radio-controls.js */
-/* @runtime-fragment assets/bloomscapes-battery-governor.js */
+/* @runtime-fragment assets/battery-runtime-fragments.js */
+        
+        
+        
+        
+        
+        
 /* @runtime-fragment assets/bloomscapes-ptt-drafts.js */
 /* @runtime-fragment assets/bloomscapes-ptt.js */
 /* @runtime-fragment assets/bloomscapes-push.js */
-/* @runtime-fragment assets/bloomscapes-ptt-inbox.js */
+
 /* @runtime-fragment assets/bloomscapes-radio-inbox.js */ /* @runtime-fragment assets/bloomscapes-dock.js */ /* @runtime-fragment assets/bloomscapes-dock-controls.js */ /* @runtime-fragment assets/bloomscapes-workflows.js */ /* @runtime-fragment assets/bloomscapes-vault-filter.js */
         /* @runtime-fragment assets/bloomscapes-farm-dialog.js */
         /* @runtime-fragment assets/bloomscapes-owner-command.js */
@@ -143829,9 +143514,9 @@ function syncHeaderBloomPlacement(viewId = getCurrentVisibleViewId()) {
 /* @runtime-fragment assets/bloomscapes-dock-write-context.js */
 /* @runtime-fragment assets/bloomscapes-dock-issue-save.js */
 
-/* @runtime-fragment assets/bloomscapes-comm-state.js */
+
 /* @runtime-fragment assets/bloomscapes-comm-transport.js */
-/* @runtime-fragment assets/bloomscapes-comm-playback.js */
+
 /* @runtime-fragment assets/bloomscapes-comm-hub.js */
 /* @runtime-fragment assets/bloomscapes-comm-thread.js */
 /* @runtime-fragment assets/bloomscapes-walkie-talkie.js */

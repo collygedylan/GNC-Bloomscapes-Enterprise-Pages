@@ -42,6 +42,6 @@ function mountNurseryTables(root,options){
     installNurseryExcelProvider(context);
     const timer = startNurseryInventoryObserver(context);
     if(nurseryTableLocal_cache.loaded){state.loading=false;context.draw();}else void context.load();
-    return {refresh:context.draw,destroy(){nurseryTableLocal_global.removeEventListener?.('gnc:bunch-settled',context.onBunchSettled);document.getElementById('bunch-note-issue-modal')?.remove();state.draft=null;state.destroyed=true;state.generation++;clearInterval(timer);clearTimeout(state.searchTimer);root.removeEventListener('focusin',context.preparePlantingChoices);root.removeEventListener('change',context.change);root.removeEventListener('click',context.click);root.removeEventListener('input',context.onSearchInput);}};
+    return {refresh:context.draw,destroy(){nurseryTableLocal_global.removeEventListener?.('gnc:bunch-settled',context.onBunchSettled);document.getElementById('bunch-note-issue-modal')?.remove();state.draft=null;state.destroyed=true;state.generation++;timer();clearTimeout(state.searchTimer);root.removeEventListener('focusin',context.preparePlantingChoices);root.removeEventListener('change',context.change);root.removeEventListener('click',context.click);root.removeEventListener('input',context.onSearchInput);}};
   }
   nurseryTableLocal_global.GncNurseryTables=Object.freeze({mount: mountNurseryTables,back:()=>document.getElementById('manager-table-management-root')?.bunchSimulatorBack?.()||false});

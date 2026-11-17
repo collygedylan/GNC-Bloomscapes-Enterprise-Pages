@@ -71,7 +71,7 @@ async function completeBloomscapesFieldWork(job,answers) {
 async function readBloomscapesJobBoardRevision() {
     const {client,owner} = await requireBloomscapesSession();
     const farm = getBloomscapesFarm(),ownerScope = getSupabaseReadIdentityScope();
-    const result = await client.rpc('gnc_read_job_board_revision',{p_farm:farm});
+    const result = await client.rpc('gnc_read_job_board_revision',{p_farm:farm}).abortSignal(window.BloomscapesBatteryGovernor.signal());
     await requireBloomscapesOwner(owner);
     const data = bloomscapesData(result);
     if (data?.farm_code!==farm || typeof data.revision!=='string' || !data.counts) throw new Error('Job counts scope was not confirmed.');

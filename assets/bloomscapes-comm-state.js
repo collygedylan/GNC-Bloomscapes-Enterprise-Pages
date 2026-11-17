@@ -27,6 +27,7 @@ function scopeBloomscapesComm() {
 }
 
 async function refreshBloomscapesComm() {
+    if (!window.BloomscapesBatteryGovernor.visible()) return;
     scopeBloomscapesComm();
     const state=bloomscapesCommState;
     if (!nativeAuthSessionActive || !state.owner || Date.now()<state.retryAt) return;
@@ -38,7 +39,7 @@ async function refreshBloomscapesComm() {
         if (!state.conversations.some(row=>row.id===state.selected)) state.selected=sortedBloomscapesConversations()[0]?.id || '';
         bloomscapesMessagesState.unread=data.conversations.reduce((sum,row)=>sum+Number(row.unreadText || 0),0);
         syncBloomscapesHomeBadges();saveBloomscapesCommCache();renderBloomscapesComm();
-        if (state.selected && isBloomscapesCommVisible()) await selectBloomscapesConversation(state.selected,false);
+        if (!document.hidden && state.selected && isBloomscapesCommVisible()) await selectBloomscapesConversation(state.selected,false);
     }).catch(error=>{if(generation===state.generation)state.retryAt=Date.now()+15000;throw error;})
         .finally(()=>{if(generation===state.generation)state.pending=null;});
     return state.pending;

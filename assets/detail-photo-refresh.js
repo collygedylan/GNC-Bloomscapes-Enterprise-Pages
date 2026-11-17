@@ -1,4 +1,5 @@
 function refreshPendingPhotoUiForItem(item, prefix = '') {
+    releaseSavedDetailPreviewUrls();
     if (prefix === 'eval-') { scheduleRequestRender(0,0,true); return; }
     if (!item) return;
     const uid = String(item.UNIQUE_ID || '').trim();

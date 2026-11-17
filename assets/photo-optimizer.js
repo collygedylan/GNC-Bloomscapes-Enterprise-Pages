@@ -3,7 +3,7 @@ const PHOTO_JPEG_QUALITY = 0.80;
 const PHOTO_DISPLAY_MAX_BYTES = 220 * 1024;
 const PHOTO_THUMB_144_MAX_BYTES = 80 * 1024;
 const PHOTO_THUMB_320_MAX_BYTES = 160 * 1024;
-const PHOTO_OPTIMIZER_WORKER_URL = './assets/image-optimize-worker-v2026090401.js?v=3.1.06';
+const PHOTO_OPTIMIZER_WORKER_URL = './assets/image-optimize-worker-v2026090401.js?v=3.1.07';
 let photoOptimizerWorker = null;
 let photoOptimizerRequestId = 0;
 const photoOptimizerPending = new Map();
@@ -85,7 +85,7 @@ async function encodeMainThreadPhotoBlob(source, target, type, maxBytes) {
 async function loadMainThreadPhotoSource(blob) {
     if (typeof createImageBitmap === 'function') {
         try {
-            const bitmap = await createImageBitmap(blob, { imageOrientation: 'from-image' });
+            const bitmap = await decodeResizedPhotoBitmap(blob, PHOTO_MAX_WIDTH);
             return { source: bitmap, width: bitmap.width, height: bitmap.height, cleanup: () => bitmap.close() };
         } catch { globalThis.reportHandledRuntimeIssue?.("loadMainThreadPhotoSource", 'HANDLED_OPERATION_FAILURE'); }
     }

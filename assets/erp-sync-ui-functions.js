@@ -199,7 +199,7 @@ function startErpSyncProgressPolling(modal) {
             inFlight = false;
         }
     };
-    window.erpSyncModalTimer = setInterval(poll, 5000);
+    window.erpSyncModalTimer = window.BloomscapesBatteryGovernor.schedule('erp-progress',poll,45000);
     void poll();
 }
 
@@ -211,7 +211,7 @@ function closeErpSyncProgressModal() {
         const backdrop = modal.closest('.erp-sync-progress-backdrop');
         if (backdrop) backdrop.hidden = true;
     }
-    clearInterval(window.erpSyncModalTimer);
+    window.erpSyncModalTimer?.();
     window.erpSyncModalTimer = null;
     if (typeof clearManualSyncStatusPoll === 'function') clearManualSyncStatusPoll();
     if (typeof clearReclassDeliveryPollTimer === 'function') clearReclassDeliveryPollTimer();

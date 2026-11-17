@@ -42,10 +42,17 @@ async function finishBloomscapesCommVoice(entry,audio,owner,generation) {
     } catch(error) {showBloomscapesCommStatus(error.message);}
 }
 
+const bloomscapesCommChirps = new Set();
+
+function suspendBloomscapesCommChirps() {
+    for (const context of bloomscapesCommChirps) void context.suspend().catch(batteryRuntimeError);
+}
+
 async function chirpBloomscapesWalkie() {
     const Context=window.AudioContext || window.webkitAudioContext;
-    if (!Context) return;
+    if (!Context || document.hidden) return;
     const context=new Context();
+    bloomscapesCommChirps.add(context);
     try {
         const gain=context.createGain();gain.gain.value=.075;gain.connect(context.destination);
         for (const [index,frequency] of [1200,1800].entries()) {
@@ -53,5 +60,9 @@ async function chirpBloomscapesWalkie() {
             oscillator.start(context.currentTime+index*.1);oscillator.stop(context.currentTime+index*.1+.08);
         }
         await new Promise(resolve=>setTimeout(resolve,230));
-    } finally {await context.close();}
+    } finally {
+        bloomscapesCommChirps.delete(context);
+        await context.suspend();
+        await context.close();
+    }
 }

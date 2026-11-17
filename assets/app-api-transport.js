@@ -265,7 +265,7 @@ function createSupabaseTransportClient(sdk, url, key) {
             storageKey:'gnc_supabase_auth_v1',
             experimental:{passkey:true}
         },
-        realtime:{params:{eventsPerSecond:8}}
+        realtime:{params:{eventsPerSecond:2}}
     });
 }
 

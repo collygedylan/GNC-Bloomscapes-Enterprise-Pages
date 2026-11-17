@@ -82,7 +82,7 @@ let reclassDeliveryNextCheckAt = 0;
 
 function clearReclassDeliveryPollTimer() {
     if (reclassDeliveryPollTimer === null) return;
-    clearInterval(reclassDeliveryPollTimer);
+    reclassDeliveryPollTimer();
     reclassDeliveryPollTimer = null;
 }
 
@@ -120,7 +120,7 @@ function startReclassDeliveryPolling() {
         return;
     }
     if (reclassDeliveryPollTimer === null) {
-        reclassDeliveryPollTimer = setInterval(runReclassDeliveryBackgroundCheck, RECLASS_DELIVERY_IDLE_MS);
+        reclassDeliveryPollTimer = window.BloomscapesBatteryGovernor.schedule('reclass-delivery',runReclassDeliveryBackgroundCheck,RECLASS_DELIVERY_IDLE_MS);
     }
 }
 

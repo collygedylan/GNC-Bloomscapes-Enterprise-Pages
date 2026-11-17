@@ -1,7 +1,9 @@
 const bloomscapesRadioInbox={owner:'',farm:'',calls:[],count:0,channel:null,pending:null,generation:0,audio:null};
 async function refreshBloomscapesRadioInbox() {
+    if (!window.BloomscapesBatteryGovernor.visible()) return;
     const {client,owner}=await requireBloomscapesSession();
     await requireBloomscapesOwner(owner);
+    if (!window.BloomscapesBatteryGovernor.visible()) return;
     const farm=getBloomscapesFarm(),state=bloomscapesRadioInbox;
     if (state.owner!==owner || state.farm!==farm) {
         state.generation++;
@@ -23,16 +25,14 @@ async function refreshBloomscapesRadioInbox() {
 }
 async function connectBloomscapesRadioInbox() {
     if (!nativeAuthSessionActive || !currentUser) return disconnectBloomscapesRadioInbox();
+    if (!window.BloomscapesBatteryGovernor.visible()) return;
     void connectBloomscapesMessages().catch(reportBloomscapesMessagesFailure);
-    const {client,owner}=await requireBloomscapesSession(),state=bloomscapesRadioInbox;
+    const {owner}=await requireBloomscapesSession(),state=bloomscapesRadioInbox;
     if (state.channel && state.owner!==owner) await disconnectBloomscapesRadioInbox();
     await requireBloomscapesOwner(owner);
     if (!state.channel) {
         state.owner=owner;
-        state.channel=client.channel('bloomscapes-radio-inbox-'+owner)
-            .on('postgres_changes',{event:'*',schema:'public',table:'gnc_radio_inbox',filter:'username=eq.'+currentUser},()=>{
-                void refreshBloomscapesRadioInbox().catch(reportBloomscapesRadioInboxFailure);
-            }).subscribe();
+        state.channel=subscribeBatteryRealtime('radio-inbox',refreshBatteryRadioInbox);
     }
     await refreshBloomscapesRadioInbox();
 }
@@ -42,7 +42,7 @@ async function disconnectBloomscapesRadioInbox() {
     releaseBloomscapesRadioPlayback();
     state.channel=null;state.owner='';state.calls=[];state.count=0;state.pending=null;
     renderBloomscapesRadioInbox();
-    await Promise.all([disconnectBloomscapesMessages(),channel?getSupabaseBrowserClient()?.removeChannel(channel):null]);
+    await Promise.all([disconnectBloomscapesMessages(),channel?channel():null]);
 }
 async function playNextBloomscapesRadioCall() {
     const state=bloomscapesRadioInbox,call=state.calls[0];
@@ -94,4 +94,10 @@ function releaseBloomscapesRadioPlayback() {
     audio.onended=null;audio.onerror=null;audio.pause();
     if(audio.src.startsWith('blob:'))URL.revokeObjectURL(audio.src);
     audio.removeAttribute('src');bloomscapesRadioInbox.audio=null;
+}
+
+function refreshBatteryRadioInbox(events) {
+    if (events.some(event=>event.kind==='gnc_radio_inbox')) {
+        void refreshBloomscapesRadioInbox().catch(reportBloomscapesRadioInboxFailure);
+    }
 }

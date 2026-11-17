@@ -1,3 +1,4 @@
+importScripts('./photo-bitmap-decoder.js' + self.location.search);
 importScripts(new URL('./photo-encoding.js'+self.location.search,self.location.href).href);
 /* Plant-photo optimizer. Produces one bounded display image and two static thumbnails. */
 const DISPLAY_MAX_EDGE = 1280;
@@ -67,11 +68,7 @@ self.onmessage = async (event) => {
   let bitmap = null;
   try {
     if (!(input instanceof Blob)) throw new Error('Missing image blob.');
-    try {
-      bitmap = await createImageBitmap(input, { imageOrientation: 'from-image' });
-    } catch (_error) {
-      bitmap = await createImageBitmap(input);
-    }
+    bitmap = await decodeResizedPhotoBitmap(input, DISPLAY_MAX_EDGE);
     let type = 'image/jpeg';
     let encoded;
     try {

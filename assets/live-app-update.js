@@ -395,7 +395,7 @@ if (!(typeof window !== 'undefined' ? window : globalThis).GncLiveAppUpdate) {
         const requestedVersion = new URL(root.location.href).searchParams.get('forceupgrade');
         if (requestedVersion) rememberTarget(requestedVersion);
         void ensureRegistration();void checkForLiveAppUpdate('boot',{force:true});
-        root.setInterval(() => {
+        root.BloomscapesBatteryGovernor.schedule('shell-version', () => {
             if (!visible() || reloading || inFlightCheck || Date.now() < retryNotBefore) return;
             void checkForLiveAppUpdate('interval',{force:true});
         },45000);

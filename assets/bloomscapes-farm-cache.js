@@ -60,6 +60,7 @@ async function ensureBloomscapesWarmFarm(farm,refresh=false,attempt=0) {
 async function loadBloomscapesWarmFarm(cache,farm,refresh) {
     const assertCurrent = ()=>{
         assertBloomscapesFarmCache(cache,farm);
+        if (cache.prewarming && farm !== getBloomscapesFarm() && !window.BloomscapesBatteryGovernor.canPrewarm()) throw Object.assign(new Error('Farm prewarming paused.'),{code:'FARM_PREPARATION_PAUSED'});
         if (document.hidden || navigator.onLine===false) throw Object.assign(new Error('Farm preparation paused while the page is inactive.'),{code:'FARM_PREPARATION_PAUSED'});
     };
     const key = 'bloomscapes-farm-v3104:'+cache.owner+':'+farm;
@@ -120,12 +121,12 @@ async function refreshBloomscapesWarmFarm(farm) {
 
 async function prewarmBloomscapesFarms() {
     const cache = getBloomscapesFarmCache();
-    if (cache.prewarming || !bloomscapesFarmState.loaded || document.hidden || navigator.onLine===false) return;
+    if (cache.prewarming || !bloomscapesFarmState.loaded || !window.BloomscapesBatteryGovernor.canPrewarm()) return;
     cache.prewarming = true;
     try {
         for (const farm of getBloomscapesAllowedFarms()) {
             assertBloomscapesFarmCache(cache,farm);
-            if (document.hidden || navigator.onLine===false) return;
+            if (!window.BloomscapesBatteryGovernor.canPrewarm()) return;
             await ensureBloomscapesWarmFarm(farm);
         }
     } catch(error) {

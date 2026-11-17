@@ -8,7 +8,6 @@ function registerBloomscapesBatteryResource(name,resource) {
 function syncBloomscapesBatteryState() {
     if (typeof currentUser==='undefined') return;
     const paused=document.hidden || navigator.onLine===false;
-    if (!paused && typeof prewarmBloomscapesFarms==='function') void prewarmBloomscapesFarms();
     if (paused===bloomscapesBatteryPaused) return;
     bloomscapesBatteryPaused=paused;
     for(const resource of bloomscapesBatteryResources.values()) {
@@ -34,8 +33,7 @@ function pauseBloomscapesInventoryUi() {
 }
 function resumeBloomscapesInventoryUi() {
     if (!currentUser) return;
-    if (typeof prewarmBloomscapesFarms==='function') void prewarmBloomscapesFarms();
-    getProductionLiveSyncCoordinator()?.signal('battery-foreground');
+    void window.BloomscapesBatteryGovernor.wake('battery-foreground');
     scheduleManagerApprovalLiveRefresh();
     startReclassDeliveryPolling();
     startBloomscapesJobBoardRefresh();
@@ -52,12 +50,13 @@ function pruneBloomscapesFarmInventoryCaches() {
     // Release derived arrays from prior farms after that receipt, retaining drafts.
 }
 registerBloomscapesBatteryResource('inventory-ui',{pause:pauseBloomscapesInventoryUi,resume:resumeBloomscapesInventoryUi});
-document.addEventListener('visibilitychange',syncBloomscapesBatteryState);
-window.addEventListener('gnc-user-access-change',syncBloomscapesBatteryState);
-window.addEventListener('offline',syncBloomscapesBatteryState);
-window.addEventListener('online',syncBloomscapesBatteryState);
-window.addEventListener('pagehide',()=>{
-    bloomscapesBatteryPaused=true;
-    pauseBloomscapesInventoryUi();
-});
-window.addEventListener('pageshow',syncBloomscapesBatteryState);
+function bindBloomscapesBatteryRuntime() {
+    window.BloomscapesBatteryGovernor.register('inventory-ui',{
+        pause:()=>{bloomscapesBatteryPaused=true;pauseBloomscapesInventoryUi();},
+        resume:()=>{bloomscapesBatteryPaused=false;resumeBloomscapesInventoryUi();}
+    });
+    window.addEventListener('gnc-user-access-change',syncBloomscapesBatteryState);
+    installBatteryLiveSyncRuntime();
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded',bindBloomscapesBatteryRuntime,{once:true});
+else queueMicrotask(bindBloomscapesBatteryRuntime);
