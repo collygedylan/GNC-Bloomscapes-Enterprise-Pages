@@ -30,7 +30,7 @@ function selectBloomscapesFarm(farm) {
     persistBloomscapesSessionFarm(state);
     const selector = document.getElementById('bloomscapes-farm-selector');
     if (selector) selector.value = farm;
-    if (previous!==farm) { resetBloomscapesFarmNavigation(); switchView('home'); }
+    if (previous!==farm) resetBloomscapesFarmNavigation();
     state.selection = hydrateBloomscapesChosenFarm(state,farm);
     return state.selection;
 }

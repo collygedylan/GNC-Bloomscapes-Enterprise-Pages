@@ -41,17 +41,16 @@ async function publishRequestWorkEvaluation(item, patch, options) {
     }
 }
 
-function reconcileRequestPublicationMaster({ result, saved, item, target, options, completedReceipt, photoReceipt, scope, rollback }) {
-    const expected = String(saved.master_id || item.MASTER_ID || item.master_id || target?.UNIQUE_ID || target?.unique_id || '');
+function reconcileRequestPublicationMaster({ result, item, target, options, completedReceipt, photoReceipt, scope, rollback }) {
     if (result.master_row) {
-        if (!expected || String(result.master_row.unique_id) !== expected) throw new Error('REQUEST_MASTER_RECEIPT_MISMATCH');
+        if (!canonicalEvidenceGroupMatches(result.master_row,item)) throw new Error('REQUEST_MASTER_RECEIPT_MISMATCH');
         if (photoReceipt && !parsePhotoCsvValues(result.master_row.photo_link).includes(options.photoAttachmentUrl)) throw new Error('REQUEST_MASTER_PHOTO_RECEIPT_UNCONFIRMED');
         if (!completedReceipt && !photoReceipt) options.onConfirmed?.(result);
         rollback.commit?.();
-        const master = target || formatFetchedRows([result.master_row], 'ph_master_inventory')[0];
+        const master = masterInventoryById.get(result.master_row.unique_id) || formatFetchedRows([result.master_row], 'ph_master_inventory')[0];
         reconcileConfirmedDriveEvidence({ok:true,row:result.master_row,canonicalConfirmed:true,locationRows:[]},
             master,'req-',{scope,preserveDetailDraft:true,photoOnly:photoReceipt});
-    } else if (target || expected) throw new Error('REQUEST_MASTER_RECEIPT_UNCONFIRMED');
+    } else if (target) throw new Error('REQUEST_MASTER_RECEIPT_UNCONFIRMED');
     else if (!completedReceipt && !photoReceipt) options.onConfirmed?.(result);
 }
 

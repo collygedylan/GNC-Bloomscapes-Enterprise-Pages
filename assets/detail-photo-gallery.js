@@ -1,16 +1,18 @@
 function renderSavedPhotos() {
+    renderSavedPhotoSlots();
+    renderNcrDraftPhotos(activeItem);
+    refreshProtectedSections();
+}
+
+function renderSavedPhotoSlots(prefix = '') {
     let sLink = getSharedAppPhotoLinkCsv(activeItem) || "";
     let rLink = getRequestPhotoLinkCsv(activeItem) || "";
     let dLink = getDockOwnedPhotoLinkCsv(activeItem) || "";
     let fLink = getFlyerVisiblePhotoLinkCsv(activeItem) || "";
-    renderSavedPhotoGallery(sLink, 'ssn-photo-list-container', 'ssn-photo-preview', 'ssn-', 'Base Photos');
-    renderSavedPhotoGallery(sLink, 'lsn-photo-list-container', 'lsn-photo-preview', 'lsn-', 'Base Photos');
-    renderSavedPhotoGallery(sLink, 'na-photo-list-container', 'na-photo-preview', 'na-', 'Base Photos');
-    renderSavedPhotoGallery(rLink, 'req-photo-list-container', 'req-photo-preview', 'req-', 'Request Photos');
-    renderSavedPhotoGallery(dLink, 'dock-photo-list-container', 'dock-photo-preview', 'dock-', 'Dock Photos');
-    renderSavedPhotoGallery(fLink, 'flyer-photo-list-container', 'flyer-photo-preview', 'flyer-', 'Flyer Photos');
-    renderNcrDraftPhotos(activeItem);
-    refreshProtectedSections();
+    const sections = [['ssn-',sLink,'Base Photos'],['lsn-',sLink,'Base Photos'],['na-',sLink,'Base Photos'],
+        ['req-',rLink,'Request Photos'],['dock-',dLink,'Dock Photos'],['flyer-',fLink,'Flyer Photos']];
+    sections.filter(([key])=>!prefix || key===prefix).forEach(([key,link,title])=>
+        renderSavedPhotoGallery(link,key+'photo-list-container',key+'photo-preview',key,title));
 }
 function renderSavedPhotoGallery(link, containerId, wrapperId, prefix, title) {
     let el = document.getElementById(containerId);
@@ -30,12 +32,12 @@ function renderSavedPhotoGallery(link, containerId, wrapperId, prefix, title) {
         const allowReorder = canReorderProtectedPhoto(prefix);
         const persistedEntries = entries.filter((entry) => !entry.pending && entry.persistedIndex > -1);
         const openLink = entries.map((entry) => entry.url).join(',');
-        let html = `<div class="flex gap-2 overflow-x-auto pb-2">`;
+        let html = `<div data-photo-slots class="flex gap-2 overflow-x-auto pb-2">`;
         html += entries.map((entry, photoIndex) => renderSavedPhotoGalleryTile(entry, photoIndex, { prefix, entries, persistedEntries, openLink, title, allowReorder })).join('');
         html += `</div>`;
         const mediaSignature = getCompletedRowUnlockKey(activeItem) + ':' + JSON.stringify(entries.map(entry => [entry.url, entry.previewUrl, entry.status, entry.dateLabel, entry.persistedIndex])) + ':' + canRemoveProtectedPhoto(prefix) + ':' + allowReorder;
         if (el.dataset.mediaSignature !== mediaSignature) {
-            replaceDetailMediaPreservingImages(el, html);
+            patchDetailPhotoSlots(el, html);
             el.dataset.mediaSignature = mediaSignature;
         }
         scheduleDeferredCardPhotoHydration(el);
@@ -63,5 +65,5 @@ function renderSavedPhotoGalleryTile(entry, photoIndex, { prefix, entries, persi
     const firstVisiblePersistedIndex = persistedEntries.length ? persistedEntries[0].persistedIndex : -1;
     const lastVisiblePersistedIndex = persistedEntries.length ? persistedEntries[persistedEntries.length - 1].persistedIndex : -1;
     const reorderHtml = allowReorder && !entry.shared && !entry.pending && persistedEntries.length > 1 ? `<div class="photo-reorder-pair mt-1 flex items-center justify-center gap-1"><button type="button" class="px-2 py-1 text-[10px] font-black rounded-md border border-emerald-600 bg-emerald-950 text-emerald-100 ${entry.persistedIndex === firstVisiblePersistedIndex ? 'opacity-30 pointer-events-none' : ''}" onclick="event.stopPropagation(); movePhotoInSet('${prefix}', ${entry.persistedIndex}, -1)">LEFT</button><button type="button" class="px-2 py-1 text-[10px] font-black rounded-md border border-emerald-600 bg-emerald-950 text-emerald-100 ${entry.persistedIndex === lastVisiblePersistedIndex ? 'opacity-30 pointer-events-none' : ''}" onclick="event.stopPropagation(); movePhotoInSet('${prefix}', ${entry.persistedIndex}, 1)">RIGHT</button></div>` : '';
-    return `<div class="saved-photo-tile relative shrink-0">${deleteButtonHtml}<button type="button" class="p-0 border-0 bg-transparent" onclick="handlePhotoThumbClick('${openLink}', '${title}', ${photoIndex})"${pressAttrs}>${buildDeferredCardPhotoImg(thumb, { hydrateNow: true, loading: 'eager', className: 'w-20 h-20 object-cover rounded-lg border border-gray-300 cursor-pointer shadow-sm active:scale-95' }).replace('<img ', '<img data-photo-url="' + escapeHtml(cleanUrl) + '" data-local-preview-url="' + escapeHtml(entry.localPreviewUrl || entry.previewUrl || '') + '" ')}</button><div class="photo-count text-center text-[9px]">${photoIndex + 1}/${entries.length}</div>${statusHtml}${dateHtml}${reorderHtml}</div>`;
+    return `<div data-photo-slot="${escapeHtml(entry.uploadId || entry.id || cleanUrl)}" class="saved-photo-tile relative shrink-0">${deleteButtonHtml}<button type="button" class="p-0 border-0 bg-transparent" onclick="handlePhotoThumbClick('${openLink}', '${title}', ${photoIndex})"${pressAttrs}>${buildDeferredCardPhotoImg(thumb, { hydrateNow: true, loading: 'eager', className: 'w-20 h-20 object-cover rounded-lg border border-gray-300 cursor-pointer shadow-sm active:scale-95' }).replace('<img ', '<img data-photo-url="' + escapeHtml(cleanUrl) + '" data-local-preview-url="' + escapeHtml(entry.localPreviewUrl || entry.previewUrl || '') + '" ')}</button><div class="photo-count text-center text-[9px]">${photoIndex + 1}/${entries.length}</div>${statusHtml}${dateHtml}${reorderHtml}</div>`;
 }

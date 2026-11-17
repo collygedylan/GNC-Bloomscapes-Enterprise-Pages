@@ -1,9 +1,9 @@
 const PHOTO_MAX_WIDTH = 1280;
-const PHOTO_JPEG_QUALITY = 0.82;
+const PHOTO_JPEG_QUALITY = 0.80;
 const PHOTO_DISPLAY_MAX_BYTES = 220 * 1024;
 const PHOTO_THUMB_144_MAX_BYTES = 80 * 1024;
 const PHOTO_THUMB_320_MAX_BYTES = 160 * 1024;
-const PHOTO_OPTIMIZER_WORKER_URL = './assets/image-optimize-worker-v2026090401.js?v=3.1.02';
+const PHOTO_OPTIMIZER_WORKER_URL = './assets/image-optimize-worker-v2026090401.js?v=3.1.03';
 let photoOptimizerWorker = null;
 let photoOptimizerRequestId = 0;
 const photoOptimizerPending = new Map();

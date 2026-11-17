@@ -147,3 +147,49 @@ function useManagerReportPages(surface) {
     if (surface === 'eval2') return canViewManagerEvalReports2();
     return getManagerReportPageController().enabled(surface);
 }
+
+async function loadManagerEvalReports2(force = false) {
+    if (!canViewManagerEvalReports2()) return null;
+    const state = managerEvalReport2LoadState;
+    if (nativeAuthSessionActive) {
+        await ensureDatasetLoaded('master','full');
+        state.error = ''; state.loading = false;
+        const index = getManagerEvalReport2Index();
+        scheduleManagersRender(true);
+        return index;
+    }
+    if (typeof window === 'undefined' || !window.GncReportPagesLive) {
+        state.error = 'Eval Reports #2 report data is not available right now.';
+        state.loading = false;
+        scheduleManagersRender(true);
+        return managerEvalReport2Cache;
+    }
+    const controller = getManagerReportPageController();
+    const pageState = controller.state('eval2');
+    const query = buildManagerReportPageQuery('eval2');
+    if (pageState.pendingKey === JSON.stringify(query) && pageState.promise) {
+        await pageState.promise;
+        return getManagerEvalReport2Index();
+    }
+    if (!force && pageState.error) return getManagerEvalReport2Index();
+    const progressive = managerEvalReport2ProgressiveRowsState;
+    if (force && progressive && progressive.owner === getSupabaseReadIdentityScope()
+        && JSON.stringify(progressive.query) === JSON.stringify(query)) {
+        void refreshManagerEvalReport2ProgressiveRows(progressive);
+        scheduleManagersRender(true);
+        return getManagerEvalReport2Index();
+    }
+    if (force && pageState.page) {
+        void controller.initialize('eval2', true);
+        controller.refresh('eval2');
+        scheduleManagersRender(true);
+        return getManagerEvalReport2Index();
+    }
+    state.loading = !getManagerEvalReport2BrowsePage(query);
+    state.error = '';
+    const page = await controller.load(query, force);
+    if (!page) state.error = pageState.error || 'Eval Reports #2 report data is not available right now.';
+    state.loading = false;
+    scheduleManagersRender(true);
+    return getManagerEvalReport2Index();
+}

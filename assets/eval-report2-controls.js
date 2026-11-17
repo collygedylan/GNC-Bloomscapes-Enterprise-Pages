@@ -37,6 +37,11 @@ function renderManagerEvalReport2OptionalFilters() {
     </div>`;
 }
 
+function getManagerEvalReport2LocationOptions(rows) {
+    return [...new Set(rows.map(getManagerEvalReportRowLocation).filter(Boolean))]
+        .sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+}
+
 function renderEvalReport2PriorityMarkup(value) {
     return `<label>Priority<select onchange="return setManagerEvalReport2Filter('priority',this.value)">
         <option value="all" ${value === 'all' ? 'selected' : ''}>All</option>
@@ -55,7 +60,7 @@ function renderManagerEvalReport2ReportsPanel(moreHtml = '') {
     }));
     const picker = renderEvalReport2PickerMarkup(reports,
         getManagerEvalReport2SelectedReportIds(),countSignals,escapeHtml);
-    const assigned = buildManagerEvalReport2Select('AssignedTo','assignedto',managerEvalReport2AssignedToFilter,
+    const assigned = buildManagerEvalReport2Select('Assigned To','assignedto',managerEvalReport2AssignedToFilter,
         getManagerEvalReport2AssignedToOptions(),true,
         !activeManagerEvalReport2 || managerEvalReport2AssignmentFilterRefreshing);
     const report = activeManagerEvalReport2

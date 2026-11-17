@@ -66,7 +66,6 @@ function renderRequestDetailInfo(item, sourceView, options = null) {
     if (intent?.key && intent.key !== getItemUniqueId(item)) return;
     root.prepend(host);
     host.innerHTML = buildRequestOpenInfoHtml(item,sourceView);
-    root.querySelector('[data-inline-detail-share]')?.remove();
 }
 
 function getRequestOpenInfoSnapshot(item = activeItem, detailSourceView = '') {

@@ -36,7 +36,8 @@ function mountBloomscapesWorkBrowser(host,onSelect,options={}) {
         +'<div data-work-group-selection></div>'
         +'<p data-work-browser-status></p><div data-work-source-cards class="bloomscapes-work-cards"></div>';
     mountBloomscapesWorkFilters(host,state);
-    host.querySelector('[data-work-search]').addEventListener('input',()=>{renderBloomscapesWorkBrowser(host,state);});
+    state.searchInput=host.querySelector('[data-work-search]');
+    state.searchInput.addEventListener('input',()=>{renderBloomscapesWorkBrowser(host,state);});
     host.querySelector('[data-work-modes]').addEventListener('change',event=>{
         const mode=event.target.value;
         if (!mode) return;
@@ -55,7 +56,7 @@ function bloomscapesWorkLocationParts(row) {
 }
 
 function bloomscapesWorkBrowseProjection(host,state) {
-    const search=host.querySelector('[data-work-search]').value;
+    const search=state.searchInput.value;
     const filters=Object.fromEntries([...host.querySelectorAll('[data-work-filter]')].map(select=>[select.dataset.workFilter,select.value]));
     const all=applyInventoryExcelFilters(state.options.scope || 'studio',bloomscapesWorkBrowserRows(search,filters));
     const rows=all.filter(row=>{
@@ -149,7 +150,7 @@ function mountBloomscapesWorkFilters(host,state) {
     const clear=filters.appendChild(document.createElement('button'));clear.type='button';clear.textContent='Clear Filters';
     clear.addEventListener('click',()=>{
         for (const select of filters.querySelectorAll('select')) select.value='';
-        host.querySelector('[data-work-search]').value='';state.path=[];renderBloomscapesWorkBrowser(host,state);
+        state.searchInput.value='';state.path=[];renderBloomscapesWorkBrowser(host,state);
     });
 }
 

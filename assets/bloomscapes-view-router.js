@@ -8,6 +8,7 @@ function renderViewContent(viewId, forceReset = false, forceRender = false) {
     const state = ensureViewRenderState(viewId);
     if (!forceReset && !forceRender && state.initialized && !state.dirty) {
         mountBloomscapesInventoryBrowse(viewId);
+        syncGlobalHeaderChrome({reason:'view-content-ready'});
         incrementInternalPerfCounter('warmViewReuseHits');
         if(changedView)scheduleDeferredCardPhotoHydration(document.getElementById('view-'+viewId));
         return;
@@ -20,6 +21,7 @@ function renderViewContent(viewId, forceReset = false, forceRender = false) {
 
     mountBloomscapesDepartmentShortcuts(viewId);
     mountBloomscapesInventoryBrowse(viewId);
+    syncGlobalHeaderChrome({reason:'view-content-ready'});
     state.initialized = true;
     state.dirty = false;
     scheduleIosPhoneTaskStyleModuleFlowCleanup(viewId, `render:${viewId}`, { resetScroll: false });

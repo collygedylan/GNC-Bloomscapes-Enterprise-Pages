@@ -155,26 +155,19 @@ function syncQueCategoryCounts(counts, allCounts) {
 
 function syncQueCategoryButtons(group, categories) {
     if (!group) return;
-    const primary = categories;
-    const buttons = primary.map(({ key, label, count }) => {
-        const active = activeReqTab === key;
-        return `<button type="button" id="tab-req-${escapeHtml(key)}" class="request-category-chip${active ? ' is-active' : ''}" data-request-category="${escapeHtml(key)}" aria-pressed="${active}" onclick="return setReqTab(this.dataset.requestCategory)"><span>${escapeHtml(label)}</span><span class="request-category-chip__count${count > 0 ? ' has-count' : ''}">(${escapeHtml(formatRequestTabCount(count))})</span></button>`;
-    }).join('');
-    const focused = group.contains(document.activeElement) ? document.activeElement.id : '';
-    if (syncRequestChromeMarkup(group, buttons, requestCategoryToolbarMarkupByNode) && focused) {
-        document.getElementById(focused)?.focus({ preventScroll: true });
+    const options = categories.map(({key,label,count}) =>
+        `<option value="${escapeHtml(key)}"${activeReqTab===key ? ' selected' : ''}>${escapeHtml(label)} (${escapeHtml(formatRequestTabCount(count))})</option>`).join('');
+    const markup = `<label class="bloomscapes-compact-select">Queue<select id="que-view-select" aria-label="Queue" onchange="setReqTab(this.value)"${categories.length<=1 ? ' disabled' : ''}>${options}</select></label>`;
+    const focused = group.contains(document.activeElement);
+    if (syncRequestChromeMarkup(group,markup,requestCategoryToolbarMarkupByNode) && focused) {
+        group.querySelector('select')?.focus({preventScroll:true});
     }
-    group.hidden = primary.length === 0;
+    group.hidden = categories.length === 0;
 }
 
 function syncQueActiveCategory(toolbar = document.getElementById('request-filter-toolbar')) {
     if (!toolbar) return;
-    for (const button of toolbar.querySelectorAll('.request-category-chip')) {
-        const active = button.dataset.requestCategory === activeReqTab;
-        button.classList.toggle('is-active', active);
-        button.setAttribute('aria-pressed', String(active));
-    }
     const select = toolbar.querySelector('#que-view-select');
-    if (select) select.value = ['pending', 'suspend-tag'].includes(activeReqTab) ? '' : activeReqTab;
+    if (select) select.value = activeReqTab;
 }
 

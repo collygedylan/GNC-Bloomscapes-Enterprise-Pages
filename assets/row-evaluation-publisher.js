@@ -89,3 +89,82 @@ function settleInventoryRowEvaluation(result,context,options) {
         return {result,applied:null,projectionDeferred:true};
     }
 }
+
+async function saveSeasonSalesOfficeAvNoteSnapshot(masterId = '', nextAvNote = '') {
+    if (nativeAuthSessionActive) return false;
+    const normalizedMasterId = String(masterId || '').trim();
+    if (!normalizedMasterId || navigator.onLine === false) return false;
+    const mirroredRows = getSeasonSalesOfficeRowsByMasterId(normalizedMasterId);
+    const mirroredRow = mirroredRows.find((row) => String(firstNonEmptyValue(row.SO_SOURCE, row.so_source, '')).trim().toLowerCase() === 'season') || null;
+    if (!mirroredRow) return false;
+    const nextValue = String(nextAvNote ?? '').trim().toUpperCase();
+    const expectedRevision = Number(firstNonEmptyValue(mirroredRow.STATE_REVISION, mirroredRow.state_revision, 1)) || 1;
+    const idempotencyKey = `season-sales-av-note-${crypto.randomUUID()}`;
+    const result = await publishRowEvaluationToMasterAndNotes({UNIQUE_ID:normalizedMasterId}, {av_note:nextValue}, {
+        seasonSalesOffice:true,scope:getSupabaseReadIdentityScope(),expectedRevision,
+        persist:() => seasonSalesOfficeApi('save_av_note', {
+            masterId:normalizedMasterId,expectedRevision,avNote:nextValue,idempotencyKey
+        }, {idempotencyKey,timeoutMs:30000})
+    });
+    const savedValue = Object.prototype.hasOwnProperty.call(result, 'avNote') ? String(result.avNote ?? '').trim() : nextValue;
+    syncSeasonSalesOfficeAvNoteState(normalizedMasterId, savedValue);
+    mirroredRow.STATE_REVISION = Number(result.revision) || expectedRevision + 1;
+    mirroredRow.state_revision = mirroredRow.STATE_REVISION;
+    mirroredRow.WORKFLOW_STATUS = String(result.readinessStatus || mirroredRow.WORKFLOW_STATUS || 'needs_photo_data');
+    mirroredRow.WORKFLOW_DETAIL = result.workflowDetail || mirroredRow.WORKFLOW_DETAIL || {};
+    return true;
+}
+
+async function syncSeasonSalesOfficeAvNoteRemote(masterId = '', nextAvNote = '') {
+    if (nativeAuthSessionActive) return false;
+    const normalizedMasterId = String(masterId || '').trim();
+    if (!normalizedMasterId || navigator.onLine === false) return false;
+    const masterRow = findItemByUniqueId(normalizedMasterId)
+        || (Array.isArray(fullInventory) ? masterInventoryById.get(normalizedMasterId) : null);
+    const mirroredRow = getSeasonSalesOfficeRowsByMasterId(normalizedMasterId)[0] || null;
+    const itemCode = getMasterItemCodeKey(masterRow || mirroredRow);
+    if (!itemCode) return false;
+    // Existing staging owns its note. Explicit user edits must update that
+    // snapshot before reconciliation; a first staging captures the master.
+    try {
+        await saveSeasonSalesOfficeAvNoteSnapshot(normalizedMasterId, nextAvNote);
+    } catch (error) {
+        const failure = String(error && error.message ? error.message : error || '');
+        if (/SEASON_SALES_(?:NOT_OPEN|STALE_REVISION|WINNER_CHANGED)/.test(failure) || String(error && error.code || '') === '40001') {
+            console.warn('Season Sales Office AV Note save stopped after a stale workflow revision; waiting for an explicit refresh or edit.', error);
+            return false;
+        }
+        throw error;
+    }
+    const idempotencyKey = `season-sales-note-refresh-${crypto.randomUUID()}`;
+    await seasonSalesOfficeApi('refresh', {
+        itemcode: itemCode,
+        importRevision: `client:av-note-save:${new Date().toISOString()}`,
+        idempotencyKey
+    }, { idempotencyKey, timeoutMs: 30000 });
+    await refreshSeasonSalesOfficeDataset();
+    return true;
+}
+
+function syncSeasonSalesOfficeStateForItemCodes(itemCodes = [], options = {}) {
+            if (nativeAuthSessionActive) return [];
+            const normalizedCodes = new Set((Array.isArray(itemCodes) ? itemCodes : []).map((value) => String(value || '').trim().toUpperCase()).filter(Boolean));
+            if (!normalizedCodes.size) return [];
+            const opts = options || {};
+            if (opts.skipRemote) return [];
+            const reason = String(opts.reason || 'season-sales-note-refresh').trim().slice(0, 60);
+            return Array.from(normalizedCodes).map((itemCode) => {
+                const idempotencyKey = `season-sales-refresh-${crypto.randomUUID()}`;
+                return seasonSalesOfficeApi('refresh', {
+                    itemcode: itemCode,
+                    importRevision: `client:${reason}:${new Date().toISOString()}`,
+                    idempotencyKey
+                }, { idempotencyKey, timeoutMs: 30000 })
+                    .then(() => refreshSeasonSalesOfficeDataset())
+                    .catch((error) => {
+                        console.error('Season Sales Notes protected refresh failed', error);
+                        throw error;
+                    });
+            });
+        }
+

@@ -67,6 +67,7 @@ function mountBloomscapesFarmSelector() {
     label.textContent = 'Farm ';
     const select = label.appendChild(document.createElement('select'));
     select.id = 'bloomscapes-farm-selector';
+    select.setAttribute('aria-label','Farm');
     const choices = getBloomscapesAllowedFarms().map(farm=>[farm,farm]);
     for (const [farm,title] of choices) {
         const option = select.appendChild(document.createElement('option'));
@@ -75,7 +76,8 @@ function mountBloomscapesFarmSelector() {
     }
     select.value = getBloomscapesFarm();
     select.addEventListener('change',()=>changeBloomscapesFarmSelection(select));
-    header.before(label);
+    header.appendChild(label);
+    select.disabled = choices.length === 1;
 }
 
 
@@ -87,7 +89,6 @@ async function changeBloomscapesFarmSelection(select) {
     if (next===previous || getBloomscapesAllowedFarms().length===1) return;
     select.disabled = true;
     try {
-        if (!await confirmBloomscapesFarmSwitch(previous,next)) return;
         select.value = next;
         select.value = await selectBloomscapesFarm(next);
         refreshBloomscapesFarmPanel();
@@ -95,7 +96,7 @@ async function changeBloomscapesFarmSelection(select) {
         showToast('Farm selection',error.message,true);
     } finally {
         select.value = getBloomscapesFarm();
-        select.disabled = false;
+        select.disabled = getBloomscapesAllowedFarms().length <= 1;
     }
 }
 
@@ -146,4 +147,18 @@ function renderHome() {
     dashboardContent.classList.remove('hidden');
     if (dynamicContent.firstChild) dynamicContent.replaceChildren();
     if (typeof syncCurrentViewBodyClass === 'function') syncCurrentViewBodyClass('home');
+}
+
+function mountBloomscapesHomeSearch(slot) {
+    if (!slot) return;
+    const input=document.createElement('input');
+    input.type='search';input.placeholder='Search modules...';input.setAttribute('aria-label','Search modules');
+    input.className='input-field';input.id='bloomscapes-home-search';
+    input.addEventListener('input',()=>{
+        const words=input.value.toLowerCase().trim().split(/\s+/);
+        for (const tile of document.querySelectorAll('#home-dashboard-grid .home-module-tile')) {
+            tile.classList.toggle('bloomscapes-home-query-hidden',!words.every(word=>tile.textContent.toLowerCase().includes(word)));
+        }
+    });
+    slot.replaceChildren(input);
 }

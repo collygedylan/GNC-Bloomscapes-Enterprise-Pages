@@ -115,7 +115,7 @@ async function supabaseRpc(functionName, body = {}, requestOptions = {}) {
             if (!inScope()) throw staleSupabaseReadScopeError();
             const timeoutMs = Math.max(1000, Number(requestOptions.timeoutMs) || SUPABASE_WRITE_TIMEOUT_MS);
             if (rpcName === 'save_request_work') {
-                const patch = requestCompletionPhotoPatch(body);
+                const patch = nativeRequestEvaluationPatch(requestCompletionPhotoPatch(body));
                 const result = await postAppFunctionJson(APP_API_FUNCTION_URL, { action: 'request_work',
                     operation: rpcName === 'get_request_capabilities' ? 'capabilities' : 'save',
                     requestId: body.request_id, expectedVersion: body.expected_version, patch, complete: body.complete === true
@@ -302,7 +302,9 @@ async function dispatchRpcAttemptWithRecovery(options) {
     try {
         const init = {...request, cache:'no-store', referrerPolicy:'no-referrer'};
         const label = rpcName === 'save_drive_evidence_v3' ? 'Save row evidence' : 'RPC ' + rpcName;
-        const response = await bridge.fetchRpc(baseUrl, rpcName, init, timeoutMs, label);
+        const send = ()=>bridge.fetchRpc(baseUrl,rpcName,init,timeoutMs,label);
+        const photo = ['save_drive_evidence_v3','prepare_request_photo_upload_v3100','append_request_photo_intent_v3079'].includes(rpcName);
+        const response = photo ? await dispatchBloomscapesPhotoRpc(rpcName,body,send,requestOptions) : await send();
         if (replayable && [408, 429, 500, 502, 503, 504, 546].includes(response.status)) {
             throw Object.assign(new Error('Drive evidence transport unavailable.'), { status: response.status });
         }

@@ -38,7 +38,8 @@ function renderBloomscapesDetailDispatch(item,sourceView) {
         parent.appendChild(host);
     }
     const source = sourceView || activeDetailSourceView || lastView;
-    host.innerHTML = item && source==='drive' ? renderBloomscapesDriveDispatchActions(item) : '';
+    const row=item && (findLinkedMasterRow(item) || item);
+    host.innerHTML = row && ['drive','request','suspend-tag'].includes(source) ? renderBloomscapesDriveDispatchActions(row) : '';
     const actions = host.querySelector('.bloomscapes-drive-dispatch');
     if (actions) {
         parent.classList.add('bloomscapes-detail-action-row');

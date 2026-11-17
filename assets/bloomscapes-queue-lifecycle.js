@@ -41,3 +41,22 @@ function filterBloomscapesSuspendSnapshot(rows,res) {
         return !masterComplete || (inventory.get(key) || []).some(master=>canonicalInventorySameLot(master,row));
     });
 }
+
+function isPhysicalSuspendTagClosed(row) {
+    const status=String(row.STATUS || row.status || '').toLowerCase();
+    const retained=['SUSPEND','SUSPENDED'].includes(String(row.SUSPEND || row.suspend || '').toUpperCase());
+    return row.suspend_completed===true || row.SUSPEND_COMPLETED===true || row.completed===true
+        || status==='deleted' || ['complete','completed'].includes(status) && !retained;
+}
+
+function uniquePhysicalSuspendTags(rows) {
+    const seen = new Set(), orders = new Set();
+    return rows.filter(row => {
+        if (isPhysicalSuspendTagClosed(row)) return false;
+        const key = getPhysicalSuspendTagKey(row), order = getDockOrderBusinessKey(row);
+        if (!key || seen.has(key) || order && orders.has(order)) return false;
+        seen.add(key); if (order) orders.add(order);
+        return true;
+    });
+}
+

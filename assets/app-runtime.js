@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.02';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.03';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -16928,29 +16928,7 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
                 dateLabel:formatPhotoDateLabel_(entry.name || entry.url) || getRowPhotoDateLabel(item) })));
         }
 
-        function refreshPendingPhotoUiForItem(item, prefix = '') {
-            if (prefix === 'eval-') { scheduleRequestRender(0,0,true); return; }
-            if (!item) return;
-            const sameActiveItem = activeItem && String(activeItem.UNIQUE_ID || '').trim() === String(item.UNIQUE_ID || '').trim();
-            if (sameActiveItem) {
-                const renderKey = `active-photo-preview-${String(item.UNIQUE_ID || '').trim()}-${getPhotoBucketKey(prefix)}`;
-                scheduleUiRender(renderKey, () => {
-                    if (!activeItem || String(activeItem.UNIQUE_ID || '').trim() !== String(item.UNIQUE_ID || '').trim()) return;
-                    incrementInternalPerfCounter('photoUiOnlyRefreshes');
-                    renderSavedPhotos();
-                    if (String(prefix || '').trim().toLowerCase() === 'req-') calculateMatchQty('req-');
-                    if (activeDetailTab === 'gallery') renderPhotoGallery();
-                }, 16);
-                return;
-            }
-            scheduleUiRender(`photo-preview-${String(item.UNIQUE_ID || '').trim()}-${getPhotoBucketKey(prefix)}`, () => {
-                const visibleViewId = getCurrentVisibleViewId();
-                if (!visibleViewId || visibleViewId === 'detail' || !TRACKED_VIEW_IDS.includes(visibleViewId)) return;
-                incrementInternalPerfCounter('photoUiOnlyRefreshes');
-                markViewDirty(visibleViewId);
-                queueInteractiveViewRender(visibleViewId, false, false, 0, 140);
-            }, 16);
-        }
+        /* @runtime-fragment assets/detail-photo-refresh.js */
 
         function applySharedPhotoFieldsToItem(item, publicUrl = '', fileName = '') {
             if (!item || !String(publicUrl || '').trim()) return item;
@@ -19601,6 +19579,7 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
         }
 
         /* @runtime-fragment assets/app-api-transport.js */
+        /* @runtime-fragment assets/photo-publication-fallback.js */
 
         function getAvReadDataset(table, query = '') {
             if (table === 'ph_app_settings') return new URLSearchParams(query).get('key') === 'eq.current_season_salesyear' ? 'settings' : '';
@@ -23843,7 +23822,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.02';
+        const APP_VERSION = '3.1.03';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -24674,18 +24653,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             SUSPENDTO: Object.freeze(['SUSPEND_TO', 'SUSPENDTO']),
             'LOC NOTE DATE': Object.freeze(['LOCATIONNOTEDATE', 'LOCATION_NOTE_DATE', 'LOC_NOTE_DATE', 'locationnotedate', 'loc_note_date', 'LOCATIONPTN1', 'locationptn1'])
         });
-        const GLOBAL_HEADER_SEARCH_CONFIG = {
-            av: 'av-search-container', 'hl-order':'hl-order-search-container',
-            reserves: 'reserves-search-container',
-            docks: 'docks-search-container',
-            drive: 'drive-search-container',
-            building: 'building-search-container',
-            managers: 'managers-search-container',
-            review: 'review-search-container',
-            'move-up': 'move-up-search-container',
-            request: 'request-search-container',
-            tasks: 'tasks-search-container'
-        };
+
 
         const AMAZON_HEADER_META = {
             home: { eyebrow: 'Current View', title: 'Home' },
@@ -51387,27 +51355,6 @@ function toggleDriveQuickRequestItem(domId) {
             if (isViewVisible('sales-office')) queueInteractiveViewRender('sales-office', false, false, 0, 160);
         }
 
-        function syncSeasonSalesOfficeStateForItemCodes(itemCodes = [], options = {}) {
-            const normalizedCodes = new Set((Array.isArray(itemCodes) ? itemCodes : []).map((value) => String(value || '').trim().toUpperCase()).filter(Boolean));
-            if (!normalizedCodes.size) return [];
-            const opts = options || {};
-            if (opts.skipRemote) return [];
-            const reason = String(opts.reason || 'season-sales-note-refresh').trim().slice(0, 60);
-            return Array.from(normalizedCodes).map((itemCode) => {
-                const idempotencyKey = `season-sales-refresh-${crypto.randomUUID()}`;
-                return seasonSalesOfficeApi('refresh', {
-                    itemcode: itemCode,
-                    importRevision: `client:${reason}:${new Date().toISOString()}`,
-                    idempotencyKey
-                }, { idempotencyKey, timeoutMs: 30000 })
-                    .then(() => refreshSeasonSalesOfficeDataset())
-                    .catch((error) => {
-                        console.error('Season Sales Notes protected refresh failed', error);
-                        throw error;
-                    });
-            });
-        }
-
         function syncSeasonSalesOfficeAfterSeasonDataSave(item = null, prefix = '', options = {}) {
             if (!item) return [];
             const safePrefix = String(prefix || '').trim().toLowerCase();
@@ -72758,53 +72705,6 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
             const showBack = !!modalBack || currentView !== 'home'
                 || (currentView === 'home' && (shouldShowHomeProductivityBackButton() || cartPanelOpen || bloomShareMenuOpen || bloomCropUpdateModalOpen));
             return { currentView, modalBack, showBack };
-        }
-
-        function applyGlobalBackState(state) {
-            const { currentView, modalBack, showBack } = state;
-            syncHeaderBloomPlacement(currentView);
-            const body = document.body;
-            if (body) body.classList.toggle('global-back-active', showBack);
-            if (body && (body.dataset.currentView !== currentView || !body.classList.contains(`current-view-${currentView}`)
-                || (currentView !== 'home' && body.classList.contains('current-view-home')))) {
-                syncCurrentViewBodyClass(currentView);
-            }
-            const searchRow = document.getElementById('global-header-search-row');
-            if (searchRow) {
-                const showHeader = showBack || (!!currentUser && currentView !== 'home');
-                searchRow.classList.toggle('hidden', !showHeader);
-                searchRow.hidden = !showHeader;
-                searchRow.setAttribute('aria-hidden', showHeader ? 'false' : 'true');
-                if (showHeader) ['display', 'visibility', 'pointer-events'].forEach(prop => searchRow.style.removeProperty(prop));
-            }
-            const legacyBack = document.getElementById('global-back-btn');
-            if (legacyBack) legacyBack.classList.toggle('hidden', !showBack);
-            const button = document.getElementById('global-header-inline-back');
-            if (!button) return;
-            // A closed popover is hidden by the browser even if our CSS makes
-            // the button visible. Normal navigation must remove that mode.
-            if (!modalBack || typeof button.showPopover !== 'function') {
-                try {
-                    if (button.hasAttribute('popover') && button.matches(':popover-open') && typeof button.hidePopover === 'function') button.hidePopover();
-                } catch (error) { globalThis.reportHandledRuntimeIssue?.("applyGlobalBackState", 'HANDLED_OPERATION_FAILURE'); }
-                button.removeAttribute('popover');
-            }
-            button.classList.toggle('hidden', !showBack);
-            button.hidden = !showBack;
-            button.disabled = !showBack;
-            button.setAttribute('aria-hidden', showBack ? 'false' : 'true');
-            button.setAttribute('aria-disabled', showBack ? 'false' : 'true');
-            if (showBack) ['display', 'visibility', 'pointer-events'].forEach(prop => button.style.removeProperty(prop));
-            if (modalBack && typeof button.showPopover === 'function') {
-                button.setAttribute('popover', 'manual');
-                try {
-                    if (!button.matches(':popover-open')) button.showPopover();
-                } catch (error) {
-                    // A detached/unsupported promotion must not leave a closed
-                    // popover attribute hiding the normal navigation control.
-                    button.removeAttribute('popover');
-                }
-            }
         }
 
         function updateGlobalBackButton() {
@@ -96426,60 +96326,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return rows;
         }
 
-        async function saveSeasonSalesOfficeAvNoteSnapshot(masterId = '', nextAvNote = '') {
-            const normalizedMasterId = String(masterId || '').trim();
-            if (!normalizedMasterId || navigator.onLine === false) return false;
-            const mirroredRows = getSeasonSalesOfficeRowsByMasterId(normalizedMasterId);
-            const mirroredRow = mirroredRows.find((row) => String(firstNonEmptyValue(row.SO_SOURCE, row.so_source, '')).trim().toLowerCase() === 'season') || null;
-            if (!mirroredRow) return false;
-            const nextValue = String(nextAvNote ?? '').trim().toUpperCase();
-            const expectedRevision = Number(firstNonEmptyValue(mirroredRow.STATE_REVISION, mirroredRow.state_revision, 1)) || 1;
-            const idempotencyKey = `season-sales-av-note-${crypto.randomUUID()}`;
-            const result = await publishRowEvaluationToMasterAndNotes({UNIQUE_ID:normalizedMasterId}, {av_note:nextValue}, {
-                seasonSalesOffice:true,scope:getSupabaseReadIdentityScope(),expectedRevision,
-                persist:() => seasonSalesOfficeApi('save_av_note', {
-                    masterId:normalizedMasterId,expectedRevision,avNote:nextValue,idempotencyKey
-                }, {idempotencyKey,timeoutMs:30000})
-            });
-            const savedValue = Object.prototype.hasOwnProperty.call(result, 'avNote') ? String(result.avNote ?? '').trim() : nextValue;
-            syncSeasonSalesOfficeAvNoteState(normalizedMasterId, savedValue);
-            mirroredRow.STATE_REVISION = Number(result.revision) || expectedRevision + 1;
-            mirroredRow.state_revision = mirroredRow.STATE_REVISION;
-            mirroredRow.WORKFLOW_STATUS = String(result.readinessStatus || mirroredRow.WORKFLOW_STATUS || 'needs_photo_data');
-            mirroredRow.WORKFLOW_DETAIL = result.workflowDetail || mirroredRow.WORKFLOW_DETAIL || {};
-            return true;
-        }
-
-        async function syncSeasonSalesOfficeAvNoteRemote(masterId = '', nextAvNote = '') {
-            const normalizedMasterId = String(masterId || '').trim();
-            if (!normalizedMasterId || navigator.onLine === false) return false;
-            const masterRow = findItemByUniqueId(normalizedMasterId)
-                || (Array.isArray(fullInventory) ? masterInventoryById.get(normalizedMasterId) : null);
-            const mirroredRow = getSeasonSalesOfficeRowsByMasterId(normalizedMasterId)[0] || null;
-            const itemCode = getMasterItemCodeKey(masterRow || mirroredRow);
-            if (!itemCode) return false;
-            // Existing staging owns its note. Explicit user edits must update that
-            // snapshot before reconciliation; a first staging captures the master.
-            try {
-                await saveSeasonSalesOfficeAvNoteSnapshot(normalizedMasterId, nextAvNote);
-            } catch (error) {
-                const failure = String(error && error.message ? error.message : error || '');
-                if (/SEASON_SALES_(?:NOT_OPEN|STALE_REVISION|WINNER_CHANGED)/.test(failure) || String(error && error.code || '') === '40001') {
-                    console.warn('Season Sales Office AV Note save stopped after a stale workflow revision; waiting for an explicit refresh or edit.', error);
-                    return false;
-                }
-                throw error;
-            }
-            const idempotencyKey = `season-sales-note-refresh-${crypto.randomUUID()}`;
-            await seasonSalesOfficeApi('refresh', {
-                itemcode: itemCode,
-                importRevision: `client:av-note-save:${new Date().toISOString()}`,
-                idempotencyKey
-            }, { idempotencyKey, timeoutMs: 30000 });
-            await refreshSeasonSalesOfficeDataset();
-            return true;
-        }
-
         function getSalesOfficeOrderItems() {
             const roleAccess = getRoleAccessState();
             const cacheKey = [
@@ -107719,7 +107565,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
         }
 
         function buildManagerEvalReportSelect(label = '', kind = '', currentValue = 'all', options = []) {
-            if (kind === 'assignedto') return renderManagerEvalAssignedUserControl('eval1', options, false);
+            if (kind === 'assignedto') return renderManagerEvalAssignedUserControl('eval1', false);
             const optionHtml = [`<option value="all" ${currentValue === 'all' ? 'selected' : ''}>All</option>`]
                 .concat(options.map((value) => `<option value="${escapeHtml(value)}" ${currentValue === value ? 'selected' : ''}>${escapeHtml(value)}</option>`))
                 .join('');
@@ -107891,44 +107737,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return latestValue;
         }
 
-        async function loadManagerEvalReports2(force = false) {
-            if (!canViewManagerEvalReports2()) return null;
-            const state = managerEvalReport2LoadState;
-            if (typeof window === 'undefined' || !window.GncReportPagesLive) {
-                state.error = 'Eval Reports #2 report data is not available right now.';
-                state.loading = false;
-                scheduleManagersRender(true);
-                return managerEvalReport2Cache;
-            }
-            const controller = getManagerReportPageController();
-            const pageState = controller.state('eval2');
-            const query = buildManagerReportPageQuery('eval2');
-            if (pageState.pendingKey === JSON.stringify(query) && pageState.promise) {
-                await pageState.promise;
-                return getManagerEvalReport2Index();
-            }
-            if (!force && pageState.error) return getManagerEvalReport2Index();
-            const progressive = managerEvalReport2ProgressiveRowsState;
-            if (force && progressive && progressive.owner === getSupabaseReadIdentityScope()
-                && JSON.stringify(progressive.query) === JSON.stringify(query)) {
-                void refreshManagerEvalReport2ProgressiveRows(progressive);
-                scheduleManagersRender(true);
-                return getManagerEvalReport2Index();
-            }
-            if (force && pageState.page) {
-                void controller.initialize('eval2', true);
-                controller.refresh('eval2');
-                scheduleManagersRender(true);
-                return getManagerEvalReport2Index();
-            }
-            state.loading = !getManagerEvalReport2BrowsePage(query);
-            state.error = '';
-            const page = await controller.load(query, force);
-            if (!page) state.error = pageState.error || 'Eval Reports #2 report data is not available right now.';
-            state.loading = false;
-            scheduleManagersRender(true);
-            return getManagerEvalReport2Index();
-        }
         function getManagerEvalReport2CacheKeyValue() {
             const nextTarget = getConfiguredNextSaleSeasonTarget();
             return [getDatasetLoadSignature('master'), fullInventory.length, getDatasetLoadSignature('warehouseAssignedItems'), warehouseAssignedItemsInventory.length, getConfiguredCurrentSeasonCode(), getConfiguredCurrentSalesYearCode(), nextTarget.season, nextTarget.salesYear, managerEvalReportSettings.lowStockMaxSLts, managerEvalReportSettings.holdAgeDays, managerEvalReportSettings.locationNoteAgeDays, getManagerEvalReportCentralDateKey()].join('::');
@@ -108778,21 +108586,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             if (!values.length) return 'All Users';
             if (values.length === 1) return values[0];
             return `${values.length} Users`;
-        }
-
-        function renderManagerEvalAssignedUserControl(target = 'eval2', options = [], disabled = false) {
-            if (target === 'eval2') {
-                const selected = getManagerEvalAssignedUsers('eval2')[0] || 'all';
-                const optionHtml = getManagerEvalReport2UserFilterOptions().map((option) =>
-                    `<option value="${escapeHtml(option.value)}" ${selected.toLocaleLowerCase() === option.value.toLocaleLowerCase() ? 'selected' : ''}>${escapeHtml(option.label)}</option>`
-                ).join('');
-                const summary = selected === 'all' ? 'All Users' : (selected.toLocaleLowerCase() === '(unassigned)' ? 'Unassigned' : selected);
-                return `<label class="min-w-0"><span class="mb-1 block text-[9px] font-black uppercase tracking-[0.12em] text-slate-500">Users</span><select data-role="manager-eval2-user-filter" class="min-h-[48px] w-full rounded-xl border border-emerald-200 bg-white px-3 py-2.5 text-[12px] font-black text-slate-900 shadow-sm disabled:opacity-50" aria-label="Filter Eval Reports #2 by user" onchange="return setManagerEvalReport2Filter('assignedto', this.value)" ${disabled ? 'disabled' : ''}>${optionHtml}</select><span data-role="manager-eval2-user-filter-summary" class="mt-1 block text-[9px] font-black uppercase tracking-[0.08em] text-emerald-700">Showing: ${escapeHtml(summary)}</span></label>`;
-            }
-            const selected = getManagerEvalAssignedUsers(target);
-            const chips = selected.slice(0, 3).map((value) => `<span class="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[9px] font-black text-emerald-800">${escapeHtml(value)}</span>`).join('');
-            const overflow = selected.length > 3 ? `<span class="text-[9px] font-black text-slate-500">+${selected.length - 3}</span>` : '';
-            return `<div class="min-w-0"><div class="mb-1 text-[9px] font-black uppercase tracking-[0.12em] text-slate-500">Users</div><button type="button" class="flex min-h-[46px] w-full items-center justify-between gap-2 rounded-xl border border-emerald-200 bg-white px-3 text-left text-sm font-black text-slate-900 shadow-sm disabled:opacity-50" ${disabled ? 'disabled' : ''} onclick="return openManagerEvalUserPicker('${escapeHtml(target)}')"><span class="min-w-0 truncate">${escapeHtml(getManagerEvalAssignedUserLabel(target))}</span><i class="ph-bold ph-users-three text-lg text-emerald-700"></i></button>${selected.length ? `<div class="mt-2 flex min-w-0 flex-wrap gap-1">${chips}${overflow}</div>` : ''}</div>`;
         }
 
         function getManagerEvalUserPickerOptions(target = 'eval2') {
@@ -109691,7 +109484,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
 
         function buildManagerEvalReport2Select(label = '', kind = '', currentValue = 'all', options = [], includeAll = true, disabled = false) {
             const assignedToSelect = String(kind || '').trim().toLowerCase() === 'assignedto';
-            if (assignedToSelect && includeAll) return renderManagerEvalAssignedUserControl('eval2', options, disabled);
+            if (assignedToSelect && includeAll) return renderManagerEvalAssignedUserControl('eval2', disabled);
             const leadingLabel = assignedToSelect ? 'Choose AssignedTo' : 'All';
             const leading = includeAll ? [`<option value="all" ${currentValue === 'all' ? 'selected' : ''}>${leadingLabel}</option>`] : ['<option value="">All</option>'];
             const optionHtml = leading.concat(options.map((value) => `<option value="${escapeHtml(value)}" ${currentValue === value ? 'selected' : ''}>${escapeHtml(value)}</option>`)).join('');

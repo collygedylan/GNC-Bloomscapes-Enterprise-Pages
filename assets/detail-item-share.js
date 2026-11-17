@@ -1,10 +1,6 @@
 
 function syncInlineItemDetailShare(root) {
             if (!root) return;
-            if (isCompactQueueDetail(activeItem, activeDetailSourceView || lastView)) {
-                root.querySelector('[data-inline-detail-share]')?.remove();
-                return;
-            }
             if (root.querySelector('[data-inline-detail-share]')) return;
             const button = document.createElement('button');
             button.type = 'button'; button.dataset.inlineDetailShare = 'true';

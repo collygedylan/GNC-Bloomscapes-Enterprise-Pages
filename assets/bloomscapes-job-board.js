@@ -12,8 +12,7 @@ function syncBloomscapesJobBoardToolbar(toolbar) {
     if (!tools) {
         tools = toolbar.appendChild(document.createElement('div'));
         tools.dataset.jobBoardTools = 'true';
-        tools.innerHTML = '<span data-job-board-farm></span>'
-            + '<label>Block / Location <input data-job-filter="block" type="search" aria-label="Job Block or Location"></label>'
+        tools.innerHTML = '<label>Block / Location <input data-job-filter="block" type="search" aria-label="Job Block or Location"></label>'
             + '<label>Search <input data-job-filter="search" type="search" aria-label="Search Job Board"></label>';
         tools.addEventListener('input',event=>{
             const key = event.target.dataset.jobFilter;
@@ -21,7 +20,6 @@ function syncBloomscapesJobBoardToolbar(toolbar) {
         });
     }
     const filters = getBloomscapesJobBoardFilters();
-    tools.querySelector('[data-job-board-farm]').textContent = 'Farm · '+getBloomscapesFarm();
     for (const field of tools.querySelectorAll('[data-job-filter]')) {
         if (field!==document.activeElement) field.value = filters[field.dataset.jobFilter];
     }

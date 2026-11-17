@@ -42,7 +42,7 @@ async function uploadNativeRequestPhoto(formData, options) {
     const receipt = await supabaseRpc('prepare_request_photo_upload_v3100',{
         p_identity:identity,p_photo_id:String(formData.get('queuedPhotoId') || ''),p_object_path:prepared.filePath
     },{timeoutMs:25000,signal:options.signal});
-    if (receipt?.ok!==true || receipt.masterUid!==masterUid || receipt.requestId!==identity.requestId) {
+    if (receipt?.ok!==true || receipt.requestId!==identity.requestId) {
         throw new Error('The request photo row was not confirmed.');
     }
     const send = ([path,blob])=>uploadNativeDrivePhotoPart(prepared.bucketName+'/'+path,blob,headers,current,options);

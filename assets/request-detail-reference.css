@@ -5,7 +5,7 @@
 body.current-view-detail #view-wrapper:has(> #view-detail.detail-request-reference:not(.hidden)) { overflow: visible !important; }
 body.current-view-detail #main-scroll-area:has(#view-detail.detail-request-reference:not(.hidden)) { padding-top: 0 !important; }
 #view-detail.detail-request-reference :is(#det-tabs-container, #det-mobile-tab-select-wrap, #det-title-row,
-  #det-extra-info, #det-request-desired-panel, #req-reserve-field-wrap, [data-inline-detail-share]) { display: none !important; }
+  #det-extra-info, #det-request-desired-panel, #req-reserve-field-wrap) { display: none !important; }
 #view-detail.detail-request-reference .freeze-panel { padding-top: 0 !important; }
 #view-detail .request-compact-header { border: 1px solid #3c8463; border-radius: 10px; padding: 4px 6px; background: var(--bg-surface,#fff); color: var(--text-main,#123a29); }
 #view-detail .request-compact-top { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }

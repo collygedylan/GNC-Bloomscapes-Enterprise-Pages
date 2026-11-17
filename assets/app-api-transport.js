@@ -338,18 +338,3 @@ async function uploadDrivePhotoWithNativeSession(formData, options = {}) {
     options.onStorageUploaded?.(uploaded);
     return uploaded;
 }
-async function postAppFunctionJson(url, body, options = {}) {
-    const command = JSON.parse(JSON.stringify(body || {}));
-    const owner = getSupabaseReadIdentityScope();
-    const epoch = nativeAuthRecoveryEpoch;
-    try {
-        const result = await retryOperationalRpc(async () => ({ok:true,value:await postAppFunctionAttempt(url,command,options)}), {
-            safe:isRecoverableOperationalRead(command), signal:options.signal,
-            current:() => owner === getSupabaseReadIdentityScope() && epoch === nativeAuthRecoveryEpoch
-        });
-        return result.value;
-    } catch (error) {
-        if (error.status) reportAppFunctionFailure(String(command?.action || ''),command,{status:error.status},error.code || '');
-        throw error;
-    }
-}

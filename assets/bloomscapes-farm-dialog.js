@@ -93,7 +93,7 @@ function appendBloomscapesFarmPills(dialog,choose) {
 
 async function syncBloomscapesFarmSelector() {
     const select = document.getElementById('bloomscapes-farm-selector');
-    if (!select || select.disabled) return;
+    if (!select || bloomscapesFarmState.busy) return;
     const allowed = getBloomscapesAllowedFarms();
     const signature = allowed.join(',');
     if (select.dataset.farms!==signature) {
@@ -101,7 +101,8 @@ async function syncBloomscapesFarmSelector() {
         select.dataset.farms = signature;
     }
     select.value = getBloomscapesFarm();
-    select.parentElement.hidden = allowed.length===1;
+    select.parentElement.hidden = false;
+    select.disabled = allowed.length <= 1;
     const initial = bloomscapesFarmNeedsConfirmation();
     if (bloomscapesFarmDialog || !initial && !bloomscapesFarmNeedsHydration()) return;
     select.disabled = true;
@@ -113,5 +114,5 @@ async function syncBloomscapesFarmSelector() {
         select.value = chosen;
         refreshBloomscapesFarmPanel();
     } catch (error) { showToast('Farm selection',error.message,true); }
-    finally { select.disabled = false; }
+    finally { select.disabled = getBloomscapesAllowedFarms().length <= 1; }
 }

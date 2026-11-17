@@ -43,8 +43,9 @@ function pinActiveDetailField(input) {
     const summary = document.querySelector('#request-detail-info .request-reference-bar');
     const summaryBottom = summary?.getBoundingClientRect().bottom || 0;
     const visualTop = viewport?.offsetTop || 0;
+    const chromeBottom = document.querySelector('#app-top-chrome')?.getBoundingClientRect().bottom || 0;
     const bottom = visualTop + (viewport?.height || window.innerHeight) - getDetailMeasurementKeyboardVisibleHeight();
-    const top = Math.min(Math.max(visualTop + 64, summaryBottom + 6), bottom - Math.min(rect.height, 96) - 8);
+    const top = Math.min(Math.max(visualTop + 64, chromeBottom + 8, summaryBottom + 6), bottom - Math.min(rect.height, 96) - 8);
     const width = Math.min(rect.width, (viewport?.width || window.innerWidth) - 16);
     const left = Math.max(8, Math.min(rect.left, (viewport?.width || window.innerWidth) - width - 8));
     input.style.cssText = `position:fixed!important;top:${Math.max(visualTop,top)}px!important;left:${left}px!important;width:${width}px!important;height:${Math.min(rect.height,96)}px!important;z-index:81!important;margin:0!important;color:#FACC15!important;-webkit-text-fill-color:#FACC15!important;font-weight:800!important;background:#064e3b!important`;

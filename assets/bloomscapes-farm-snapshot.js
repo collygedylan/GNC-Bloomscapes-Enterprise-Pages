@@ -19,7 +19,8 @@ async function readBloomscapesFarmSnapshot(farm,assertCurrent) {
     const entries = await Promise.all(BLOOMSCAPES_SNAPSHOT_READS.map(async ([key,table,column,order])=>
         [key,await readBloomscapesFarmTable(table,column,order,farm,assertCurrent)]));
     assertCurrent();
-    if (await readBloomscapesFarmRevision(farm)!==revision) throw new Error('Farm changed during its snapshot read; previous inventory retained.');
+    if (await readBloomscapesFarmRevision(farm)!==revision) throw Object.assign(
+        new Error('Farm changed during its snapshot read; previous inventory retained.'),{code:'FARM_SNAPSHOT_REVISION_CHANGED'});
     return {farm,revision,...Object.fromEntries(entries)};
 }
 

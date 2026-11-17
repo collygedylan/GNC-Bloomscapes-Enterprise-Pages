@@ -14,7 +14,7 @@ function getDocksSuspendSyncAudit() {
         const uid=getDockSuspendDcRequestSourceUid(row),key=getDockOrderBusinessKey(row);
         if(ids.has(uid) || key && keys.has(key)) duplicates++;
         ids.add(uid);if(key)keys.add(key);
-        if(row.suspend_completed===true || row.completed===true || /^(complete|completed|deleted)$/i.test(row.status || row.STATUS || '')) resurrected++;
+        if(isPhysicalSuspendTagClosed(row)) resurrected++;
         const order=orders.get(uid);
         if(order && String(order.LOCATIONCODE || order.locationcode || '').trim()!==String(row.LOCATIONCODE || row.locationcode || '').trim()) mismatches++;
     }

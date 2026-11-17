@@ -55,6 +55,9 @@ function queueDetailRowPhoto(item, prefix, file) {
         if (owner !== item) mergeRequestPhotoFields(item, owner);
         item = owner;
     }
+    if (normalized !== 'req-' && canUnlockCompletedRow(item) && isProtectedSectionCompleted(normalized,item)) {
+        void unlockCanonicalInventoryRow(item,normalized);
+    }
     const fileName = buildInventoryRowPhotoFileName(item,file,{extension:'jpg'});
     return queueDrivePhotoAttachment(item,normalized,file,fileName);
 }

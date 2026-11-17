@@ -13,7 +13,7 @@ function getInventoryExcelHost(scope) {
         const tab=normalizeRequestTabValue(activeReqTab), tabs={suspend:['suspend-tag'],request:['pending','reps'],evalwork:['eval-work','shear-test'],locationwork:['location-work','moves'],recount:['recount'],queueshear:['shear-list']};
         if(!tabs[scope]?.includes(tab)) return null;
     }
-    if (scope === 'drive') return host.querySelector('[data-inventory-excel-mount="drive"]');
+    if (scope === 'drive') return host.querySelector('#drive-toolbar-rail');
     if (scope === 'av') return host.querySelector('#av-filter-options');
     if (scope === 'suspend') return host.querySelector('[data-inventory-excel-mount="suspend"]');
     if (hosts[scope] === 'view-request') return host.querySelector('#request-filter-toolbar');
@@ -34,5 +34,6 @@ function mountInventoryExcelFilters(scope) {
     const state=getInventoryExcelState(scope), signature=JSON.stringify([state.revision,state.rows.length,scope === 'av' && getAvPhotoMode(),getInventoryExcelFields(scope).map(([k])=>[k,state.filters[k]?[...state.filters[k]]:null])]);
     bar.hidden=false;
     if(bar.dataset.signature===signature) return;
-    bar.dataset.signature=signature;bar.innerHTML=inventoryExcelBarHtml(scope);
+    bar.dataset.signature=signature;
+    bar.innerHTML=inventoryExcelBarHtml(scope);
 }
