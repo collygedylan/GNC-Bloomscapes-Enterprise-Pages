@@ -25,7 +25,7 @@ function buildErpSyncTargets() {
     targets.push(erpTarget('PH_TRANS_KEYED','PH','ON_DEMAND','Transactions Key/PH Transactions Key','trans_keyed',false,'PH Transactions Key'));
     targets.push(erpTarget('PH_PRE_POST_PO','PH','ON_DEMAND','P.O Reports/10 Purchase Order Pre-Post','pre_post_po',false,'Pre-Post PO'));
     for (const label of ['Shipped & Cycle','PTR Out of Balance','Production Schedule','Assigned Items',
-        'Master Database','Over Wintering','Drop Varieties','Spring Spreading','Short Pit']) {
+        'Master Database','Over Wintering','Drape Varieties','Spring Spreading','Short Pit']) {
         const suffix = label.toLowerCase().replace(' & ','_').replaceAll(' ','_');
         targets.push(erpTarget('AUX_'+suffix.toUpperCase(),'PH','ON_DEMAND',label,suffix,false,label));
     }
@@ -53,7 +53,9 @@ function getErpSyncTargetsForFarm(farm) {
 
 function readSelectedErpSyncKeys(storage) {
     const stored = storage.getItem(ERP_SELECTION_STORAGE_KEY);
-    return selectErpSyncTargets(stored===null ? DEFAULT_CORE_SYNC_KEYS : JSON.parse(stored)).map(target=>target.key);
+    const keys = stored===null ? DEFAULT_CORE_SYNC_KEYS : JSON.parse(stored);
+    const migrated = Array.isArray(keys) ? keys.map(key=>key==='AUX_DROP_VARIETIES' ? 'AUX_DRAPE_VARIETIES' : key) : keys;
+    return selectErpSyncTargets(migrated).map(target=>target.key);
 }
 
 function writeSelectedErpSyncKeys(storage, keys) {

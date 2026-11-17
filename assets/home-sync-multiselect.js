@@ -36,7 +36,7 @@ function homeSyncPresetMarkup() {
 
 function homeSyncTargetMarkup(target) {
     const run = target.defaultChecked ? '' : `<button type="button" data-run-target="${target.key}" aria-label="Run ${target.shortLabel}">⚡ Run</button>`;
-    return `<div class="home-sync-target-row"><label><input type="checkbox" value="${target.key}">
+    return `<div class="home-sync-target-row"><label><input type="checkbox" value="${target.key}" data-table-name="${target.tableName}">
         <span>${target.label}<b>${target.farm}</b><small>TEST BUILD/${target.folderPath}</small></span></label>${run}</div>`;
 }
 
