@@ -52,9 +52,13 @@ function mountInventoryExcelFilters(scope) {
     if(bar.contains(document.activeElement) && bar.querySelector('[data-excel-search]')) return;
     const state=getInventoryExcelState(scope), signature=JSON.stringify([state.revision,state.rows.length,scope === 'av' && getAvPhotoMode(),getInventoryExcelFields(scope).map(([k])=>[k,state.filters[k]?[...state.filters[k]]:null])]);
     bar.hidden=false;
-    if(bar.dataset.signature===signature) return;
+    if(bar.dataset.signature===signature) {
+        if (scope === 'docks') mountDocksPrimaryFilters(host.closest('#view-docks'),bar);
+        return;
+    }
     bar.dataset.signature=signature;
     bar.innerHTML=inventoryExcelBarHtml(scope);
+    if (scope === 'docks') mountDocksPrimaryFilters(host.closest('#view-docks'),bar);
 }
 
 function ensureDriveToolbarControls() {
@@ -73,6 +77,7 @@ function ensureDriveToolbarControls() {
 
     const state = getInventoryExcelState('drive');
     let next = rail.querySelector('[data-inventory-excel-scope="drive"]');
+    if (next) next.hidden = false;
     for (const [key, label] of getDriveExcelHeaderFields().filter(([key])=>['contsize','holdstopcode'].includes(key)).reverse()) {
         let button = document.getElementById('drive-excel-' + key + '-btn')
             || rail.querySelector('[data-drive-excel-field="' + key + '"]');
@@ -89,7 +94,7 @@ function ensureDriveToolbarControls() {
         button.setAttribute('aria-haspopup', 'dialog');
         const action = "return openInventoryExcelFilter('drive',this.dataset.excelField,this)";
         if (button.getAttribute('onclick') !== action) button.setAttribute('onclick', action);
-        const text = label;
+        const text = (key === 'contsize' ? 'Size' : 'Hold') + ' ▾';
         if (state.filters[key]) button.dataset.filterCount = String(state.filters[key].size); else delete button.dataset.filterCount;
         button.setAttribute('aria-label',label + (state.filters[key] ? ' (' + state.filters[key].size + ' selected)' : ''));
         if (button.textContent !== text) button.textContent = text;
@@ -108,5 +113,19 @@ function ensureDriveToolbarControls() {
         if (control && rail.contains(control)) rail.after(control);
     }
     rail.querySelectorAll(':scope > .mobile-browse-filters,#drive-excel-header-filters').forEach(node => node.remove());
+    placeBloomscapesFarmFilter(document.getElementById('bloomscapes-farm-selector')?.parentElement, 'drive');
     return true;
+}
+
+function getInventoryExcelParityAudit() {
+    for (const [scope,state] of getInventoryExcelState.cache?.scopes || []) {
+        const host = getInventoryExcelHost(scope);
+        if (!host || !state.rows.length) continue;
+        const bar = host.querySelector('[data-inventory-excel-scope="'+scope+'"]');
+        const primary = scope === 'docks' ? host.closest('#view-docks')?.querySelector('[data-docks-primary-filters]') : null;
+        const missing = getVisibleInventoryExcelFields(scope).some(([key]) =>
+            !bar?.querySelector('[data-field="'+key+'"]') && !primary?.querySelector('[data-field="'+key+'"]'));
+        if (!bar || missing) return {missing:true};
+    }
+    return {missing:false};
 }

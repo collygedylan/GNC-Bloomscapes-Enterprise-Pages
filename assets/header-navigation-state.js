@@ -1,4 +1,5 @@
 const GLOBAL_HEADER_SEARCH_CONFIG = {
+    communication:'communication-shared-search',
     'smart-moves':'smart-moves-shared-search', 'sales-office':'sales-office-shared-search',
     sales:'sales-shared-search', qc:'qc-shared-search', production:'production-shared-search',
     'sales-inventory':'sales-inventory-shared-search',
@@ -85,12 +86,13 @@ function applyGlobalBackState(state) {
         } catch { globalThis.reportHandledRuntimeIssue?.("applyGlobalBackState", 'HANDLED_OPERATION_FAILURE'); }
         button.removeAttribute('popover');
     }
-    button.classList.toggle('hidden', !showBack);
-    button.hidden = !showBack;
+    const visible = showBack || !!currentUser;
+    button.classList.toggle('hidden', !visible);
+    button.hidden = !visible;
     button.disabled = !showBack;
-    button.setAttribute('aria-hidden', showBack ? 'false' : 'true');
+    button.setAttribute('aria-hidden', visible ? 'false' : 'true');
     button.setAttribute('aria-disabled', showBack ? 'false' : 'true');
-    if (showBack) ['display', 'visibility', 'pointer-events'].forEach(prop => button.style.removeProperty(prop));
+    if (visible) ['display', 'visibility', 'pointer-events'].forEach(prop => button.style.removeProperty(prop));
     if (modalBack && typeof button.showPopover === 'function') {
         button.setAttribute('popover', 'manual');
         try {
@@ -105,10 +107,11 @@ function applyGlobalBackState(state) {
 
 
 function mountBloomscapesViewSearch(view) {
-    const supported=['smart-moves','sales-office','sales','qc','production','sales-inventory'];
+    const supported=['smart-moves','sales-office','sales','qc','production','sales-inventory','communication'];
     if (!supported.includes(view)) return;
     const root=document.getElementById('view-'+view);
-    const selector=view==='smart-moves'?'[aria-label="Search Smart Moves"]':'[data-main-inventory-browse] [data-work-search]';
+    const selector=view==='communication' ? '[data-comm-search]'
+        : view==='smart-moves' ? '[aria-label="Search Smart Moves"]' : '[data-main-inventory-browse] [data-work-search]';
     const input=root?.querySelector(selector);
     if (!input) return;
     const id=GLOBAL_HEADER_SEARCH_CONFIG[view];
@@ -117,4 +120,8 @@ function mountBloomscapesViewSearch(view) {
     existing?.remove();
     const container=document.createElement('div');container.id=id;
     input.before(container);container.append(input);
+    if (view === 'communication' && !input.dataset.headerSearchBound) {
+        input.dataset.headerSearchBound = 'true';
+        input.addEventListener('input', event => {event.stopPropagation();inputBloomscapesComm(event);});
+    }
 }

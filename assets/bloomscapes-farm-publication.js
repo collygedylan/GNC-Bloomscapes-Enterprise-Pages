@@ -3,6 +3,7 @@ async function prepareBloomscapesFarmPublication(raw,owner,assertCurrent) {
     identity[identity.length-1] = raw.farm;
     const prepared = await prepareProductionMasterSnapshot(raw.inventory,{identity:JSON.stringify(identity),assertCurrent,includeRawRows:false});
     assertCurrent();
+    publishEarlyBloomscapesInventory(raw,prepared);
     const inventory = prepared.payload.data;
     const master = preparedMasterRows.get(inventory);
     master.indexMaps.byItemPrefix = buildMasterInventoryPrefixIndex(master.indexMaps.byItemCode);
@@ -31,4 +32,11 @@ async function prepareBloomscapesSupportRows(rows,kind,resolveMaster,assertCurre
         if (pause) await pause;
     }
     return prepared;
+}
+
+function publishEarlyBloomscapesInventory(raw,prepared) {
+    if (raw.farm !== getBloomscapesFarm()) return false;
+    const context=getProductionLiveSyncContext();
+    return applyColdOperationalDisplay('master',{payload:prepared.payload,
+        rowCompleteness:'complete',rowCount:raw.inventory.length},context);
 }

@@ -36,7 +36,38 @@ function patchDetailPhotoSlots(container, html) {
     desired.forEach((next,index)=>{
         const current = retained.get(next.dataset.photoSlot);
         const slot = current || next;
-        if (current && current.innerHTML !== next.innerHTML) replaceDetailMediaPreservingImages(current,next.innerHTML);
+        if (current && current.innerHTML !== next.innerHTML) patchSavedDetailPhotoSlot(current,next);
         if (strip.children[index] !== slot) strip.insertBefore(slot,strip.children[index] || null);
     });
+}
+
+function copyDetailPhotoAttributes(current, next) {
+    for (const attribute of [...current.attributes]) {
+        if (!next.hasAttribute(attribute.name)) current.removeAttribute(attribute.name);
+    }
+    for (const attribute of next.attributes) current.setAttribute(attribute.name, attribute.value);
+}
+
+function patchSavedDetailPhotoSlot(current, next) {
+    const button = current.querySelector('[data-photo-open]');
+    const nextButton = next.querySelector('[data-photo-open]');
+    const img = button?.querySelector('img');
+    if (!img || !nextButton) return replaceDetailMediaPreservingImages(current,next.innerHTML);
+    copyDetailPhotoAttributes(button, nextButton);
+    const desiredImage = nextButton.querySelector('img');
+    img.dataset.photoUrl = desiredImage.dataset.photoUrl;
+    img.dataset.localPreviewUrl ||= desiredImage.dataset.localPreviewUrl;
+    const status = current.querySelector('[data-photo-status]');
+    const nextStatus = next.querySelector('[data-photo-status]');
+    if (status && nextStatus) {
+        copyDetailPhotoAttributes(status, nextStatus);
+        status.textContent = nextStatus.textContent;
+    }
+    for (const child of [...current.children]) if (child !== button && child !== status) child.remove();
+    for (const child of [...next.children]) {
+        if (child === nextButton || child === nextStatus && status) continue;
+        const beforeButton = [...next.children].indexOf(child) < [...next.children].indexOf(nextButton);
+        if (beforeButton) current.insertBefore(child,button);
+        else current.appendChild(child);
+    }
 }

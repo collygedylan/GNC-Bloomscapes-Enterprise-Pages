@@ -2,6 +2,7 @@ function getInventoryExcelFields(scope = '') {
     if (scope==='reclass') return [];
     const fields=[['username','Assigned To'],['stock','Stock / Season'],['view','View'],['genus','Genus'],
         ['plantgroupcode','Plant Group'],['contsize','Container Size'],['salesrep','Sales Rep'],['customer','Customer / Consignee']];
+    if (scope === 'docks') fields.unshift(['commonname','Common Name']);
     return fields.filter(([key])=>scope==='av' ? !['username','stock','view'].includes(key)
         : key!=='view' || !['drive','eval2','studio'].includes(scope));
 }

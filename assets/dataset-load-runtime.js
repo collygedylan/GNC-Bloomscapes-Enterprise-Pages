@@ -7,7 +7,7 @@ async function ensureDatasetLoaded(key, mode = 'initial', options = {}) {
         if (coldLoad) return coldLoad;
         if (typeof canUseProductionLiveSync === 'function' && canUseProductionLiveSync()) return ensureCoordinatedDataset(key,mode,options);
     }
-    const wantsFull = mode === 'full';
+    const wantsFull = mode === 'full' || key === 'master' || key === 'avOpen';
     const state = getDatasetState(key);
     if (isDatasetFrozenDuringManualSync(key,mode)) return wantsFull ? !!state.fullLoaded : !!(state.initialLoaded || state.fullLoaded);
     if (options.force && !wantsFull && state.fullLoaded && !options.preserveRequestedMode) return ensureDatasetLoaded(key,'full',options);
@@ -76,9 +76,7 @@ function createDatasetReadPlan(key, definition, wantsFull, options, isCurrent) {
     const limit = typeof initialLimitSource === 'function' ? initialLimitSource(modeLabel,options) : initialLimitSource || INITIAL_PAGE_LIMIT;
     const fetchAll = !wantsFull && definition.initialFetchAll === true && options.fastInitialPage !== true;
     const owner = getSupabaseReadIdentityScope();
-    const firstPage = shouldHydrateFirstPageForDatasetLoad(key,modeLabel)
-        ? {onFirstPage:(rows,meta) => isCurrent() ? hydrateFirstDatasetPageForRender(key,rows,meta) : false}
-        : {};
+    const firstPage = {};
     return {key,definition,wantsFull,options,modeLabel,query,limit,fetchAll,owner,firstPage,isCurrent};
 }
 
@@ -236,33 +234,5 @@ async function runLegacyDatasetLoad(key, definition, state, wantsFull, options, 
     reportPerformanceHealthEvent('dataset_load','data_sync',getAdaptivePerfElapsedMs(startedAt),{
         reason:`${key}:${plan.modeLabel}`,affected_count:Array.isArray(rows) ? rows.length : 0
     });
-    return true;
-}
-
-function shouldHydrateFirstPageForDatasetLoad(key = '', mode = 'initial') {
-    const safeKey = String(key || '').trim();
-    if (mode !== 'full' || safeKey !== 'master') return false;
-    if (getDatasetRenderRowCount(safeKey) > 0) return false;
-    const visibleView = getCurrentVisibleViewId();
-    return ['home', 'drive', 'av', 'docks', 'managers', 'request', 'detail'].includes(visibleView);
-}
-
-async function hydrateFirstDatasetPageForRender(key = '', rows = [], meta = {}) {
-    const safeKey = String(key || '').trim();
-    if (!safeKey || !Array.isArray(rows) || !rows.length) return false;
-    const state = getDatasetState(safeKey);
-    processAndLoadData(buildDatasetPayload(safeKey, rows));
-    state.firstPagePreviewLoaded = true;
-    state.rowCompleteness = 'partial';
-    state.expectedRowCount = meta.total;
-    state.lastLoadedAt = new Date().toISOString();
-    if (safeKey === 'master') {
-        rebuildMasterInventoryIndexes();
-        const view = getCurrentVisibleViewId();
-        TRACKED_VIEW_IDS.forEach(markViewDirty);
-        if (view !== 'home') queueInteractiveViewRender(view, false, true, 0, 140);
-        scheduleProductionLiveSyncRender(true, { cachedPreview: true });
-    }
-    await yieldToUiFrame();
     return true;
 }

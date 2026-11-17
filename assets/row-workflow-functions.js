@@ -12,26 +12,7 @@ function isSpecOnlyAvNoteContext(item) {
         || /location/i.test(String(item.APP_TAB_ASSIGNMENT || item.app_tab_assignment || ''));
 }
 
-function buildAvNoteSpecialOptions(prefix) {
-    const spec=String(document.getElementById(prefix+'spec')?.value || '').trim();
-    const button=(value,label)=>`<button type="button" class="av-note-dropdown-option" data-av-note-option="${value}" data-av-note-prefix="${escapeHtml(prefix)}" role="option" onpointerdown="return selectAvNote(this.dataset.avNoteOption,this.dataset.avNotePrefix,event,{fromPressStart:true})" ontouchstart="return selectAvNote(this.dataset.avNoteOption,this.dataset.avNotePrefix,event,{fromPressStart:true})" onmousedown="event.preventDefault()" onclick="return selectAvNote(this.dataset.avNoteOption,this.dataset.avNotePrefix,event)">${escapeHtml(label)}</button>`;
-    return button('__SPEC_ONLY__',`✓ SPEC ONLY (${spec ? 'SPEC - '+spec : 'No AV Note'})`)+button('__CLEAR_AV_NOTE__','✕ Clear AV Note (Blank)');
-}
 
-function openInlineAvNoteList(prefix, options = {}) {
-    if (!AV_NOTE_DROPDOWN_PREFIXES.includes(prefix) || !canEditRowDetails(prefix)) return false;
-    const input=document.getElementById(getAvNoteInputIdForPrefix(prefix)),list=document.getElementById(getAvNoteDropdownListIdForPrefix(prefix));
-    if (!input || !list || input.disabled) return false;
-    if (requestAvNoteSheetState.prefix === prefix) closeRequestAvNoteSheet(list);
-    input.readOnly=false;input.inputMode='text';list.dataset.avNotePresentation='inline';
-    list.style.setProperty('position','relative','important');list.style.setProperty('inset','auto','important');
-    list.style.setProperty('max-height','180px','important');list.style.setProperty('overflow-y','auto','important');
-    const label=input.parentElement?.parentElement?.querySelector('label span');
-    if(label)label.textContent=isSpecOnlyAvNoteContext(activeItem)?'AV NOTE (OPTIONAL — SPEC ONLY OK)':'AV Note';
-    avNoteRenderedKeys[prefix]='';
-    filterAvNotes(prefix,{...options,inline:true,showAll:options.searchText===undefined});
-    return false;
-}
 
 function applyExplicitAvNotePayload(payload,row,options = {}) {
     const captured=options.markDoneSnapshot?.payload;
@@ -2106,14 +2087,6 @@ function getAvCrossSeasonPhotoAudit() {
     const shown=new Set(current.items.map(getAvReserveLocationUniqueKey));
     return {active:true,allSeasons:true,missing:expected.filter(row=>!shown.has(getAvReserveLocationUniqueKey(row))).length};
 }
-function getInventoryExcelParityAudit() {
-    for(const [scope,state] of getInventoryExcelState.cache?.scopes || []) {
-        const host=getInventoryExcelHost(scope);if(!host || !state.rows.length)continue;
-        const bar=host.querySelector('[data-inventory-excel-scope="'+scope+'"]');
-        if(!bar || getVisibleInventoryExcelFields(scope).some(([key])=>!bar.querySelector('[data-field="'+key+'"]')))return {missing:true};
-    }
-    return {missing:false};
-}
 
 function getManagerEvalReport1ExcelPage(query) {
     if(query?.surface!=='eval1' || !['groups','rows'].includes(query.operation))return null;
@@ -2633,26 +2606,6 @@ function buildSelectedAvNote(note = '', prefix = '', options = {}) {
     return label && spec && !/^N\s*\/?\s*A$/i.test(spec) ? `${label} / SPEC - ${spec}` : label;
 }
 
-function openAvNotePicker(prefix = '', event = null) {
-    const safePrefix = String(prefix || '').trim();
-    if (!AV_NOTE_DROPDOWN_PREFIXES.includes(safePrefix)) return false;
-    if (event?.cancelable) event.preventDefault();
-    event?.stopPropagation?.();
-    if (!canEditRowDetails(safePrefix)) { showRowEditRestrictedToast(safePrefix); return false; }
-    const input = document.getElementById(getAvNoteInputIdForPrefix(safePrefix));
-    const list = document.getElementById(getAvNoteDropdownListIdForPrefix(safePrefix));
-    if (!input || !list || input.disabled) return false;
-    closeDetailMeasurementKeyboard(false, { blur:true });
-    document.activeElement?.blur?.();
-    list.dataset.avNotePresentation='modal';
-    list.style.removeProperty('max-height');
-    if (!list.classList.contains('hidden') && requestAvNoteSheetState.prefix === safePrefix) return false;
-    hideAllAvNoteDropdowns(safePrefix);
-    avNoteRenderedKeys[safePrefix] = '';
-    filterAvNotes(safePrefix, { showAll:true, fromDropdownButton:true });
-    list.scrollTop = 0;
-    return false;
-}
 
 function handleAvNotePickerPress(event) {
     const option = getAvNoteOptionFromEvent(event);

@@ -1,8 +1,9 @@
-function syncHeaderBloomPlacement() {
+function syncHeaderBloomPlacement(view = getCurrentVisibleViewId()) {
     const bloom = document.getElementById('footer-cart-btn');
     const host = document.getElementById('global-header-search-row');
     const farm = document.getElementById('bloomscapes-farm-selector')?.parentElement;
     if (!bloom || !host) return;
+    placeBloomscapesFarmFilter(farm, view, host);
     if (farm?.parentElement === host && farm.nextElementSibling !== bloom) farm.after(bloom);
     else if (bloom.parentElement !== host) host.appendChild(bloom);
 }

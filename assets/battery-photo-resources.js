@@ -1,4 +1,5 @@
 function releaseSavedDetailPreviewUrls() {
+    if (getCurrentVisibleViewId() === 'detail') return;
     const urls = new Set();
     for (const entries of pendingPhotoPreviews.values()) {
         for (const entry of entries) replaceSavedDetailPreview(entry, urls);

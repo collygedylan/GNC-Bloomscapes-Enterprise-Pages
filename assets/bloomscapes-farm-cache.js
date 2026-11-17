@@ -63,17 +63,18 @@ async function loadBloomscapesWarmFarm(cache,farm,refresh) {
         if (cache.prewarming && farm !== getBloomscapesFarm() && !window.BloomscapesBatteryGovernor.canPrewarm()) throw Object.assign(new Error('Farm prewarming paused.'),{code:'FARM_PREPARATION_PAUSED'});
         if (cache.prewarming && (document.hidden || navigator.onLine===false)) throw Object.assign(new Error('Farm prewarming paused.'),{code:'FARM_PREPARATION_PAUSED'});
     };
-    const key = 'bloomscapes-farm-v3104:'+cache.owner+':'+farm;
+    const scope = JSON.stringify(JSON.parse(cache.owner).filter((_value,index)=>index !== 3));
+    const key = 'bloomscapes-farm-v3111:'+scope+':'+farm;
     const existing = cache.snapshots.get(farm);
     if (refresh && existing?.lastSyncRevisionAt && await readBloomscapesFarmRevision(farm)===existing.revision) return existing;
     const saved = refresh ? null : await loadCacheValue(key);
     assertCurrent();
-    const raw = saved?.lastSyncRevisionAt && saved.owner===cache.owner && saved.farm===farm && Array.isArray(saved.inventory) && Date.now()-saved.loadedAt<1800000
+    const raw = isReusableBloomscapesFarmSnapshot(saved,scope,farm)
         ? saved : await readBloomscapesFarmSnapshot(farm,assertCurrent);
     const snapshot = await prepareBloomscapesFarmPublication(raw,cache.owner,assertCurrent);
     assertCurrent();
     cache.snapshots.set(farm,snapshot);
-    void saveCacheValue(key,{...raw,owner:cache.owner,loadedAt:snapshot.loadedAt});
+    void saveCacheValue(key,{...raw,cacheScope:scope,inventoryRowCount:raw.inventory.length,loadedAt:raw === saved ? raw.loadedAt : snapshot.loadedAt});
     return snapshot;
 }
 
@@ -137,4 +138,11 @@ async function prewarmBloomscapesFarms() {
 
 function isObsoleteBloomscapesPreparation(cache,error) {
     return ['FARM_PREPARATION_PAUSED','FARM_SNAPSHOT_REVISION_CHANGED'].includes(error.code) || cache.owner!==bloomscapesFarmCacheOwner();
+}
+
+function isReusableBloomscapesFarmSnapshot(saved,scope,farm,now = Date.now()) {
+    const age = now - Number(saved?.loadedAt);
+    return !!saved?.lastSyncRevisionAt && saved.cacheScope === scope && saved.farm === farm
+        && Array.isArray(saved.inventory) && saved.inventoryRowCount === saved.inventory.length
+        && Number.isFinite(age) && age >= 0 && age < 604800000;
 }

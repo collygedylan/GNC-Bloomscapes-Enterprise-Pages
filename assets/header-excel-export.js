@@ -13,6 +13,7 @@ function inventoryExcelBarHtml(scope) {
 }
 
 function renderInventoryExcelHeader(scope, state, key, label) {
+    if (scope === 'docks' && ['commonname','contsize'].includes(key)) return renderBloomscapesCountedSelect(scope,state,key,label);
     if (key==='username' || key==='view') return renderBloomscapesCountedSelect(scope,state,key,label);
     const summary = (state.filters[key] ? state.filters[key].size + ' selected' : 'All') + ' ▾';
     const title = escapeHtml(label);

@@ -197,7 +197,7 @@ function updateDashboardSyncSummary() {
     const mergedSummaries = mergeDashboardSyncSummaries([...sourceSummaries, ...dashboardSyncMetadataSummaries]);
     saveDashboardSyncFilenames(mergedSummaries);
     const overall = latestErpHomeTimestamp(mergedSummaries, manualSyncStatusState);
-    stampEl.innerText = overall ? formatDashboardSyncDateTime(overall) : 'Awaiting imported file data';
+    renderHomeSyncTimestamp(stampEl, overall);
     summaryEl.innerText = '';
     // Preserve all four source positions while metadata arrives independently.
     const fileMarkup = ['DRIVE', 'CAV', 'RESERVES', 'SOC'].map((label) => {

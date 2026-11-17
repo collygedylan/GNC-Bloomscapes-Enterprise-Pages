@@ -18,8 +18,9 @@ function mountBloomscapesHomeModules() {
         studio.addEventListener('click',()=>openBloomscapesDepartmentModule('production','studio'));grid.appendChild(studio);
     }
     studio.hidden=!isFullAppAdministrator();
+    grid.querySelector('#home-tile-bloom')?.remove();
     mountBloomscapesCommunicationTiles(grid);
-    const order=['drive','hl-order','av','sales-office','sales','historical-requests','managers','qc','office','sales-inventory','production','studio','smart-moves','messages','walkie','bloom'];
+    const order=['drive','hl-order','av','sales-office','sales','historical-requests','managers','qc','office','sales-inventory','production','studio','smart-moves','messages','walkie'];
     for (const id of order) {
         const tile=grid.querySelector('#home-tile-'+id);
         if (tile) grid.appendChild(tile);
@@ -31,7 +32,6 @@ function mountBloomscapesHomeModules() {
 function mountBloomscapesCommunicationTiles(grid) {
     const modules=[['smart-moves','Smart Sales & Move Intelligence','ph-chart-line-up',()=>switchView('smart-moves')],
         ['messages','Messages','ph-chat-circle-text',()=>openBloomscapesMessages()],
-        ['bloom','Bloom Picker','ph-flower',()=>openBloomPicker()],
         ['walkie','Push to Talk Walkie','ph-microphone',()=>openBloomscapesComm('voice')]];
     for (const [id,title,icon,open] of modules) {
         let tile=grid.querySelector('#home-tile-'+id);

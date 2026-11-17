@@ -17,44 +17,17 @@ function resolveDetailKeypadInsertion(type, { value, start, end }, key) {
     return { nextValue: value.slice(0, start) + inserted + value.slice(end), nextCursor: start + inserted.length };
 }
 
-let pinnedDetailField = null;
-
-function releasePinnedDetailField() {
-    if (!pinnedDetailField) return;
-    const { input, style, placeholder } = pinnedDetailField;
-    if (style === null) input.removeAttribute('style');
-    else input.setAttribute('style', style);
-    placeholder.remove();
-    pinnedDetailField = null;
-}
-
 function pinActiveDetailField(input) {
     if (!input?.closest('#view-detail') || !input.isConnected) return;
-    if (pinnedDetailField?.input !== input) {
-        releasePinnedDetailField();
-        const rect = input.getBoundingClientRect();
-        const placeholder = document.createElement('span');
-        placeholder.style.cssText = `display:block;width:${rect.width}px;height:${rect.height}px`;
-        input.before(placeholder);
-        pinnedDetailField = { input, placeholder, style:input.getAttribute('style') };
-    }
     const viewport = window.visualViewport;
-    const rect = pinnedDetailField.placeholder.getBoundingClientRect();
-    const summary = document.querySelector('#request-detail-info .request-reference-bar');
-    const summaryBottom = summary?.getBoundingClientRect().bottom || 0;
-    const visualTop = viewport?.offsetTop || 0;
-    const chromeBottom = document.querySelector('#app-top-chrome')?.getBoundingClientRect().bottom || 0;
-    const bottom = visualTop + (viewport?.height || window.innerHeight) - getDetailMeasurementKeyboardVisibleHeight();
-    const top = Math.min(Math.max(visualTop + 64, chromeBottom + 8, summaryBottom + 6), bottom - Math.min(rect.height, 96) - 8);
-    const width = Math.min(rect.width, (viewport?.width || window.innerWidth) - 16);
-    const left = Math.max(8, Math.min(rect.left, (viewport?.width || window.innerWidth) - width - 8));
-    input.style.cssText = `position:fixed!important;top:${Math.max(visualTop,top)}px!important;left:${left}px!important;width:${width}px!important;height:${Math.min(rect.height,96)}px!important;z-index:81!important;margin:0!important;color:#FACC15!important;-webkit-text-fill-color:#FACC15!important;font-weight:800!important;background:#064e3b!important`;
+    const top = Math.max(viewport?.offsetTop || 0,
+        document.querySelector('#app-top-chrome')?.getBoundingClientRect().bottom || 0) + 8;
+    const bottom = (viewport?.offsetTop || 0) + (viewport?.height || window.innerHeight)
+        - getDetailMeasurementKeyboardVisibleHeight() - 8;
+    scrollDetailFieldWithinMainArea(input, top, bottom);
 }
 
 function initializePinnedDetailFields() {
-    document.addEventListener('focusout', event => {
-        if (event.target === pinnedDetailField?.input) releasePinnedDetailField();
-    });
     document.addEventListener('beforeinput', event => {
         const input = event.target;
         if (!input?.closest?.('#view-detail') || !event.inputType?.startsWith('insert')) return;

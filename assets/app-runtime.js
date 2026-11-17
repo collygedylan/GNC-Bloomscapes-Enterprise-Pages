@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.10';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.11';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -8089,29 +8089,6 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
             return index >= 0 ? (fields[index + 1] || null) : null;
         }
 
-        function focusDetailMeasurementNextField(input = null) {
-            const nextField = getNextDetailMeasurementField(input);
-            if (!nextField) return false;
-            if (isAvNoteInput(nextField) && AV_NOTE_DROPDOWN_PREFIXES.includes(String(nextField.id).replace(/av-note$/, ''))) {
-                closeDetailMeasurementKeyboard(false, { blur:true });
-                nextField.readOnly = false; nextField.inputMode = 'text';
-                nextField.focus({ preventScroll:false });
-                openInlineAvNoteList(String(nextField.id).replace(/av-note$/, ''));
-                return true;
-            }
-            if (isDetailMeasurementKeyboardInput(nextField)) {
-                openDetailMeasurementKeyboard(nextField, getDetailMeasurementKeyboardTypeForInput(nextField));
-                return true;
-            }
-            detailMeasurementKeyboardResumeId = '';
-            try {
-                nextField.focus({ preventScroll: false });
-            } catch (error) {
-                try { nextField.focus(); } catch (focusError) { globalThis.safeIgnoreProbeError?.("focusDetailMeasurementNextField"); }
-            }
-            return true;
-        }
-
         function completeDetailMeasurementKeyboard() {
             clearDetailMeasurementKeyboardRepeat();
             clearDetailMeasurementKeyboardKeepAlive();
@@ -11883,6 +11860,7 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
         }
 
         /* @runtime-fragment assets/cold-operational-display.js */
+        /* @runtime-fragment assets/complete-inventory-display.js */
 
         function ensureColdOperationalHydration(viewId = '') {
             if (!canUseProductionLiveSync() || !['home', 'drive', 'av', 'docks', 'request', 'managers', 'detail'].includes(viewId)) return;
@@ -20048,6 +20026,8 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
 /* @runtime-fragment assets/suspend-inventory-target.js */
 /* @runtime-fragment assets/av-note-preferences.js */
 /* @runtime-fragment assets/detail-av-note-picker.js */
+        /* @runtime-fragment assets/detail-field-walkthrough.js */
+        /* @runtime-fragment assets/bloomscapes-field-toolbar.js */
 /* @runtime-fragment assets/detail-field-inputs.js */
 /* @runtime-fragment assets/request-evaluation-publication.js */
 /* @runtime-fragment assets/row-workflow-functions.js */
@@ -23822,7 +23802,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.10';
+        const APP_VERSION = '3.1.11';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -25989,61 +25969,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
                 rowCount: saved.rowCount, cached: true };
         }
 
-        function previewProductionSnapshots(snapshots, context) {
-            if (!context.progressive || !context.visible || hasProductionLiveSyncDraft()) return;
-            const previewCore = context.view === 'docks' ? 'core:soc' : 'core:master';
-            if (context.partialCohort && (!['drive', 'av', 'tasks', 'docks'].includes(context.view)
-                || snapshots.some(({ adapter }) => adapter.id !== previewCore))) return;
-            snapshots = snapshots.filter(({ adapter, value }) => adapter.id !== 'core:warehouseAssignedItems'
-                || value?.rowCompleteness === 'complete'
-                || Number(value?.rowCount || 0) >= getDatasetRenderRowCount('warehouseAssignedItems'));
-            if (!snapshots.length) return false;
-            const payload = { _verifiedLiveSync: true, _fromCache: true };
-            const confirmedRevision = confirmedArgosReclassLiveEditRevisions.get(getArgosReclassLiveEditIdentityKey()) || '';
-            const pendingInventoryMove = (typeof argosInventoryTransactionState !== 'undefined'
-                && !!argosInventoryTransactionState?.pendingReclassMove)
-                || fullInventory.some(row => row.__optimisticReclassMove);
-            const incomingMaster = snapshots.find(({ adapter }) => adapter.id === 'core:master')?.value;
-            const retainCompleteMaster = productionDisplayMasterReceipt?.rows === fullInventory
-                && productionDisplayMasterReceipt.readScope === getSupabaseReadIdentityScope()
-                || globalThis.GncInventoryHydrationRecovery?.shouldRetainCompleteInventorySnapshot({ currentRows: fullInventory,
-                    currentState: getDatasetState('master'), incomingRows: incomingMaster?.payload?.data,
-                    incomingCompleteness: incomingMaster?.rowCompleteness });
-            const previewEntries = snapshots.filter(({ adapter, value }) => adapter.id !== 'core:master'
-                || !pendingInventoryMove && !(confirmedRevision && value?.cached === true)
-                    && !(retainCompleteMaster && value?.rowCompleteness !== 'complete'));
-            const hasCompletePreview = previewEntries.length === snapshots.length;
-            if (!context.partialCohort) previewEntries.filter(({ adapter }) => adapter.id.startsWith('side:')).forEach(({ adapter, value }) => adapter.commit(value));
-            previewEntries.filter(({ adapter }) => adapter.id.startsWith('core:')).forEach(({ value }) => Object.assign(payload, value.payload));
-            if (context.partialCohort && Array.isArray(payload.data)) {
-                payload.data = mergeExactAvSearchRowsIntoPreview(payload.data, context);
-            }
-            const masterPreviewRows = payload.data;
-            const alreadyDisplayedPreparedMaster = !!(masterPreviewRows && masterPreviewRows === fullInventory
-                && getCurrentPreparedMasterRows(masterPreviewRows)?.avOpenRows === avOpenInventory);
-            if (previewEntries.some(({ adapter }) => adapter.id.startsWith('core:')) && !alreadyDisplayedPreparedMaster) processAndLoadData(payload);
-            const completeMasterDisplay = previewEntries.find(({ adapter, value }) => adapter.id === 'core:master'
-                && value.rowCompleteness === 'complete' && Array.isArray(value.payload?.data));
-            if (completeMasterDisplay) {
-                productionDisplayMasterReceipt = { rows: fullInventory, readScope: getSupabaseReadIdentityScope(),
-                    permission: context.dataPermissionVersion };
-            }
-            if (!hasCompletePreview) {
-                invalidateResolvedViewStateCaches();
-                scheduleProductionLiveSyncRender(true, { cachedPreview: true });
-                return;
-            }
-            const displayKey = productionDisplayGroupKey(context);
-            const cachedTimes = snapshots.map(({ adapter }) => productionDisplaySnapshotTimes.get(`${displayKey}\u001f${adapter.id}`)).filter(Boolean);
-            if (!context.partialCohort && cachedTimes.length === snapshots.length && cachedTimes.length) {
-                const oldest = cachedTimes.map(value => Date.parse(value)).reduce((min, value) => Math.min(min, value), Infinity);
-                if (Number.isFinite(oldest)) productionDisplayVerifiedAt.set(displayKey, new Date(oldest).toISOString());
-            }
-            productionDisplayGroups.add(displayKey);
-            renderProductionDataFreshness(productionLiveSyncCoordinator.getStatus());
-            if (!alreadyDisplayedPreparedMaster) invalidateResolvedViewStateCaches();
-            scheduleProductionLiveSyncRender(true, { cachedPreview: true });
-        }
+
         function writeProductionVerifiedSnapshot(adapter, value, meta) {
             if (adapter.id.startsWith('side:')) {
                 const displayValue = serializeProductionSideDisplayValue(adapter, value);
@@ -31396,50 +31322,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         function getViewBackgroundLoadDelayMs() {
             if (isQuotaSafeRealtimeMode()) return isTouchConstrainedDevice() ? 1200 : 800;
             return isTouchConstrainedDevice() ? 900 : 520;
-        }
-        async function recoverColdInventoryView(viewId, load) {
-            if (!['drive', 'av'].includes(viewId) || load.recoveryStarted
-                || productionLiveSyncViewLoad !== load || getCurrentVisibleViewId() !== viewId
-                || hasProgressiveViewData(getProductionLiveSyncContext())) return;
-            load.recoveryStarted = true;
-            const scope = window.AgMetricLifecycle.createScope({ lifetime: 'view', foreground: true });
-            const owner = getSupabaseReadIdentityScope();
-            const current = () => scope.isCurrent() && owner === getSupabaseReadIdentityScope()
-                && productionLiveSyncViewLoad === load && getCurrentVisibleViewId() === viewId;
-            try {
-                const projection = getProductionCoreLiveProjection('master', viewId);
-                const response = await globalThis.GncInventoryHydrationRecovery.fetchInventoryPreviewWithRetry({
-                    fetchPage: () => fetchDirectMasterInventoryPage({ dataset: 'master', projection }, 200, 0,
-                        { signal: scope.signal, timeoutMs: 2500 }),
-                    isCurrent: current, isRetryable: isSupabaseReadRetryable
-                });
-                if (!current() || hasProgressiveViewData(getProductionLiveSyncContext())) return;
-                if (!Array.isArray(response?.rows)) throw new Error('Inventory preview returned an invalid page.');
-                validateInventoryReadProjection(response, { projection });
-                const context = getProductionLiveSyncContext();
-                if (!context.authenticated || context.accessDenied || !context.visible) return;
-                const adapter = context.adapters.find(item => item.id === 'core:master');
-                if (!adapter) return;
-                const snapshot = await prepareProductionMasterSnapshot(response.rows, {
-                    signal: scope.signal, identity: owner, permissionVersion: context.dataPermissionVersion,
-                    includeRawRows: false
-                });
-                if (!current() || hasProgressiveViewData(getProductionLiveSyncContext())) return;
-                previewProductionSnapshots([{ adapter, value: { ...snapshot, partial: true,
-                    rowCompleteness: 'partial', projection } }], { ...context, partialCohort: true });
-                load.failed = false;
-                getProductionLiveSyncCoordinator().signal('inventory-preview-recovery', 0);
-                await globalThis.GncInventoryHydrationRecovery.ensureCompleteMasterInventorySnapshot({
-                    getRows: () => fullInventory, getState: () => getDatasetState('master'), isCurrent: current,
-                    load: () => ensureDatasetLoaded('master', 'full', { bypassLiveSyncCoordinator: true,
-                        force: true, signal: scope.signal })
-                });
-            } catch (error) {
-                if (current()) {
-                    load.error = error;
-                    showAvReadUnavailableState(error, hasProgressiveViewData(getProductionLiveSyncContext()), viewId);
-                }
-            } finally { scope.dispose(); }
         }
 
         async function refreshLoadedDatasets(force = true, options = {}) {
@@ -142959,63 +142841,6 @@ ${folderNote ? `Folder Note: ${folderNote}
             return false;
         }
 
-
-        function selectAvNote(note, prefix, event = null, options = {}) {
-            const normalizedPrefix = String(prefix || '').trim();
-            const safeNote = String(note || '');
-            const safeOptions = options && typeof options === 'object' ? options : {};
-            if (avNoteOptionLastPressPrefix === normalizedPrefix
-                && avNoteOptionLastPressNote === safeNote
-                && Date.now() - avNoteOptionLastPressAt < 450) {
-                return false;
-            }
-            if (safeOptions.fromPressStart) {
-                if (event && event.cancelable) event.preventDefault();
-                if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
-            } else {
-                if (event && typeof event.preventDefault === 'function') event.preventDefault();
-                if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
-            }
-            if (!canEditRowDetails(normalizedPrefix)) {
-                showRowEditRestrictedToast(normalizedPrefix);
-                return false;
-            }
-            const input = document.getElementById(normalizedPrefix + 'av-note');
-            const list = document.getElementById(normalizedPrefix + 'av-dropdown-list');
-            if (!input) return false;
-            const requestSheetWasOpen = document.body.classList.contains('request-av-note-sheet-open');
-            const scrollState = requestSheetWasOpen ? null : captureAvNoteScrollState(input);
-            avNoteOptionLastPressAt = Date.now();
-            avNoteOptionLastPressPrefix = normalizedPrefix;
-            avNoteOptionLastPressNote = safeNote;
-            input.value = buildSelectedAvNote(safeNote, normalizedPrefix, safeOptions);
-            input.dataset.explicitAvNote = '1';
-            if (list) hideAvNoteDropdown(normalizedPrefix);
-            closeDetailMeasurementKeyboard(false, { blur:true });
-            document.activeElement?.blur?.();
-            if (normalizedPrefix === 'hold-release-') {
-                input.dispatchEvent(new Event('input', { bubbles: true }));
-                input.blur();
-                restoreAvNoteScrollState(scrollState);
-                return false;
-            }
-            const restoreAfterSave = () => {
-                if (!requestSheetWasOpen && scrollState) restoreAvNoteScrollState(scrollState);
-            };
-            try {
-                const result = saveData(false, normalizedPrefix, true, null, { explicit_av_note:true, explicitAvNoteValue:input.value, explicitAvNoteOwner:String(activeItem?.UNIQUE_ID || activeItem?.unique_id || '') });
-                if (result && typeof result.finally === 'function') {
-                    result.finally(restoreAfterSave);
-                } else {
-                    restoreAfterSave();
-                }
-            } catch (error) {
-                restoreAfterSave();
-                throw error;
-            }
-            if (!requestSheetWasOpen && scrollState) restoreAvNoteScrollState(scrollState);
-            return false;
-        }
 
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', initializeAvNoteDropdownCombos, { once: true });
