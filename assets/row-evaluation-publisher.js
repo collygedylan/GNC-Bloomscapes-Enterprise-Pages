@@ -53,7 +53,9 @@ async function publishRowEvaluationToMasterAndNotes(item, patch, options = null)
     const context = prepareInventoryRowEvaluation(item,patch,options);
     const {target,baseline,rollback} = context;
     try {
-        const result = options.receipt || await saveSecureDriveEvidence(target,options.prefix,context.patch,options.complete,baseline);
+        const result = options.receipt || (options.orderEvaluation
+            ? await saveOrderEvaluationReceipt(options.orderEvaluation)
+            : await saveSecureDriveEvidence(target,options.prefix,context.patch,options.complete,baseline));
         return settleInventoryRowEvaluation(result,context,options);
     } catch (error) { rollback(); throw error; }
 }

@@ -171,7 +171,7 @@ function buildRequestCreateEvidence(item, dataObj) {
     return {
         desired_spec: desiredSpec,
         desired_caliper: desiredCaliper,
-        est_ship: dataObj.estShip||'',
+        est_ship: String(dataObj.estShip ?? '').trim() || null,
         req_reserve: dataObj.reserve||'NO',
         req_match: requestMatch!==''?requestMatch:null,
         req_spec: requestSpec||null,
@@ -183,7 +183,7 @@ function buildRequestCreateEvidence(item, dataObj) {
         req_photo_name: requestPhotoName||'',
         photos: requestPhotoLink?requestPhotoLink.split(',').map((url)=>({url:String(url||'').trim()})).filter((entry)=>entry.url):[],
         photo_url: getPhotoUrlList(requestPhotoLink)[0] || null,
-        photo_date: firstNonEmptyValue(item.PHOTO_DATE,item.photo_date,item.DATE_COMPLETED,item.date_completed,null),
+        photo_date: String(firstNonEmptyValue(item.PHOTO_DATE,item.photo_date,item.DATE_COMPLETED,item.date_completed,null) ?? '').trim() || null,
         spec: requestSpec||null,
         caliper: requestCaliper||null,
         loc_match_pct: requestMatch!==''?parseAppNumber(requestMatch):null,
@@ -192,10 +192,10 @@ function buildRequestCreateEvidence(item, dataObj) {
         loc_photo_match: parseAppNumber(firstNonEmptyValue(item.LOC_PHOTO_MATCH,item.loc_photo_match,item.LOC_MATCH_QTY,item.loc_match_qty,'')),
         pick_note: requestPick||null,
         sales_note: firstNonEmptyValue(item.SALES_NOTE,item.sales_note,null),
-        photo_expires_at: firstNonEmptyValue(item.PHOTO_EXPIRES_AT,item.photo_expires_at,null),
+        photo_expires_at: String(firstNonEmptyValue(item.PHOTO_EXPIRES_AT,item.photo_expires_at,null) ?? '').trim() || null,
         request_spec: desiredSpec||null,
         request_caliper: desiredCaliper||null,
-        estimated_ship: dataObj.estShip||null,
+        estimated_ship: String(dataObj.estShip ?? '').trim() || null,
         reserve_flag: dataObj.reserve||'NO',
         request_notes: requestNote||null,
         ...(requestNote ? { request_note: requestNote } : {})
@@ -205,18 +205,20 @@ function buildRequestCreateEvidence(item, dataObj) {
 function buildRequestCreateMetrics(item, dataObj) {
     const requestRawQty = window.AgMetricRequestSubmission.normalizeOptionalQuantity(dataObj.qty);
     const requestQtyNumber = parseAppNumber(requestRawQty);
-    const requestEffectiveQty = requestQtyNumber!=null&&requestQtyNumber>0?requestQtyNumber:25;
+    const available = parseAppNumber(firstNonEmptyValue(item.PTRAVAILABLE,item.ptravailable,item.AVAILABLE_QTY,item.available_qty,''));
+    const onHand = parseAppNumber(firstNonEmptyValue(item.PTRONHAND,item.ptronhand,item.ON_HAND,item.on_hand,''));
+    const requestEffectiveQty = Math.max(1, (requestQtyNumber || (available ?? onHand)) ?? 1);
     const requestUnitListPrice = Math.max(0,parseAppNumber(firstNonEmptyValue(item.LISTPRICE,item.listprice,item.UNIT_LIST_PRICE,item.unit_list_price,0))||0);
     return {
-        req_qty: requestQtyNumber === 0 ? null : requestRawQty,
-        request_qty: requestQtyNumber!=null&&requestQtyNumber>0?requestQtyNumber:null,
+        req_qty: requestEffectiveQty,
+        request_qty: requestEffectiveQty,
         effective_qty: requestEffectiveQty,
         is_default_qty: requestQtyNumber==null||requestQtyNumber<=0,
         unit_list_price: requestUnitListPrice,
         line_dollar_value: Math.round(requestEffectiveQty*requestUnitListPrice*100)/100,
-        on_hand: parseAppNumber(firstNonEmptyValue(item.PTRONHAND,item.ptronhand,item.ON_HAND,item.on_hand,'')),
+        on_hand: onHand,
         review_qty: parseAppNumber(firstNonEmptyValue(item.PTRREVIEWED,item.ptrreviewed,item.REVIEW_QTY,item.review_qty,'')),
-        available_qty: parseAppNumber(firstNonEmptyValue(item.PTRAVAILABLE,item.ptravailable,item.AVAILABLE_QTY,item.available_qty,'')),
+        available_qty: available,
         open_stock: parseAppNumber(firstNonEmptyValue(item.S_LTS,item.s_lts,item.OPEN_STOCK,item.open_stock,'')),
         loc_on_hand: parseAppNumber(firstNonEmptyValue(item.LOC_ON_HAND,item.loc_on_hand,item.PTRONHAND,item.ptronhand,'')),
         pri: firstNonEmptyValue(item.PRIORITY,item.priority,null),
@@ -225,7 +227,7 @@ function buildRequestCreateMetrics(item, dataObj) {
         ld_flag: firstNonEmptyValue(item.LD_FLAG,item.ld_flag,item.LD,item.ld,null),
         hold_stop_code: firstNonEmptyValue(item.HOLDSTOPCODE,item.holdstopcode,null),
         hold_stop_reason: firstNonEmptyValue(item.HOLDSTOPREASON,item.holdstopreason,null),
-        hold_stop_since: firstNonEmptyValue(item.HOLDSTOPBEGINDATE,item.holdstopbegindate,item.HOLD_STOP_SINCE,item.hold_stop_since,null),
+        hold_stop_since: String(firstNonEmptyValue(item.HOLDSTOPBEGINDATE,item.holdstopbegindate,item.HOLD_STOP_SINCE,item.hold_stop_since,null) ?? '').trim() || null,
         source_snapshot: {unique_id:item.UNIQUE_ID,itemcode:item.ITEMCODE,locationcode:item.LOCATIONCODE,lotcode:item.LOTCODE,commonname:item.COMMONNAME,contsize:item.CONTSIZE}
     };
 }
@@ -351,48 +353,4 @@ function getSelectedExistingRequestFolderGroups(groups = null) {
         || (sameCustomer && previous.consigneeGroup?.key === consigneeKey ? previous.consigneeGroup : null);
     retainedRequestFolderSelection = customerGroup ? { owner, rep: tempSelectedReqRep, customerGroup, consigneeGroup } : null;
     return { customerGroup, consigneeGroup };
-}
-
-function getAutomaticRequestRecipients(entries = getRequestSourceDomIds().map(id=>findItemByDomId(id)).filter(Boolean)) {
-    const names = ['dylan_collyge', 'jd_jones', 'megan_kelly', currentUser, tempSelectedReqRep];
-    for (const entry of entries || []) {
-        const row = resolveCanonicalInventoryRow(entry.item || entry) || entry.item || entry;
-        names.push(firstNonEmptyValue(row.ASSIGNEDTO, row.assignedto, row.ASSIGNED_TO,
-            row.assigned_to, row.EVAL_USER, row.eval_user, row.EVAL_OWNER, row.eval_owner, ''));
-    }
-    const recipients = new Map();
-    for (const name of names.flatMap(value => String(value || '').split(/[,;|]/))) {
-        const username = normalizePushUsername(name);
-        if (!username || username === 'kayla_knepp') continue;
-        const email = normalizeRequestEmailAddress(resolveRequestRecipientEmail(name));
-        const key = email || username;
-        recipients.set(key, {username, name: name.trim(), email});
-    }
-    return [...recipients.values()];
-}
-
-function canUseRequestEmailChainPicker() {
-    return !!currentUser && (canAccessView('request') || canUseRequestRepScopedAccess());
-}
-
-function getRequestEmailChainSelectedRecipients() {
-    return getAutomaticRequestRecipients();
-}
-
-function renderRequestEmailChainPanel() {
-    const panel = document.getElementById('request-email-chain-panel');
-    if (!panel) return false;
-    if (!requestQtyEmailStepActive) {
-        hideRequestEmailChainPanel();
-        return false;
-    }
-    const recipients = getAutomaticRequestRecipients();
-    const labels = recipients.map(recipient => esc(recipient.name.replaceAll('_', ' '))).join(', ');
-    panel.innerHTML = `<div class="text-[10px] font-black uppercase tracking-[0.16em] text-[#007a4d]">Email Chain</div>
-        <div class="mt-1 text-[12px] font-bold leading-snug text-slate-600">Dylan, JD, Nelly (Megan), the submitter, the selected sales rep, and each item's Assigned To user are included automatically.</div>
-        <div class="mt-2 text-[12px] font-bold text-slate-700" data-request-automatic-recipients>${labels}</div>
-        <div class="mt-2 text-[11px] text-slate-500">Test delivery: dylan_collyge@greenleafnursery.com only.</div>`;
-    panel.style.display = '';
-    panel.classList.remove('hidden');
-    return false;
 }

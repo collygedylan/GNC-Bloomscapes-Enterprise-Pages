@@ -1,6 +1,9 @@
 function getManagerTableManagementItems(access = getManagersToolAccess()) {
     return [
         ...(globalThis.GncNurseryModel?.TABLES || []).map(item => ({...item,visible:canViewNurseryCommandTables()})),
+        {id:'user-controls',label:'User_Controls',section:'editable',visible:access.canManageAccessControl && currentUser==='dylan_collyge'},
+        {id:'ph-job-codes',label:'10-PH_job_codes',section:'editable',visible:isFullAppAdministrator() && getBloomscapesFarm()==='10-PH'},
+        {id:'tx-job-codes',label:'20-TX_job_codes',section:'editable',visible:isFullAppAdministrator() && getBloomscapesFarm()==='20-TX'},
         { id:'assigned-items', label:'Assigned Items', section:'editable', visible:access.canViewAssignedItemsExport },
         { id:'action-discrepancy', label:'Action Discrepancy', section:'editable', visible:access.canViewTableManagement },
         { id:'company-directory', label:'Company Directory', section:'editable', visible:typeof canonicalFeaturePermission !== 'function' || canonicalFeaturePermission('can_access_manager_tab') !== false },
@@ -20,7 +23,7 @@ function getManagerTableManagementItems(access = getManagersToolAccess()) {
 }
 
 function managerTableDirectoryItems(items) {
-    const order = ['assigned-items','user-role-access','company-directory',
+    const order = ['assigned-items','user-controls','ph-job-codes','tx-job-codes','user-role-access','company-directory',
         'customer-assignments','action-discrepancy','inquiry-coverage','av-note-users','season','season-priority'];
     const schedules = items.filter(item => item.nursery
         || item.section === 'schedule' && !items.some(row => row.id === 'prod-schedule'));
@@ -42,6 +45,7 @@ function renderManagerTableWorkspaceMarkup(content, selected, items, query, esca
             <select data-table-switch aria-label="Switch Table" onchange="return openManagerTableManagement(this.value)">
                 <option value="" selected disabled>Switch Table ▾</option>${options}
             </select>
+            ${selected === 'assigned-items' ? renderAssignmentCsvToolbar() : ''}
         </nav>
         <div class="table-management-workspace" data-table-workspace>${content}</div>
     </section>`;
@@ -100,7 +104,7 @@ function getManagerToolTabs(access = getManagersToolAccess()) {
     if (access.canViewAssignedItemsExport) tabs.push({ id: MANAGER_ASSIGNED_ITEMS_EXPORT_VIEW, label: 'Assigned Items' });
     if (access.canManageCustomerRepMappings) tabs.push({ id: MANAGER_CUSTOMER_REP_MAP_VIEW, label: 'Customer Assignments' });
     if (access.canViewEvalReports) tabs.push({ id: MANAGER_EVAL_REPORTS_VIEW, label: 'Eval Reports' });
-    if (access.canViewEvalReports2) tabs.push({ id: MANAGER_EVAL_REPORTS_2_VIEW, label: 'Eval Reports #2' });
+    if (access.canViewEvalReports2) tabs.push({ id: MANAGER_EVAL_REPORTS_2_VIEW, label: 'Reports' });
     if (access.canViewHistoricalReport) tabs.push({ id: MANAGER_HISTORICAL_REPORT_VIEW, label: 'Historical Report' });
     if (access.canViewShortageCancel) tabs.push({ id: MANAGER_SHORTAGE_CANCEL_VIEW, label: 'Shortage/Cancel' });
     if (access.canViewBlockClearing) tabs.push({ id: MANAGER_BLOCK_CLEARING_VIEW, label: 'Block Clearing' });

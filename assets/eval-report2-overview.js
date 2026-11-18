@@ -196,25 +196,8 @@ function openEvalAggregateReport(reportId) {
     return false;
 }
 
-function renderEvalOverviewCard(report) {
-    return `<article class="eval-aggregate-card" data-eval-aggregate-report="${escapeHtml(report.id)}">
-        <div class="eval-aggregate-card-copy"><h3>${escapeHtml(report.label)}</h3><p>${escapeHtml(report.description)}</p></div>
-        <dl class="eval-aggregate-metrics"><div><dt>Total On Hand</dt><dd data-eval-aggregate-units>${report.units.toLocaleString('en-US')}</dd></div>
-        <div><dt>Extended Value</dt><dd data-eval-aggregate-value>${fieldAuditMoney(report.value)}</dd></div></dl>
-        <p class="eval-aggregate-coverage">${report.lots.toLocaleString('en-US')} inventory ${report.lots === 1 ? 'row' : 'rows'}
-        ${report.missingPrices ? ' · ' + report.missingPrices + ' without a list price' : ''}</p>
-        <button type="button" class="eval-aggregate-go" onclick="return openEvalAggregateReport('${escJsAttrValue(report.id)}')"
-            aria-label="View report: ${escapeHtml(report.label)}">View Report <span aria-hidden="true">→</span></button>
-    </article>`;
-}
-
 function renderEvalAggregateDashboard() {
     const state = evalAggregateDashboardState();
-    const model = getEvalAggregateDashboardModel(state);
     queueEvalAggregateDashboardRefresh();
-    const status = state.error || (state.source.ready ? 'Live inventory' : 'Showing loaded inventory');
-    return `<section class="eval-aggregate-dashboard" aria-labelledby="eval-aggregate-title" data-eval-aggregate-dashboard>
-        <header class="eval-aggregate-heading"><div><h2 id="eval-aggregate-title">Eval Reports #2</h2><p role="status">${escapeHtml(status)}</p></div>
-        ${state.error ? '<button type="button" class="eval-aggregate-retry" onclick="queueEvalAggregateDashboardRefresh(true)">Retry totals</button>' : ''}</header>
-        <div class="eval-aggregate-grid">${model.reports.map(renderEvalOverviewCard).join('')}</div></section>`;
+    return renderOperationalInventoryReports(state);
 }

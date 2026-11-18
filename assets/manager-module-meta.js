@@ -22,7 +22,7 @@ function getManagerModuleMeta(tab = activeHomeTab) {
     if (safeTab === MANAGER_ASSIGNED_ITEMS_EXPORT_VIEW) return { label: 'Assigned Items', description: 'Export warehouse assigned item rows by AssignedTo.', icon: 'ph-user-list' };
     if (safeTab === MANAGER_CUSTOMER_REP_MAP_VIEW) return { label: 'Customer Assignments', description: 'Assign customer and consignee sales reps, or restore their imported assignments.', icon: 'ph-address-book' };
     if (safeTab === MANAGER_EVAL_REPORTS_VIEW) return { label: 'Eval Reports', description: 'Open live Drive-based Eval inventory reports.', icon: 'ph-chart-bar' };
-    if (safeTab === MANAGER_EVAL_REPORTS_2_VIEW) return { label: 'Eval Reports #2', description: 'Open Apps Script-compatible reports and Item Inquiry from live Park Hill inventory.', icon: 'ph-chart-line-up' };
+    if (safeTab === MANAGER_EVAL_REPORTS_2_VIEW) return { label: 'Reports', description: 'Open Apps Script-compatible reports and Item Inquiry from live Park Hill inventory.', icon: 'ph-chart-line-up' };
     if (safeTab === MANAGER_HISTORICAL_REPORT_VIEW) return { label: 'Historical Report', description: 'Search Common Name and ContSize history with selectable columns.', icon: 'ph-clock-counter-clockwise' };
     if (safeTab === MANAGER_SHORTAGE_CANCEL_VIEW) return { label: 'Shortage/Cancel', description: 'Review SOC rows where ordered and shipped quantities do not match.', icon: 'ph-warning-circle' };
     if (safeTab === MANAGER_BLOCK_CLEARING_VIEW) return { label: 'Block Clearing', description: 'Email grouped clearing instructions from Drive Mode rows.', icon: 'ph-broom' };

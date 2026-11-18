@@ -17,6 +17,12 @@ function mountCustomerRepMappingView(root) {
 function mountManagerTableManagementPanel(root) {
     if (!root || !canAccessView('managers')) { destroyManagerTableManagement(); return; }
     if (managerTableManagementInstance?.root === root) return;
+    if (Object.hasOwn(sheetTabs,managerTableManagementSelection)) {
+        destroyManagerTableManagement();
+        managerTableManagementInstance={root,identity:getSupabaseReadIdentityScope(),selected:managerTableManagementSelection,
+            tableKeys:getManagerTableManagementItems().map(item=>item.id).join('|'),...mountSheetDirectory(root,managerTableManagementSelection)};
+        return;
+    }
     if (currentUser==='dylan_collyge' && ['user-role-access','company-directory'].includes(managerTableManagementSelection)) {
         destroyManagerTableManagement();
         managerTableManagementInstance = {root,identity:getSupabaseReadIdentityScope(),selected:managerTableManagementSelection,

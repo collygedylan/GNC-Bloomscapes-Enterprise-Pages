@@ -1,4 +1,9 @@
 async function assignEvalItemcodes(itemcodes=[],assignedto='') {
+    await saveFarmOwnerBatch(itemcodes,assignedto);
+    return false;
+}
+
+async function saveFarmOwnerBatch(itemcodes,assignedto) {
     const command = prepareFarmOwnerCommand(itemcodes,assignedto);
     if (!command) return false;
     const {state,codes} = command;
@@ -17,7 +22,7 @@ async function assignEvalItemcodes(itemcodes=[],assignedto='') {
         if (farmOwnerCommandIsCurrent(command)) updateManagerAssignedItemsView({ownerOnly:true});
     }
     if (saved) refreshSuspendOwnerViews();
-    return false;
+    return saved;
 }
 
 function prepareFarmOwnerCommand(itemcodes,assignedto) {

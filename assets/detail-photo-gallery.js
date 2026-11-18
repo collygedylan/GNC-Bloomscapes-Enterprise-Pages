@@ -1,4 +1,5 @@
 function renderSavedPhotos() {
+    renderOrderEvaluationAction();
     renderSavedPhotoSlots();
     renderNcrDraftPhotos(activeItem);
     refreshProtectedSections();
