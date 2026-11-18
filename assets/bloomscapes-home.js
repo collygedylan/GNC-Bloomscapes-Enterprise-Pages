@@ -6,6 +6,7 @@ function mountBloomscapesHomeModules() {
         if (pill) pill.textContent = window.__APP_RELEASE_VERSION__;
     }
     mountBloomscapesFarmSelector();
+    mountDivisionWeather();
     const grid = document.getElementById('home-dashboard-grid');
     if (!grid) return;
     grid.dataset.bloomscapesHome = 'true';
@@ -59,6 +60,7 @@ function syncBloomscapesHomeBadges() {
 function mountBloomscapesFarmSelector() {
     void ensureBloomscapesFarmAccess().then(() => {
         syncBloomscapesFarmSelector();
+        mountDivisionWeather();
         void resumeRequestPhotoGalleryDeepLink();
     }).catch(error=>
         globalThis.reportHandledRuntimeIssue?.('farm_access',error.code || 'FARM_ACCESS_UNAVAILABLE'));
@@ -95,6 +97,7 @@ async function changeBloomscapesFarmSelection(select) {
         select.value = next;
         select.value = await selectBloomscapesFarm(next);
         refreshBloomscapesFarmPanel();
+        mountDivisionWeather();
     } catch (error) {
         showToast('Farm selection',error.message,true);
     } finally {

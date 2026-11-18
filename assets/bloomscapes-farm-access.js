@@ -1,5 +1,5 @@
 async function mountBloomscapesFarmAccessEditor(container,selected) {
-    if (currentUser!=='dylan_collyge' || !['user-role-access','company-directory'].includes(selected)) return;
+    if (currentUser!=='dylan_collyge' || selected!=='company-directory') return;
     let host = container.querySelector('[data-farm-access-editor]');
     if (host) return;
     host = container.appendChild(document.createElement('section'));
@@ -9,7 +9,7 @@ async function mountBloomscapesFarmAccessEditor(container,selected) {
     const status = host.appendChild(document.createElement('p'));
     status.setAttribute('role','status');
     const owner = getSupabaseReadIdentityScope();
-    if (selected==='user-role-access') void mountBloomscapesModuleAccess(host);
+
     try {
         const rows = await readBloomscapesPanel('farm-access');
         if (!host.isConnected || owner!==getSupabaseReadIdentityScope()) return;
@@ -60,12 +60,18 @@ async function saveBloomscapesFarmAccessForm(form,row,subjectType,status) {
 }
 
 function mountBloomscapesFarmWorkspace(root,selected) {
+    if (['user-role-access','user-controls'].includes(selected)) {
+        root.dataset.nativeFarmWorkspace='true';
+        root.dataset.owner=getSupabaseReadIdentityScope();
+        root.dataset.selected=selected;
+        return mountBloomscapesUserDirectory(root);
+    }
     root.replaceChildren();
     root.dataset.nativeFarmWorkspace='true';
     root.dataset.owner=getSupabaseReadIdentityScope();
     root.dataset.selected=selected;
     const title=root.appendChild(document.createElement('h2'));
-    title.textContent=selected==='company-directory'?'Company Directory':'User Role and Access';
+    title.textContent='Company Directory';
     const back=root.appendChild(document.createElement('button'));
     back.textContent='All tables';
     back.addEventListener('click',()=>openManagerTableManagement(''));
@@ -87,7 +93,7 @@ function openBloomscapesCompanyContacts() {
 function bloomscapesFarmWorkspaceSelection(tab=activeHomeTab) {
     if (currentUser!=='dylan_collyge') return '';
     if (tab===MANAGER_ACCESS_CONTROL_VIEW) return 'user-role-access';
-    return tab===MANAGER_TABLE_MANAGEMENT_VIEW && ['user-role-access','company-directory'].includes(managerTableManagementSelection)
+    return tab===MANAGER_TABLE_MANAGEMENT_VIEW && ['user-role-access','user-controls','company-directory'].includes(managerTableManagementSelection)
         ? managerTableManagementSelection : '';
 }
 

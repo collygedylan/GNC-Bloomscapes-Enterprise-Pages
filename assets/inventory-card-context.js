@@ -58,6 +58,10 @@ function resolveDetailItemBySource(uid, sourceView = '', options = {}) {
         if (task) return task;
     }
     if (view === 'request') return resolveRequestDetailCard(id, identity, exact);
+    if (['sales','sales-office'].includes(view) && identity && options.sourceDomId) {
+        const row = findItemByDomId(options.sourceDomId);
+        return exact(row) ? row : null;
+    }
     if (view === 'sales-office') return salesOfficeInventoryById.get(id) || findItemByUniqueId(id);
     if (view === 'docks') return dockDisplayInventoryById.get(id) || socInventoryById.get(id) || findItemByUniqueId(id);
     const row = findItemByUniqueId(id);

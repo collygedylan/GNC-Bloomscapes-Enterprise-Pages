@@ -23,7 +23,7 @@ function mountManagerTableManagementPanel(root) {
             tableKeys:getManagerTableManagementItems().map(item=>item.id).join('|'),...mountSheetDirectory(root,managerTableManagementSelection)};
         return;
     }
-    if (currentUser==='dylan_collyge' && ['user-role-access','company-directory'].includes(managerTableManagementSelection)) {
+    if (currentUser==='dylan_collyge' && ['user-role-access','user-controls','company-directory'].includes(managerTableManagementSelection)) {
         destroyManagerTableManagement();
         managerTableManagementInstance = {root,identity:getSupabaseReadIdentityScope(),selected:managerTableManagementSelection,
             tableKeys:getManagerTableManagementItems().map(item=>item.id).join('|'),

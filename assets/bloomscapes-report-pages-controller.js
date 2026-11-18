@@ -159,7 +159,7 @@ async function loadManagerEvalReports2(force = false) {
         return index;
     }
     if (typeof window === 'undefined' || !window.GncReportPagesLive) {
-        state.error = 'Eval Reports #2 report data is not available right now.';
+        state.error = 'Reports report data is not available right now.';
         state.loading = false;
         scheduleManagersRender(true);
         return managerEvalReport2Cache;
@@ -188,7 +188,7 @@ async function loadManagerEvalReports2(force = false) {
     state.loading = !getManagerEvalReport2BrowsePage(query);
     state.error = '';
     const page = await controller.load(query, force);
-    if (!page) state.error = pageState.error || 'Eval Reports #2 report data is not available right now.';
+    if (!page) state.error = pageState.error || 'Reports report data is not available right now.';
     state.loading = false;
     scheduleManagersRender(true);
     return getManagerEvalReport2Index();

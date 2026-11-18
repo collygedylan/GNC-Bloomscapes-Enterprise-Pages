@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.14';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.15';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -1423,7 +1423,7 @@
             };
         }
 
-        async function ensureNativeAppSessionBridge(force = false) {
+        async function ensureNativeAppSessionBridge(force = false, waitForReceipt = false) {
             if (!NATIVE_AUTH_ENABLED || !nativeAuthSessionActive || !nativeAuthProfile?.id) return null;
             const bridgeEpoch = nativeAuthRecoveryEpoch;
             const bridgeSubject = String(nativeAuthSessionUserId || nativeAuthProfile?.id || '').trim();
@@ -1443,28 +1443,30 @@
                     return { ok: true, token: existingToken, source: 'cached-bridge' };
                 }
             }
-            const payload = await postAppFunctionJson(APP_API_FUNCTION_URL, {
+            const receipt = postAppFunctionJson(APP_API_FUNCTION_URL, {
                 action: 'native_session_bridge'
             }, {
                 includeSession: false,
-                timeoutMs: 1200,
+                timeoutMs: 15000,
                 label: 'Native session bridge'
+            }).then(payload => {
+                // A logout or account switch may occur while the bridge request is
+                // in flight. Never let its old actor token repopulate session state.
+                // Token refresh for the same subject does not invalidate this owner.
+                if (!stillOwnsBridge()) return null;
+                if (!payload || payload.ok !== true || !payload.session || !payload.session.token) return null;
+                persistAppSessionRecord({
+                    token: payload.session.token,
+                    displayProfileId: bridgeSubject,
+                    expiresAt: Number(payload.session.expiresAt || 0),
+                    username: String(firstNonEmptyValue(payload.session.username, nativeAuthProfile && nativeAuthProfile.username, currentUser) || '').trim(),
+                    displayName: String(firstNonEmptyValue(payload.session.displayName, nativeAuthProfile && nativeAuthProfile.display_name, currentUserDisplay, currentUser) || '').trim(),
+                    role: String(firstNonEmptyValue(payload.session.role, nativeAuthProfile && nativeAuthProfile.role, currentRole) || '').trim(),
+                    mustChangePassword: payload.session.mustChangePassword === true
+                });
+                return { ok: true, token: payload.session.token, source: 'native-bridge', homeSyncMetadata: payload.homeSyncMetadata || null };
             });
-            // A logout or account switch may occur while the bridge request is
-            // in flight. Never let its old actor token repopulate session state.
-            // Token refresh for the same subject does not invalidate this owner.
-            if (!stillOwnsBridge()) return null;
-            if (!payload || payload.ok !== true || !payload.session || !payload.session.token) return null;
-            persistAppSessionRecord({
-                token: payload.session.token,
-                displayProfileId: bridgeSubject,
-                expiresAt: Number(payload.session.expiresAt || 0),
-                username: String(firstNonEmptyValue(payload.session.username, nativeAuthProfile && nativeAuthProfile.username, currentUser) || '').trim(),
-                displayName: String(firstNonEmptyValue(payload.session.displayName, nativeAuthProfile && nativeAuthProfile.display_name, currentUserDisplay, currentUser) || '').trim(),
-                role: String(firstNonEmptyValue(payload.session.role, nativeAuthProfile && nativeAuthProfile.role, currentRole) || '').trim(),
-                mustChangePassword: payload.session.mustChangePassword === true
-            });
-            return { ok: true, token: payload.session.token, source: 'native-bridge', homeSyncMetadata: payload.homeSyncMetadata || null };
+            return waitForReceipt ? receipt : (globalThis.withBootDeadline?.(receipt) ?? receipt);
         }
 
         function syncPasskeyPilotUi(profile = nativeAuthProfile) {
@@ -17290,7 +17292,7 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
             if (nativeAuthSessionActive && nativeSession?.access_token && nativeSession.user?.id === nativeAuthProfile?.id
                 && nativeAuthSessionUserId === nativeAuthProfile?.id) return true;
             if (nativeSession && nativeSession.access_token) {
-                const bridge = await ensureNativeAppSessionBridge(true).catch(() => null);
+                const bridge = await ensureNativeAppSessionBridge(true, true).catch(() => null);
                 if (bridge && getCurrentAppSessionToken()) return true;
             }
             if (typeof ensureLeafAssistantSession !== 'function') return false;
@@ -17408,31 +17410,7 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
             return text ? JSON.parse(text) : [];
         }
 
-        async function readSalesCompatibilityRows(table, query = '', options = {}) {
-            const readKey = `compatibility:${table}:${String(query || '').trim()}`;
-            return withProductionLiveSyncSignal(options.signal || null, (cohortSignal) => runDedupeSupabaseRead(readKey, async ({ signal }) => {
-                const action = table === SALES_CREDIT_REQUESTS_TABLE ? 'sales_credit' : 'request_history';
-                const account = currentUser;
-                const rows = []; let cursor = null;
-                do {
-                    const response = await postAppFunctionJson(APP_API_FUNCTION_URL, { action, operation: 'compatibility', payload: { status: 'all', cursor, limit: 100 } }, { timeoutMs: 30000, label: 'Sales records', signal });
-                    if (!response?.ok || account !== currentUser) {
-                        const error = new Error(response?.error || 'Sales records could not load for this account.');
-                        error.status = Number(response?.status || 0); error.code = String(response?.code || '').toUpperCase(); error.payload = response;
-                        throw error;
-                    }
-                    rows.push(...(response.data?.rows || []));
-                    cursor = response.data?.nextCursor || null;
-                } while (cursor);
-                const params = new URLSearchParams(query);
-                return rows.filter(row => [...params].every(([key,value]) => {
-                    if (['select','order','limit','offset'].includes(key)) return true;
-                    if (value.startsWith('eq.')) return String(row[key] ?? '') === value.slice(3);
-                    if (value.startsWith('in.(') && value.endsWith(')')) return value.slice(4,-1).split(',').map(v=>v.replace(/^"|"$/g,'')).includes(String(row[key] ?? ''));
-                    return true;
-                }));
-            }, { signal: cohortSignal }));
-        }
+        /* @runtime-fragment assets/sales-compatibility-read.js */
 
         function buildSocWriteFailureDiagnostic(error, { method, stage, startedAt, requestId } = {}) {
             const code = getSupabaseReadErrorCode(error);
@@ -20049,6 +20027,7 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
         /* @runtime-fragment assets/excel-workbook-download.js */
         /* @runtime-fragment assets/av-filter-rail.js */
         /* @runtime-fragment assets/av-filter-markup.js */
+        /* @runtime-fragment assets/report-panel-export.js */
         /* @runtime-fragment assets/eval-report2-controls.js */
         /* @runtime-fragment assets/eval-report2-overview.js */
         /* @runtime-fragment assets/bloom-cart-persistence.js */
@@ -23802,7 +23781,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.14';
+        const APP_VERSION = '3.1.15';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -45949,54 +45928,7 @@ function toggleDriveQuickRequestItem(domId) {
             return false;
         }
         async function createCartFlyers() {
-            const domIds = Array.from(selectedItems).filter((domId) => !!findItemByDomId(domId));
-            if (!domIds.length) {
-                showToast('Select Rows', 'Add one or more rows to Bloom Picker first.', true);
-                return false;
-            }
-
-            const validItems = domIds.map((domId) => findItemByDomId(domId)).filter((item) => item && !isRequestLikeItem(item) && !isDockLikeItem(item) && !isSalesOfficeLikeItem(item));
-            if (!validItems.length) {
-                showToast('Not Available', 'Flyer works on inventory rows only.', true);
-                return false;
-            }
-
-            const existingTargetFolder = String(pendingFlyerFolderTarget || '').trim();
-            const isAddingToExistingFolder = existingTargetFolder !== '';
-            let flyerFolder = existingTargetFolder;
-            if (!flyerFolder) {
-                const suggestedFolder = buildDefaultFlyerFolderName();
-                const folderInput = await showAppPrompt('Enter the flyer folder name for these rows.', suggestedFolder, {
-                    title: 'Flyer Folder',
-                    confirmLabel: 'Continue',
-                    cancelLabel: 'Cancel',
-                    placeholder: 'Folder name'
-                });
-                if (folderInput === null) return false;
-                flyerFolder = String(folderInput || '').trim();
-            }
-            if (!flyerFolder) {
-                showToast('Folder Required', 'Enter a flyer folder name before creating the folder.', true);
-                return false;
-            }
-            if (!isAddingToExistingFolder) flyerFolder = resolveNewFlyerFolderName(flyerFolder);
-
-            if (!validItems.length) {
-                showToast('Error', 'No valid inventory rows were available for Flyer.', true);
-                return false;
-            }
-            const defaultAssignees = String(pendingFlyerFolderAssignees || getFlyerFolderAssignedNames(flyerFolder).join(', ') || currentUserDisplay || currentUser || '').trim();
-            openFlyerAssigneePicker({ folderName: flyerFolder, defaultAssignees, isAddingToExistingFolder }).then((assignees) => {
-                if (!assignees || !assignees.length) return false;
-                return createFlyerFolderRowsForItems(validItems, flyerFolder, isAddingToExistingFolder, assignees, {
-                    closeCart: true,
-                    clearSelection: true,
-                    emptyMessage: 'No valid inventory rows were available for Flyer.'
-                });
-            }).catch((err) => {
-                showFlyerFolderCreationFailure(err);
-            });
-            return false;
+            return startBloomscapesCartFlyerBuilder();
         }
         function openDriveQuickRequestModal() {
             if (!canUseDriveQuickRequest()) return;
@@ -49996,22 +49928,7 @@ function toggleDriveQuickRequestItem(domId) {
             beginInitialAppLoad('Saving password...');
             scheduleLoginStartupWatchdog('password-change');
             try {
-                const oldPassword = String(firstNonEmptyValue(document.getElementById('pin-code') && document.getElementById('pin-code').value, localStorage.getItem('gnc_pin_v3'), '') || '').trim();
-                if (!getCurrentAppSessionToken()) {
-                    const loginResult = await fetchRemoteLoginUser(currentUser, oldPassword);
-                    if (!loginResult || !loginResult.ok || !loginResult.session || !loginResult.session.token) {
-                        throw new Error('Could not verify the old password. Please sign in again.');
-                    }
-                }
-                const payload = await postAppFunctionJson(APP_API_FUNCTION_URL, {
-                    action: 'password_change',
-                    newPassword: newPass,
-                    confirmPassword: confirmPass
-                }, {
-                    includeSession: !nativeAuthSessionActive,
-                    timeoutMs: LOGIN_READ_TIMEOUT_MS,
-                    label: 'Password change'
-                });
+                const payload = await requestBloomscapesPasswordChange(newPass, confirmPass);
                 if (!payload || payload.ok !== true || !payload.session || !payload.session.token) {
                     throw new Error(String(payload && (payload.error || payload.message) || 'Password update failed.'));
                 }
@@ -106484,7 +106401,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
                 const rows = result.rows.map(normalizePagedManagerRow);
                 if (!rows.length) return showToast('No Rows', 'There are no matching report rows to export.', true);
                 const meta = surface === 'eval2' ? getManagerEvalReport2Meta() : getManagerEvalReportMeta();
-                const label = surface === 'eval2' ? 'Eval Reports #2' : 'Eval Reports';
+                const label = surface === 'eval2' ? 'Reports' : 'Eval Reports';
                 const index = surface === 'eval2' ? getManagerEvalReport2Index() : getManagerEvalReportIndex();
                 const fileLabel = `${surface === 'eval2' ? 'eval-reports-2' : 'eval-report'}-${String(meta.label).replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '').toLowerCase()}`;
                 const metaRows = surface === 'eval2' ? [
@@ -108692,7 +108609,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             managerEvalReport2EditRevision += 1;
             syncManagerEvalReport2SelectionUi();
             scheduleManagersRender(true);
-            if (!silent) showToast('Selection Cleared', 'No Eval Reports #2 ITEMCODEs are selected.');
+            if (!silent) showToast('Selection Cleared', 'No Reports ITEMCODEs are selected.');
             return false;
         }
 
@@ -108922,14 +108839,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return managerEvalReport2BrowseMode !== 'location' || managerEvalReport2DrillLevel >= 2;
         }
 
-        function getManagerEvalReport2BrowseCrumbText() {
-            const root = `Eval Reports #2 > ${getManagerEvalReport2Meta().label} > ${getManagerEvalAssignedUserLabel('eval2')}`;
-            if (managerEvalReport2BrowseMode !== 'location') return `${root} > ITEMCODEs`;
-            if (managerEvalReport2DrillLevel <= 0) return `${root} > Block Alpha`;
-            const blockLabel = getDriveBlockAlphaLabel(managerEvalReport2SelectedBlockAlpha);
-            if (managerEvalReport2DrillLevel === 1) return `${root} > ${blockLabel} > LocationCode`;
-            return `${root} > ${blockLabel} > ${managerEvalReport2SelectedLocationCode || 'LocationCode'} > ITEMCODEs`;
-        }
+
 
         /* @runtime-fragment assets/bloomscapes-filter-bar-compact.js */
 
@@ -108984,35 +108894,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
         }
 
 
-        function renderManagerEvalReports2LegacyPanel() {
-            const paged = useManagerReportPages('eval2');
-            if (!canViewManagerEvalReports2()) return '<div class="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-400">Your active profile does not have access to Eval Reports #2.</div>';
-            const api = getManagerEvalReports2Api();
-            if (!api) return '<div class="rounded-2xl border border-red-200 bg-red-50 p-8 text-center text-sm font-bold text-red-700">Eval Reports #2 could not start. Refresh the app to load the report engine.</div>';
-            if (!paged && !managerEvalReport2DisplaySourcesReady() && !managerEvalReport2LoadState.loading && !managerEvalReport2Cache
-                && (!managerEvalReport2LoadState.error || managerEvalReport2LoadState.owner !== getSupabaseReadIdentityScope())) setTimeout(() => loadManagerEvalReports2(false), 0);
-            const index = getManagerEvalReport2Index();
-            const accessibleTitle = '<h2 class="sr-only">Eval Reports #2</h2>';
-            if (!index && managerEvalReport2LoadState.loading) return `${accessibleTitle}<div class="flex min-h-[44px] items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-3 text-[11px] font-bold text-blue-800"><span class="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-blue-200 border-t-blue-700"></span>Loading evaluator report and assignments...</div>`;
-            if (!index) return `${accessibleTitle}<div class="flex min-h-[44px] flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-bold text-amber-800"><span>${escapeHtml(managerEvalReport2LoadState.error || 'Eval Reports #2 data is temporarily unavailable.')}</span><button type="button" class="min-h-[36px] rounded-lg border border-amber-300 bg-white px-3 text-[10px] font-black uppercase tracking-[0.1em] text-amber-900" onclick="return loadManagerEvalReports2(true)">Retry</button></div>`;
-            const meta = getManagerEvalReport2Meta();
-            const sourceUpdated = managerEvalReport2LoadState.lastSourceUpdatedAt || getManagerEvalReport2LatestSourceUpdate();
-            let statusHtml = managerEvalReport2AssignmentFilterRefreshing
-                ? '<div class="flex min-h-[44px] items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-3 text-[11px] font-bold text-blue-800"><span class="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-blue-200 border-t-blue-700"></span>Verifying current AssignedTo ownership before showing results...</div>'
-                : managerEvalReport2LoadState.error
-                ? ''
-                : managerEvalReport2LoadState.loading
-                    ? '<div class="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-[11px] font-bold text-blue-800">Refreshing complete inventory and assignments; current complete results remain visible.</div>'
-                    : '';
-            const invalidHoldDateCount = Number(index.diagnostics && index.diagnostics.invalidHoldStartDateCount) || 0;
-            const invalidLocationNoteDateCount = Number(index.diagnostics && index.diagnostics.invalidLocationNoteDateCount) || 0;
-            if (invalidHoldDateCount || invalidLocationNoteDateCount) {
-                statusHtml += `<div class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-bold text-amber-800">Data quality: ${escapeHtml(String(invalidHoldDateCount))} invalid Hold/Stop date${invalidHoldDateCount === 1 ? '' : 's'} and ${escapeHtml(String(invalidLocationNoteDateCount))} invalid Location Note date${invalidLocationNoteDateCount === 1 ? '' : 's'} were excluded from date-based report rules.</div>`;
-            }
-            if (managerEvalReport2DetailItemKey) return renderManagerEvalReport2ItemDetail();
-            const moreHtml = renderManagerEvalReport2MoreMenu(index, meta, sourceUpdated);
-            return `<div class="space-y-3">${accessibleTitle}${statusHtml}${renderManagerEvalReport2ReportsPanel(moreHtml)}</div>`;
-        }
+
 
         function getManagerEvalReport2MembershipLabels(rowKey = '') {
             const api = getManagerEvalReports2Api();
@@ -109033,7 +108915,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
                 const selected = managerEvalReport2SelectedItemsByKey.has(key);
                 return `<tr data-manager-eval2-selection-key="${escapeHtml(encodedKey)}" data-selected="${selected ? 'true' : 'false'}" class="${selected ? 'bg-emerald-50' : ''}"><td class="drive-grid-select"><button type="button" data-role="manager-eval2-selection-toggle" data-itemcode="${escapeHtml(group.itemCode)}" aria-pressed="${selected ? 'true' : 'false'}" aria-label="${selected ? 'Deselect' : 'Select'} ${escapeHtml(group.itemCode)}" class="inline-flex h-11 w-11 items-center justify-center rounded-xl border-2 border-[#007a4d] ${selected ? 'bg-[#007a4d] text-white' : 'bg-white text-[#007a4d]'}" onclick="event.stopPropagation(); return toggleManagerEvalReport2ItemSelection('${escJsAttrValue(encodedKey)}')"><i data-role="manager-eval2-check" class="ph-bold ${selected ? 'ph-check-square' : 'ph-square'}"></i></button></td><th scope="row" class="drive-grid-common">${escapeHtml(group.commonName)}</th><td>${escapeHtml(group.containerSizes.join(', ') || '-')}</td><td class="drive-grid-code">${escapeHtml(group.itemCode)}</td><td>${escapeHtml(String(group.rowCount))}</td><td>${escapeHtml(String(group.locationCount))}</td><td>${escapeHtml(managerEvalReport2AssignedToFilter)}</td></tr>`;
             }).join('');
-            return `<div class="drive-grid-sheet" role="region" aria-label="Eval Reports #2 selectable ITEMCODE grid" tabindex="0"><div class="drive-grid-sheet-toolbar"><span class="drive-grid-visible-count" aria-live="polite">${safeGroups.length} ITEMCODEs</span></div><table class="drive-grid-table"><caption class="sr-only">Selectable Eval Reports #2 ITEMCODEs</caption><thead><tr class="drive-grid-header-row"><th scope="col">Select</th><th scope="col">Common Name</th><th scope="col">Container</th><th scope="col">Item Code</th><th scope="col">Report Rows</th><th scope="col">Locations</th><th scope="col">AssignedTo</th></tr></thead><tbody>${bodyHtml}</tbody></table></div>`;
+            return `<div class="drive-grid-sheet" role="region" aria-label="Reports selectable ITEMCODE grid" tabindex="0"><div class="drive-grid-sheet-toolbar"><span class="drive-grid-visible-count" aria-live="polite">${safeGroups.length} ITEMCODEs</span></div><table class="drive-grid-table"><caption class="sr-only">Selectable Reports ITEMCODEs</caption><thead><tr class="drive-grid-header-row"><th scope="col">Select</th><th scope="col">Common Name</th><th scope="col">Container</th><th scope="col">Item Code</th><th scope="col">Report Rows</th><th scope="col">Locations</th><th scope="col">AssignedTo</th></tr></thead><tbody>${bodyHtml}</tbody></table></div>`;
         }
 
         let managerEvalReport2ProgressiveRowsState = null;
@@ -109102,7 +108984,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return Promise.resolve(controller.load(state.query, true)).then(page => {
                 if (managerEvalReport2ProgressiveRowsState !== state || requestId !== state.requestId
                     || state.owner !== getSupabaseReadIdentityScope()) return null;
-                if (!page) throw new Error(controller.state('eval2').error || 'Could not refresh Eval Reports #2.');
+                if (!page) throw new Error(controller.state('eval2').error || 'Could not refresh Reports.');
                 applyManagerEvalReport2ProgressivePage(state, page, true);
                 scheduleManagersRender(true);
                 return page;
@@ -109110,7 +108992,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
                 if (managerEvalReport2ProgressiveRowsState !== state || requestId !== state.requestId
                     || state.owner !== getSupabaseReadIdentityScope()) return null;
                 state.loading = false; state.refreshing = false; state.retryFirstPage = true;
-                state.error = String(error?.message || error || 'Could not refresh Eval Reports #2.');
+                state.error = String(error?.message || error || 'Could not refresh Reports.');
                 scheduleManagersRender(true);
                 return null;
             });
@@ -109249,59 +109131,9 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             );
         }
 
-        function exportManagerEvalReport2ToExcel() {
-            if (!canViewManagerEvalReports2()) return false;
-            if (useManagerReportPages('eval2')) return exportPagedManagerEvalReport('eval2');
-            if (!isManagerEvalReport2SnapshotReadyForEdits()) {
-                showToast('Checking for updates', 'Wait for the current report data before exporting.', true);
-                return false;
-            }
-            const index = getManagerEvalReport2Index();
-            if (!index) {
-                showToast('Inventory Not Ready', 'Load the complete inventory before exporting Eval Reports #2.', true);
-                return false;
-            }
-            const model = managerEvalReport2Mode === 'inquiry' ? getManagerEvalReport2InquiryModel() : null;
-            const rows = model ? model.matchedRows : getFilteredManagerEvalReport2Rows();
-            const meta = getManagerEvalReport2Meta();
-            if (!rows.length) {
-                showToast('No Rows', 'There are no Eval Reports #2 rows to export in this view.', true);
-                return false;
-            }
-            const fileLabel = `eval-reports-2-${String(meta.label || activeManagerEvalReport2).replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '').toLowerCase()}`;
-            const metaRows = [
-                ['Module', 'Eval Reports #2'],
-                ['Mode', managerEvalReport2Mode === 'inquiry' ? 'Item Inquiry' : 'Reports'],
-                ['Report', meta.label],
-                ['Sales Year Cutoff', String(index.currentSalesYear)],
-                ['Next Target', `${index.nextSeason} ${index.nextSalesYear}`],
-                ['Low Stock Limit', String(index.settings.lowStockMaxSLts)],
-                ['Hold Age Days', String(index.settings.holdAgeDays)],
-                ['Location Note Age Days', String(index.settings.locationNoteAgeDays)],
-                ['Rows Exported', String(rows.length)]
-            ];
-            downloadExcelWorkbook(getDriveReportExportColumns(), rows, `Eval Reports #2 ${meta.label}`, managersSearchTerm || '', fileLabel, metaRows, DRIVE_MODE_EXCEL_OPTIONS);
-            showToast('Export Ready', `Downloading ${rows.length} ${meta.label} row${rows.length === 1 ? '' : 's'} as Excel.`);
-            return false;
-        }
 
-        function getManagerEvalReport2EmailMetaRows(rows = []) {
-            const index = getManagerEvalReport2Index();
-            const meta = getManagerEvalReport2Meta();
-            return [
-                ['Module', 'Eval Reports #2'],
-                ['Report', meta.label],
-                ['AssignedTo', managerEvalReport2AssignedToFilter === 'all' ? 'All' : managerEvalReport2AssignedToFilter],
-                ['Locationcode', managerEvalReport2LocationFilter === 'all' ? 'All' : managerEvalReport2LocationFilter],
-                ['Season', getManagerEvalReport2SeasonFilterLabel()],
-                ['Container', managerEvalReport2ContSizeFilter === 'all' ? 'All' : managerEvalReport2ContSizeFilter],
-                ['Priority', managerEvalReport2PriorityFilter === 'all' ? 'All' : managerEvalReport2PriorityFilter],
-                ['Sales Year Cutoff', String(index && index.currentSalesYear || '')],
-                ['Rows Selected', String(Array.isArray(rows) ? rows.length : 0)],
-                ['Sent By', String(currentUserDisplay || currentUser || '').trim()],
-                ['Created At', new Date().toLocaleString()]
-            ];
-        }
+
+
 
         const MANAGER_EVAL_REPORT2_ITEM_INQUIRY_MAX_BYTES = 18 * 1024 * 1024;
         const MANAGER_EVAL_REPORT2_ITEM_INQUIRY_COLUMNS = Object.freeze([
@@ -109695,7 +109527,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             modal.className = 'eval-work-setup-modal hidden';
             modal.setAttribute('role', 'dialog');
             modal.setAttribute('aria-modal', 'true');
-            modal.innerHTML = `<button type="button" class="eval-work-setup-backdrop" aria-label="Close Eval Work batch setup" onclick="return closeManagerEvalReport2BatchSetup()"></button><section class="eval-work-setup-panel"><header><div><span id="manager-eval2-batch-source-label">Eval Reports #2</span><h2>Send to Eval Work</h2></div><button type="button" aria-label="Close" onclick="return closeManagerEvalReport2BatchSetup()"><i class="ph-bold ph-x"></i></button></header><div class="eval-work-setup-body"><div class="rounded-2xl border border-cyan-300 bg-cyan-50 p-3 text-[12px] font-bold leading-relaxed text-cyan-950"><strong class="block">ITEMCODE-wide review</strong>Every current row for each selected ITEMCODE is included in Eval Work and the PDF.</div><button id="manager-eval2-batch-assignee-button" type="button" class="eval-work-recipient-button" onclick="return chooseManagerEvalReport2BatchAssignee()"><i class="ph-bold ph-user-magnifying-glass"></i><span><strong>Evaluators <em>Required</em></strong><small id="manager-eval2-batch-assignee-copy">Choose one or more Eval users</small></span><i class="ph-bold ph-caret-right"></i></button><div class="rounded-2xl border border-emerald-300 bg-emerald-50 p-3"><span class="text-[9px] font-black uppercase tracking-wider text-emerald-800">Assignment email</span><div class="mt-2 flex flex-wrap gap-2"><span class="rounded-full border border-emerald-400 bg-white px-3 py-1 text-[11px] font-black">Selected evaluators</span><span class="rounded-full border border-emerald-400 bg-white px-3 py-1 text-[11px] font-black"><i class="ph-bold ph-lock-key"></i> Dylan</span><span class="rounded-full border border-emerald-400 bg-white px-3 py-1 text-[11px] font-black"><i class="ph-bold ph-lock-key"></i> Megan</span></div></div><label><span>Instructions <small>Optional</small></span><textarea id="manager-eval2-batch-instructions" maxlength="4000" placeholder="What should the evaluators verify?"></textarea></label><button id="manager-eval2-batch-recipient-button" type="button" class="eval-work-recipient-button" onclick="return chooseManagerEvalReport2BatchRecipients()"><i class="ph-bold ph-users-three"></i><span><strong>Additional Completion Recipients</strong><small id="manager-eval2-batch-recipient-copy">Dylan and Megan are always included</small></span><i class="ph-bold ph-caret-right"></i></button><div id="manager-eval2-batch-locked-recipients" class="flex flex-wrap gap-2"><span class="rounded-full border border-emerald-400 bg-emerald-50 px-3 py-1 text-[11px] font-black"><i class="ph-bold ph-lock-key"></i> Dylan</span><span class="rounded-full border border-emerald-400 bg-emerald-50 px-3 py-1 text-[11px] font-black"><i class="ph-bold ph-lock-key"></i> Megan</span><span id="manager-eval2-batch-sharon-recipient" class="hidden rounded-full border border-emerald-400 bg-emerald-50 px-3 py-1 text-[11px] font-black"><i class="ph-bold ph-lock-key"></i> Sharon</span><span id="manager-eval2-batch-jd-recipient" class="hidden rounded-full border border-emerald-400 bg-emerald-50 px-3 py-1 text-[11px] font-black"><i class="ph-bold ph-lock-key"></i> JD (when submitting)</span></div><div id="manager-eval2-batch-itemcodes" class="max-h-[42dvh] space-y-3 overflow-y-auto overscroll-contain"></div><div id="manager-eval2-batch-summary" class="eval-work-setup-confirmation"></div></div><footer><button type="button" onclick="return closeManagerEvalReport2BatchSetup()">Cancel</button><button id="manager-eval2-batch-create" type="button" class="primary" onclick="return createManagerEvalReport2Batch(this)"><i class="ph-bold ph-paper-plane-tilt"></i> Create Batch</button></footer></section>`;
+            modal.innerHTML = `<button type="button" class="eval-work-setup-backdrop" aria-label="Close Eval Work batch setup" onclick="return closeManagerEvalReport2BatchSetup()"></button><section class="eval-work-setup-panel"><header><div><span id="manager-eval2-batch-source-label">Reports</span><h2>Send to Eval Work</h2></div><button type="button" aria-label="Close" onclick="return closeManagerEvalReport2BatchSetup()"><i class="ph-bold ph-x"></i></button></header><div class="eval-work-setup-body"><div class="rounded-2xl border border-cyan-300 bg-cyan-50 p-3 text-[12px] font-bold leading-relaxed text-cyan-950"><strong class="block">ITEMCODE-wide review</strong>Every current row for each selected ITEMCODE is included in Eval Work and the PDF.</div><button id="manager-eval2-batch-assignee-button" type="button" class="eval-work-recipient-button" onclick="return chooseManagerEvalReport2BatchAssignee()"><i class="ph-bold ph-user-magnifying-glass"></i><span><strong>Evaluators <em>Required</em></strong><small id="manager-eval2-batch-assignee-copy">Choose one or more Eval users</small></span><i class="ph-bold ph-caret-right"></i></button><div class="rounded-2xl border border-emerald-300 bg-emerald-50 p-3"><span class="text-[9px] font-black uppercase tracking-wider text-emerald-800">Assignment email</span><div class="mt-2 flex flex-wrap gap-2"><span class="rounded-full border border-emerald-400 bg-white px-3 py-1 text-[11px] font-black">Selected evaluators</span><span class="rounded-full border border-emerald-400 bg-white px-3 py-1 text-[11px] font-black"><i class="ph-bold ph-lock-key"></i> Dylan</span><span class="rounded-full border border-emerald-400 bg-white px-3 py-1 text-[11px] font-black"><i class="ph-bold ph-lock-key"></i> Megan</span></div></div><label><span>Instructions <small>Optional</small></span><textarea id="manager-eval2-batch-instructions" maxlength="4000" placeholder="What should the evaluators verify?"></textarea></label><button id="manager-eval2-batch-recipient-button" type="button" class="eval-work-recipient-button" onclick="return chooseManagerEvalReport2BatchRecipients()"><i class="ph-bold ph-users-three"></i><span><strong>Additional Completion Recipients</strong><small id="manager-eval2-batch-recipient-copy">Dylan and Megan are always included</small></span><i class="ph-bold ph-caret-right"></i></button><div id="manager-eval2-batch-locked-recipients" class="flex flex-wrap gap-2"><span class="rounded-full border border-emerald-400 bg-emerald-50 px-3 py-1 text-[11px] font-black"><i class="ph-bold ph-lock-key"></i> Dylan</span><span class="rounded-full border border-emerald-400 bg-emerald-50 px-3 py-1 text-[11px] font-black"><i class="ph-bold ph-lock-key"></i> Megan</span><span id="manager-eval2-batch-sharon-recipient" class="hidden rounded-full border border-emerald-400 bg-emerald-50 px-3 py-1 text-[11px] font-black"><i class="ph-bold ph-lock-key"></i> Sharon</span><span id="manager-eval2-batch-jd-recipient" class="hidden rounded-full border border-emerald-400 bg-emerald-50 px-3 py-1 text-[11px] font-black"><i class="ph-bold ph-lock-key"></i> JD (when submitting)</span></div><div id="manager-eval2-batch-itemcodes" class="max-h-[42dvh] space-y-3 overflow-y-auto overscroll-contain"></div><div id="manager-eval2-batch-summary" class="eval-work-setup-confirmation"></div></div><footer><button type="button" onclick="return closeManagerEvalReport2BatchSetup()">Cancel</button><button id="manager-eval2-batch-create" type="button" class="primary" onclick="return createManagerEvalReport2Batch(this)"><i class="ph-bold ph-paper-plane-tilt"></i> Create Batch</button></footer></section>`;
             document.body.appendChild(modal);
             return modal;
         }
@@ -109740,14 +109572,14 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             managerEvalReport2BatchSetupState = { sourceMode: 'eval-report-2', batchToken: `eval-report2-batch-${Date.now()}-${Math.random().toString(36).slice(2)}`, assigneeUsernames: [], completionRecipients: [] };
             const modal = ensureManagerEvalReport2BatchSetupModal();
             const sourceLabel = document.getElementById('manager-eval2-batch-source-label');
-            if (sourceLabel) sourceLabel.textContent = 'Eval Reports #2';
+            if (sourceLabel) sourceLabel.textContent = 'Reports';
             renderManagerEvalReport2ItemcodeScopeSummary();
             const instructions = document.getElementById('manager-eval2-batch-instructions');
             if (instructions) instructions.value = '';
             modal.classList.remove('hidden');
             syncManagerEvalReport2BatchSetup();
             const assigneeButton = document.getElementById('manager-eval2-batch-assignee-button');
-            setTimeout(() => { try { assigneeButton && assigneeButton.focus({ preventScroll: true }); } catch (error) { globalThis.safeIgnoreProbeError?.("openManagerEvalReport2BatchSetup"); } }, 30);
+            setTimeout(() => { try { assigneeButton && assigneeButton.focus({ preventScroll: true }); } catch { globalThis.safeIgnoreProbeError?.("openManagerEvalReport2BatchSetup"); } }, 30);
             return false;
         }
 
@@ -114090,29 +113922,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return false;
         }
 
-        function renderManagerModulePicker(access = getManagersToolAccess(), approvalTabs = null, toolTabs = null) {
-            const allOptions = getManagerModuleOptions(access, approvalTabs, toolTabs).filter(option => !getManagerTableManagementKey(option.id));
-            const search = normalizeSearchValue(managersSearchTerm || '');
-            const options = allOptions.map((option) => {
-                const meta = getManagerModuleMeta(option.id);
-                return Object.assign({}, option, meta, { label: option.label || meta.label });
-            });
-            const visibleOptions = search
-                ? options.filter((option) => managerTextMatchesSearch([option.label, option.description, option.id]))
-                : options;
-            if (!visibleOptions.length) {
-                return '<div class="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-400">No manager modules match that search.</div>';
-            }
-            const cards = visibleOptions.map((option) => {
-                const label = option.label || 'Module';
-                const description = option.description || 'Open a manager workflow.';
-                const unassignedCount = option.id === MANAGER_ASSIGNED_ITEMS_EXPORT_VIEW ? getManagerUnassignedItemcodes().length : 0;
-                const badge = unassignedCount ? `<span data-manager-unassigned-badge class="rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-950">${unassignedCount} unassigned</span>` : '';
-                return `<button type="button" class="manager-module-card" data-manager-module="${option.id === MANAGER_RUNTIME_WATCHDOG_VIEW ? 'watchdog-monitor' : esc(option.id)}" title="${esc(`${label}: ${description}`)}" aria-label="${esc(`${label}: ${description}`)}" onclick="return setHomeTab('${escJsAttrValue(option.id)}')"><span class="manager-module-icon"><i class="ph-bold ${esc(option.icon || 'ph-squares-four')}"></i></span><span class="manager-module-title">${esc(label)}</span>${badge}</button>`;
-            }).join('');
-            return `<div class="manager-module-grid">${cards}</div>`;
-        }
-
         function managerMoveRowMatchesSearch(row = null) {
             return managerTextMatchesSearch([
                 firstNonEmptyValue(row && row.COMMONNAME, row && row.commonname, ''),
@@ -116146,7 +115955,9 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
 /* @runtime-fragment assets/bloomscapes-transfer-submit.js */
 /* @runtime-fragment assets/bloomscapes-transfer-filters.js */ /* @runtime-fragment assets/bloomscapes-transfer-builder.js */
 /* @runtime-fragment assets/bloomscapes-history.js */
-/* @runtime-fragment assets/inventory-browse-workspaces.js */ /* @runtime-fragment assets/inventory-excel-facts.js */ /* @runtime-fragment assets/bloomscapes-message-state.js */ /* @runtime-fragment assets/bloomscapes-message-transport.js */ /* @runtime-fragment assets/bloomscapes-messages.js */ /* @runtime-fragment assets/bloomscapes-planning-card.js */ /* @runtime-fragment assets/bloomscapes-planning-transport.js */ /* @runtime-fragment assets/bloomscapes-planning-state.js */ /* @runtime-fragment assets/bloomscapes-module-access.js */ /* @runtime-fragment assets/bloomscapes-module-access-editor.js */ /* @runtime-fragment assets/bloomscapes-viewport-scaler.js */
+/* @runtime-fragment assets/bloomscapes-sales-flyer.js */
+        /* @runtime-fragment assets/bloomscapes-sales-cards.js */
+        /* @runtime-fragment assets/inventory-browse-workspaces.js */ /* @runtime-fragment assets/inventory-excel-facts.js */ /* @runtime-fragment assets/bloomscapes-message-state.js */ /* @runtime-fragment assets/bloomscapes-message-transport.js */ /* @runtime-fragment assets/bloomscapes-messages.js */ /* @runtime-fragment assets/bloomscapes-planning-card.js */ /* @runtime-fragment assets/bloomscapes-planning-transport.js */ /* @runtime-fragment assets/bloomscapes-planning-state.js */ /* @runtime-fragment assets/bloomscapes-module-access.js */ /* @runtime-fragment assets/bloomscapes-module-access-editor.js */ /* @runtime-fragment assets/bloomscapes-viewport-scaler.js */
 /* @runtime-fragment assets/request-photo-gallery-read.js */
 /* @runtime-fragment assets/request-photo-gallery-modal.js */
 /* @runtime-fragment assets/request-photo-gallery-deep-link.js */

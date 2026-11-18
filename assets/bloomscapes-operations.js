@@ -11,7 +11,7 @@ const BLOOMSCAPES_WORKFLOW_TABS = [
     {id:'bloomscapes-hauling',label:'Hauling'},
     {id:'bloomscapes-shearing',label:'Shear List & Crew Queue'},
     {id:'bloomscapes-lab',label:'Plant Health & Lab Review'},
-    {id:'bloomscapes-vault',label:'My Work & Inquiry Vault'},
+    {id:'bloomscapes-vault',label:'My Work & Inquiry PDF Vault'},
     {id:'bloomscapes-sales-vault',label:'Sales Rep Vault'},
     {id:'bloomscapes-radio',label:'Walkie-Talkie & AURA Voice'}
 ];
@@ -56,8 +56,7 @@ const workflowFields = {
     'bloomscapes-hl-keying': ['itemcode','lotcode','locationcode','field_name','qty_delta','reason_code','actor_username'],
     'bloomscapes-field-jobs': ['unique_id','record_kind','itemcode','locationcode','new_locationcode','graded_qty','qty_hauled','job_status'],
     'bloomscapes-lab': ['sample_id','warehouse_id','genus_name','itemcode','lotcode','locationcode','status'],
-    'bloomscapes-vault': ['work_type','itemcode','locationcode','lotcode','created_at']
-    ,'bloomscapes-sales-vault':['ship_on','itemcode','locationcode','stagename','quantityordered','quantityshipped','cut_quantity','cut_reason_code']
+    'bloomscapes-sales-vault':['ship_on','itemcode','locationcode','stagename','quantityordered','quantityshipped','cut_quantity','cut_reason_code']
 };
 
 function appendWorkflowNode(parent, tag, text) {
@@ -89,6 +88,12 @@ function renderDockWorkflowRow(item, row, run) {
 function showWorkflowRows(host, tab, rows, run) {
     const results = host.querySelector('[data-bloomscapes-results]');
     results.replaceChildren();
+    if (tab === 'bloomscapes-vault') {
+        results.className='bloomscapes-sales-card-list';
+        const lookup=createSalesStudioTargetLookup();
+        results.append(...rows.map(row=>renderBloomscapesSalesCard(row,lookup(row),button=>openBloomscapesVaultPdf(row,button))));
+        return;
+    }
     const list = appendWorkflowNode(results, 'ul', '');
     list.className = 'divide-y divide-emerald-900';
     rows.forEach(row => {
@@ -99,7 +104,6 @@ function showWorkflowRows(host, tab, rows, run) {
         appendWorkflowNode(item, 'span', fields.join(' · '));
         renderBloomscapesFieldExtras(item,tab,row);
         if (tab === 'bloomscapes-dock-approvals') renderDockWorkflowRow(item, row, run);
-        if (tab === 'bloomscapes-vault') renderBloomscapesVaultPdf(item,row);
     });
 }
 
@@ -129,7 +133,7 @@ function mountBloomscapesWorkflowPanel(container, tab) {
         try {
             const rows = await readBloomscapesPanel(tab, inputs);
             if (!host.isConnected || epoch !== generation) return;
-            showWorkflowRows(host, tab, rows, decide);
+            if (tab !== 'bloomscapes-vault') showWorkflowRows(host, tab, rows, decide);
             commit(rows.length + ' records shown');
             bindBloomscapesPanelFilters(host,tab,rows,decide);
         } catch (error) {

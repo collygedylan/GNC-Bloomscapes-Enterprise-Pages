@@ -1,6 +1,7 @@
 function backGlobalManagersSurface({currentView}) {
     if (currentView === 'managers') {
-        if (typeof getManagerTableManagementKey === 'function' && ((activeHomeTab === 'table-management' && managerTableManagementSelection) || getManagerTableManagementKey(activeHomeTab))) {
+        if (getActiveBloomscapesUserDirectory()?.back()) return false;
+        if (!hasDirectManagerUserDirectory() && typeof getManagerTableManagementKey === 'function' && ((activeHomeTab === 'table-management' && managerTableManagementSelection) || getManagerTableManagementKey(activeHomeTab))) {
             if (globalThis.GncNurseryTables?.back?.()) { updateGlobalBackButton(); return false; }
             openManagerTableManagement(); updateGlobalBackButton(); return false;
         }

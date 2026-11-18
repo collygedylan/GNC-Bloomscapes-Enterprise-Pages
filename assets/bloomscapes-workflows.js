@@ -47,7 +47,7 @@ async function readBloomscapesPanel(panel, inputs = {}) {
 
 function bloomscapesPanelQuery(client, panel, input) {
     if (panel === 'farm-access') return client.rpc('gnc_farm_access_rows');
-    if (panel === 'sales-studio-records') return client.rpc('gnc_sales_studio_records',{p_farm:input.farm,p_kind:input.kind,p_page:input.page,p_rep:input.rep});
+    if (panel === 'sales-studio-records') return client.rpc('gnc_sales_studio_cards',{p_farm:input.farm,p_kind:input.kind,p_page:input.page,p_rep:input.rep});
     if (panel === 'architecture') return client.rpc('gnc_architecture_counts');
     if (panel === 'bloomscapes-sales-vault') return client.rpc('gnc_sales_vault',{p_farm:input.farm});
     if (panel === 'bloomscapes-inventory') return bloomscapesInventoryQuery(client, input.farm);

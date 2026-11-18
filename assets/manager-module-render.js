@@ -13,7 +13,10 @@ function renderManagers() {
     const tabs = resolveManagerRenderTabs();
     if (!tabs || keepManagerModuleSurface(container)) return;
     let html = buildManagerRenderHtml(tabs);
-    if (typeof renderManagerTableManagementWorkspace === 'function' && (activeHomeTab === MANAGER_TABLE_MANAGEMENT_VIEW || getManagerTableManagementKey(activeHomeTab))) html = renderManagerTableManagementWorkspace(html, activeHomeTab === MANAGER_TABLE_MANAGEMENT_VIEW ? managerTableManagementSelection : getManagerTableManagementKey(activeHomeTab));
+    if (usesManagerTableShell()) {
+        const table=activeHomeTab===MANAGER_TABLE_MANAGEMENT_VIEW ? managerTableManagementSelection : getManagerTableManagementKey(activeHomeTab);
+        html=renderManagerTableManagementWorkspace(html,table);
+    }
     patchManagerRenderedSurface(container, html);
     if (bloomscapesWorkflowTab(activeHomeTab)) mountBloomscapesWorkflowPanel(container, activeHomeTab);
     if (activeHomeTab === BLOOMSCAPES_ARCHITECTURE_TAB) void mountBloomscapesSandboxStatus(container);
@@ -21,7 +24,7 @@ function renderManagers() {
     mountManagerPrimarySurfaces(container, tabs.canViewRuntimeWatchdog);
     mountManagerPagedApprovals(container);
     mountManagerAuxiliarySurfaces(container);
-    void mountBloomscapesFarmAccessEditor(container,managerTableManagementSelection);
+
     restoreManagerRenderedViewport(container);
 }
 
@@ -327,4 +330,40 @@ function shouldRetainManagerModuleDuringAccessRefresh(tab, allowedTabs, accessSt
     const refreshPending = accessState?.stale === true || ['loading', 'error'].includes(String(accessState?.status || ''));
     return activeTab !== 'dashboard' && !allowedTabs.has(activeTab) && refreshPending
         && !!snapshot && !!userKey && userKey === snapshotUser && retainedAccess === true && accessDenied !== true;
+}
+
+function hasDirectManagerUserDirectory() {
+    return activeHomeTab===MANAGER_ACCESS_CONTROL_VIEW && !managerTableManagementSelection;
+}
+
+function usesManagerTableShell() {
+    return typeof renderManagerTableManagementWorkspace==='function' && !hasDirectManagerUserDirectory() &&
+        (activeHomeTab===MANAGER_TABLE_MANAGEMENT_VIEW || getManagerTableManagementKey(activeHomeTab));
+}
+
+function renderManagerModulePicker(access = getManagersToolAccess(), approvalTabs = null, toolTabs = null) {
+    const options=getManagerModuleOptions(access,approvalTabs,toolTabs).filter(option=>
+        option.id===MANAGER_ACCESS_CONTROL_VIEW || !getManagerTableManagementKey(option.id));
+    const search=normalizeSearchValue(managersSearchTerm || '');
+    const cards=options.map(option=>{
+        const meta=getManagerModuleMeta(option.id);
+        return {...option,...meta,label:option.label || meta.label};
+    }).filter(option=>!search || managerTextMatchesSearch([option.label,option.description,option.id]));
+    if (!cards.length) {
+        return '<div class="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-400">No manager modules match that search.</div>';
+    }
+    return '<div class="manager-module-grid">'+cards.map(renderManagerModuleCard).join('')+'</div>';
+}
+
+function renderManagerModuleCard(option) {
+    const label=option.label || 'Module';
+    const description=option.description || 'Open a manager workflow.';
+    const name=esc(label+': '+description);
+    const key=option.id===MANAGER_RUNTIME_WATCHDOG_VIEW ? 'watchdog-monitor' : esc(option.id);
+    const count=option.id===MANAGER_ASSIGNED_ITEMS_EXPORT_VIEW ? getManagerUnassignedItemcodes().length : 0;
+    const badge=count ? '<span data-manager-unassigned-badge class="rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-950">'+count+' unassigned</span>' : '';
+    return '<button type="button" class="manager-module-card" data-manager-module="'+key+'" title="'+name+'" aria-label="'+name+
+        '" onclick="return setHomeTab(\''+escJsAttrValue(option.id)+'\')">'+
+        '<span class="manager-module-icon"><i class="ph-bold '+esc(option.icon || 'ph-squares-four')+'"></i></span>'+
+        '<span class="manager-module-title">'+esc(label)+'</span>'+badge+'</button>';
 }

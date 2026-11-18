@@ -3,12 +3,12 @@ function setHomeTab(tab = 'dashboard') {
     if (!managerTableManagementDirectOpen && requestedTab === MANAGER_TABLE_MANAGEMENT_VIEW) return openManagerTableManagement();
     if (requestedTab === 'action-discrepancy') return openManagerTableManagement(requestedTab);
     if (requestedTab === MANAGER_SALES_REPS_VIEW) return openManagerSalesRepsModule();
+    if (!managerTableManagementDirectOpen && requestedTab===MANAGER_ACCESS_CONTROL_VIEW) return openDirectManagerUserDirectory();
     if (!managerTableManagementDirectOpen && typeof getManagerTableManagementKey === 'function' && getManagerTableManagementKey(requestedTab)) return openManagerTableManagement(getManagerTableManagementKey(requestedTab));
     if (!managerTableManagementDirectOpen && requestedTab === MANAGER_ASSIGNED_ITEMS_EXPORT_VIEW) return openManagerTableManagement('assigned-items');
     if (!managerTableManagementDirectOpen && requestedTab === MANAGER_COMPANY_DIRECTORY_VIEW) return openManagerTableManagement('company-directory');
     if (!managerTableManagementDirectOpen && requestedTab === ITEM_INQUIRY_COVERAGE_SETTINGS_VIEW) return openManagerTableManagement('inquiry-coverage');
     if (!managerTableManagementDirectOpen && requestedTab === MANAGER_CUSTOMER_REP_MAP_VIEW) return openManagerTableManagement('customer-assignments');
-    if (!managerTableManagementDirectOpen && requestedTab === MANAGER_ACCESS_CONTROL_VIEW) return openManagerTableManagement('user-role-access');
     if (requestedTab === 'hours' && canAccessView('hours')) {
         activeHomeTab = 'dashboard';
         selectedProductivityUser = '';
@@ -294,4 +294,11 @@ function scheduleAssignedItemsChrome() {
             globalThis.renderHomeOrManagersNow(true);
         }
     }, 0));
+}
+
+function openDirectManagerUserDirectory() {
+    managerTableManagementSelection='';
+    managerTableManagementDirectOpen=true;
+    try {return setHomeTab(MANAGER_ACCESS_CONTROL_VIEW);}
+    finally {managerTableManagementDirectOpen=false;}
 }

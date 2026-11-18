@@ -108,7 +108,7 @@ if (!(typeof window !== 'undefined' ? window : globalThis).GncUserAccessControl)
     }
     function accessPermissionColumns(category = 'all') {
         const actions = [['make_request','Make Request'],['request_all_reps','All Sales Reps'],['edit_any_row','Update Any Row'],['edit_assigned_rows_only','Update Assigned Rows Only'],['view_all_requests','View All Requests'],['request_default_scope','Request Default Scope'],['view_all_suspend','View All Suspend Tags'],['suspend_default_scope','Suspend Default Scope'],['flyer_folder_access','Flyer Folders'],['create_project','Create Project'],['submit_reclass','Submit Reclass'],['complete_suspend_tag','Complete Suspend Tag'],['approve_suspend_tags','Approve Suspend Tags'],['manage_tables','Manage Tables'],['manage_user_access','Manage User & Role Access'],['use_weather_hold_risk_tools','Weather / Hold Risk Tools'],['use_aura_assistant','AURA Assistant']];
-        const views = [...MATRIX_VIEWS.map(name=>[name,name==='view_nursery_command_tables'?'View Nursery Command Tables':name.replace(/^view_/,'View ').replaceAll('_',' ')]),['legacy:can_access_eval_reports_2','View Eval Reports #2']];
+        const views = [...MATRIX_VIEWS.map(name=>[name,name==='view_nursery_command_tables'?'View Nursery Command Tables':name.replace(/^view_/,'View ').replaceAll('_',' ')]),['legacy:can_access_eval_reports_2','View Reports']];
         const reps = [['request_all_reps','All Sales Reps'],...getAccessSalesReps().map(rep=>['rep:'+rep.username,'Rep: '+rep.label])];
         return category==='actions'?actions:category==='views'?views:category==='reps'?reps:[...actions,...views,...reps.slice(1)];
     }

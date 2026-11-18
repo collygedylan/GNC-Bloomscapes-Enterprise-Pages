@@ -1,7 +1,7 @@
 {
   "schemaVersion": "gnc-release-artifact-v1",
-  "commit": "b16e0d8b59292a04e44822bcc6eadae89d7eb7e2",
-  "release": "AgData v3.1.14",
+  "commit": "5f52882374d70f4d00dd41b64b20007f9e23775a",
+  "release": "AgData v3.1.15",
   "files": [
     {
       "path": ".nojekyll",
@@ -215,8 +215,8 @@
     },
     {
       "path": "assets/app-api-transport.js",
-      "bytes": 23042,
-      "sha256": "f5d18458ca38f5de537f9e3add6bdd0670284dcfb515347adcf21a7e26d78890"
+      "bytes": 23181,
+      "sha256": "5feab0bf3f865c117134068d03cdeeaf4b613220303f72bafd5f92873522db78"
     },
     {
       "path": "assets/app-filter-capture.js",
@@ -235,8 +235,8 @@
     },
     {
       "path": "assets/app-runtime.js",
-      "bytes": 9719445,
-      "sha256": "64a86051838926a647b4bebf6e6cda04e0a9952d5db927c6a354220f19e3dbc8"
+      "bytes": 9560947,
+      "sha256": "96540f14cf03e65dc19154073d801081ac099a7517866b03a9ead9577a3bbaa3"
     },
     {
       "path": "assets/app-shell-prepaint.css",
@@ -460,8 +460,8 @@
     },
     {
       "path": "assets/battery-runtime-fragments.js",
-      "bytes": 73015,
-      "sha256": "fcb8d019cfd767db4dcf90d9a29a91caf40ead00a1782baddf7b0262ddbd9b7c"
+      "bytes": 99123,
+      "sha256": "9143ed261f9e4f8acc00d3d429cd9a5315f4f8c3cdeb277983ee4bc2f487a265"
     },
     {
       "path": "assets/bloom-cart-actions.js",
@@ -512,6 +512,11 @@
       "path": "assets/bloomscapes-card-images.js",
       "bytes": 1895,
       "sha256": "ffb3d3c8a69d378e00a0f70fd21b7753bd91f01f3e55d62280d1a2ba41cfd9cf"
+    },
+    {
+      "path": "assets/bloomscapes-cards.css",
+      "bytes": 12693,
+      "sha256": "7f0deb312066ed12d4b8c8b63e645d144ad1df89d16141ce5f63946e670aa861"
     },
     {
       "path": "assets/bloomscapes-comm-hub.js",
@@ -590,8 +595,8 @@
     },
     {
       "path": "assets/bloomscapes-farm-access.js",
-      "bytes": 5266,
-      "sha256": "efef2050991711308046830200c04e8973c672b118618d95616a55a185d8b2a5"
+      "bytes": 5294,
+      "sha256": "f8155e1e85b292f24616e7b23aef4ea5754ffd6736b33b15db2decb036de1562"
     },
     {
       "path": "assets/bloomscapes-farm-cache.js",
@@ -650,8 +655,8 @@
     },
     {
       "path": "assets/bloomscapes-filter-bar-compact.js",
-      "bytes": 4375,
-      "sha256": "e6dd6c4836c61c219e15d3e493b6b704533c8cc3425eca9703bcf08e9a336935"
+      "bytes": 4326,
+      "sha256": "d2f2fbfe7a3cff727453ff0179da45fe8ed531d430287159cd47870f2218ab1e"
     },
     {
       "path": "assets/bloomscapes-history.js",
@@ -660,8 +665,8 @@
     },
     {
       "path": "assets/bloomscapes-home.js",
-      "bytes": 12113,
-      "sha256": "3ce90251b4d90f6aadf866bb064b3d80b65fcfa586dcb43169edc4a28db56306"
+      "bytes": 12205,
+      "sha256": "127e7d53fa1bad00ebda9b1db473c1cbb7fd1a5ecb84cb7610f8db6805fe7a33"
     },
     {
       "path": "assets/bloomscapes-inventory-read.js",
@@ -730,8 +735,8 @@
     },
     {
       "path": "assets/bloomscapes-operations.js",
-      "bytes": 12134,
-      "sha256": "c233edd293e104f60354059dc24a629f31308abb4cf86d35577d7ed0efde40e4"
+      "bytes": 12043,
+      "sha256": "b8044fe1282f037d935eb6903d53e6b261deed88374b55938e0d47df89d07f64"
     },
     {
       "path": "assets/bloomscapes-owner-command.js",
@@ -815,8 +820,8 @@
     },
     {
       "path": "assets/bloomscapes-report-pages-controller.js",
-      "bytes": 9747,
-      "sha256": "9d0be78f8367ab2e8df47cd9225808bdfde383c80f0acbc0eb8a59a65e2a20a3"
+      "bytes": 9536,
+      "sha256": "f83a63a4ee2cd56ad1f7a71ef23992d729ec11e5bfa1e70808b7cd292676fc86"
     },
     {
       "path": "assets/bloomscapes-request-refresh.js",
@@ -827,6 +832,16 @@
       "path": "assets/bloomscapes-request-retry.js",
       "bytes": 7118,
       "sha256": "4b77f36d6fd88659d7882e82ef7ea3abb40f65132a9eb35275bcadc9889f75b0"
+    },
+    {
+      "path": "assets/bloomscapes-sales-cards.js",
+      "bytes": 9836,
+      "sha256": "fd59159fad32ebd3d31909f3d3736d4fdd109cfbdb93d02e4c584a587684410d"
+    },
+    {
+      "path": "assets/bloomscapes-sales-flyer.js",
+      "bytes": 2528,
+      "sha256": "ef890144de49f0ee43dc5e6f747976685331a06860e532eeb2e2f12c2f206891"
     },
     {
       "path": "assets/bloomscapes-studio.js",
@@ -855,8 +870,8 @@
     },
     {
       "path": "assets/bloomscapes-vault-filter.js",
-      "bytes": 2681,
-      "sha256": "6fd1dea607b39d00fb65a21ae2137af2d711e31b113d88ac8871a00914a4dfc0"
+      "bytes": 2173,
+      "sha256": "5f3480f467dbfc567281ca56966a1f6acc731f787d646953e19ec398ae6a0cc7"
     },
     {
       "path": "assets/bloomscapes-view-router.js",
@@ -920,18 +935,18 @@
     },
     {
       "path": "assets/bloomscapes-workflows.css",
-      "bytes": 36017,
-      "sha256": "b2d44f7c9f43c3052a2934f9708a572f3d790de7b3896388c7db8f4572677168"
+      "bytes": 35725,
+      "sha256": "a83d51b7fd6527f205afb30b5ac4af88897b47039ea13fe40b74488d628df452"
     },
     {
       "path": "assets/bloomscapes-workflows.js",
-      "bytes": 11792,
-      "sha256": "be43a99480bfd85d448410f7fce0a973724688b8672b25177a648a12827ba807"
+      "bytes": 11790,
+      "sha256": "dd684d31165ba7da2351109abe89e5474df59b35fbc8ead20790752590de8d6d"
     },
     {
       "path": "assets/body-prepaint-theme.js",
-      "bytes": 228,
-      "sha256": "8489b86cc2de8c79722aaf569009d3e3d1ef135061dba28724c32532b185a92c"
+      "bytes": 607,
+      "sha256": "368ca5a7af6ff9b62bf1a9bcb13a991fcb60141281f2c19272da3aa019bcd779"
     },
     {
       "path": "assets/bounded-snapshot-cache.js",
@@ -1315,8 +1330,8 @@
     },
     {
       "path": "assets/global-back-surfaces-1.js",
-      "bytes": 7365,
-      "sha256": "e4b5e2d9e6b36c1abf61052c8ae92b827d1583bc512431b3fe4f0cd506d234a3"
+      "bytes": 7272,
+      "sha256": "584b930f1c6bf5a718fbf9c69f560c30b6c44568072e21627d6f800099a8c798"
     },
     {
       "path": "assets/global-back-surfaces-2.js",
@@ -1330,8 +1345,8 @@
     },
     {
       "path": "assets/header-navigation-state.js",
-      "bytes": 6264,
-      "sha256": "198a848589397b61aab07cabd5b40f5d887ddb080969d1f3fbff0d79e78e07b8"
+      "bytes": 6492,
+      "sha256": "e3eb8f390b446ac0471041e2d8ab0e0a3c1d5d55087c1811431a8c04eb972e16"
     },
     {
       "path": "assets/historical-requests-chunks/HistoricalRequestsView-OMPPTSSH.js",
@@ -1395,13 +1410,13 @@
     },
     {
       "path": "assets/inventory-browse-workspaces.js",
-      "bytes": 9640,
-      "sha256": "14aeb6baf6c51da62bda481c3392aa902146e51b93ac21047d31180371ba1f27"
+      "bytes": 8563,
+      "sha256": "14f037df60677492288f1b8b27b778bb6bbcda490ede19b2ed765db7abc12345"
     },
     {
       "path": "assets/inventory-card-context.js",
-      "bytes": 22088,
-      "sha256": "5c5fe863913765e8f7ee2b6ce01244199ec27da631dcb2fe37fd24e26d359630"
+      "bytes": 22278,
+      "sha256": "fd74187b25c072d9e1979ce2092b57595ce2a0457562e4eac043ca5a5efa4e62"
     },
     {
       "path": "assets/inventory-card-window.js",
@@ -1470,8 +1485,8 @@
     },
     {
       "path": "assets/live-app-runtime-v2026082010.min.js",
-      "bytes": 9235030,
-      "sha256": "19d94fe4943c632a2a3774315dcb68e675b21e5017944bbc8638021b47b32b6d"
+      "bytes": 9269756,
+      "sha256": "965356c8c3718d6d1b41b19484c334331dccf19e0b2005de5d7a6ecfdac3d04e"
     },
     {
       "path": "assets/live-app-styles-authority-v2026090503.css",
@@ -1510,8 +1525,8 @@
     },
     {
       "path": "assets/live-tailwind-v2026082010.min.css",
-      "bytes": 103892,
-      "sha256": "2038a83d32dacf5038f224bdb4b4ee378e40cdcca51c203f878094f87864ba3c"
+      "bytes": 103943,
+      "sha256": "9a7bde923831a9d595b98052fc5b6c7856e358902f4c02e6eeee634df73a3784"
     },
     {
       "path": "assets/loaded-inventory-master.js",
@@ -1560,8 +1575,8 @@
     },
     {
       "path": "assets/manager-excel-mounts.js",
-      "bytes": 4757,
-      "sha256": "fdf1ae780a6b112c44270ef4b5f1c5342497fd01f843f4fcbc5dcbf0cc5d6dac"
+      "bytes": 4698,
+      "sha256": "51249c4c9b36b9aa4c3d98539045c2fb2cb1ff369aaf63b077394661b3cfd2b1"
     },
     {
       "path": "assets/manager-module-meta.js",
@@ -1570,8 +1585,8 @@
     },
     {
       "path": "assets/manager-module-render.js",
-      "bytes": 25039,
-      "sha256": "cc724f4042e8c5b8663dc46ac28393331e3617739ff65bcaf024f9e289db3538"
+      "bytes": 26843,
+      "sha256": "06a1a0a0a1335ce7ecd105aaf7076bc917ce0f7f2c0af559821884c5bf55bad9"
     },
     {
       "path": "assets/manager-source-live-events.js",
@@ -1580,8 +1595,8 @@
     },
     {
       "path": "assets/manager-tab-routing.js",
-      "bytes": 19579,
-      "sha256": "fc86531a5276a924377bd41d8a72871f28eda0801313e99073e183a456b47ad1"
+      "bytes": 19508,
+      "sha256": "7aa8740dfa864be1f5f5ce46ec45ce1ddda4de4a5ef1ea919401119ff27d0b26"
     },
     {
       "path": "assets/manager-table-layout.js",
@@ -1635,8 +1650,8 @@
     },
     {
       "path": "assets/navigation-preferences.js",
-      "bytes": 27521,
-      "sha256": "d58da9afa3b9a26906852b80bb0e1ace503f18c1228dcc252532e7eb40ba09ea"
+      "bytes": 27366,
+      "sha256": "059e4ed0a93bba58a220b67f8bdaf1b428b69be095e13bc6540860aac7e7f346"
     },
     {
       "path": "assets/navigation-routing.js",
@@ -1690,8 +1705,8 @@
     },
     {
       "path": "assets/ops-precision-pilot.js",
-      "bytes": 47455,
-      "sha256": "23a0b18acc1835c84ed7c4b9083c0e5db95059f16c7ce66094b41e582477327f"
+      "bytes": 48208,
+      "sha256": "7248305b4368e83bc8b3fef36fe9beabc8cfa82e6b548acfeba68caba31d2577"
     },
     {
       "path": "assets/photo-bitmap-decoder.js",
@@ -1711,12 +1726,12 @@
     {
       "path": "assets/photo-optimizer.js",
       "bytes": 9729,
-      "sha256": "50627f535d283ea9b6dfb6837778d89e80cc3298027667b20500d930b83d1ab3"
+      "sha256": "78335543418b283dcd8cc943f6c835af24568a36114d4a4c2c946976e171ec76"
     },
     {
       "path": "assets/photo-publication-fallback.js",
-      "bytes": 3412,
-      "sha256": "bd158df93726d9d58649181cf0925983c9cd652c36317841748dcc4ef20d5bdb"
+      "bytes": 3573,
+      "sha256": "dc34c3fb0e26b5b267c47486c208f10de335216efc4586add2ed5acaa4a031d2"
     },
     {
       "path": "assets/photo-storage-config.js",
@@ -2874,6 +2889,11 @@
       "sha256": "00ecfbf0bbc4f62881971c7fbe38c95dc52e4c864d906e454fe917c57b738368"
     },
     {
+      "path": "assets/report-panel-export.js",
+      "bytes": 6471,
+      "sha256": "8e7c32ad6d9aa02226193eac45e7e6b657c9229189b5b6ef7fc2bc66824c6dc3"
+    },
+    {
       "path": "assets/request-detail-av-options.js",
       "bytes": 15499,
       "sha256": "180c2380e09d5d0123250a8b1579544ed87248c077b6f49c161a232e40005387"
@@ -2990,8 +3010,13 @@
     },
     {
       "path": "assets/runtime-watchdog.js",
-      "bytes": 45396,
-      "sha256": "300f57bd5762aebdbcb3a5fbeff99362b984b26fb9c4dd2a815c42e807373880"
+      "bytes": 44923,
+      "sha256": "aa68203fb8a70ea117faba8a73ed83c74480aeb2d18c4e527862ea75853c8b7a"
+    },
+    {
+      "path": "assets/sales-compatibility-read.js",
+      "bytes": 2142,
+      "sha256": "409e71e0a302aafb1296687f1b7d8b5a64fb7abfbd560ca9e080ca05dd695801"
     },
     {
       "path": "assets/sales-workspace.css",
@@ -3070,8 +3095,8 @@
     },
     {
       "path": "assets/user-access-control.js",
-      "bytes": 79139,
-      "sha256": "0de0d9ec235962a24f60af3f90db8ea2d72e32810c7d7a0ddf606d11edb3a3c4"
+      "bytes": 79131,
+      "sha256": "21a3048ab0ac2051dd5133c5db5ceba7ea21ed74e00cc1d60c6bfd02f3a40a93"
     },
     {
       "path": "assets/vendor/fabric-6.7.1.min.mjs",
@@ -3216,17 +3241,17 @@
     {
       "path": "components/common/auraVoiceWidget.js",
       "bytes": 89161,
-      "sha256": "cd8a3b99a09e912fcd417807bf8638f2da8e3146c7d54927d4c251e01e8125db"
+      "sha256": "167ded2ab838a327411828b05b73f0397011ea0aa1c90f32ceeeaae751277369"
     },
     {
       "path": "deployment-fingerprint.json",
       "bytes": 187,
-      "sha256": "90401a3df66b04697ee0f749a01432e8bb5b0db5c44ee97ab2247d30e5fb03cf"
+      "sha256": "3139ec97554eea4af9e172da9532d40d3b740b0e226dd81c3d7f6f3e98350f1a"
     },
     {
       "path": "deployment.json",
       "bytes": 187,
-      "sha256": "90401a3df66b04697ee0f749a01432e8bb5b0db5c44ee97ab2247d30e5fb03cf"
+      "sha256": "3139ec97554eea4af9e172da9532d40d3b740b0e226dd81c3d7f6f3e98350f1a"
     },
     {
       "path": "deployments/00605449467180cae09703db28b9c9aeb53f25a8.json",
@@ -3352,6 +3377,11 @@
       "path": "deployments/501bcc9a6587e47e2e109dcf8a6d03bfa38cf44e.json",
       "bytes": 0,
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "deployments/5f52882374d70f4d00dd41b64b20007f9e23775a.json",
+      "bytes": 187,
+      "sha256": "3139ec97554eea4af9e172da9532d40d3b740b0e226dd81c3d7f6f3e98350f1a"
     },
     {
       "path": "deployments/617fd35f1b5eebba44faa1b8dc9508fd2a617921.json",
@@ -3540,13 +3570,13 @@
     },
     {
       "path": "index.html",
-      "bytes": 424233,
-      "sha256": "7e72cb70c79a1e319444466db8c2efc0deb2912a7680dc8f448e26fb4e0c946c"
+      "bytes": 422230,
+      "sha256": "ea2bfd894e41ae17d5ef48fc4513c384625460a06195fd247279ae21e202c738"
     },
     {
       "path": "manifest.json",
       "bytes": 764,
-      "sha256": "12c4c5a42a4841bb2d7d8b9e7a8aa1dc7d7b7152ec50cabcee595ed902c2e12f"
+      "sha256": "86a3104ea6b176258a3a6dc9d0a436ee8e9d5823b63cdd0bbb9abe05c1089dce"
     },
     {
       "path": "reports/index.html",
@@ -3620,13 +3650,13 @@
     },
     {
       "path": "sw.js",
-      "bytes": 38025,
-      "sha256": "1963ca80f65e33f753f594af4bd9c1848fafbdc6c447c6d788c1b8af8cd3e768"
+      "bytes": 38067,
+      "sha256": "42297145e0673a5891c7173a31385e46381529c302924cccb6bdf0d0506d291e"
     },
     {
       "path": "utils/auraIntentParser.js",
       "bytes": 10961,
-      "sha256": "1e995a42851b15b26d034a0f2ce721014c991e81d7b5ee64b19d12fb4f720b7a"
+      "sha256": "aca076c4b012c9ceba0112185e21375d40b02b5ec724a2940b20e5dcbc35361b"
     },
     {
       "path": "utils/auraLingo.js",
@@ -3691,7 +3721,7 @@
     {
       "path": "v2/manifest.webmanifest",
       "bytes": 624,
-      "sha256": "1d859dd8383d728d7c2204ed17fe0b8f56da9b5b50ab1b9f612aa72379e8c7db"
+      "sha256": "f116288a279bd2d035ca58df441e4d2747823e5ebbf61bce71ba1b37819ac9e2"
     },
     {
       "path": "v2/partner/.gitattributes",
@@ -3876,7 +3906,7 @@
     {
       "path": "version.json",
       "bytes": 134,
-      "sha256": "39c33e09c7a1a3e0235456a94f1bed365bd8c2a12c52b77bbc8131caa1775f6a"
+      "sha256": "e5e9500ec30c10bb9fbc9ef782795d573eec0e5d62329fefa4c3dc2fdaac89a2"
     }
   ]
 }

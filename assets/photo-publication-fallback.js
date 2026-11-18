@@ -41,12 +41,14 @@ async function dispatchBloomscapesPhotoRpc(operation,command,send,options={}) {
 
 async function postAppFunctionJson(url, body, options = {}) {
     const command = JSON.parse(JSON.stringify(body || {}));
-    const owner = getSupabaseReadIdentityScope();
+    const bridgeOwner = command.action === 'native_session_bridge' ? getNativeSessionBridgeRequestOwner() : '';
+    const owner = bridgeOwner ? null : getSupabaseReadIdentityScope();
     const epoch = nativeAuthRecoveryEpoch;
     try {
         const result = await retryOperationalRpc(async () => ({ok:true,value:await postAppFunctionAttempt(url,command,options)}), {
             safe:isRecoverableOperationalRead(command), signal:options.signal,
-            current:() => owner === getSupabaseReadIdentityScope() && epoch === nativeAuthRecoveryEpoch
+            current:() => epoch === nativeAuthRecoveryEpoch && (bridgeOwner
+                ? bridgeOwner === getNativeSessionBridgeRequestOwner() : owner === getSupabaseReadIdentityScope())
         });
         return result.value;
     } catch (error) {

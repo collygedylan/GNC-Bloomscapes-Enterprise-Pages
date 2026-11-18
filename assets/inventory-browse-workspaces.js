@@ -55,6 +55,7 @@ function renderBloomscapesNativeSalesOffice(view) {
     for (const [key,title] of entries) {
         const button=menu.appendChild(document.createElement('button'));
         button.type='button';button.textContent=title;
+        button.dataset.salesSection=key;button.setAttribute('aria-pressed','false');
         button.addEventListener('click',()=>openSalesStudioSection(studio,key));
     }
     return true;
@@ -67,6 +68,10 @@ function openBloomscapesSalesFlyerStudio(view) {
 }
 
 function openSalesStudioSection(studio,key) {
+    if (!studio) return;
+    for (const button of studio.querySelectorAll('[data-sales-section]')) {
+        button.setAttribute('aria-pressed',String(button.dataset.salesSection===key));
+    }
     const host=studio.querySelector('[data-sales-content]');
     host.replaceChildren();
     if (key==='archive') {
@@ -76,48 +81,30 @@ function openSalesStudioSection(studio,key) {
     if (key==='rep') return mountSalesRepRecords(host);
     if (key==='flyer' && canAccessView('tasks')) {
         const folders=host.appendChild(document.createElement('button'));
-        folders.textContent='Open Flyer Folders';
+        folders.type='button';folders.className='sales-studio-navigation';folders.textContent='Open Flyer Folders';
         folders.addEventListener('click',()=>{switchView('tasks');setTaskTab('flyer');});
     }
     if (key==='smart' && canAccessView('smart-moves')) {
         const moves=host.appendChild(document.createElement('button'));
-        moves.textContent='Open Smart Sales & Move Intelligence';
+        moves.type='button';moves.className='sales-studio-navigation';moves.textContent='Open Smart Sales & Move Intelligence';
         moves.addEventListener('click',()=>switchView('smart-moves'));
     }
-    mountSalesStudioLots(host);
+    mountSalesStudioLots(host,key);
 }
 
-function mountSalesStudioLots(host) {
+function mountSalesStudioLots(host,key) {
     const search=host.appendChild(document.createElement('input'));
     search.type='search';search.placeholder='Find evaluated inventory';search.setAttribute('aria-label',search.placeholder);
     const list=host.appendChild(document.createElement('div'));
+    list.className='bloomscapes-sales-card-list';
     const render=()=>{
         const rows=bloomscapesWorkBrowserRows(search.value).map(row=>resolveCanonicalInventoryRow(row))
             .filter(row=>Number(row.LOC_PHOTO_MATCH)>0);
-        list.replaceChildren(...rows.slice(0,50).map(salesStudioLot));
+        list.replaceChildren(...rows.slice(0,50).map(row=>buildBloomscapesSalesInventoryCard(row,key)));
         if (rows.length>50) list.append('Showing 50 of '+rows.length+' lots. Refine your search.');
         if (!rows.length) list.textContent='No matching evaluated lots.';
     };
     search.addEventListener('input',render);render();
-}
-
-function salesStudioLot(row) {
-    const card=document.createElement('article');
-    card.textContent=[row.COMMONNAME,row.ITEMCODE,row.LOCATIONCODE,row.LOTCODE,'Loc Photo Match '+row.LOC_PHOTO_MATCH].join(' · ');
-    for (const [action,label] of [['flyer','Add to Flyer'],['request_action','Add to Request']]) {
-        const button=card.appendChild(document.createElement('button'));
-        button.textContent=label;
-        button.addEventListener('click',()=>addSalesStudioLot(row,action));
-    }
-    return card;
-}
-
-function addSalesStudioLot(row,action) {
-    const id=row.DOM_ID;
-    if (!id || !bloomscapesFarmRowIsVisible(row)) return;
-    const selected=()=>getCartSelectedItems().some(item=>item.DOM_ID===id);
-    if (!selected()) toggleGlobalItem(id);
-    if (selected()) initiateBatchAction(action);
 }
 
 function mountSalesRepRecords(host) {
@@ -128,56 +115,52 @@ function mountSalesRepRecords(host) {
     const rep=host.appendChild(document.createElement('input'));
     rep.type='search';rep.placeholder='Filter by sales rep';rep.setAttribute('aria-label',rep.placeholder);
     const list=host.appendChild(document.createElement('div'));
-    const more=host.appendChild(document.createElement('button'));more.textContent='Load more';
-    let revision=0,page=0;
-    const load=async(reset)=>{
-        const current=++revision;
-        if (reset) {page=0;list.replaceChildren();}
-        more.disabled=true;
-        try {
-            const rows=await readBloomscapesPanel('sales-studio-records',{kind:kind.value,page,rep:rep.value.trim()});
-            if (revision!==current || !list.isConnected) return;
-            list.append(...rows.map(salesStudioRecord));
-            if (!page && !rows.length) list.textContent='No matching records.';
-            page++;more.hidden=rows.length<50;
-        } catch (error) {if (revision===current) more.textContent='Retry · '+error.message;}
-        finally {if (revision===current) more.disabled=false;}
-    };
-    rep.addEventListener('change',()=>load(true));
-    kind.addEventListener('change',()=>load(true));
-    more.addEventListener('click',()=>load(false));
-    void load(true);
+    list.className='bloomscapes-sales-card-list';
+    const more=host.appendChild(document.createElement('button'));
+    more.type='button';more.className='sales-studio-navigation';more.textContent='Load more';
+    const state={kind,rep,list,more,page:0,revision:0,owner:getSupabaseReadIdentityScope(),farm:getBloomscapesFarm()};
+    rep.addEventListener('change',()=>loadSalesRepRecords(state,true));
+    kind.addEventListener('change',()=>loadSalesRepRecords(state,true));
+    more.addEventListener('click',()=>loadSalesRepRecords(state,false));
+    void loadSalesRepRecords(state,true);
 }
 
-function salesStudioRecord(row) {
-    const card=document.createElement('article');
-    card.textContent=[row.rep,row.customer,row.itemcode,row.quantity].filter(Boolean).join(' · ');
-    if (row.folder) {
-        const link=card.appendChild(document.createElement('a'));
-        link.href='?'+new URLSearchParams({request_gallery:row.folder,row_id:row.row_id});
-        link.textContent='Open photo gallery';
-        const pdf=card.appendChild(document.createElement('button'));
-        pdf.textContent='Export PDF';pdf.addEventListener('click',()=>printSalesStudioGallery(row,pdf));
+async function loadSalesRepRecords(state, reset) {
+    const {kind,rep,list,more}=state;
+    const current=++state.revision;
+    if (reset) {
+        state.page=0;
+        list.replaceChildren();
     }
-    return card;
+    more.disabled=true;
+    more.textContent='Load more';
+    try {
+        const rows=await readBloomscapesPanel('sales-studio-records',{kind:kind.value,page:state.page,rep:rep.value.trim()});
+        if (ownsSalesRepPage(state,current)) showSalesRepPage(state,rows);
+    } catch (error) {
+        if (ownsSalesRepPage(state,current)) {
+            more.hidden=false;
+            more.textContent='Retry · '+error.message;
+        }
+    } finally {
+        if (state.revision===current) more.disabled=false;
+    }
 }
 
-async function printSalesStudioGallery(row,button) {
-    const popup=window.open('','_blank');
-    if (!popup) return;
-    popup.opener=null;
-    popup.document.title='Request photos · '+(row.customer || row.itemcode);
-    try {
-        const gallery=await readRequestPhotoGallery(row.folder,row.row_id);
-        for (const crop of gallery.rows) {
-            const section=popup.document.body.appendChild(popup.document.createElement('section'));
-            section.textContent=[crop.commonName,crop.size,crop.location,crop.avNote].filter(Boolean).join(' · ');
-            for (const url of crop.photos) {
-                const image=section.appendChild(popup.document.createElement('img'));
-                image.src=url;image.style.cssText='display:block;max-width:100%;max-height:80vh';
-            }
-        }
-        await Promise.all(Array.from(popup.document.images,img=>img.decode()));
-        popup.print();
-    } catch (error) {popup.close();button.textContent='Retry export · '+error.message;}
+function ownsSalesRepPage(state, revision) {
+    return state.revision===revision && state.list.isConnected
+        && state.owner===getSupabaseReadIdentityScope() && state.farm===getBloomscapesFarm();
+}
+
+function showSalesRepPage(state, rows) {
+    const lookup=createSalesStudioTargetLookup();
+    state.list.append(...rows.map(row=>buildSalesRepRecordCard(row,lookup(row))));
+    if (!state.page && !rows.length) state.list.textContent='No matching records.';
+    state.page++;
+    state.more.hidden=rows.length<50;
+}
+
+function buildSalesRepRecordCard(record, row) {
+    const pdfAction = record.folder ? button=>printSalesStudioGallery(record,button) : null;
+    return renderBloomscapesSalesCard(record,row,pdfAction);
 }

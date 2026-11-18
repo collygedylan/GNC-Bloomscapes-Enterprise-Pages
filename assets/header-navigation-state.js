@@ -92,6 +92,9 @@ function applyGlobalBackState(state) {
     button.disabled = !showBack;
     button.setAttribute('aria-hidden', visible ? 'false' : 'true');
     button.setAttribute('aria-disabled', showBack ? 'false' : 'true');
+    const accessBack=currentView==='managers' && getActiveBloomscapesUserDirectory()?.showingDetail();
+    button.setAttribute('aria-label',accessBack?'Back to Users':'Back');
+    button.title=accessBack?'Back to Users':'Back';
     if (visible) ['display', 'visibility', 'pointer-events'].forEach(prop => button.style.removeProperty(prop));
     if (modalBack && typeof button.showPopover === 'function') {
         button.setAttribute('popover', 'manual');

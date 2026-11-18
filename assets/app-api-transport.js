@@ -122,12 +122,22 @@ async function postReclassCommand(body, options = {}) {
     }
 }
 
+function getNativeSessionBridgeRequestOwner() {
+    const id = String(nativeAuthSessionUserId || '').trim();
+    if (!nativeAuthSessionActive || !id || id !== String(nativeAuthProfile?.id || '').trim()
+        || nativeAuthProfile.active === false || nativeAuthProfile.disabled_at) return '';
+    return JSON.stringify([id,nativeAuthProfile.username,nativeAuthProfile.role,nativeAuthProfile.division]);
+}
+
 async function postAppFunctionAttempt(url, body, options = {}) {
             if (!isAllowedAppHostname()) throw Object.assign(new Error('Origin not allowed'), { code: 'APP_ORIGIN_DENIED' });
             const safeOptions = (options && typeof options === 'object' && !Array.isArray(options)) ? options : {};
             const action = String(body?.action || '').trim().toLowerCase();
             const authEpoch = nativeAuthRecoveryEpoch;
             const callOwner = String(currentUser || '').trim().toLowerCase();
+            const bridgeOwner = action === 'native_session_bridge' ? getNativeSessionBridgeRequestOwner() : '';
+            const current = () => authEpoch === nativeAuthRecoveryEpoch && (bridgeOwner
+                ? bridgeOwner === getNativeSessionBridgeRequestOwner() : callOwner === String(currentUser || '').trim().toLowerCase());
             if (PRELOGIN_BACKGROUND_ACTIONS.has(action) && isLoginScreenVisible()) return preLoginBackgroundFallback(body);
             const headers = { 'Content-Type': 'application/json', 'x-client-info': 'agdata/' + APP_VERSION };
             if (SUPABASE_KEY) {
@@ -135,10 +145,12 @@ async function postAppFunctionAttempt(url, body, options = {}) {
                 headers['Authorization'] = 'Bearer ' + SUPABASE_KEY;
             }
             const headerOptions = {signal:safeOptions.signal, timeoutMs:Math.max(15000, Number(safeOptions.timeoutMs) || 18000),
-                current:() => authEpoch === nativeAuthRecoveryEpoch && callOwner === String(currentUser || '').trim().toLowerCase()};
-            const nativeHeaders = safeOptions.nativeHeaders || await waitForOperationalPrerequisite(
-                () => getNativeAuthRequestHeaders().catch(() => null), headerOptions);
-            if (authEpoch !== nativeAuthRecoveryEpoch || callOwner !== String(currentUser || '').trim().toLowerCase()) throw staleSupabaseReadScopeError();
+                current};
+            const readHeaders = () => waitForOperationalPrerequisite(() => getNativeAuthRequestHeaders().catch(() => null), headerOptions);
+            let nativeHeaders = safeOptions.nativeHeaders || await readHeaders();
+            if (bridgeOwner && !nativeHeaders?.Authorization) nativeHeaders = await readHeaders();
+            if (bridgeOwner && !nativeHeaders?.Authorization) throw nativeSessionRecoveryError();
+            if (!current()) throw staleSupabaseReadScopeError();
             if (action === 'erp_sync' && !nativeHeaders?.Authorization && !getCurrentAppSessionToken()) throw nativeSessionRecoveryError();
             if (safeOptions.signal?.aborted) throw Object.assign(new Error('App function read cancelled.'), { code: 'REQUEST_ABORTED' });
             const idempotencyKey = String(safeOptions.idempotencyKey || '').trim();
@@ -154,16 +166,15 @@ async function postAppFunctionAttempt(url, body, options = {}) {
                 signal: detached ? undefined : safeOptions.signal,
                 keepalive: safeOptions.keepalive === true
             }, Number(safeOptions.timeoutMs || 18000), String(safeOptions.label || 'App Function'), detached);
-            if (authEpoch !== nativeAuthRecoveryEpoch || callOwner !== String(currentUser || '').trim().toLowerCase()) throw staleSupabaseReadScopeError();
+            if (!current()) throw staleSupabaseReadScopeError();
             if (!response.ok) {
                 const message = payload && typeof payload === 'object' ? String(payload.error || payload.message || `Request failed (${response.status})`).trim() : `Request failed (${response.status})`;
                 const responseCode = String(payload && (payload.code || payload.sqlstate || payload.sqlState) || '').trim().toUpperCase();
-                const authenticatedAction = callOwner && (nativeHeaders?.Authorization || safeOptions.includeSession !== false);
+                const authenticatedAction = (bridgeOwner || callOwner) && (nativeHeaders?.Authorization || safeOptions.includeSession !== false);
                 if (response.status === 401 && authenticatedAction && !safeOptions.authRetried
-                    && (!responseCode || responseCode === 'AUTH_REQUIRED') && authEpoch === nativeAuthRecoveryEpoch
-                    && callOwner === String(currentUser || '').trim().toLowerCase() && !safeOptions.signal?.aborted) {
+                    && (!responseCode || responseCode === 'AUTH_REQUIRED') && current() && !safeOptions.signal?.aborted) {
                     const refreshed = await waitForOperationalPrerequisite(() => getNativeAuthRequestHeaders(true), headerOptions);
-                    if (refreshed && authEpoch === nativeAuthRecoveryEpoch && callOwner === String(currentUser || '').trim().toLowerCase()
+                    if (refreshed && current()
                         && (action !== 'erp_sync' || canRunManualInventoryImport())) {
                         return postAppFunctionAttempt(url, body, { ...safeOptions, authRetried:true, nativeHeaders:refreshed, includeSession:false });
                     }

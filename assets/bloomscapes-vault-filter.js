@@ -28,32 +28,21 @@ function bindBloomscapesVaultFilter(host,rows,render) {
     apply();
 }
 
-function renderBloomscapesVaultPdf(item,row) {
-    if (row.sandbox_delivery_status === 'sandbox_archived_for_dylan') {
-        const receipt=document.createElement('span');
-        receipt.textContent='Archived for Dylan · Storage and local copies verified';
-        item.appendChild(receipt);
-    }
-    const button=document.createElement('button');
-    button.type='button';
-    button.textContent='Open / Print PDF';
-    button.addEventListener('click',async()=>{
-        if(button.disabled) return;
-        button.disabled=true;
-        const tab=window.open('about:blank','_blank');
-        if(tab) tab.opener=null;
-        try {
-            const result=await submitBloomscapesCommand('pdf-link',{id:row.pdf_id});
-            if(tab) tab.location.href=result.signedUrl;
-            else {
-                const link=document.createElement('a');
-                link.href=result.signedUrl;link.target='_blank';link.rel='noopener noreferrer';
-                link.textContent='Open PDF';item.appendChild(link);
-            }
-        } catch(error) {
-            tab?.close();
-            button.textContent=error.message;
-        } finally {button.disabled=false;}
-    });
-    item.appendChild(button);
+async function openBloomscapesVaultPdf(row,button) {
+    if (button.disabled) return;
+    button.disabled=true;
+    const tab=window.open('about:blank','_blank');
+    if (tab) tab.opener=null;
+    try {
+        const result=await submitBloomscapesCommand('pdf-link',{id:row.pdf_id});
+        if (tab) tab.location.href=result.signedUrl;
+        else {
+            const link=document.createElement('a');
+            link.href=result.signedUrl;link.target='_blank';link.rel='noopener noreferrer';
+            link.textContent='Open PDF';button.after(link);
+        }
+    } catch(error) {
+        tab?.close();
+        showToast('Export PDF',error.message,true);
+    } finally {button.disabled=false;}
 }

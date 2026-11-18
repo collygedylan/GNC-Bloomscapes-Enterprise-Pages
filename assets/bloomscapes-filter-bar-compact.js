@@ -20,7 +20,7 @@ function setBloomscapesCountedFilter(scope,key,value) {
 }
 
 function renderManagerEvalReport2BrowseModeSwitch() {
-    return '<label class="bloomscapes-compact-select manager-eval2-view-switch">View<select aria-label="Eval Reports #2 View" onchange="return setManagerEvalReport2BrowseMode(this.value)">'
+    return '<label class="bloomscapes-compact-select manager-eval2-view-switch">View<select aria-label="Reports View" onchange="return setManagerEvalReport2BrowseMode(this.value)">'
         +'<option value="plant" '+(managerEvalReport2BrowseMode!=='location'?'selected':'')+'>Itemcodes / Common Name</option>'
         +'<option value="location" '+(managerEvalReport2BrowseMode==='location'?'selected':'')+'>Block / Location</option></select></label>';
 }
