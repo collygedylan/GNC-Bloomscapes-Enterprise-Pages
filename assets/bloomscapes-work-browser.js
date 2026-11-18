@@ -29,7 +29,7 @@ const bloomscapesWorkBrowserControllers=new WeakMap();
 function mountBloomscapesWorkBrowser(host,onSelect,options={}) {
     const state={owner:getSupabaseReadIdentityScope(),mode:'block',path:[],onSelect,options};
     host.innerHTML='<label class="bloomscapes-compact-select">View<select data-work-modes aria-label="Work View"><option value="block">Block / Location</option><option value="common">Itemcodes / Common Name</option><option value="all">All Cards</option></select></label>'
-        +'<h3>Step 2: BlockAlpha → BlockNumber → All Rows / Cards</h3>'
+        +'<h3>Browse inventory</h3>'
         +'<input type="search" data-work-search aria-label="Search work source inventory" placeholder="Search Names, ItemCodes, or Locations...">'
         +'<details data-work-more><summary>More</summary><div data-work-filters></div></details>'
         +'<button type="button" data-work-back>Back in work inventory</button><p data-work-breadcrumb></p>'
@@ -60,21 +60,22 @@ function bloomscapesWorkBrowseProjection(host,state) {
     const filters=Object.fromEntries([...host.querySelectorAll('[data-work-filter]')].map(select=>[select.dataset.workFilter,select.value]));
     const all=applyInventoryExcelFilters(state.options.scope || 'studio',bloomscapesWorkBrowserRows(search,filters));
     const rows=all.filter(row=>{
-        const parts=bloomscapesWorkBrowseParts(row,state.mode);
+        const parts=bloomscapesWorkBrowseParts(row,state.mode,state.options);
         return state.path.every((part,index)=>part===parts[index]);
     });
     const leaf=state.mode==='all' || search.trim()!=='' || state.path.length>=(state.mode==='block'?2:3);
     if (leaf) return {rows,leaf,groups:[]};
     const groups=new Map();
     for (const row of rows) {
-        const parts=bloomscapesWorkBrowseParts(row,state.mode);
+        const parts=bloomscapesWorkBrowseParts(row,state.mode,state.options);
         const key=parts[state.path.length] || 'No common name recorded';
         groups.set(key,(groups.get(key) || 0)+1);
     }
     return {rows,leaf,groups:[...groups].sort(([a],[b])=>a.localeCompare(b,undefined,{numeric:true}))};
 }
 
-function bloomscapesWorkBrowseParts(row,mode) {
+function bloomscapesWorkBrowseParts(row,mode,options) {
+    if (mode==='block' && options.locationDrill) return [getDriveBlockAlphaLabel(getDriveBlockAlphaValue(row)),row.LOCATIONCODE || row.locationcode || 'No location'];
     const identity=bloomscapesWorkBrowserIdentity(row);
     return mode==='block' ? bloomscapesWorkLocationParts(row) : [identity.common,identity.size,identity.lot || identity.season];
 }
@@ -91,14 +92,12 @@ function renderBloomscapesWorkBrowser(host,state) {
     if (typeof parkBloomscapesWorkRowEditor==='function') parkBloomscapesWorkRowEditor(host);
     const cards=projection.leaf ? projection.rows.map(row=>bloomscapesWorkSourceCard(row,state.onSelect,state.options))
         : projection.groups.map(([key,count])=>bloomscapesWorkBrowseGroup(host,state,key,count,projection.rows));
-    list.dataset.planningRevision=String(Number(list.dataset.planningRevision || 0)+1);
     list.replaceChildren(...cards);
-    if (projection.leaf && !state.options.browseOnly) hydrateBloomscapesPlanningCards(list,projection.rows);
 }
 
 function renderBloomscapesWorkGroupSelection(host,state,rows) {
     const tools=host.querySelector('[data-work-group-selection]');tools.replaceChildren();
-    if (state.options.browseOnly) return;
+    if (state.options.browseOnly || state.options.locationDrill) return;
     if (state.mode!=='block' || state.path.length<2 || !rows.length) return;
     const [alpha,number]=state.path;
     const badge=tools.appendChild(document.createElement('strong'));badge.dataset.blockLifecycle='true';
@@ -116,12 +115,12 @@ function bloomscapesWorkBrowseGroup(host,state,key,count,rows) {
     const group=document.createElement('section');
     const button=group.appendChild(document.createElement('button'));
     button.type='button';button.dataset.workBrowseGroup=key;
-    const cohort=rows.filter(row=>bloomscapesWorkBrowseParts(row,state.mode)[state.path.length]===key);
+    const cohort=rows.filter(row=>bloomscapesWorkBrowseParts(row,state.mode,state.options)[state.path.length]===key);
     const beds=new Set(cohort.map(row=>row.LOCATIONCODE || row.locationcode)).size;
     button.className='bloomscapes-work-group';button.textContent=key+' · '+count+' rows · '+beds+' beds';
-    if (state.mode==='block' && state.path.length===1) button.textContent+=' · '+bloomscapesBlockLifecycleStage(state.path[0],key);
+    if (!state.options.locationDrill && state.mode==='block' && state.path.length===1) button.textContent+=' · '+bloomscapesBlockLifecycleStage(state.path[0],key);
     button.addEventListener('click',()=>{state.path.push(key);renderBloomscapesWorkBrowser(host,state);});
-    if (!state.options.browseOnly && state.mode==='block' && state.path.length===1) {
+    if (!state.options.browseOnly && !state.options.locationDrill && state.mode==='block' && state.path.length===1) {
         const quick=group.appendChild(document.createElement('button'));quick.type='button';quick.dataset.queueWorkBlock=key;
         quick.textContent='⚡ Queue Whole Block '+state.path[0]+'.'+key+' ('+count+' rows)';
         quick.addEventListener('click',()=>state.onSelect(cohort[0],'BLOCK'));
@@ -160,11 +159,14 @@ function bloomscapesWorkSourceCard(row,onSelect,options={}) {
         card.innerHTML=generateCard(row,'drive','status-green',{originView:getCurrentVisibleViewId()});
         return card;
     }
-    card.innerHTML=bloomscapesWorkIdentityMarkup(row);
+    card.innerHTML=bloomscapesWorkIdentityMarkup(row,{summary:true});
     const button=card.appendChild(document.createElement('button'));
     button.type='button';button.dataset.workSourceRow=String(row.UNIQUE_ID || row.unique_id);
     button.textContent='Select this physical row';
     button.addEventListener('click',()=>onSelect(row));
+    card.addEventListener('click',event=>{
+        if (!event.target.closest('button,a,input,select,textarea,form,[data-work-row-editor]')) onSelect(row);
+    });
     appendBloomscapesStudioRowActions(card,row,onSelect);
     return card;
 }

@@ -102,3 +102,11 @@ async function readBloomscapesConsolidationDestinations(sourceId) {
     }
     return data.rows;
 }
+
+async function readBloomscapesWorkJobCodes(farm) {
+    if (!['10-PH','60-HL','20-TX'].includes(farm)) return [];
+    const {client,owner}=await requireBloomscapesSession();
+    const result=await client.rpc('gnc_work_job_codes',{p_farm:farm});
+    await requireBloomscapesOwner(owner);
+    return bloomscapesData(result);
+}

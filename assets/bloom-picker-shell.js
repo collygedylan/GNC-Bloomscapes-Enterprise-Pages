@@ -37,8 +37,10 @@ function openBloomPickerFlyerFolders() {
         return false;
     }
     toggleCartPanel(false);
-    switchView('tasks');
-    return setTaskTab('flyer');
+    const view=['sales','sales-office'].find(view=>canAccessView(view));
+    if (!view) {switchView('tasks');return setTaskTab('flyer');}
+    openBloomscapesSalesFlyerStudio(view);
+    return false;
 }
 
 function mountBloomPickerDrawer(bar, hasItems) {

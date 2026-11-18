@@ -292,6 +292,11 @@ html body #app-wrapper #av-filter-options .inventory-excel-chips {display:none;}
 body.bloomscapes-farm-choosing #mobile-push-enable-prompt {display:none!important}
 @media(max-width:899px) {input,select,textarea {font-size:16px!important}}
 
+[data-studio-modules] {display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:.5rem;}
+[data-studio-modules] button,[data-module-back] {padding:.7rem;background:#16472e;color:white;border-radius:.6rem;}
+[data-studio-modules][hidden],[data-bloomscapes-studio] [hidden] {display:none!important;}
+[data-bloomscapes-studio] .bloomscapes-work-group {white-space:nowrap;max-width:100%;overflow:auto;}
+
 html { --app-vh:100dvh; --app-vw:100vw; --ui-scale:1; --card-cols:1; }
 html body #app-wrapper { max-width:100%; min-width:0; }
 html body #main-scroll-area { min-width:0; }

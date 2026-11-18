@@ -9,7 +9,7 @@ function bloomscapesWorkIdentityMarkup(source,options={}) {
     return generateCard(row,'drive','status-green',{workBuilder:true,originView:getCurrentVisibleViewId()})
         +'<dl class="bloomscapes-work-identity">'+identity.map(([title,value])=>
             '<div><dt>'+escapeHtml(title)+'</dt><dd>'+escapeHtml(String(value || 'Not recorded'))+'</dd></div>').join('')+'</dl>'
-        +bloomscapesWorkSiblingMarkup(row)+bloomscapesPlanningCardMarkup(row);
+        +bloomscapesWorkSiblingMarkup(row)+(options.summary?'':bloomscapesPlanningCardMarkup(row));
 }
 
 function renderBloomscapesDriveDispatchActions(row) {

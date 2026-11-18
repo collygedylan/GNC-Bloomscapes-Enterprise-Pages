@@ -1,6 +1,6 @@
-function renderBloomscapesWorkCreator(tab) {
+function renderBloomscapesWorkCreator(tab,module) {
     const kind = bloomscapesWorkViewForPanel(tab);
-    return `<section data-work-creator="${kind}"><div data-studio-excel></div>${bloomscapesWorkTypeBar()}
+    return `<section data-work-creator="${kind}"><div data-studio-excel></div>${bloomscapesWorkTypeBar(module)}
       <div data-work-browser hidden></div><section data-work-row-editor hidden>
       <p data-selected-source>Select a work type, then a Drive Mode row.</p>
       <form data-create-field-work hidden>
@@ -17,6 +17,7 @@ function renderBloomscapesWorkCreator(tab) {
       <label>Or Percent <input name="percent" type="number" min="1" max="100" step="1"></label>
       ${bloomscapesShiftPlanFields()}
       <label>Target Location <select name="targetLocation"><option value="">No location move</option></select></label>
+      <label>Job Code / Project Description <select name="jobCode"><option value="">Choose job code</option></select></label>
       <label>Assigned Crew / User <select name="assignedTo" required></select></label>
       <label>Media <input name="media" maxlength="120"></label><label>Fertilizer recipe <input name="fertilizer" maxlength="120"></label>
       <label>Due Date <input name="dueOn" type="date"></label>
@@ -42,7 +43,7 @@ async function mountBloomscapesWorkCreator(host,options={}) {
         if (action && !selectBloomscapesStudioAction(form,action)) return;
         selectBloomscapesWorkSource(root,form,state,row,scope);
     },
-        {getWorkView:()=>form.elements.workView.value});
+        {locationDrill:options.phase==='bunch' || root.dataset.workCreator==='BUNCH_NOTES' && !options.phase,getWorkView:()=>form.elements.workView.value});
     form.elements.workView.addEventListener('change',()=>{
         syncBloomscapesWorkCreatorKind(form);refreshBloomscapesWorkBrowser(browser);
     });
@@ -61,8 +62,11 @@ async function mountBloomscapesWorkCreator(host,options={}) {
     bindBloomscapesLifecyclePicker(form);
     form.elements.actionType.addEventListener('change',()=>syncBloomscapesWorkDestinations(root,form));
     try {
-        const roster = await readBloomscapesFieldRoster();
+        const farm=getBloomscapesFarm();
+        const [roster,jobs]=await Promise.all([readBloomscapesFieldRoster(),readBloomscapesWorkJobCodes(farm)]);
+        if (farm!==getBloomscapesFarm()) return;
         if (!root.isConnected || owner!==getSupabaseReadIdentityScope()) return;
+        jobs.forEach(job=>form.elements.jobCode.appendChild(new Option(job.label,job.code)));
         roster.forEach(user=>form.elements.assignedTo.appendChild(new Option(user.name,user.username)));
         form.elements.assignedTo.value = currentUser;
     } catch (error) { root.querySelector('[data-work-preview]').textContent = error.message; }
@@ -80,6 +84,7 @@ function selectBloomscapesWorkSource(root,form,state,row,scope) {
     let preview=root.querySelector('[data-selected-work-identity]');
     if (!preview) {preview=document.createElement('div');preview.dataset.selectedWorkIdentity='true';root.querySelector('form').before(preview);}
     preview.innerHTML=bloomscapesWorkIdentityMarkup(row);
+    hydrateBloomscapesPlanningCards(preview,row);
     syncBloomscapesWorkDestinations(root,form);
     syncBloomscapesShiftPlan(form);
 }
@@ -96,6 +101,8 @@ function syncBloomscapesWorkCreatorKind(form) {
 function readBloomscapesWorkCreatorInput(form,state) {
     if (!state.source || state.owner!==getSupabaseReadIdentityScope()) throw new Error('Select an item in the active farm.');
     const input = Object.fromEntries(new FormData(form));
+    input.studioModule=form.closest('[data-work-creator]').dataset.studioPhase;
+    if (input.jobCode) input.jobDescription=form.elements.jobCode.selectedOptions[0].textContent;
     if (Boolean(input.quantity)===Boolean(input.percent)) throw new Error('Enter either an exact quantity or a percent.');
     validateBloomscapesShiftPlan(form,input);
     return readBloomscapesLifecycleSteps(form,{...input,sourceId:String(state.source.UNIQUE_ID || state.source.unique_id)});

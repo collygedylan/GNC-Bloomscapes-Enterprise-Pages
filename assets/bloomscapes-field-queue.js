@@ -97,6 +97,14 @@ function renderBloomscapesFieldWorkCard(job,status) {
         const identity=card.appendChild(document.createElement('div'));
         identity.innerHTML=bloomscapesWorkIdentityMarkup(source,{assignedTo:job.assigned_to});
     }
+    const command=job.workflow_command || job.command || {};
+    if (command.jobCode) {
+        const label=card.appendChild(document.createElement('label'));
+        label.textContent='Job Code / Project Description';
+        const select=label.appendChild(document.createElement('select'));
+        select.add(new Option(command.jobDescription || command.jobCode,command.jobCode));
+        select.disabled=true;
+    }
     const heading = card.appendChild(document.createElement('h3'));
     heading.textContent = `${job.work_view==='SHEARING' ? (job.status==='OPEN' ? '#? Needs Shear · ' : '#✓ Sheared · ') : ''}${job.action_type} · ${job.itemcode} · ${job.farm_code}`;
     appendBloomscapesJobFacts(card,job);

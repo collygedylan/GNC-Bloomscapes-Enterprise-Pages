@@ -43,7 +43,7 @@ const BLOOMSCAPES_DEPARTMENT_LINKS = {
 };
 const bloomscapesDepartmentTabs = new Map();
 const bloomscapesDepartmentFrames = new Map();
-const BLOOMSCAPES_DEPARTMENT_DEFAULTS={'hl-order':'bloomscapes-replenishment',communication:'bloomscapes-radio'};
+const BLOOMSCAPES_DEPARTMENT_DEFAULTS={production:'bloomscapes-studio','hl-order':'bloomscapes-replenishment',communication:'bloomscapes-radio'};
 
 function detachInactiveBloomscapesReceivingPanels(view) {
     for (const frame of document.querySelectorAll('[data-department-workspace="bloomscapes-replenishment"]')) {
@@ -52,7 +52,7 @@ function detachInactiveBloomscapesReceivingPanels(view) {
 }
 
 function bloomscapesDepartmentKey(view) {
-    return getSupabaseReadIdentityScope()+':'+view;
+    return getSupabaseReadIdentityScope()+':'+getBloomscapesFarm()+':'+view;
 }
 
 function openBloomscapesDepartmentModule(view,tab) {
@@ -73,7 +73,7 @@ function mountBloomscapesDepartmentShortcuts(view) {
     const links = BLOOMSCAPES_DEPARTMENT_LINKS[view];
     const root = document.getElementById('view-'+view);
     if (!links || !root || !nativeAuthSessionActive || !canAccessView(view)) return;
-    if (view==='hl-order' || view==='managers' && activeHomeTab===MANAGER_EVAL_REPORTS_2_VIEW
+    if (view==='sales' || view==='production' || view==='hl-order' || view==='managers' && activeHomeTab===MANAGER_EVAL_REPORTS_2_VIEW
         || bloomscapesDepartmentTabs.get(bloomscapesDepartmentKey(view))==='bloomscapes-studio') {
         root.querySelector(':scope > [data-department-shortcuts]')?.remove();
         return;
@@ -141,6 +141,8 @@ function restoreBloomscapesDepartmentChildren(root) {
 }
 
 function backBloomscapesDepartmentWorkspace(view) {
+    const back=document.getElementById('view-'+view)?.querySelector('[data-module-back]');
+    if (back) {back.click();return true;}
     if (BLOOMSCAPES_DEPARTMENT_DEFAULTS[view] || !bloomscapesDepartmentTabs.has(bloomscapesDepartmentKey(view))) return false;
     const studio=bloomscapesDepartmentTabs.get(bloomscapesDepartmentKey(view))==='bloomscapes-studio';
     bloomscapesDepartmentTabs.delete(bloomscapesDepartmentKey(view));

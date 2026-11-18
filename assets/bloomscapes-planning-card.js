@@ -30,19 +30,15 @@ function bloomscapesPlanningCanLabel(plan) {
         +' + Fertilizer '+(plan.fertilizer_recipe || 'Not recorded');
 }
 
-function hydrateBloomscapesPlanningCards(host,rows) {
-    const owner=getSupabaseReadIdentityScope(),farm=getBloomscapesFarm(),view=getCurrentVisibleViewId();
-    const revision=host.dataset.planningRevision;
-    const current=()=>host.isConnected && host.dataset.planningRevision===revision && view===getCurrentVisibleViewId()
+function hydrateBloomscapesPlanningCards(host,row) {
+    const revision=String(Number(host.dataset.planningRevision || 0)+1);
+    host.dataset.planningRevision=revision;
+    const owner=getSupabaseReadIdentityScope(),farm=getBloomscapesFarm();
+    const current=()=>host.isConnected && host.dataset.planningRevision===revision
         && owner===getSupabaseReadIdentityScope() && farm===getBloomscapesFarm();
-    void ensureBloomscapesPlanningRows(rows,current).then(result=>{
-        if (!result.some(Boolean) || !host.isConnected || owner!==getSupabaseReadIdentityScope() || farm!==getBloomscapesFarm()) return;
-        for (const card of host.children) {
-            const id=card.querySelector('[data-work-source-row]')?.dataset.workSourceRow;
-            const row=rows.find(row=>String(row.UNIQUE_ID || row.unique_id)===id);
-            const panel=card.querySelector('[data-planning-card]');
-            if (row && panel) panel.outerHTML=bloomscapesPlanningCardMarkup(row);
-        }
+    void ensureBloomscapesPlanningRows([row],current).then(()=>{
+        const panel=host.querySelector('[data-planning-card]');
+        if (current() && panel) panel.outerHTML=bloomscapesPlanningCardMarkup(row);
     });
 }
 

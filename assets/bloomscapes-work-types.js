@@ -4,16 +4,22 @@ const BLOOMSCAPES_STUDIO_PHASES=[
     ['haul','Hauling','HAULING','Haul','Move graded shift stock to its new planting location'],
     ['consolidate','Consolidation','HAULING','Consolidate','Merge into a location already holding the same item'],
     ['cans','Can Filling','CAN_FILLING','Can Filling','Batch by media and fertilizer for planting blocks'],
+    ['spring','Spring Spreading','BUNCH_NOTES','Spread Block (Spring)',''],
+    ['winter','Over Wintering','BUNCH_NOTES','Cover with Poly',''],
+    ['drape','Drape Varieties','BUNCH_NOTES','Custom Bunch Note',''],
+    ['pit','Short Pit','BUNCH_NOTES','Custom Bunch Note',''],
     ['counts','Block Counts & Poly / Spread','BUNCH_NOTES','Bunch Count','Count, cover, uncover, spread and recount a block'],
     ['shear','Shear List','SHEARING','Add to Shear List','Queue #? Needs Shear and confirm #✓ Sheared']
 ];
 
-function bloomscapesWorkTypeBar() {
+function bloomscapesWorkTypeBar(module) {
+    const modules=['spring','winter','drape','pit'];
+    const phases=BLOOMSCAPES_STUDIO_PHASES.filter(([id])=>id===module || !modules.includes(id));
     return '<header data-work-type-bar><h3 data-phase-heading>Step 1: Select the Active Studio Phase</h3>'
-        +'<div data-studio-phase-cards>'+BLOOMSCAPES_STUDIO_PHASES.map(([id,title,,,description])=>
+        +'<div data-studio-phase-cards>'+phases.map(([id,title,,,description])=>
             '<button type="button" data-studio-phase="'+id+'"><strong>'+esc(title)+'</strong><span>'+esc(description)+'</span></button>').join('')+'</div>'
         +'<label data-active-phase>Active Phase: <select data-active-work-type><option value="">Select phase…</option>'
-        +BLOOMSCAPES_STUDIO_PHASES.map(([id,title,kind])=>'<option value="'+id+'" data-kind="'+kind+'">'+esc(title)+'</option>').join('')
+        +phases.map(([id,title,kind])=>'<option value="'+id+'" data-kind="'+kind+'">'+esc(title)+'</option>').join('')
         +'</select></label><label data-chain-label><input type="checkbox" data-work-chain> Chain overwinter / spring steps</label></header>';
 }
 
@@ -48,9 +54,10 @@ function bindBloomscapesWorkTypes(root,form,options) {
         if (!chain.checked) for (const input of steps.querySelectorAll('input')) input.checked=false;
     });
     steps.addEventListener('change',()=>syncBloomscapesWorkDetailFields(form));
-    if (options.source) {
+    if (options.phase || options.source) {
         select.value=options.phase || BLOOMSCAPES_STUDIO_PHASES.find(([, ,kind])=>kind===root.dataset.workCreator)[0];
         select.dispatchEvent(new Event('change'));
+        if (options.phase && !options.source) root.querySelector('[data-active-phase]').hidden=true;
     }
 }
 
@@ -73,7 +80,8 @@ function bloomscapesCanChooseWork(kind) {
 }
 
 function selectBloomscapesStudioAction(form,action) {
-    const entry=BLOOMSCAPES_LIFECYCLE_ACTIONS.find(([label])=>label===action);
+    const entry=BLOOMSCAPES_LIFECYCLE_ACTIONS.find(([label])=>label===action)
+        || (action==='Custom Bunch Note' && [action,'BUNCH_NOTES']);
     if (!entry || !bloomscapesCanChooseWork(entry[1])) return false;
     form.elements.workView.value=entry[1];
     syncBloomscapesWorkCreatorKind(form);form.elements.actionType.value=action;
