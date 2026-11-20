@@ -231,12 +231,14 @@ function mountPullList(host,state,key,rows,render,empty) {
     if (!list) return;
     const section = list.closest('details[data-pull-list-section]');
     if (section && !section.open) return list.replaceChildren();
-    state.pages ||= {};
-    renderBloomscapesListWindow(list,rows,row=>bloomscapesListNode(render(row)),empty,state.pages[key] || 0,page=>{
-        state.pages[key] = page;
-        for (const details of list.querySelectorAll('[data-pull-disclosure][open]')) paintBloomscapesDockDisclosure(details,state);
-        restoreBloomscapesDockDrafts(list);
-    },pullListPageSizes[key]);
+    renderBloomscapesScrollCards(list,rows,row=>bloomscapesListNode(render(row)),{
+        empty,size:pullListPageSizes[key],estimate:190,afterMount:chunk=>restorePullListChunk(chunk,state)
+    });
+}
+
+function restorePullListChunk(chunk,state) {
+    for (const details of chunk.querySelectorAll('[data-pull-disclosure][open]')) paintBloomscapesDockDisclosure(details,state);
+    restoreBloomscapesDockDrafts(chunk);
 }
 
 function paintBloomscapesDockListSection(section,state) {

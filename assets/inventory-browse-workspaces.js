@@ -16,17 +16,34 @@ function mountBloomscapesInventoryBrowse(view) {
     const scope=BLOOMSCAPES_BROWSE_VIEWS[view],root=document.getElementById('view-'+view);
     if (root?.querySelector('[data-marketing-studio]')) return;
     if (!scope || !root || !nativeAuthSessionActive || !canAccessView('drive')) return;
+    if (scope==='inventory' && (inventory84DirectMode || inventoryFieldCountingMode)) {
+        root.querySelector('[data-main-inventory-browse]')?.remove();
+        return;
+    }
     if (root.querySelector(':scope > [data-department-workspace]')) return;
     let section=root.querySelector(':scope > [data-main-inventory-browse]');
     const owner=getSupabaseReadIdentityScope()+':'+getBloomscapesFarm();
-    if (section?.dataset.owner===owner) { mountInventoryExcelFilters(scope); return; }
+    if (section?.dataset.owner===owner) {
+        mountInventoryExcelFilters(scope);
+        moveInventoryBrowseBorrowTrigger(root,section,scope);
+        return;
+    }
     section?.remove();section=document.createElement('section');section.dataset.mainInventoryBrowse=scope;section.dataset.owner=owner;
-    section.innerHTML='<h2>Inventory cards</h2><div data-main-browse-filters></div><div data-work-browser></div>';
+    section.innerHTML='<div data-main-browse-filters></div><div data-work-browser></div>';
     root.prepend(section);
-    mountBloomscapesWorkBrowser(section.querySelector('[data-work-browser]'),openBloomscapesBrowseRow,{scope,browseOnly:true});
+    mountBloomscapesWorkBrowser(section.querySelector('[data-work-browser]'),openBloomscapesBrowseRow,{scope,browseOnly:true,locationDrill:scope==='inventory'});
     const mode = section.querySelector('[data-work-modes]').closest('label');
-    section.querySelector('[data-main-browse-filters]').prepend(mode);
+    const bar=section.querySelector('[data-main-browse-filters]');
+    if (scope==='inventory') bar.prepend(section.querySelector('[data-inventory-location]'));
+    else bar.prepend(mode);
+    moveInventoryBrowseBorrowTrigger(root,section,scope);
     applyInventoryExcelFilters(scope,bloomscapesWorkBrowserRows());
+}
+
+function moveInventoryBrowseBorrowTrigger(root,section,scope) {
+    if (scope!=='inventory') return;
+    const button=root.querySelector('.freeze-panel [data-borrowed-field-trigger]');
+    if (button) section.querySelector('[data-main-browse-filters]').appendChild(button);
 }
 
 function openBloomscapesBrowseRow(row) {
@@ -113,7 +130,7 @@ function mountSalesStudioLots(host,key) {
     const render=()=>{
         const rows=bloomscapesWorkBrowserRows(search.value).map(row=>resolveCanonicalInventoryRow(row))
             .filter(row=>Number(row.LOC_PHOTO_MATCH)>0);
-        renderBloomscapesListWindow(list,rows,row=>buildBloomscapesSalesInventoryCard(row,key),'No matching evaluated lots.');
+        renderBloomscapesScrollCards(list,rows,row=>buildBloomscapesSalesInventoryCard(row,key),{empty:'No matching evaluated lots.'});
     };
     search.addEventListener('input',render);render();
 }
@@ -127,63 +144,53 @@ function mountSalesRepRecords(host) {
     rep.type='search';rep.placeholder='Filter by sales rep';rep.setAttribute('aria-label',rep.placeholder);
     const list=host.appendChild(document.createElement('div'));
     list.className='bloomscapes-sales-card-list';
-    const previous=host.appendChild(document.createElement('button'));
-    previous.type='button';previous.className='sales-studio-navigation';previous.textContent='Previous';
-    const more=host.appendChild(document.createElement('button'));
-    more.type='button';more.className='sales-studio-navigation';more.textContent='Load more';
-    const state={kind,rep,list,more,previous,page:0,segment:0,rows:[],revision:0,owner:getSupabaseReadIdentityScope(),farm:getBloomscapesFarm()};
-    rep.addEventListener('change',()=>loadSalesRepRecords(state,0));
-    kind.addEventListener('change',()=>loadSalesRepRecords(state,0));
-    previous.addEventListener('click',()=>turnSalesRepPage(state,-1));
-    more.addEventListener('click',()=>turnSalesRepPage(state,1));
+    const status=host.appendChild(document.createElement('p'));
+    status.setAttribute('role','status');
+    const edge=host.appendChild(document.createElement('div'));
+    edge.dataset.scrollPageEdge='';
+    edge.hidden=true;
+    const state={kind,rep,list,status,edge,rows:[],revision:0,owner:getSupabaseReadIdentityScope(),farm:getBloomscapesFarm()};
+    rep.addEventListener('change',()=>void loadSalesRepRecords(state,0));
+    kind.addEventListener('change',()=>void loadSalesRepRecords(state,0));
     void loadSalesRepRecords(state,0);
 }
 
-async function loadSalesRepRecords(state, page, segment=0) {
-    const {kind,rep,more}=state;
+async function loadSalesRepRecords(state,page) {
+    const {kind,rep,edge,status}=state;
     const current=++state.revision;
-    state.previous.disabled=true;
-    state.retryPage={page,segment};
-    more.disabled=true;
-    more.textContent='Next';
+    state.observer?.disconnect();
+    edge.hidden=true;
+    status.textContent='Loading records…';
     try {
         const rows=await readBloomscapesPanel('sales-studio-records',{kind:kind.value,page,rep:rep.value.trim()});
-        if (ownsSalesRepPage(state,current)) showSalesRepPage(state,rows,page,segment);
+        if (ownsSalesRepPage(state,current)) showSalesRepPage(state,rows,page);
     } catch (error) {
-        if (ownsSalesRepPage(state,current)) {
-            more.hidden=false;
-            more.textContent='Retry · '+error.message;
-        }
-    } finally {
-        if (state.revision===current) { more.disabled=false; state.previous.disabled=state.page===0 && state.segment===0; }
+        if (ownsSalesRepPage(state,current)) showSalesRepReadError(state,page,error);
     }
 }
 
-function ownsSalesRepPage(state, revision) {
+function showSalesRepReadError(state,page,error) {
+    state.status.textContent=error.message+' ';
+    const retry=state.status.appendChild(document.createElement('button'));
+    retry.type='button';
+    retry.textContent='Retry';
+    retry.addEventListener('click',()=>void loadSalesRepRecords(state,page),{once:true});
+}
+
+function ownsSalesRepPage(state,revision) {
     return state.revision===revision && state.list.isConnected
         && state.owner===getSupabaseReadIdentityScope() && state.farm===getBloomscapesFarm();
 }
 
-function turnSalesRepPage(state,direction) {
-    if (state.retryPage && direction>0) return loadSalesRepRecords(state,state.retryPage.page,state.retryPage.segment);
-    const window=bloomscapesListWindow(state.rows,state.segment,BLOOMSCAPES_REP_VAULT_PAGE_SIZE);
-    const segment=window.index+direction;
-    if (segment>=0 && segment<window.pages) return showSalesRepPage(state,state.rows,state.page,segment);
-    return loadSalesRepRecords(state,state.page+direction,direction<0 ? Infinity : 0);
-}
-
-function showSalesRepPage(state, rows, page, segment) {
+function showSalesRepPage(state,rows,page) {
     const lookup=createSalesStudioTargetLookup();
-    state.retryPage=null;
-    if (page && !rows.length) { state.more.hidden=true; return; }
-    const window=bloomscapesListWindow(rows,segment,BLOOMSCAPES_REP_VAULT_PAGE_SIZE);
-    state.page=page;
-    state.rows=rows;
-    state.segment=window.index;
-    state.list.replaceChildren(...window.rows.map(row=>buildSalesRepRecordCard(row,lookup(row))));
-    if (!state.page && !rows.length) state.list.textContent='No matching records.';
-    state.more.hidden=rows.length<50 && window.index+1===window.pages;
-    state.previous.disabled=page===0 && window.index===0;
+    state.rows=page ? state.rows.concat(rows) : rows;
+    renderBloomscapesScrollCards(state.list,state.rows,row=>buildSalesRepRecordCard(row,lookup(row)),{
+        size:BLOOMSCAPES_REP_VAULT_PAGE_SIZE,empty:'No matching records.'
+    });
+    state.status.textContent='';
+    state.edge.hidden=rows.length<50;
+    if (!state.edge.hidden) state.observer=observeBloomscapesPageEdge(state.edge,()=>void loadSalesRepRecords(state,page+1));
 }
 
 function buildSalesRepRecordCard(record, row) {

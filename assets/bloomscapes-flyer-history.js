@@ -20,32 +20,49 @@ function mountBloomscapesFlyerHistory(host,openDesign) {
     status.setAttribute('role','status');
     const grid=flyerHistoryNode(host,'div');
     grid.className='flyer-history-grid';
-    const more=flyerHistoryButton(host,'Load more',()=>loadPage(false));
-    const state={cursor:null,revision:0,owner:getSupabaseReadIdentityScope(),farm:getBloomscapesFarm(),query:''};
-    const active=rev=>host.contains(grid) && grid.isConnected && state.revision===rev &&
-        state.owner===getSupabaseReadIdentityScope() && state.farm===getBloomscapesFarm();
-    async function loadPage(reset) {
-        const revision=++state.revision;
-        if (reset) {state.cursor=null;state.query=search.value.trim();grid.replaceChildren();}
-        more.hidden=true;status.textContent='Loading flyer history…';
-        try {
-            const result=await readBloomscapesFlyerArchive({query:state.query,cursor:state.cursor,limit:12});
-            if (!active(revision)) return;
-            const urls=await createBloomscapesFlyerArtifactUrls(result.rows.map(row=>row.preview_path)).catch(()=>({}));
-            if (!active(revision)) return;
-            for (const row of result.rows) showFlyerHistoryCard(grid,row,urls[row.preview_path],openDesign,status);
-            state.cursor=result.next_cursor;more.hidden=!state.cursor;
-            status.textContent=grid.children.length ? '' : 'No published flyers match this search.';
-        } catch(error) {
-            if (active(revision)) status.textContent='Flyer history could not load. '+error.message;
-        }
-    }
-    form.addEventListener('submit',event=>{event.preventDefault();void loadPage(true);});
-    void loadPage(true);
+    const edge=flyerHistoryNode(host,'div');
+    edge.dataset.scrollPageEdge='';
+    edge.hidden=true;
+    const state={cursor:null,revision:0,owner:getSupabaseReadIdentityScope(),farm:getBloomscapesFarm(),
+        query:'',host,grid,edge,search,status,openDesign,rows:[]};
+    form.addEventListener('submit',event=>{event.preventDefault();void loadFlyerHistoryPage(state,true);});
+    void loadFlyerHistoryPage(state,true);
 }
 
-function showFlyerHistoryCard(grid,row,preview,openDesign,status) {
-    const card=flyerHistoryNode(grid,'article');
+function flyerHistoryPageCurrent(state,revision) {
+    return state.host.contains(state.grid) && state.grid.isConnected && state.revision===revision
+        && state.owner===getSupabaseReadIdentityScope() && state.farm===getBloomscapesFarm();
+}
+
+async function loadFlyerHistoryPage(state,reset) {
+    const {search,grid,edge,status}=state;
+    const revision=++state.revision;
+    if (reset) {state.cursor=null;state.query=search.value.trim();state.rows=[];grid.replaceChildren();}
+    state.observer?.disconnect();
+    edge.hidden=true;
+    status.textContent='Loading flyer history…';
+    try {
+        const result=await readBloomscapesFlyerArchive({query:state.query,cursor:state.cursor,limit:12});
+        if (!flyerHistoryPageCurrent(state,revision)) return;
+        const urls=await createBloomscapesFlyerArtifactUrls(result.rows.map(row=>row.preview_path)).catch(()=>({}));
+        if (!flyerHistoryPageCurrent(state,revision)) return;
+        state.rows.push(...result.rows.map(row=>({row,preview:urls[row.preview_path]})));
+        paintFlyerHistoryPage(state,result.next_cursor);
+    } catch (error) {
+        if (flyerHistoryPageCurrent(state,revision)) status.textContent='Flyer history could not load. '+error.message;
+    }
+}
+
+function paintFlyerHistoryPage(state,cursor) {
+    renderBloomscapesScrollCards(state.grid,state.rows,({row,preview})=>showFlyerHistoryCard(row,preview,state.openDesign,state.status),{size:12,estimate:220});
+    state.cursor=cursor;
+    state.edge.hidden=!cursor;
+    if (cursor) state.observer=observeBloomscapesPageEdge(state.edge,()=>void loadFlyerHistoryPage(state,false));
+    state.status.textContent=state.rows.length ? '' : 'No published flyers match this search.';
+}
+
+function showFlyerHistoryCard(row,preview,openDesign,status) {
+    const card=document.createElement('article');
     card.className='flyer-history-card';
     const image=flyerHistoryNode(card,'img');
     image.alt=row.title;image.loading='lazy';
@@ -56,6 +73,7 @@ function showFlyerHistoryCard(grid,row,preview,openDesign,status) {
     for (const [mode,label] of [['view','View Historical Flyer'],['edit','Edit Copy in Studio'],['refresh','Duplicate & Refresh Live Inventory']]) {
         flyerHistoryButton(card,label,()=>openFlyerHistoryCard({row,mode,openDesign,status,card}));
     }
+    return card;
 }
 
 async function openFlyerHistoryCard({row,mode,openDesign,status,card}) {

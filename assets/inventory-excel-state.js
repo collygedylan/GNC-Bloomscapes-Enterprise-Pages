@@ -3,6 +3,7 @@ function getInventoryExcelFields(scope = '') {
     if (scope==='request' || scope==='suspend') return [['username','Assigned To']];
     const fields=[['username','Assigned To'],['stock','Stock / Season'],['view','View'],['genus','Genus'],
         ['plantgroupcode','Plant Group'],['contsize','Container Size'],['salesrep','Sales Rep'],['customer','Customer / Consignee']];
+    if (scope === 'inventory') return [...fields.slice(0,3),['contsize','Size'],fields[3],fields[6]];
     if (scope === 'docks') fields.unshift(['commonname','Common Name']);
     return fields.filter(([key])=>scope==='av' ? !['username','stock','view'].includes(key)
         : key!=='view' || !['drive','eval2','studio'].includes(scope));

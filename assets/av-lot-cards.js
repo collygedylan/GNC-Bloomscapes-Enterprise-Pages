@@ -260,3 +260,56 @@ function renderAV() {
         }
     }
 }
+
+function mountAvScrollPage(context) {
+    const {container,marker}=context;
+    const edge=document.createElement('div');
+    edge.dataset.avPageEdge='';
+    edge.setAttribute('aria-hidden','true');
+    marker.replaceWith(edge);
+    return newAvScrollObserver(edge,{...context,container,edge});
+}
+
+function newAvScrollObserver(edge,context) {
+    const observer=new IntersectionObserver(entries=>{
+        if (entries.some(entry=>entry.isIntersecting)) queueAvScrollBatch(context);
+    },{root:getMainAreaScrollTarget(),rootMargin:'900px'});
+    observer.observe(edge);
+    return observer;
+}
+
+function queueAvScrollBatch(context) {
+    const {rows,state}=context;
+    if (state.loading || !isAvScrollBatchCurrent(context)) return;
+    state.loading=true;
+    const end=getAvCardWindowEnd(rows.length,state.index);
+    requestAnimationFrame(()=>paintAvScrollBatch(context,end,''));
+}
+
+function isAvScrollBatchCurrent({container,edge,state}) {
+    return container._avCardWindow===state && edge.isConnected && getCurrentVisibleViewId()==='av';
+}
+
+function paintAvScrollBatch(context,end,markup) {
+    const {container,edge,rows,sourceView,state}=context;
+    if (!isAvScrollBatchCurrent(context)) {
+        state.loading=false;
+        return;
+    }
+    const sliceEnd=Math.min(end,state.index+4);
+    for (;state.index<sliceEnd;state.index++) {
+        markup+=generateCard(rows[state.index],sourceView,'status-teal',{rowIndex:state.index});
+    }
+    if (state.index<end) {
+        requestAnimationFrame(()=>paintAvScrollBatch(context,end,markup));
+        return;
+    }
+    edge.insertAdjacentHTML('beforebegin',markup);
+    container.dataset.avWindowCount=String(state.index);
+    state.loading=false;
+    refreshCartButtons(rows.slice(0,state.index).map(row=>row.DOM_ID));
+    scheduleDeferredCardPhotoHydration(container);
+    state.observer.disconnect();
+    if (state.index>=rows.length) edge.remove();
+    else state.observer.observe(edge);
+}

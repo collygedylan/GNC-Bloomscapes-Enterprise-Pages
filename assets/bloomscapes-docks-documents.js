@@ -82,7 +82,7 @@ function renderPullTrafficReceipt(receipt,open=false) {
 
 function mountPullTrafficReceipt(content,receipt) {
     const drops=trafficReceiptDrops(receipt);
-    renderBloomscapesListWindow(content,drops,drop=>bloomscapesListNode(renderPullTrafficDrop(drop)),'No completed drops.',0,undefined,3);
+    renderBloomscapesScrollCards(content,drops,drop=>bloomscapesListNode(renderPullTrafficDrop(drop)),{empty:'No completed drops.',size:3,estimate:200});
 }
 
 function trafficReceiptDrops(receipt) {
@@ -125,9 +125,9 @@ function renderPullDropWork(drop, board) {
 }
 
 function mountPullDropEvidence(content,tags) {
-    renderBloomscapesListWindow(content,tags,tag=>bloomscapesListNode(`<article class="${pullWorkspaceCard}">
+    renderBloomscapesScrollCards(content,tags,tag=>bloomscapesListNode(`<article class="${pullWorkspaceCard}">
         ${pullTagHeader(tag)}${pullTagLocationList(tag)}${renderPullReportMistake(tag)}</article>`),
-        'No matching Pull Tags.',0,()=>restoreBloomscapesDockDrafts(content),8);
+        {empty:'No matching Pull Tags.',size:8,afterMount:restoreBloomscapesDockDrafts});
 }
 
 function renderBloomscapesDockDropTools(dock, drop) {

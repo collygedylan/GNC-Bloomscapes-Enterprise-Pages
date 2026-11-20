@@ -116,7 +116,6 @@ function openBloomscapesDockTrip(dock,trip,edit = '') {
     const state = getBloomscapesDockBoardState();
     state.filters = {dock, trip};
     state.edit = edit;
-    state.pages = {};
     markViewDirty('pull-tags');
     switchView('pull-tags');
     return false;
@@ -158,7 +157,6 @@ function handleBloomscapesDockClick(event) {
     if (button.dataset.pullClick === 'reset') {
         state.filters = {};
         state.edit = '';
-        state.pages = {};
         paintBloomscapesDocksWorkspace(event.currentTarget,'pull-tags',state);
     }
     if (button.dataset.pullClick === 'borrow') {
@@ -178,7 +176,6 @@ function handleBloomscapesDockFilter(event) {
     if (filter.name === 'route') return;
     const state = getBloomscapesDockBoardState();
     state.filters[filter.name] = filter.value;
-    state.pages = {};
     if (filter.name === 'dockDay') {
         delete state.filters.dock;
         delete state.filters.trip;

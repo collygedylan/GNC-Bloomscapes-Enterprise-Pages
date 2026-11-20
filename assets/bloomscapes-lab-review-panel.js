@@ -13,86 +13,127 @@ function plantHealthSameView(state) {
 }
 
 function mountBloomscapesLabDiagnostics(host,selection) {
-    if (!host?.closest('#view-production')) return;
+    if (!host?.isConnected || !nativeAuthSessionActive) return;
     const state = {host,selection,owner:getSupabaseReadIdentityScope(),farm:getBloomscapesFarm(),offset:0};
     host.replaceChildren();
+    mountPlantHealthToolbar(state);
     state.status = plantHealthNode('p','Loading flagged photos…',host);
     state.status.setAttribute('role','status');
     state.list = plantHealthNode('div','',host);
-    state.previous = plantHealthNode('button','Previous 50',host);
-    state.previous.type = 'button';
-    state.previous.hidden = true;
-    state.previous.onclick = () => void loadPlantHealthQueuePage(state,state.offset-50);
-    state.next = plantHealthNode('button','Next 50',host);
-    state.next.type = 'button';
-    state.next.hidden = true;
-    state.next.onclick = () => void loadPlantHealthQueuePage(state,state.offset+50);
+    state.list.className = 'plant-health-card-list';
+    state.edge = plantHealthNode('div','',host);
+    state.edge.dataset.scrollPageEdge = '';
+    state.edge.hidden = true;
+    state.rows = [];
     void loadPlantHealthQueuePage(state);
 }
 
-async function loadPlantHealthQueuePage(state,offset = 0) {
-    if (state.busy || offset<0) return;
+async function loadPlantHealthQueuePage(state) {
+    if (state.busy || !plantHealthSameView(state)) return;
     state.busy = true;
-    state.previous.disabled = true;
-    state.next.disabled = true;
+    state.edge.hidden = true;
     try {
-        const page = await readPlantHealthQueue(state.farm,offset,state.selection);
+        const page = await readPlantHealthQueue(state.farm,state.offset,state.selection);
         if (!state.host.isConnected || !plantHealthSameView(state)) return;
-        const fragment = await buildPlantHealthPage(state,page.slice(0,50));
-        if (!state.host.isConnected || !plantHealthSameView(state)) return;
-        state.list.replaceChildren(fragment);
-        state.offset = offset;
-        state.status.textContent = page.length ? '' : 'No photos have reached the diagnostic review threshold.';
-        state.previous.hidden = offset === 0;
-        state.next.hidden = page.length <= 50;
+        state.rows.push(...page.slice(0,50));
+        state.offset += 50;
+        paintPlantHealthQueue(state);
+        state.edge.hidden = page.length <= 50;
+        if (!state.edge.hidden) observeBloomscapesPageEdge(state.edge,()=>void loadPlantHealthQueuePage(state));
     } catch (error) {
         if (state.host.isConnected && plantHealthSameView(state)) state.status.textContent = error.message;
     } finally {
         state.busy = false;
-        state.previous.disabled = false;
-        state.next.disabled = false;
     }
 }
 
-async function buildPlantHealthPage(state,entries) {
-    const fragment = document.createDocumentFragment();
-    let started = performance.now();
-    for (const entry of entries) {
-        if (!state.host.isConnected || !plantHealthSameView(state)) break;
-        addPlantHealthCard(state,entry,fragment);
-        if (performance.now()-started < 5) continue;
-        await new Promise(requestAnimationFrame);
-        started = performance.now();
+function mountPlantHealthToolbar(state) {
+    const bar = plantHealthNode('div','',state.host);
+    bar.className = 'plant-health-toolbar';
+    state.statusFilter = plantHealthNode('select','',bar);
+    state.statusFilter.setAttribute('aria-label','Status');
+    for (const [value,label] of [['','Status'],['pending','Needs review'],['agree','Agreed'],['disagree','Corrected']]) {
+        state.statusFilter.add(new Option(label,value));
     }
-    return fragment;
+    state.blockFilter = plantHealthNode('select','',bar);
+    state.blockFilter.setAttribute('aria-label','Block');
+    state.blockFilter.add(new Option('Block',''));
+    bar.onchange = () => paintPlantHealthQueue(state);
+    plantHealthAction(bar,'📷 Scan / New Sample',() => openPlantHealthLabDialog(state.host));
 }
 
-function addPlantHealthCard(state,entry,fragment) {
+function openPlantHealthLabDialog(host,sample = '') {
+    let dialog = host.querySelector('dialog');
+    if (!dialog) {
+        dialog = plantHealthNode('dialog','',host);
+        dialog.className = 'plant-health-lab-dialog';
+        dialog.setAttribute('aria-label','Scan, sample and lab results');
+        plantHealthAction(dialog,'Close',() => dialog.close());
+        const content = plantHealthNode('div','',dialog);
+        content.innerHTML = renderBloomscapesWorkflowPanel('bloomscapes-lab',{showLabForms:true});
+        mountBloomscapesWorkflowPanel(content,'bloomscapes-lab');
+    }
+    if (sample) {
+        for (const input of dialog.querySelectorAll('[name=sample]')) input.value = sample;
+    }
+    if (!dialog.open) dialog.showModal();
+}
+
+function paintPlantHealthQueue(state) {
+    const rows = state.rows || [];
+    const blockKey = ({inventory}) => inventory ? getDriveBlockAlphaLabel(getDriveBlockAlphaValue(inventory)) : '';
+    const blocks = [...new Set(rows.map(blockKey).filter(Boolean))].sort();
+    const selected = state.blockFilter.value;
+    state.blockFilter.replaceChildren(new Option('Block',''),...blocks.map(block=>new Option(block,block)));
+    state.blockFilter.value = blocks.includes(selected) ? selected : '';
+    const {value:verdict} = state.statusFilter;
+    const shown = rows.filter(entry => (!verdict || (entry.verdict || 'pending') === verdict)
+        && (!state.blockFilter.value || blockKey(entry) === state.blockFilter.value));
+    mountBloomscapesScrollWindow(state.list,shown,{
+        mount:(section,entries)=>entries.forEach(entry=>addPlantHealthCard(state,entry,section))
+    });
+    state.status.textContent = shown.length ? '' : 'No photos match these filters.';
+}
+
+function addPlantHealthCard(state,entry,parent) {
     const row = entry.inventory && resolveCanonicalInventoryRow(entry.inventory);
     if (!row || bloomscapesRowFarm(row) !== state.farm) return;
-    const card = plantHealthNode('div','',fragment);
-    card.innerHTML = generateCard(row,'drive','status-green',{workBuilder:true,originView:'production'});
-    card.tabIndex = 0;
-    card.setAttribute('role','button');
-    card.setAttribute('aria-label','Review '+String(row.COMMONNAME || row.commonname || entry.row_uid));
-    const open = () => {
-        if (!plantHealthSameView(state)) return;
-        const details = {...row,__plantHealthQueueId:entry.id};
-        plantHealthDetailReview = {farm:state.farm,owner:state.owner,entry};
-        openDetail(entry.row_uid,'production',{__masterDetailRow:details,cardIdentity:inventoryCardDetailIdentity(details)});
-        renderPlantHealthDetail(activeItem,activeDetailSourceView);
-    };
-    card.onclick = event => { if (!event.target.closest('button,input,a')) open(); };
-    card.onkeydown = event => {
-        if (event.target !== card || !['Enter',' '].includes(event.key)) return;
-        event.preventDefault();
-        open();
-    };
+    const card = plantHealthNode('article','',parent);
+    card.className = 'app-smart-card plant-health-card';
+    const identity = plantHealthNode('div','',card);
+    identity.className = 'plant-health-identity';
+    if (entry.photo_url) {
+        const photo = plantHealthNode('img','',identity);
+        photo.alt = 'Published field photo';
+        photo.loading = 'lazy';
+        photo.src = entry.photo_url;
+    }
+    const text = plantHealthNode('div','',identity);
+    plantHealthNode('strong',row.COMMONNAME || row.commonname || entry.row_uid,text);
+    plantHealthNode('p',[row.ITEMCODE || row.itemcode,row.LOCATIONCODE || row.locationcode,row.LOTCODE || row.lotcode].filter(Boolean).join(' · '),text);
+    plantHealthAction(text,'View plant',() => openPlantHealthCardDetail(state,entry,row));
+    paintPlantHealthCardReview(card,state,entry);
+}
+
+function openPlantHealthCardDetail(state,entry,row) {
+    if (!plantHealthSameView(state)) return;
+    const details = {...row,__plantHealthQueueId:entry.id};
+    const source = getCurrentVisibleViewId();
+    plantHealthDetailReview = {farm:state.farm,owner:state.owner,entry,source};
+    openDetail(entry.row_uid,source,{__masterDetailRow:details,cardIdentity:inventoryCardDetailIdentity(details)});
+    renderPlantHealthDetail(activeItem,activeDetailSourceView);
+}
+
+function paintPlantHealthCardReview(card,state,entry) {
+    card.querySelector('[data-health-review]')?.remove();
+    const review = plantHealthNode('section','',card);
+    review.dataset.healthReview = '';
+    paintPlantHealthDetail(review,{farm:state.farm,owner:state.owner,entry,labHost:state.host});
 }
 
 function renderPlantHealthDetail(item,sourceView) {
     const state = plantHealthDetailReview;
-    const valid = sourceView === 'production' && state && plantHealthSameView(state)
+    const valid = state && sourceView===state.source && plantHealthSameView(state)
         && item?.__plantHealthQueueId === state.entry.id && getItemUniqueId(item) === state.entry.row_uid;
     const old = document.getElementById('plant-health-review-detail');
     if (!valid) { old?.remove(); return; }
@@ -109,21 +150,23 @@ function renderPlantHealthDetail(item,sourceView) {
 }
 
 function paintPlantHealthDetail(panel,state) {
+    const detail = !state.labHost;
     panel.replaceChildren();
     const entry = state.entry;
-    plantHealthNode('h3','Plant health diagnostic',panel);
-    if (entry.photo_url) {
+    if (detail) plantHealthNode('h3','Plant health diagnostic',panel);
+    if (detail && entry.photo_url) {
         const photo = plantHealthNode('img','',panel);
         photo.alt = 'Published field photo for this review';
         photo.className = 'max-h-48 rounded-lg';
         photo.src = entry.photo_url;
     }
     plantHealthNode('p','Suggested diagnosis · '+entry.diagnosis,panel);
-    plantHealthNode('p','Closest GNC lab precedent · '+entry.precedent,panel);
+    if (detail && entry.precedent) plantHealthNode('p','Closest GNC lab precedent · '+entry.precedent,panel);
     const score = entry.analysis_source === 'field_note_genus_prior' ? 'Field-note referral priority · '+entry.confidence+'/100' : 'ML confidence · '+entry.confidence+'%';
-    plantHealthNode('p',score,panel);
+    plantHealthNode('p',score,panel).className = 'plant-health-confidence';
     const status = plantHealthNode('p','',panel);
     status.setAttribute('role','status');
+    if (state.labHost) plantHealthAction(panel,'🧪 Lab Result',() => openPlantHealthLabDialog(state.labHost,entry.sample_id));
     if (entry.verdict) {
         showPlantHealthDecision(panel,status,state);
         return;

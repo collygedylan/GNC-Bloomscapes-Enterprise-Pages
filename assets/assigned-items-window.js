@@ -6,7 +6,7 @@ function renderManagerAssignedFallbackRows(rows = [], preview = false) {
         + columns.map(([field,label]) => '<th>' + (preview ? escapeHtml(label) : renderManagerAssignedColumnTrigger(field,label)) + '</th>').join('') + '</tr></thead><tbody>'
         + assignedFallbackSpacer(state.fallbackStart || 0, columns.length + Number(editable))
         + rows.slice(state.fallbackStart || 0, (state.fallbackStart || 0) + limit)
-            .map(row => assignedFallbackRowHtml(row, { state, columns, editable, preview })).join('') + assignedFallbackSpacer(Math.max(0, rows.length - (state.fallbackStart || 0) - limit), columns.length + Number(editable)) + '</tbody></table>' + (!preview && rows.length > limit ? '<button type="button" data-assigned-more onclick="appendManagerAssignedFallbackPage(this.parentElement,true)">Show more items</button>' : '') + '</div>';
+            .map(row => assignedFallbackRowHtml(row, { state, columns, editable, preview })).join('') + assignedFallbackSpacer(Math.max(0, rows.length - (state.fallbackStart || 0) - limit), columns.length + Number(editable)) + '</tbody></table>' + '</div>';
 }
 
 function handleManagerAssignedFallbackPicker(event) {
@@ -20,10 +20,10 @@ function handleManagerAssignedFallbackPicker(event) {
         select:value=>assignManagerCheckedItemcodes(code,value)});
 }
 
-function appendManagerAssignedFallbackPage(scroller, force = false) {
+function appendManagerAssignedFallbackPage(scroller) {
     const state = getManagerAssignedColumnState();
     const rows = getManagerAssignedSelectionSnapshot().rows;
-    const start = force ? (state.fallbackStart || 0) + BLOOMSCAPES_LIST_PAGE_SIZE : Math.max(0, Math.floor(scroller.scrollTop / 48) - 10);
+    const start = Math.max(0, Math.floor(scroller.scrollTop / 48) - 10);
     if (state.fallbackStart === start || state.fallbackFrame) return;
     state.fallbackFrame = requestAnimationFrame(() => {
         state.fallbackFrame = 0;
@@ -146,4 +146,143 @@ function restoreAssignedMountedScroll(state, ticket, host, restoreScroll) {
 function scheduleAssignedMountedScroll(state, ticket, host, restoreScroll) {
     if (restoreScroll == null || state.viewUi?.anchor) return;
     requestAnimationFrame(() => requestAnimationFrame(() => restoreAssignedMountedScroll(state, ticket, host, restoreScroll)));
+}
+
+const ASSIGNED_OPTION_HEIGHT = 36;
+const assignedOptionsWindows = new WeakMap();
+
+function renderManagerAssignedColumnOptions() {
+    const editor = getManagerAssignedColumnState().editor;
+    const host = document.getElementById('manager-assigned-filter-options');
+    if (!editor || !host) return;
+    const options = getManagerAssignedPopoverOptions(editor);
+    scopeManagerAssignedSearch(editor,options);
+    let window = assignedOptionsWindows.get(host);
+    if (!window) {
+        window = {frame:0,start:-1};
+        assignedOptionsWindows.set(host,window);
+        host.addEventListener('scroll',()=>scheduleAssignedOptionWindow(host,window),{passive:true});
+    }
+    Object.assign(window,{editor,options,start:-1});
+    paintAssignedOptionWindow(host,window);
+}
+
+function scheduleAssignedOptionWindow(host,window) {
+    if (window.frame) return;
+    window.frame = requestAnimationFrame(()=>{
+        window.frame = 0;
+        if (host.isConnected && getManagerAssignedColumnState().editor===window.editor) paintAssignedOptionWindow(host,window);
+    });
+}
+
+function paintAssignedOptionWindow(host,window) {
+    const {editor,options} = window;
+    const scroll = host.scrollTop;
+    const start = Math.max(0,Math.floor(scroll/ASSIGNED_OPTION_HEIGHT)-4);
+    const count = Math.ceil((host.clientHeight || 300)/ASSIGNED_OPTION_HEIGHT)+9;
+    const stop = Math.min(start+count,options.length);
+    if (start===window.start && stop===window.stop) return;
+    Object.assign(window,{start,stop});
+    const selected = editor.values===null ? null : new Set(editor.values);
+    const active = host.contains(document.activeElement) ? document.activeElement.value : null;
+    const entries = options.slice(start,stop).map(option=>buildAssignedOption(option,selected));
+    host.replaceChildren(assignedOptionSpacer(start),...entries,assignedOptionSpacer(options.length-stop));
+    if (!options.length) host.textContent = 'No values match.';
+    if (active!==null) {
+        const retained = entries.find(label=>label.firstChild.value===active)?.firstChild;
+        (retained || document.getElementById('manager-assigned-value-search'))?.focus({preventScroll:true});
+    }
+    host.scrollTop = scroll;
+}
+
+function assignedOptionSpacer(count) {
+    const spacer = document.createElement('div');
+    spacer.setAttribute('aria-hidden','true');
+    spacer.style.height = count * ASSIGNED_OPTION_HEIGHT + 'px';
+    return spacer;
+}
+
+function buildAssignedOption({value,label,count},selected) {
+    const row = document.createElement('label');
+    row.className = 'excel-filter-option assigned-filter-option';
+    const input = row.appendChild(document.createElement('input'));
+    input.type = 'checkbox';
+    input.value = value;
+    input.checked = !selected || selected.has(value);
+    input.onchange = () => toggleManagerAssignedColumnValue(value,input.checked);
+    row.appendChild(document.createElement('span')).textContent = label + ' (' + count + ')';
+    return row;
+}
+
+
+function openManagerAssignedColumnFilter(field, trigger) {
+    if (!canViewAssignedItemsExport() || !getManagerAssignedColumnDefinitions().some(([key]) => key === field)) return false;
+    const state = getManagerAssignedColumnState();
+    state.editor = { field, values: Array.isArray(state.filters[field]) ? state.filters[field].slice() : null,
+        sort: state.sort ? { ...state.sort } : null, search: '', trigger };
+    let host = document.getElementById('manager-assigned-filter-host');
+    if (!host) {
+        host = document.createElement('div');
+        host.id = 'manager-assigned-filter-host';
+        document.body.appendChild(host);
+    }
+    const label = getManagerAssignedColumnDefinitions().find(([key]) => key === field)[1];
+    host.innerHTML = `<section id="manager-assigned-filter-panel" class="excel-filter-panel assigned-column-panel fixed" role="dialog" aria-modal="false" aria-label="${escapeHtml(label)} filter" onkeydown="handleManagerAssignedFilterKey(event)">
+        <div class="assigned-filter-body"><strong>${escapeHtml(label)}</strong>
+        <div class="assigned-filter-sort"><button type="button" data-assigned-sort="asc" onclick="setManagerAssignedDraftSort('asc')">Sort A–Z ↑</button><button type="button" data-assigned-sort="desc" onclick="setManagerAssignedDraftSort('desc')">Sort Z–A ↓</button><button type="button" data-assigned-sort="none" onclick="setManagerAssignedDraftSort('none')">Clear Sort</button></div>
+        <label class="excel-filter-search-wrap">Search values<input id="manager-assigned-value-search" class="excel-filter-search" type="search" autocomplete="off" oninput="searchManagerAssignedColumnOptions(this.value)"></label>
+        <div class="assigned-filter-selection"><button type="button" onclick="selectManagerAssignedColumnValues(true)">Select All</button><button type="button" onclick="selectManagerAssignedColumnValues(false)">Clear Selection</button><button type="button" onclick="clearManagerAssignedColumnFilter('${field}')">Clear Column Filter</button></div>
+        <div id="manager-assigned-filter-options" class="excel-filter-options"></div></div>
+        <div class="excel-filter-footer assigned-filter-actions"><button type="button" onclick="closeManagerAssignedColumnFilter()">Cancel</button><button type="button" class="assigned-filter-apply" onclick="applyManagerAssignedColumnFilter()">Apply</button></div>
+    </section>`;
+    document.querySelectorAll('[data-assigned-filter-trigger]').forEach(button => button.setAttribute('aria-expanded', String(button.dataset.assignedFilterTrigger === field)));
+    renderManagerAssignedColumnOptions();
+    syncManagerAssignedDraftSortButtons();
+    positionManagerAssignedColumnFilter();
+    document.getElementById('manager-assigned-value-search').focus({ preventScroll: true });
+    document.addEventListener('keydown', handleManagerAssignedFilterEscape, true);
+    window.addEventListener('resize', positionManagerAssignedColumnFilter);
+    window.visualViewport?.addEventListener('resize', positionManagerAssignedColumnFilter);
+    window.visualViewport?.addEventListener('scroll', positionManagerAssignedColumnFilter);
+    ensureNativeBackGuard();
+    return false;
+}
+
+function searchManagerAssignedColumnOptions(value) {
+    const editor = getManagerAssignedColumnState().editor;
+    if (!editor) return;
+    if (value.trim() && !editor.searchDraft) {
+        editor.searchDraft = { before:editor.values === null ? null : new Set(editor.values), choices:new Map() };
+    } else if (!value.trim() && editor.searchDraft) {
+        editor.values = editor.searchDraft.before === null ? null : Array.from(editor.searchDraft.before);
+        delete editor.searchDraft;
+    }
+    editor.search = value;
+    const host = typeof document !== 'undefined' && document.getElementById('manager-assigned-filter-options');
+    if (host) host.scrollTop = 0;
+    renderManagerAssignedColumnOptions();
+}
+
+function selectManagerAssignedColumnValues(all) {
+    const editor = getManagerAssignedColumnState().editor;
+    if (!editor) return;
+    const options = getManagerAssignedPopoverOptions(editor);
+    const values = new Set(options.filter(option => editor.values === null || editor.values.includes(option.value)).map(option => option.value));
+    for (const option of options) {
+        editor.searchDraft?.choices.set(option.value, all);
+        if (all) values.add(option.value);
+        else values.delete(option.value);
+    }
+    editor.values = Array.from(values);
+    renderManagerAssignedColumnOptions();
+}
+
+
+function toggleManagerAssignedColumnValue(value, checked) {
+    const editor = getManagerAssignedColumnState().editor;
+    if (!editor) return;
+    const values = new Set(editor.values === null ? getManagerAssignedColumnOptions(editor.field).map(option => option.value) : editor.values);
+    editor.searchDraft?.choices.set(value, checked);
+    if (checked) values.add(value); else values.delete(value);
+    editor.values = Array.from(values);
 }

@@ -1,13 +1,106 @@
-[data-bloomscapes-studio] {display:flex;flex-direction:column;min-height:calc(100dvh - 10rem);min-width:0;}
-[data-bloomscapes-studio] [data-studio-modules]:not([hidden]) {flex:1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-rows:minmax(70px,1fr);gap:clamp(6px,1vw,14px);}
+[data-bloomscapes-studio] {display:flex;flex-direction:column;min-height:calc(100dvh - 132px);min-width:0;}
+[data-bloomscapes-studio] [data-studio-modules]:not([hidden]) {flex:1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-rows:minmax(110px,1fr);gap:clamp(6px,1vw,14px);}
 [data-studio-modules] [data-open-module] {display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;text-align:left;border-radius:16px;padding:clamp(8px,1.4vw,18px);border:1px solid #6d9983;background:#eff8f1;color:#193c31;font-weight:700;}
 [data-studio-modules] [data-open-module] i {font-size:clamp(21px,3vw,36px);}
-[data-studio-modules] [data-open-module]:first-child {grid-column:span 2;background:#114c3d;color:white;}
+[data-studio-modules] [data-open-module]:first-child {background:#114c3d;color:white;}
 [data-studio-module] [data-work-group-selection] {display:flex;gap:6px;flex-wrap:wrap;}
 [data-studio-module] [data-studio-scope] {border:1px solid #729683;padding:7px 11px;border-radius:24px;font-weight:600;}
 [data-studio-module] [data-studio-scope][aria-pressed=true] {background:#174d3b;color:white;}
 [data-studio-module] .studio-stock-card {width:100%;display:grid;gap:3px;border:1px solid #729683;padding:10px;text-align:left;border-radius:12px;}
-@media(max-width:650px) {
+@media(min-width:901px) {
+ [data-bloomscapes-studio] [data-open-module]:first-child {grid-column:span 2;}
+}
+@media(max-width:520px) {
+ [data-bloomscapes-studio] [data-studio-modules]:not([hidden]) {grid-template-columns:repeat(2,minmax(0,1fr));}
+}
+@media(min-width:521px) and (max-width:900px) {
  [data-bloomscapes-studio] [data-studio-modules]:not([hidden]) {grid-template-columns:repeat(3,minmax(0,1fr));}
  [data-studio-modules] [data-open-module] {font-size:clamp(12px,3.5vw,16px);}
+}
+
+[data-scroll-window-chunk], .plant-health-card-list {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+    min-width: 0;
+    width: 100%;
+}
+html body :is(.bloomscapes-work-cards:not(.inventory-block-tiles), [data-card-window-total]) {
+    grid-template-columns: minmax(0, 1fr) !important;
+    width: 100%;
+}
+html body .inventory-block-tiles {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 135px), 1fr));
+}
+.inventory-block-tiles .bloomscapes-work-group { width: 100%; min-height: 70px; }
+[data-main-browse-filters], .plant-health-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    overflow-x: auto;
+    min-width: 0;
+}
+[data-main-browse-filters] { height: 40px; }
+[data-main-browse-filters] :is(.inventory-excel-bar,.inventory-excel-fields) { display: contents; }
+[data-main-browse-filters] :is(button,select) { flex: none; }
+#view-sales-inventory:has([data-main-inventory-browse]) > :is(.freeze-panel,#inventory-sales-panel) { display: none; }
+.plant-health-toolbar { height: 38px; }
+.plant-health-toolbar :is(button,select) { height: 36px; flex: none; }
+.plant-health-card { padding: 12px; color: var(--bloom-ink); overflow-wrap: anywhere; }
+.plant-health-identity { display: flex; align-items: center; gap: 10px; }
+.plant-health-identity img { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; }
+.plant-health-identity strong { font-size: 1.07rem; }
+.plant-health-confidence { width: fit-content; padding: 2px 8px; border-radius: 999px; background: var(--bloom-pill); }
+.plant-health-lab-dialog { width: min(550px, 95vw); max-height: 90dvh; overflow: auto; padding: 12px; color: var(--bloom-ink); background: var(--bloom-card); }
+.plant-health-lab-dialog form { display: grid; gap: 8px; margin-block: 8px; }
+.plant-health-lab-dialog :is(input,select) { max-width: 100%; }
+
+#manager-assigned-filter-options { display: block; overflow-y: auto; overflow-anchor: none; }
+#manager-assigned-filter-options .assigned-filter-option {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    height: 36px;
+    min-height: 36px;
+    margin-block: 0;
+}
+bloomscapes-page-edge, [data-scroll-page-edge] { display: block; min-height: 1px; width: 100%; }
+
+[data-main-browse-filters] > [data-borrowed-field-trigger] { order: 1; }
+[data-main-browse-filters] :is(.inventory-excel-field,.bloomscapes-compact-select) {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex: none;
+    min-width: 0;
+}
+[data-main-browse-filters] [data-inventory-location] select { width: 120px; }
+[data-main-browse-filters] > [data-inventory-excel-scope] { display: contents; }
+[data-main-browse-filters] [data-excel-popover]:empty { display: none; }
+html body :is(#view-drive,#view-av,#view-docks,#view-pull-tags,#view-mistake-fix,#view-traffic-office,#view-request,#view-managers)
+    :is(.grid,[data-card-window-total]):has(> :is(.app-drive-compact-card,.app-smart-card,.dock-dispatch-card)) {
+    grid-template-columns: minmax(0, 1fr) !important;
+    width: 100%;
+}
+html body :is(.po-metrics,.plant-health-card) :is(.app-card-qty-label,.app-card-qty-value) {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    line-height: 1.25;
+}
+[data-av-page-edge] { display: block; min-height: 1px; }
+[data-av-load-more] { display: none; }
+
+[data-transfer-summary] { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 8px; }
+html body #app-wrapper :is(#view-hl-order,#view-po-management,#view-production,#view-managers) .bloomscapes-transfer-builder [data-transfer-filter-bar] :is(button,select) {
+    height: 36px !important;
+    min-height: 36px !important;
+    max-height: 36px !important;
+    min-block-size: 36px !important;
+}
+.bloomscapes-transfer-builder [data-transfer-filter-bar] select {
+    flex: 1 1 0;
+    min-width: 0;
+    text-overflow: ellipsis;
 }

@@ -30,15 +30,17 @@ const bloomscapesWorkBrowserControllers=new WeakMap();
 
 function mountBloomscapesWorkBrowser(host,onSelect,options={}) {
     const state={owner:getSupabaseReadIdentityScope(),mode:'block',path:[],onSelect,options};
+    const inventory=options.scope==='inventory';
     host.innerHTML='<label class="bloomscapes-compact-select">View<select data-work-modes aria-label="Work View"><option value="block">Block / Location</option><option value="common">Itemcodes / Common Name</option><option value="all">All Cards</option></select></label>'
-        +'<h3>Browse inventory</h3>'
+        +(inventory ? '<label data-inventory-location class="bloomscapes-compact-select">Block <select aria-label="Block / Location"></select></label>' : '')
         +'<input type="search" data-work-search aria-label="Search work source inventory" placeholder="Search Names, ItemCodes, or Locations...">'
-        +'<details data-work-more><summary>More</summary><div data-work-filters></div></details>'
+        +(inventory ? '' : '<details data-work-more><summary>More</summary><div data-work-filters></div></details>')
         +'<button type="button" data-work-back>Back in work inventory</button><p data-work-breadcrumb></p>'
         +'<div data-work-group-selection></div>'
         +'<p data-work-browser-status></p><div data-work-source-cards class="bloomscapes-work-cards"></div>';
-    if (options.studioScopes) host.querySelector('[data-work-modes]').closest('label').hidden=true;
-    mountBloomscapesWorkFilters(host,state);
+    if (options.studioScopes || inventory) host.querySelector('[data-work-modes]').closest('label').hidden=true;
+    if (inventory) mountBloomscapesInventoryLocation(host,state);
+    else mountBloomscapesWorkFilters(host,state);
     state.searchInput=host.querySelector('[data-work-search]');
     state.searchInput.addEventListener('input',()=>{renderBloomscapesWorkBrowser(host,state);});
     host.querySelector('[data-work-modes]').addEventListener('change',event=>{
@@ -52,6 +54,46 @@ function mountBloomscapesWorkBrowser(host,onSelect,options={}) {
     renderBloomscapesWorkBrowser(host,state);
 }
 
+function mountBloomscapesInventoryLocation(host,state) {
+    const select=state.locationFilter=host.querySelector('[data-inventory-location] select');
+    select.add(new Option('All blocks / locations',''));
+    select.addEventListener('change',()=>{
+        state.path=[];
+        renderBloomscapesWorkBrowser(host,state);
+    });
+}
+
+function refreshBloomscapesInventoryLocation(state,rows) {
+    const select=state.locationFilter;
+    if (!select || state.locationOptionsRows===rows) return;
+    state.locationOptionsRows=rows;
+    const selected=select.value;
+    select.replaceChildren(new Option('All blocks / locations',''));
+    const locations=new Map();
+    for (const row of rows) {
+        const location=row.LOCATIONCODE || row.locationcode;
+        const block=getDriveBlockAlphaLabel(getDriveBlockAlphaValue(row));
+        if (block && !locations.has(block)) locations.set(block,new Set());
+        if (location && block) locations.get(block).add(location);
+    }
+    for (const block of [...locations.keys()].sort(bloomscapesWorkGroupCollator.compare)) {
+        const group=document.createElement('optgroup');
+        group.label=block;
+        group.appendChild(new Option(block,JSON.stringify([block])));
+        for (const location of [...locations.get(block)].sort(bloomscapesWorkGroupCollator.compare)) {
+            group.appendChild(new Option(location,JSON.stringify([block,location])));
+        }
+        select.appendChild(group);
+    }
+    select.value=selected;
+    if (select.selectedIndex<0) select.selectedIndex=0;
+}
+
+function matchesBloomscapesInventoryLocation(row,path) {
+    return !path.length || getDriveBlockAlphaLabel(getDriveBlockAlphaValue(row))===path[0]
+        && (path.length===1 || (row.LOCATIONCODE || row.locationcode)===path[1]);
+}
+
 function bloomscapesWorkLocationParts(row) {
     const location=String(row.LOCATIONCODE || row.locationcode || '').split('.');
     return [String(row.BLOCKALPHA || row.blockalpha || location[0] || 'Other'),
@@ -61,7 +103,11 @@ function bloomscapesWorkLocationParts(row) {
 function bloomscapesWorkBrowseProjection(host,state) {
     const search=state.searchInput.value;
     const filters=Object.fromEntries([...host.querySelectorAll('[data-work-filter]')].map(select=>[select.dataset.workFilter,select.value]));
-    const all=applyInventoryExcelFilters(state.options.scope || 'studio',bloomscapesWorkBrowserRows(search,filters));
+    const filtered=applyInventoryExcelFilters(state.options.scope || 'studio',bloomscapesWorkBrowserRows(search,filters));
+    if (state.locationFilter) refreshBloomscapesInventoryLocation(state,bloomscapesWorkBrowserRows());
+    const location=state.locationFilter?.value;
+    const path=location ? JSON.parse(location) : [];
+    const all=path.length ? filtered.filter(row=>matchesBloomscapesInventoryLocation(row,path)) : filtered;
     const leaf=state.mode==='all' || (!state.options.studioScopes && search.trim()!=='') || state.path.length>=(state.mode==='block'?2:3);
     if (state.options.locationDrill && state.mode==='block' && (state.options.studioScopes || !search.trim())) {
         return bloomscapesStudioLocationProjection(state,all);
@@ -134,8 +180,12 @@ function renderBloomscapesWorkBrowser(host,state) {
     const list=host.querySelector('[data-work-source-cards]');
     if (typeof parkBloomscapesWorkRowEditor==='function') parkBloomscapesWorkRowEditor(host);
     if (projection.leaf && state.options.studioScopes) return renderBloomscapesStudioScopes(host,list,projection.rows,state);
-    if (projection.leaf) renderBloomscapesListWindow(list,projection.rows,row=>bloomscapesWorkSourceCard(row,state.onSelect,state.options));
-    else renderBloomscapesListWindow(list,projection.groups,entry=>bloomscapesWorkBrowseGroup(host,state,entry));
+    list.classList.toggle('inventory-block-tiles',state.options.scope==='inventory' && !projection.leaf);
+    if (projection.leaf) renderBloomscapesScrollCards(list,projection.rows,row=>bloomscapesWorkSourceCard(row,state.onSelect,state.options),{estimate:340});
+    else {
+        mountBloomscapesScrollWindow(list,[],{});
+        renderBloomscapesListWindow(list,projection.groups,entry=>bloomscapesWorkBrowseGroup(host,state,entry));
+    }
 }
 
 function renderBloomscapesWorkGroupSelection(host,state,rows) {
@@ -158,7 +208,8 @@ function bloomscapesWorkBrowseGroup(host,state,{key,count,beds,first}) {
     const group=document.createElement('section');
     const button=group.appendChild(document.createElement('button'));
     button.type='button';button.dataset.workBrowseGroup=key;
-    button.className='bloomscapes-work-group';button.textContent=key+' · '+count+' rows · '+beds.size+' beds';
+    const title=state.options.scope==='inventory' && state.mode==='block' && !state.path.length ? 'Block '+key : key;
+    button.className='bloomscapes-work-group';button.textContent=title+' · '+count+' rows · '+beds.size+' beds';
     if (!state.options.locationDrill && state.mode==='block' && state.path.length===1) button.textContent+=' · '+bloomscapesBlockLifecycleStage(state.path[0],key);
     button.addEventListener('click',()=>{state.path.push(key);renderBloomscapesWorkBrowser(host,state);});
     if (!state.options.browseOnly && !state.options.locationDrill && state.mode==='block' && state.path.length===1) {
@@ -285,4 +336,52 @@ function getDriveBlockAlphaLabel(value = '') {
 
 function getDriveBlockNumberLabel(value = '') {
     return String(value || '') === DRIVE_NO_BLOCK_NUMBER ? 'No Block Number' : String(value || '').trim();
+}
+
+
+function bloomscapesGrowerQuantity(row,fields) {
+    const raw = firstNonEmptyValue(...fields.map((field) => row && row[field]), null);
+    if (raw === null || String(raw).trim() === '') return null;
+    const parsed = Number(String(raw).replace(/,/g, '').trim());
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
+function sumBloomscapesGrowerQuantity(values) {
+    return values.some((value) => value === null)
+    ? 'Unknown'
+    : formatShearDecisionNumber(values.reduce((total, value) => total + value, 0));
+}
+
+function renderBloomscapesGrowerInventoryGroup(group) {
+    const expanded = growerScoutExpandedItem === group.key;
+    const availableText = sumBloomscapesGrowerQuantity(group.rows.map((row) => bloomscapesGrowerQuantity(row, ['PTRAVAILABLE', 'ptravailable', 'PRTAVAILABLE', 'prtavailable'])));
+    const onHandText = sumBloomscapesGrowerQuantity(group.rows.map((row) => bloomscapesGrowerQuantity(row, ['PTRONHAND', 'ptronhand', 'PTR_ON_HAND', 'ptr_on_hand'])));
+    const photoRow = group.rows.find((row) => getPhotoUrlList(getRowPhotoLink(row, 'drive')).length > 0);
+    const photoUrl = photoRow ? getPhotoUrlList(getRowPhotoLink(photoRow, 'drive'))[0] : '';
+    const photoHtml = photoUrl
+        ? buildDeferredCardPhotoImg(getDirectImageUrl(photoUrl, 'card-corner'), { className: 'grower-item-photo', alt: `${group.commonName} inventory photo` })
+        : '<span class="grower-item-photo-placeholder" aria-hidden="true"><i class="ph-bold ph-image"></i></span>';
+    const locations = new Map();
+    group.rows.forEach((row) => {
+        const name = String(firstNonEmptyValue(row.LOCATIONCODE, row.locationcode, 'No location'));
+        if (!locations.has(name)) locations.set(name, []);
+        locations.get(name).push(row);
+    });
+    const locationHtml = Array.from(locations.entries()).map(([name, locationRows]) => `<section class="grower-location-group"><div class="grower-location-total"><strong>Loc ${escapeHtml(name)}</strong><span>Avail ${escapeHtml(sumBloomscapesGrowerQuantity(locationRows.map((row) => bloomscapesGrowerQuantity(row, ['PTRAVAILABLE', 'ptravailable', 'PRTAVAILABLE', 'prtavailable']))))} · OH ${escapeHtml(sumBloomscapesGrowerQuantity(locationRows.map((row) => bloomscapesGrowerQuantity(row, ['PTRONHAND', 'ptronhand', 'PTR_ON_HAND', 'ptr_on_hand']))))}</span></div>${locationRows.map(renderGrowerInventoryRow).join('')}</section>`).join('');
+    return `<article class="grower-inventory-item" data-grower-item-key="${escapeHtml(group.key)}"><button type="button" class="grower-item-toggle" aria-expanded="${expanded}" onclick="return toggleGrowerScoutItem('${escJsAttrValue(encodeURIComponent(group.key))}')">${photoHtml}<span><strong>${escapeHtml(group.commonName)}</strong><small>${escapeHtml(group.contSize)} · ${escapeHtml(group.itemCode)} · ${group.locations.size} locations · ${group.rows.length} rows</small></span><span class="grower-quantity-total">Avail ${escapeHtml(availableText)}<br>OH ${escapeHtml(onHandText)}</span></button>${expanded ? `<div class="grower-location-list">${locationHtml}</div>` : ''}</article>`;
+}
+
+
+function renderGrowerInventoryRow(row = null) {
+    const uid = getShearDriveRowUid(row);
+    const encoded = escJsAttrValue(encodeURIComponent(uid));
+    const expanded = growerScoutExpandedRow === uid;
+    const draft = growerScoutRowDrafts.get(uid) || { pestCode: '', sev: '', notes: '' };
+    const location = String(firstNonEmptyValue(row.LOCATIONCODE, row.locationcode, '-'));
+    const lot = String(firstNonEmptyValue(row.LOTCODE, row.lotcode, '-'));
+    const available = bloomscapesGrowerQuantity(row,['PTRAVAILABLE', 'ptravailable', 'PRTAVAILABLE', 'prtavailable']);
+    const hand = bloomscapesGrowerQuantity(row,['PTRONHAND', 'ptronhand', 'PTR_ON_HAND', 'ptr_on_hand']);
+    const availableText = available === null ? 'Unknown' : formatShearDecisionNumber(available);
+    const handText = hand === null ? 'Unknown' : formatShearDecisionNumber(hand);
+    return `<section class="grower-inventory-row" data-grower-row-uid="${escapeHtml(uid)}"><button type="button" class="grower-row-toggle" aria-expanded="${expanded}" onclick="return toggleGrowerScoutRow('${encoded}')"><span>Loc ${escapeHtml(location)} · Lot ${escapeHtml(lot)}</span><strong>Avail ${escapeHtml(availableText)} · OH ${escapeHtml(handText)}</strong></button>${expanded ? `<div class="grower-row-details"><div class="grower-scout-input-grid"><label>Pest Code / ID<input data-grower-draft-field="pestCode" value="${escapeHtml(draft.pestCode)}" maxlength="80" oninput="return updateGrowerScoutDraft(this)"></label><label>Sev (0–50)<input type="number" min="0" max="50" step="1" inputmode="numeric" data-grower-draft-field="sev" value="${escapeHtml(draft.sev)}" oninput="return updateGrowerScoutDraft(this)"></label></div><label class="grower-scout-notes">Notes<textarea data-grower-draft-field="notes" rows="2" oninput="return updateGrowerScoutDraft(this)">${escapeHtml(draft.notes)}</textarea></label><button type="button" class="grower-scout-save" onclick="return saveGrowerScoutRowLog('${encoded}', this)">Save scouting log</button></div>` : ''}</section>`;
 }

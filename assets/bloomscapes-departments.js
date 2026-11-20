@@ -33,17 +33,17 @@ const BLOOMSCAPES_DEPARTMENT_LINKS = {
     managers:[['studio','Build Work Studio'],['smart-moves','Smart Sales & Move Intelligence'],
         ['bunch-notes','Bunch Notes'],['can-filling','Can Filling'],['grading','Shift Grading'],
         ['hauling','Hauling'],['shearing','Shear List'],['replenishment','Intercompany & CPB'],
-        ['lab','Plant Health & Lab Reports'],['vault','My Work & Inquiry PDF Vault'],['sales-vault','Sales Rep Vault'],
-        ['radio','Walkie-Talkie & AURA Voice'],['architecture','System Architecture & Table Map']],
+        ['lab','Plant Health & Lab Reports'],['vault','My Work & Inquiry PDF Vault'],['sales-vault','Sales Rep Vault']],
     production:[['studio','Build Work Studio'],['bunch-notes','Bunch Notes'],['can-filling','Can Filling'],
         ['grading','Shift Grading'],['hauling','Hauling'],['shearing','Shear List'],['vault','My Work & Inquiry PDF Vault']],
     'hl-order':[['replenishment','PO Management']],
+    'po-management':[['replenishment','PO Management']],
     sales:[['sales-vault','Sales Rep Vault'],['smart-moves','Smart Sales & Move Intelligence']],
-    qc:[['lab','Plant Health & Lab Reports']],communication:[['radio','Walkie-Talkie & AURA Voice']]
+    qc:[['lab','Plant Health & Lab Reports']], 'disease-pest':[['lab','Plant Health & Lab Review']], communication:[]
 };
 const bloomscapesDepartmentTabs = new Map();
 const bloomscapesDepartmentFrames = new Map();
-const BLOOMSCAPES_DEPARTMENT_DEFAULTS={production:'bloomscapes-studio','hl-order':'bloomscapes-replenishment',communication:'bloomscapes-radio'};
+const BLOOMSCAPES_DEPARTMENT_DEFAULTS={production:'bloomscapes-studio','hl-order':'bloomscapes-replenishment','po-management':'bloomscapes-replenishment','disease-pest':'bloomscapes-lab',communication:'bloomscapes-radio'};
 
 function detachInactiveBloomscapesReceivingPanels(view) {
     for (const frame of document.querySelectorAll('[data-department-workspace="bloomscapes-replenishment"]')) {
@@ -74,7 +74,8 @@ function mountBloomscapesDepartmentShortcuts(view) {
     const links = BLOOMSCAPES_DEPARTMENT_LINKS[view];
     const root = document.getElementById('view-'+view);
     if (!links || !root || !nativeAuthSessionActive || !canAccessView(view)) return;
-    if (view==='sales' || view==='production' || view==='hl-order' || view==='managers' && activeHomeTab===MANAGER_EVAL_REPORTS_2_VIEW
+    if (view==='sales' || view==='production' || view==='hl-order' || view==='po-management' || view==='managers' && activeHomeTab===MANAGER_EVAL_REPORTS_2_VIEW
+        || view==='communication' || view==='disease-pest' || (view==='managers' && activeHomeTab===MANAGER_ASSIGNED_ITEMS_EXPORT_VIEW)
         || bloomscapesDepartmentTabs.get(bloomscapesDepartmentKey(view))==='bloomscapes-studio') {
         root.querySelector(':scope > [data-department-shortcuts]')?.remove();
         return;
@@ -88,7 +89,7 @@ function mountBloomscapesDepartmentShortcuts(view) {
         root.prepend(nav);
     }
     if (nav.dataset.owner===getSupabaseReadIdentityScope()) return;
-    nav.replaceChildren(...links.filter(([id])=>id!=='studio' && (id!=='architecture' || canViewBloomscapesArchitecture(currentUser,nativeAuthProfile,true)))
+    nav.replaceChildren(...links.filter(([id])=>id!=='studio')
         .map(([id,title])=>bloomscapesDepartmentButton(view,id,title)));
     nav.dataset.owner = getSupabaseReadIdentityScope();
 }
@@ -153,7 +154,8 @@ function backBloomscapesDepartmentWorkspace(view) {
 }
 
 function bloomscapesDepartmentTitle(view) {
-    if (view==='hl-order') return 'PO Management';
+    if (view==='hl-order' || view==='po-management') return 'PO Management';
+    if (view==='production' && canUseBloomscapesWorkStudio()) return 'Build Work Studio';
     if (view==='chat') return 'Messages';
     const tab=bloomscapesDepartmentTabs.get(bloomscapesDepartmentKey(view));
     if (tab==='bloomscapes-studio') return 'Build Work Studio';

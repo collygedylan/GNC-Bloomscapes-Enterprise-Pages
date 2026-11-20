@@ -83,11 +83,10 @@ function resolveManagerRenderTabs() {
     const access = getManagersToolAccess();
     const managerApprovalTabs = getManagerApprovalTabs(access);
     const managerToolTabs = getManagerToolTabs(access);
-    if (nativeAuthSessionActive) managerToolTabs.push(...BLOOMSCAPES_WORKFLOW_TABS);
-    if (canViewBloomscapesArchitecture(currentUser, nativeAuthProfile, nativeAuthSessionActive)) {
-        managerToolTabs.push({id: BLOOMSCAPES_ARCHITECTURE_TAB, label: 'System Architecture & Table Map'});
-    }
+    if (nativeAuthSessionActive) managerToolTabs.push(...BLOOMSCAPES_WORKFLOW_TABS.filter(tab=>tab.id!=='bloomscapes-radio'));
     const allowedTabs = new Set();
+    if (nativeAuthSessionActive) allowedTabs.add('bloomscapes-radio');
+    if (canViewBloomscapesArchitecture(currentUser, nativeAuthProfile, nativeAuthSessionActive)) allowedTabs.add(BLOOMSCAPES_ARCHITECTURE_TAB);
     allowedTabs.add('dashboard');
     const canViewRuntimeWatchdog = ['dylan_collyge', 'megan_kelly', 'jd_jones'].includes(String(currentUser || '').trim().toLowerCase());
     if (canViewRuntimeWatchdog) allowedTabs.add(MANAGER_RUNTIME_WATCHDOG_VIEW);

@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.22';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.23';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -23534,7 +23534,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.22';
+        const APP_VERSION = '3.1.23';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -62745,7 +62745,7 @@ function toggleDriveQuickRequestItem(domId) {
                     ? visibleGroups.map(renderProductionWorkflowItemCard).join('')
                     : `<div class="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-400">No Drive Mode items match these filters.</div>`);
             const moreHtml = !showingRows && groups.length > visibleGroups.length
-                ? `<button type="button" class="w-full rounded-xl border border-emerald-200 bg-white px-4 py-3 text-center text-[11px] font-black uppercase tracking-[0.12em] text-[#007a4d] shadow-sm active:scale-95" onclick="return showMoreProductionWorkflowDriveItems()">Show More Items (${escapeHtml(String(visibleGroups.length))} of ${escapeHtml(String(groups.length))})</button>`
+                ? `<bloomscapes-page-edge data-page="production"></bloomscapes-page-edge>`
                 : '';
             return `<div class="space-y-3">
                 <div class="rounded-2xl border border-green-200 bg-emerald-50/40 p-3 shadow-sm">
@@ -66677,7 +66677,7 @@ function toggleDriveQuickRequestItem(domId) {
             const headerHtml = PO_MANAGEMENT_COLUMNS.map((column) => `<th class="sticky top-0 z-10 whitespace-nowrap border-b border-emerald-100 bg-emerald-50 px-3 py-2.5 text-left text-[9px] font-black uppercase tracking-[0.12em] text-[#007a4d]">${escapeHtml(column.label)}</th>`).join('') + (canOpenVerifiedInventory ? '<th class="sticky top-0 z-10 border-b border-emerald-100 bg-emerald-50 px-3 py-2.5"></th>' : '');
             const rowHtml = visibleRows.map((row) => `<tr class="odd:bg-white even:bg-slate-50/70">${PO_MANAGEMENT_COLUMNS.map((column) => renderPoManagementCell(row, column)).join('')}${canOpenVerifiedInventory ? `<td class="border-b border-slate-100 px-3 py-2.5"><button type="button" class="min-h-[36px] whitespace-nowrap rounded-lg border border-emerald-200 bg-white px-3 text-[10px] font-black uppercase tracking-[0.1em] text-emerald-800" onclick="return openPoManagementInventory('${escapeHtml(String(row.row_index))}')">View inventory</button></td>` : ''}</tr>`).join('');
             const moreHtml = visibleRows.length < rows.length
-                ? `<button type="button" class="mt-3 w-full rounded-xl border border-green-200 bg-white px-4 py-3 text-[11px] font-black uppercase tracking-[0.14em] text-[#007a4d] shadow-sm active:scale-[0.99]" onclick="return showMorePoManagementRows()">Show More</button>`
+                ? `<bloomscapes-page-edge data-page="legacy-po"></bloomscapes-page-edge>`
                 : '';
             return `<div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><div class="max-h-[68vh] overflow-auto"><table class="min-w-[1800px] w-full border-collapse"><thead><tr>${headerHtml}</tr></thead><tbody>${rowHtml}</tbody></table></div></div>${moreHtml}`;
         }
@@ -67773,7 +67773,7 @@ function toggleDriveQuickRequestItem(domId) {
                     ? visibleGroups.map(renderWeatherHoldInventoryCard).join('')
                     : '<div class="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-400">No Drive Mode items match these filters.</div>');
             const moreHtml = !showingRows && groups.length > visibleGroups.length
-                ? `<button type="button" class="w-full rounded-xl border border-emerald-200 bg-white px-4 py-3 text-center text-[11px] font-black uppercase tracking-[0.12em] text-[#007a4d] shadow-sm active:scale-95" onclick="return showMoreWeatherHoldInventoryItems()">Show More Items (${escapeHtml(String(visibleGroups.length))} of ${escapeHtml(String(groups.length))})</button>`
+                ? `<bloomscapes-page-edge data-page="weather"></bloomscapes-page-edge>`
                 : '';
             return `<section class="space-y-3">
                 <div class="compact-filter-rail flex flex-wrap items-end gap-2">
@@ -70221,7 +70221,7 @@ function toggleDriveQuickRequestItem(domId) {
                     ? limitedGroups.map(renderShearDriveItemCard).join('')
                     : '<div class="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-400">No Drive Mode items match these filters.</div>');
             const moreHtml = !showingItemRows && itemGroups.length > limitedGroups.length
-                ? `<button type="button" class="w-full rounded-xl border border-emerald-200 bg-white px-4 py-3 text-center text-[11px] font-black uppercase tracking-[0.12em] text-[#007a4d] shadow-sm active:scale-95" onclick="return showMoreShearDriveItems()">Show More Items (${escapeHtml(String(limitedGroups.length))} of ${escapeHtml(String(itemGroups.length))})</button>`
+                ? `<bloomscapes-page-edge data-page="shear"></bloomscapes-page-edge>`
                 : '';
             return `<div class="space-y-3">
                 <div class="rounded-2xl border border-lime-200 bg-lime-50/40 p-3 shadow-sm">
@@ -70629,7 +70629,7 @@ function toggleDriveQuickRequestItem(domId) {
                 const rowLimitKey = `${id}|${String(item.id || item.itemcode || '')}`;
                 const rowLimit = Math.max(100, Number(shearListState.inquiryRowLimits.get(rowLimitKey)) || 100);
                 const rowsHtml = allRows.slice(0, rowLimit).map((row) => `<div class="grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2 text-[10px] font-bold text-slate-700 sm:grid-cols-5" style="content-visibility:auto;contain-intrinsic-size:48px"><span>Lot <strong>${escapeHtml(row.lotcode || '-')}</strong></span><span>Season <strong>${escapeHtml(row.season || '-')}</strong></span><span>On Hand <strong>${escapeHtml(String(row.ptronhand || 0))}</strong></span><span>Review <strong>${escapeHtml(String(row.ptrreviewed || 0))}</strong></span><span>Available <strong>${escapeHtml(String(row.ptravailable || 0))}</strong></span></div>`).join('');
-                const moreHtml = allRows.length > rowLimit ? `<button type="button" class="min-h-[44px] w-full rounded-xl border border-emerald-200 bg-white px-3 text-[10px] font-black uppercase text-emerald-800" onclick="event.preventDefault(); event.stopPropagation(); return showMoreShearInquiryRows('${escJsAttrValue(rowLimitKey)}')">Show More Rows (${rowLimit} of ${allRows.length})</button>` : '';
+                const moreHtml = allRows.length > rowLimit ? `<bloomscapes-page-edge data-page="shear-inquiry" data-key="${escapeHtml(rowLimitKey)}"></bloomscapes-page-edge>` : '';
                 return `<section class="rounded-2xl border border-emerald-200 bg-white p-3"><div class="flex flex-wrap items-start justify-between gap-2"><div><div class="text-[9px] font-black uppercase tracking-wider text-emerald-700">${escapeHtml(item.itemcode || '')}</div><div class="font-black text-slate-900">${escapeHtml(item.commonname || 'Inventory item')}</div></div><span class="rounded-full bg-lime-100 px-3 py-1 text-[10px] font-black text-lime-900">${escapeHtml(getShearInquiryTypeLabel(item.shear_type))} · ${escapeHtml(String(item.percent_to_shear || 0))}% · ${escapeHtml(String(item.calculated_quantity || 0))} of ${escapeHtml(String(item.on_hand_total || 0))}</span></div>${item.instructions ? `<div class="mt-2 rounded-xl bg-amber-50 p-2 text-[11px] font-bold text-amber-900">${escapeHtml(item.instructions)}</div>` : ''}<div class="mt-3 space-y-2">${rowsHtml}${moreHtml}</div></section>`;
             }).join('') || `<div class="rounded-2xl border border-dashed border-emerald-200 bg-white p-5 text-center text-sm font-bold text-emerald-700">${isLoading ? 'Loading frozen inventory rows…' : 'Open this card to load its frozen inventory rows.'}</div>`;
             const managementHtml = `<div class="mt-3 grid gap-2 ${canCreateShearLocationInquiry() ? 'grid-cols-2' : 'grid-cols-1'}"><button type="button" class="min-h-[48px] rounded-xl bg-emerald-700 px-3 text-[10px] font-black uppercase tracking-wider text-white" onclick="event.preventDefault(); event.stopPropagation(); return completeShearLocationInquiry('${escJsAttrValue(id)}', ${revision}, this)">Mark Location Complete</button>${canCreateShearLocationInquiry() ? `<button type="button" class="min-h-[48px] rounded-xl border border-red-200 bg-white px-3 text-[10px] font-black uppercase tracking-wider text-red-700" onclick="event.preventDefault(); event.stopPropagation(); return cancelShearLocationInquiry('${escJsAttrValue(id)}', ${revision}, this)">Cancel Inquiry</button>` : ''}</div>`;
@@ -79140,48 +79140,13 @@ function toggleDriveQuickRequestItem(domId) {
 
         function installAvCardWindowContinuation(container, rows, sourceView, start, signature) {
             const previous = container._avCardWindow;
-            if (previous && previous.observer) previous.observer.disconnect();
-            const button = container.querySelector('[data-av-load-more]');
-            const state = { index: start, signature, observer: null, loading: false };
+            previous?.observer?.disconnect();
+            const marker = container.querySelector('[data-av-load-more]');
+            const state = { index:start, signature, observer:null, loading:false };
             container._avCardWindow = state;
             container.dataset.avWindowCount = String(start);
-            if (!button) return;
-            const loadMore = () => {
-                if (container._avCardWindow !== state || state.loading || !button.isConnected
-                    || getCurrentVisibleViewId() !== 'av') return;
-                state.loading = true;
-                button.disabled = true;
-                const end = getAvCardWindowEnd(rows.length, state.index);
-                let markup = '';
-                const prepare = () => {
-                    if (container._avCardWindow !== state || !button.isConnected) return;
-                    // Generate at most four rich cards per turn; append once so
-                    // existing selection/focus/scroll nodes remain untouched.
-                    const sliceEnd = Math.min(end, state.index + 4);
-                    for (; state.index < sliceEnd; state.index++) {
-                        markup += generateCard(rows[state.index], sourceView, 'status-teal', { rowIndex: state.index });
-                    }
-                    if (state.index < end) { requestAnimationFrame(prepare); return; }
-                    button.insertAdjacentHTML('beforebegin', markup);
-                    container.dataset.avWindowCount = String(state.index);
-                    state.loading = false;
-                    button.disabled = false;
-                    refreshCartButtons(rows.slice(0, state.index).map(row => row.DOM_ID));
-                    scheduleDeferredCardPhotoHydration(container);
-                    if (state.index >= rows.length) {
-                        if (state.observer) state.observer.disconnect();
-                        button.remove();
-                    }
-                };
-                requestAnimationFrame(prepare);
-            };
-            button.addEventListener('click', loadMore);
-            if (typeof IntersectionObserver === 'function') {
-                state.observer = new IntersectionObserver(entries => {
-                    if (entries.some(entry => entry.isIntersecting)) loadMore();
-                }, { root: getMainAreaScrollTarget(), rootMargin: '400px' });
-                state.observer.observe(button);
-            }
+            if (!marker) return;
+            state.observer = mountAvScrollPage({container,marker,rows,sourceView,state});
         }
 
         function renderAVOpenCardsChunked(container, crumb, rows, sourceView, crumbText, footerHtml = '', options = {}) {
@@ -102932,58 +102897,12 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return false;
         }
 
-        function renderGrowerInventoryRow(row = null) {
-            const uid = getShearDriveRowUid(row);
-            const encoded = escJsAttrValue(encodeURIComponent(uid));
-            const expanded = growerScoutExpandedRow === uid;
-            const draft = growerScoutRowDrafts.get(uid) || { pestCode: '', sev: '', notes: '' };
-            const location = String(firstNonEmptyValue(row.LOCATIONCODE, row.locationcode, '-'));
-            const lot = String(firstNonEmptyValue(row.LOTCODE, row.lotcode, '-'));
-            const quantityValue = (fields = []) => {
-                const raw = firstNonEmptyValue(...fields.map((field) => row && row[field]), null);
-                if (raw === null || String(raw).trim() === '') return null;
-                const parsed = Number(String(raw).replace(/,/g, '').trim());
-                return Number.isFinite(parsed) ? parsed : null;
-            };
-            const available = quantityValue(['PTRAVAILABLE', 'ptravailable', 'PRTAVAILABLE', 'prtavailable']);
-            const hand = quantityValue(['PTRONHAND', 'ptronhand', 'PTR_ON_HAND', 'ptr_on_hand']);
-            const availableText = available === null ? 'Unknown' : formatShearDecisionNumber(available);
-            const handText = hand === null ? 'Unknown' : formatShearDecisionNumber(hand);
-            return `<section class="grower-inventory-row" data-grower-row-uid="${escapeHtml(uid)}"><button type="button" class="grower-row-toggle" aria-expanded="${expanded}" onclick="return toggleGrowerScoutRow('${encoded}')"><span>Loc ${escapeHtml(location)} · Lot ${escapeHtml(lot)}</span><strong>Avail ${escapeHtml(availableText)} · OH ${escapeHtml(handText)}</strong></button>${expanded ? `<div class="grower-row-details"><div class="grower-scout-input-grid"><label>Pest Code / ID<input data-grower-draft-field="pestCode" value="${escapeHtml(draft.pestCode)}" maxlength="80" oninput="return updateGrowerScoutDraft(this)"></label><label>Sev (0–50)<input type="number" min="0" max="50" step="1" inputmode="numeric" data-grower-draft-field="sev" value="${escapeHtml(draft.sev)}" oninput="return updateGrowerScoutDraft(this)"></label></div><label class="grower-scout-notes">Notes<textarea data-grower-draft-field="notes" rows="2" oninput="return updateGrowerScoutDraft(this)">${escapeHtml(draft.notes)}</textarea></label><button type="button" class="grower-scout-save" onclick="return saveGrowerScoutRowLog('${encoded}', this)">Save scouting log</button></div>` : ''}</section>`;
-        }
-
         function renderGrowerInventoryPanel() {
             const rows = getGrowerInventoryRows();
             const groups = groupProductionWorkflowItems(rows);
             const visible = groups.slice(0, growerInventoryVisibleCount);
-            const cards = visible.map((group) => {
-                const expanded = growerScoutExpandedItem === group.key;
-                const quantityValue = (row, fields = []) => {
-                    const raw = firstNonEmptyValue(...fields.map((field) => row && row[field]), null);
-                    if (raw === null || String(raw).trim() === '') return null;
-                    const parsed = Number(String(raw).replace(/,/g, '').trim());
-                    return Number.isFinite(parsed) ? parsed : null;
-                };
-                const sumKnown = (values) => values.some((value) => value === null)
-                    ? 'Unknown'
-                    : formatShearDecisionNumber(values.reduce((total, value) => total + value, 0));
-                const availableText = sumKnown(group.rows.map((row) => quantityValue(row, ['PTRAVAILABLE', 'ptravailable', 'PRTAVAILABLE', 'prtavailable'])));
-                const onHandText = sumKnown(group.rows.map((row) => quantityValue(row, ['PTRONHAND', 'ptronhand', 'PTR_ON_HAND', 'ptr_on_hand'])));
-                const photoRow = group.rows.find((row) => getPhotoUrlList(getRowPhotoLink(row, 'drive')).length > 0);
-                const photoUrl = photoRow ? getPhotoUrlList(getRowPhotoLink(photoRow, 'drive'))[0] : '';
-                const photoHtml = photoUrl
-                    ? buildDeferredCardPhotoImg(getDirectImageUrl(photoUrl, 'card-corner'), { className: 'grower-item-photo', alt: `${group.commonName} inventory photo` })
-                    : '<span class="grower-item-photo-placeholder" aria-hidden="true"><i class="ph-bold ph-image"></i></span>';
-                const locations = new Map();
-                group.rows.forEach((row) => {
-                    const name = String(firstNonEmptyValue(row.LOCATIONCODE, row.locationcode, 'No location'));
-                    if (!locations.has(name)) locations.set(name, []);
-                    locations.get(name).push(row);
-                });
-                const locationHtml = Array.from(locations.entries()).map(([name, locationRows]) => `<section class="grower-location-group"><div class="grower-location-total"><strong>Loc ${escapeHtml(name)}</strong><span>Avail ${escapeHtml(sumKnown(locationRows.map((row) => quantityValue(row, ['PTRAVAILABLE', 'ptravailable', 'PRTAVAILABLE', 'prtavailable']))))} · OH ${escapeHtml(sumKnown(locationRows.map((row) => quantityValue(row, ['PTRONHAND', 'ptronhand', 'PTR_ON_HAND', 'ptr_on_hand']))))}</span></div>${locationRows.map(renderGrowerInventoryRow).join('')}</section>`).join('');
-                return `<article class="grower-inventory-item" data-grower-item-key="${escapeHtml(group.key)}"><button type="button" class="grower-item-toggle" aria-expanded="${expanded}" onclick="return toggleGrowerScoutItem('${escJsAttrValue(encodeURIComponent(group.key))}')">${photoHtml}<span><strong>${escapeHtml(group.commonName)}</strong><small>${escapeHtml(group.contSize)} · ${escapeHtml(group.itemCode)} · ${group.locations.size} locations · ${group.rows.length} rows</small></span><span class="grower-quantity-total">Avail ${escapeHtml(availableText)}<br>OH ${escapeHtml(onHandText)}</span></button>${expanded ? `<div class="grower-location-list">${locationHtml}</div>` : ''}</article>`;
-            }).join('');
-            return `<div class="grower-inventory-list" data-grower-inventory-list><div class="grower-inventory-count">${groups.length} items · ${rows.length} rows</div>${cards || '<div class="grower-inventory-empty">No inventory rows match these filters.</div>'}${groups.length > visible.length ? `<button type="button" class="grower-show-more" onclick="growerInventoryVisibleCount += 80; renderGrowerScout(); return false">Show more items</button>` : ''}</div>`;
+            const cards = visible.map(renderBloomscapesGrowerInventoryGroup).join('');
+            return `<div class="grower-inventory-list" data-grower-inventory-list><div class="grower-inventory-count">${groups.length} items · ${rows.length} rows</div>${cards || '<div class="grower-inventory-empty">No inventory rows match these filters.</div>'}${groups.length > visible.length ? `<bloomscapes-page-edge data-page="grower"></bloomscapes-page-edge>` : ''}</div>`;
         }
 
         function renderGrowerScoutNotePanel() {
@@ -104393,32 +104312,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return `<div class="space-y-3 md:hidden">${cards}</div><div class="hidden overflow-x-auto rounded-2xl border border-slate-200 bg-white md:block"><table class="min-w-full border-collapse"><thead><tr class="bg-slate-50"><th class="px-3 py-3 text-left text-[10px] font-black uppercase tracking-[0.12em] text-slate-600">File</th><th class="px-3 py-3 text-right text-[10px] font-black uppercase tracking-[0.12em] text-slate-600">Rows</th><th class="px-3 py-3 text-left text-[10px] font-black uppercase tracking-[0.12em] text-slate-600">Transaction Dates</th><th class="px-3 py-3 text-left text-[10px] font-black uppercase tracking-[0.12em] text-slate-600">Status</th><th class="px-3 py-3 text-left text-[10px] font-black uppercase tracking-[0.12em] text-slate-600">Processed</th></tr></thead><tbody>${desktopRows}</tbody></table></div>`;
         }
 
-        function renderTransactionsKeyedPanel() {
-            if (!canViewTransactionsKeyed()) return '<div class="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-400">Transactions Keyed is available only to Dylan, Megan, and JD.</div>';
-            const state = managerTransactionsKeyedState;
-            if (!state.loaded && !state.loading) setTimeout(() => loadTransactionsKeyedDashboard(false), 0);
-            const summary = state.summary || {};
-            const summaryCards = [
-                ['Canonical Files', summary.canonicalFiles, 'ph-files'],
-                ['Rows', summary.totalRows, 'ph-list-numbers'],
-                ['Creators', summary.distinctCreators, 'ph-users-three'],
-                ['Duplicates', summary.duplicateFiles, 'ph-copy'],
-                ['Excluded', summary.excludedRows, 'ph-warning-circle']
-            ].map(([label, value, icon]) => `<div class="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm"><div class="flex items-center justify-between gap-2"><div class="text-[9px] font-black uppercase tracking-[0.13em] text-slate-400">${escapeHtml(label)}</div><i class="ph-bold ${icon} text-emerald-500"></i></div><div class="mt-2 text-2xl font-black text-slate-900">${escapeHtml(formatTransactionsKeyedCount(value))}</div></div>`).join('');
-            const dateOptions = state.availableDates.map((entry) => `<option value="${escapeHtml(String(entry.transaction_date || '').slice(0, 10))}" ${String(entry.transaction_date || '').slice(0, 10) === state.selectedDate ? 'selected' : ''}>${escapeHtml(formatTransactionsKeyedDate(entry.transaction_date))} — ${escapeHtml(formatTransactionsKeyedCount(entry.row_count))} rows</option>`).join('');
-            const errorHtml = state.error ? `<div class="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700"><div>${escapeHtml(state.error)}</div><button type="button" class="mt-3 rounded-xl border border-red-200 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-red-700" onclick="return loadTransactionsKeyedDashboard(true)">Retry</button></div>` : '';
-            const loadingHtml = state.loading && !state.loaded ? '<div class="rounded-2xl border border-emerald-100 bg-white p-8 text-center text-sm font-black text-emerald-700">Loading Transactions Keyed...</div>' : '';
-            return `<div class="space-y-5">
-                <div class="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm"><div class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between"><div><div class="text-[10px] font-black uppercase tracking-[0.16em] text-[#007a4d]">Manager Reporting</div><div class="mt-1 text-xl font-black text-slate-900">Transactions Keyed</div><div class="mt-1 max-w-3xl text-[12px] font-semibold text-slate-500">Each imported row is one keyed occurrence. Daily shares use Transaction Date in America/Chicago; exact duplicate workbooks are archived without double-counting.</div></div><button type="button" class="min-h-[44px] rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-[10px] font-black uppercase tracking-[0.13em] text-emerald-800 ${state.loading ? 'pointer-events-none opacity-60' : ''}" onclick="return loadTransactionsKeyedDashboard(true)"><i class="ph-bold ph-arrows-clockwise mr-1"></i>${state.loading ? 'Refreshing' : 'Refresh'}</button></div><div class="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2"><label class="text-[10px] font-black uppercase tracking-[0.13em] text-slate-500">Date<select class="mt-1 min-h-[48px] w-full rounded-xl border border-emerald-100 bg-white px-3 text-sm font-black text-slate-900" onchange="return setTransactionsKeyedDate(this.value)">${dateOptions || '<option value="">No dates imported</option>'}</select></label><label class="text-[10px] font-black uppercase tracking-[0.13em] text-slate-500">Created By Search<div class="mt-1 flex gap-2"><input id="transactions-keyed-search" type="search" class="min-h-[48px] min-w-0 flex-1 rounded-xl border border-emerald-100 bg-white px-3 text-sm font-bold text-slate-900" value="${escapeHtml(state.search || '')}" placeholder="Search a name" oninput="return setTransactionsKeyedSearch(this.value)"><button type="button" class="min-h-[48px] rounded-xl border border-slate-200 bg-white px-3 text-[10px] font-black uppercase text-slate-600" onclick="return clearTransactionsKeyedSearch()">Clear</button></div></label></div></div>
-                <div class="grid grid-cols-2 gap-3 lg:grid-cols-5">${summaryCards}</div>
-                <div class="rounded-2xl border border-blue-100 bg-blue-50/50 p-4"><div class="text-[10px] font-black uppercase tracking-[0.15em] text-blue-700">Imported Range</div><div class="mt-1 text-sm font-black text-slate-800">${escapeHtml(formatTransactionsKeyedDate(summary.firstTransactionDate))} – ${escapeHtml(formatTransactionsKeyedDate(summary.lastTransactionDate))}</div></div>
-                ${errorHtml}${loadingHtml}
-                <section class="space-y-3"><div class="flex flex-wrap items-end justify-between gap-2"><div><div class="text-[10px] font-black uppercase tracking-[0.15em] text-[#007a4d]">Date View</div><h3 class="mt-1 text-lg font-black text-slate-900">${escapeHtml(formatTransactionsKeyedDate(state.selectedDate || summary.selectedDate))}</h3></div><div class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">${escapeHtml(formatTransactionsKeyedCount(state.dateMetrics.length))} names</div></div>${renderTransactionsKeyedMetricTable(state.dateMetrics, false)}</section>
-                <section class="space-y-3"><div class="flex flex-wrap items-end justify-between gap-2"><div><div class="text-[10px] font-black uppercase tracking-[0.15em] text-[#007a4d]">All Dates</div><h3 class="mt-1 text-lg font-black text-slate-900">Daily and Historical Shares</h3></div><div class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">${escapeHtml(formatTransactionsKeyedCount(state.allDates.length))} of ${escapeHtml(formatTransactionsKeyedCount(state.allDatesTotal))}</div></div>${renderTransactionsKeyedMetricTable(state.allDates, true)}${state.allDatesHasMore ? `<button type="button" class="min-h-[48px] w-full rounded-2xl border border-emerald-200 bg-white px-4 text-[10px] font-black uppercase tracking-[0.13em] text-emerald-800 ${state.loadingMoreDates ? 'pointer-events-none opacity-60' : ''}" onclick="return loadTransactionsKeyedDashboard(false, 'dates')">${state.loadingMoreDates ? 'Loading...' : 'Load More Dates'}</button>` : ''}</section>
-                <section class="space-y-3"><div class="flex flex-wrap items-end justify-between gap-2"><div><div class="text-[10px] font-black uppercase tracking-[0.15em] text-[#007a4d]">Processed Files</div><h3 class="mt-1 text-lg font-black text-slate-900">Import Ledger</h3></div><div class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">${escapeHtml(formatTransactionsKeyedCount(state.files.length))} of ${escapeHtml(formatTransactionsKeyedCount(state.filesTotal))}</div></div>${renderTransactionsKeyedFiles(state.files)}${state.filesHasMore ? `<button type="button" class="min-h-[48px] w-full rounded-2xl border border-slate-200 bg-white px-4 text-[10px] font-black uppercase tracking-[0.13em] text-slate-700 ${state.loadingMoreFiles ? 'pointer-events-none opacity-60' : ''}" onclick="return loadTransactionsKeyedDashboard(false, 'files')">${state.loadingMoreFiles ? 'Loading...' : 'Load More Files'}</button>` : ''}</section>
-            </div>`;
-        }
-
         function canViewManagerOrders() {
             const audited = getAuditedAppPermission('manager.orders.view');
             if (audited && audited.allowed === true) return true;
@@ -104661,34 +104554,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             const notesHtml = safeRow.locationnote
                 ? `<div data-location-note class="mt-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-semibold text-slate-600"><strong>Location Note:</strong> ${escapeHtml(safeRow.locationnote)}${safeRow.locationnotedate ? ` • ${escapeHtml(safeRow.locationnotedate)}` : ''}</div>` : '';
             return `<article class="item-row app-smart-card app-smart-card--inventory app-drive-compact-card relative w-full overflow-hidden rounded-xl border border-emerald-200 bg-white p-4 shadow-sm"><div class="app-drive-card-grid app-drive-card-grid--no-actions app-drive-card-grid--no-photo"><div class="app-drive-card-main"><div class="app-drive-card-itemcode">${escapeHtml(safeRow.itemcode || '-')}</div><div class="app-drive-card-title-row"><div class="app-drive-card-title">${escapeHtml(safeRow.contsize || '-')} ${escapeHtml(safeRow.commonname || 'Unknown')}</div><div class="app-drive-card-meta">${escapeHtml(safeRow.locationcode || 'No Loc')} ${escapeHtml(safeRow.lotcode || '-')} PRI ${escapeHtml(safeRow.priority || '-')}</div></div><div class="app-drive-card-quantity-band">${quantityHtml}</div><div class="app-drive-card-chip-row"><span class="app-drive-card-source-chip"><i class="ph-bold ph-user mr-1"></i>${escapeHtml(assignee)}</span>${safeRow.season ? `<span class="app-drive-card-source-chip">Season ${escapeHtml(safeRow.season)}</span>` : ''}${block ? `<span class="app-drive-card-source-chip">Block ${escapeHtml(block)}</span>` : ''}${dataPills}</div>${holdHtml}${notesHtml}${renderManagerOrderSourceEntries(safeRow.sourceEntries)}</div></div></article>`;
-        }
-
-        function renderManagerOrdersPanel() {
-            if (!canViewManagerOrders()) return '<div class="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-400">Orders is available only to active managers.</div>';
-            const state = managerOrdersState;
-            const sourceLabel = getManagerOrderSourceLabel(state.sourceKey);
-            if (!state.loaded && !state.loading && state.level === 'sources') setTimeout(() => loadManagerOrderSources(false), 0);
-            const errorHtml = state.error ? `<div class="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700"><div>${escapeHtml(state.error)}</div><button type="button" class="mt-3 min-h-[44px] rounded-xl border border-red-200 bg-white px-4 text-[10px] font-black uppercase" onclick="return refreshManagerOrders()">Retry</button></div>` : '';
-            const loadingHtml = state.loading && !state.rows.length && !state.batches.length ? '<div class="rounded-2xl border border-emerald-100 bg-white p-8 text-center text-sm font-black text-emerald-700">Loading Orders...</div>' : '';
-            const header = `<div class="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm"><div class="flex flex-wrap items-center justify-between gap-3"><div class="flex min-w-0 items-center gap-3">${state.level !== 'sources' ? '<button data-secondary-back="true" aria-hidden="true" type="button" class="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-emerald-200 bg-white text-emerald-800" aria-label="Back" onclick="return backManagerOrders()"><i class="ph-bold ph-arrow-left"></i></button>' : ''}<div class="min-w-0"><div class="text-[10px] font-black uppercase tracking-[0.16em] text-[#007a4d]">Managers · Orders</div><div class="mt-1 truncate text-xl font-black text-slate-900">${escapeHtml(state.level === 'detail' && state.batch ? state.batch.displayName : state.level === 'batches' ? sourceLabel : 'Orders')}</div><div class="mt-1 text-[11px] font-semibold text-slate-500">Frozen Drive Mode history from processed order files.</div></div></div><button type="button" class="min-h-[44px] rounded-xl border border-emerald-200 bg-emerald-50 px-4 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-800 ${state.loading ? 'pointer-events-none opacity-60' : ''}" onclick="return refreshManagerOrders()"><i class="ph-bold ph-arrows-clockwise mr-1"></i>Refresh</button></div></div>`;
-
-            if (state.level === 'sources') {
-                const cards = state.sources.length ? state.sources.map((source) => `<button type="button" class="w-full rounded-2xl border border-emerald-200 bg-white p-5 text-left shadow-sm active:scale-[0.99]" onclick="return openManagerOrderSource('${escJsAttrValue(source.sourceKey || 'pikes')}')"><div class="flex items-start justify-between gap-4"><div><div class="text-2xl font-black text-[#007a4d]">${escapeHtml(source.label || 'Pikes')}</div><div class="mt-2 text-[11px] font-black uppercase tracking-[0.12em] text-slate-500">${escapeHtml(String(source.batchCount || 0))} historical batches${Number(source.failedCount || 0) ? ` • ${escapeHtml(String(source.failedCount))} pending failure${Number(source.failedCount) === 1 ? '' : 's'}` : ''}</div>${source.latestDisplayName ? `<div class="mt-2 text-sm font-bold text-slate-600">Latest: ${escapeHtml(source.latestDisplayName)}</div>` : ''}</div><i class="ph-bold ph-caret-right text-2xl text-emerald-500"></i></div></button>`).join('') : '<div class="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-400">No order sources are available yet.</div>';
-                return `<div class="space-y-5">${header}${errorHtml}${loadingHtml}<div class="space-y-3">${cards}</div></div>`;
-            }
-
-            if (state.level === 'batches') {
-                const cards = state.batches.length ? state.batches.map((batch) => `<button type="button" class="w-full rounded-2xl border border-emerald-200 bg-white p-5 text-left shadow-sm active:scale-[0.99]" onclick="return openManagerOrderBatch('${escJsAttrValue(batch.batchId || '')}')"><div class="flex items-start justify-between gap-4"><div class="min-w-0"><div class="truncate text-xl font-black text-[#007a4d]">${escapeHtml(batch.displayName || sourceLabel)}</div><div class="mt-1 break-words text-[11px] font-semibold text-slate-500">${escapeHtml(batch.fileName || '-')}</div><div class="mt-3 flex flex-wrap gap-2 text-[10px] font-black uppercase"><span class="rounded-full bg-emerald-50 px-3 py-1 text-emerald-800">${escapeHtml(String(batch.inventoryRowCount || 0))} Drive rows</span><span class="rounded-full bg-sky-50 px-3 py-1 text-sky-800">${escapeHtml(String(batch.distinctItemCount || 0))} Items</span>${Number(batch.unmatchedItemCount || 0) ? `<span class="rounded-full bg-amber-100 px-3 py-1 text-amber-800">${escapeHtml(String(batch.unmatchedItemCount))} unmatched</span>` : ''}</div></div><i class="ph-bold ph-caret-right text-2xl text-emerald-500"></i></div></button>`).join('') : `<div class="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-400">No processed ${escapeHtml(sourceLabel)} files yet.</div>`;
-                return `<div class="space-y-5">${header}${errorHtml}${loadingHtml}<div class="space-y-3">${cards}</div>${state.batchesHasMore ? `<button type="button" class="min-h-[48px] w-full rounded-2xl border border-emerald-200 bg-white px-4 text-[10px] font-black uppercase text-emerald-800" onclick="return loadManagerOrderBatches(true)">Load More History</button>` : ''}</div>`;
-            }
-
-            const selected = state.selectedAssigneeKeys || new Set();
-            const assigneeButtons = [`<button type="button" class="min-h-[44px] rounded-full border px-4 text-[10px] font-black uppercase ${selected.size === 0 ? 'border-[#007a4d] bg-[#007a4d] text-white' : 'border-emerald-200 bg-white text-emerald-800'}" onclick="return toggleManagerOrderAssignee('all')">All</button>`]
-                .concat(state.assignees.map((entry) => `<button type="button" class="min-h-[44px] rounded-full border px-4 text-[10px] font-black uppercase ${selected.has(String(entry.key || '').toLowerCase()) ? 'border-[#007a4d] bg-[#007a4d] text-white' : 'border-emerald-200 bg-white text-emerald-800'}" onclick="return toggleManagerOrderAssignee('${escJsAttrValue(String(entry.key || ''))}')">${escapeHtml(entry.label || 'Unassigned')} · ${escapeHtml(String(entry.rowCount || 0))}</button>`)).join('');
-            const unmatchedTotal = Number(state.batch && state.batch.unmatchedItemCount || state.unmatchedItems.length);
-            const unmatchedHtml = state.unmatchedItems.length ? `<div class="rounded-2xl border border-amber-200 bg-amber-50 p-4"><div class="flex items-center gap-2 text-sm font-black text-amber-900"><i class="ph-bold ph-warning"></i>${escapeHtml(String(unmatchedTotal))} unmatched Item${unmatchedTotal === 1 ? '' : 's'}</div><div class="mt-2 flex flex-wrap gap-2">${state.unmatchedItems.slice(0, 25).map((entry) => `<span class="rounded-full border border-amber-200 bg-white px-3 py-1 text-[10px] font-black text-amber-800">${escapeHtml(entry.itemcode || '-')}</span>`).join('')}${unmatchedTotal > 25 ? `<span class="px-2 py-1 text-[10px] font-black text-amber-700">+${escapeHtml(String(unmatchedTotal - 25))} more</span>` : ''}</div></div>` : '';
-            const rowsHtml = state.rows.length ? state.rows.map(renderManagerOrderDriveCard).join('') : (!state.loading ? '<div class="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-400">No Drive Mode rows match this AssignedTo filter.</div>' : '');
-            return `<div class="space-y-5">${header}${errorHtml}${loadingHtml}${state.batch ? `<div class="grid grid-cols-2 gap-3 lg:grid-cols-4">${[['Source Rows', state.batch.sourceRowCount], ['Items', state.batch.distinctItemCount], ['Matched Items', state.batch.matchedItemCount], ['Drive Rows', state.batch.inventoryRowCount]].map(([label, value]) => `<div class="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm"><div class="text-[9px] font-black uppercase tracking-[0.13em] text-slate-400">${escapeHtml(label)}</div><div class="mt-2 text-2xl font-black text-slate-900">${escapeHtml(String(value || 0))}</div></div>`).join('')}</div>` : ''}${unmatchedHtml}<section class="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm"><div class="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">AssignedTo</div><div class="mt-3 flex flex-wrap gap-2">${assigneeButtons}</div></section><div class="flex items-center justify-between gap-3"><div class="text-sm font-black text-slate-800">${escapeHtml(String(state.filteredRowCount || 0))} matching rows</div><div class="text-[10px] font-black uppercase text-slate-400">Frozen at import</div></div><div class="space-y-3">${rowsHtml}</div>${state.rowsHasMore ? `<button type="button" class="min-h-[48px] w-full rounded-2xl border border-emerald-200 bg-white px-4 text-[10px] font-black uppercase text-emerald-800" onclick="return loadManagerOrderBatch(true)">Load More Rows</button>` : ''}</div>`;
         }
 
         function canViewAssignedItemsExport(userOverride = '') {
@@ -109132,44 +108997,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return '<div class="rounded-xl border border-emerald-100 bg-white p-6 text-center text-sm font-bold text-emerald-700">Loading Imported Files tools…</div>';
         }
 
-        function renderManagerHistoricalReportPanel() {
-            if (!canViewManagerHistoricalReport()) {
-                return '<div class="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-400">Historical Reports are available only to Dylan and Megan.</div>';
-            }
-            const state = managerHistoricalReportState;
-            const modeTabs = `<div class="inline-flex flex-wrap gap-2 rounded-2xl border border-emerald-100 bg-white p-2"><button type="button" aria-pressed="${managerHistoricalReportMode === 'inventory-history'}" class="min-h-[42px] rounded-xl border px-4 text-[10px] font-black uppercase tracking-[0.12em] ${managerHistoricalReportMode === 'inventory-history' ? 'border-[#007a4d] bg-[#007a4d] text-white' : 'border-slate-200 bg-white text-slate-600'}" onclick="return setManagerHistoricalReportMode('inventory-history')">Inventory History</button><button type="button" aria-pressed="${managerHistoricalReportMode === 'imported-files'}" class="min-h-[42px] rounded-xl border px-4 text-[10px] font-black uppercase tracking-[0.12em] ${managerHistoricalReportMode === 'imported-files' ? 'border-[#007a4d] bg-[#007a4d] text-white' : 'border-slate-200 bg-white text-slate-600'}" onclick="return setManagerHistoricalReportMode('imported-files')">Imported Files</button></div>`;
-            if (managerHistoricalReportMode === 'imported-files') return `<div class="space-y-4">${modeTabs}${renderManagerImportedFilesPanel()}</div>`;
-            const errorHtml = state.error ? `<div class="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700"><div>${escapeHtml(state.error)}</div><button type="button" class="mt-3 rounded-xl border border-red-200 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-red-700" onclick="return ${state.level === 'names' ? 'loadManagerHistoricalCommonNames(managersSearchTerm, true)' : (state.level === 'sizes' ? `selectManagerHistoricalCommonName('${escJsAttrValue(state.selectedCommonName)}')` : 'loadManagerHistoricalRows(true)')}">Retry</button></div>` : '';
-            if (state.level === 'names') {
-                const term = String(firstNonEmptyValue(managersSearchTerm, state.lastSearch, '') || '').trim();
-                const content = state.loading
-                    ? `<div class="rounded-2xl border border-emerald-100 bg-white p-8 text-center text-sm font-black text-emerald-700">${term ? 'Searching' : 'Loading'} historical Common Names...</div>`
-                    : (state.commonNames.length
-                        ? renderManagerHistoricalDrillResults(state.commonNames, 'names')
-                        : `<div class="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-400">${term ? 'No historical Common Names matched that search.' : 'No historical Common Names are available.'}</div>`);
-                const crumbText = term ? `Historical Report > Select Common Name (${state.commonNames.length} matches)` : `Historical Report > Browse Common Name (${state.commonNames.length} loaded)`;
-                return `<div class="space-y-4">${modeTabs}<div class="space-y-4">${renderManagerHistoricalDriveChrome(crumbText, state.commonNames.length ? `${formatManagerHistoricalCount(state.commonNames.length)} names` : '')}${errorHtml}${content}</div></div>`;
-            }
-            if (state.level === 'sizes') {
-                const filteredSizes = (Array.isArray(state.containerSizes) ? state.containerSizes : []).filter((row) => managerTextMatchesSearch([row && row.contsize]));
-                const content = state.loading
-                    ? '<div class="rounded-2xl border border-emerald-100 bg-white p-8 text-center text-sm font-black text-emerald-700">Loading historical container sizes...</div>'
-                    : (filteredSizes.length ? renderManagerHistoricalDrillResults(filteredSizes, 'sizes') : '<div class="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-400">No historical container sizes matched.</div>');
-                const crumbText = `Historical Report > ${state.selectedCommonName} > Select ContSize (${filteredSizes.length} sizes)`;
-                return `<div class="space-y-4">${modeTabs}<div class="space-y-4">${renderManagerHistoricalDriveChrome(crumbText, `${formatManagerHistoricalCount(filteredSizes.length)} sizes`)}${errorHtml}${content}</div></div>`;
-            }
-            const rows = getFilteredManagerHistoricalRows();
-            const selectedCount = Array.isArray(state.selectedColumns) ? state.selectedColumns.length : 0;
-            const dirtyNotice = state.dirty ? '<span class="rounded-full border border-orange-200 bg-orange-50 px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-orange-700">Run Report to apply changes</span>' : '';
-            const resultHtml = state.loading
-                ? '<div class="rounded-2xl border border-emerald-100 bg-white p-8 text-center text-sm font-black text-emerald-700">Loading historical rows...</div>'
-                : (rows.length
-                    ? (state.displayMode === 'grid' ? renderManagerHistoricalRowsGrid(rows) : `<div class="space-y-3">${rows.map(renderManagerHistoricalRowCard).join('')}</div>`)
-                    : '<div class="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-400">No historical rows matched this Common Name, ContSize, and date range.</div>');
-            const crumbText = `Historical Report > ${state.selectedCommonName} > ${state.selectedContSize} (${rows.length} rows)`;
-            return `<div class="space-y-4">${modeTabs}<div class="space-y-4">${renderManagerHistoricalDriveChrome(crumbText, `${formatManagerHistoricalCount(rows.length)} loaded`)}<div class="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm"><div class="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between"><div><div class="text-[10px] font-black uppercase tracking-[0.16em] text-[#007a4d]">Historical Drive Rows</div><div class="mt-1 text-[12px] font-semibold text-slate-500">Newest report dates appear first. Load more uses fast cursor paging.</div></div><div class="flex flex-wrap gap-2">${dirtyNotice}<button type="button" class="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-blue-700 ${rows.length ? '' : 'pointer-events-none opacity-50'}" onclick="return exportManagerHistoricalLoadedRowsToExcel()"><i class="ph-bold ph-download-simple mr-1"></i>Export Loaded</button></div></div><div class="mt-4 grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr_auto]"><label class="text-[10px] font-black uppercase tracking-[0.13em] text-slate-500">From<input type="date" class="mt-1 w-full rounded-xl border border-emerald-100 px-3 py-3 text-sm font-black text-slate-900" value="${escapeHtml(state.dateStart)}" onchange="setManagerHistoricalDateRange('start', this.value)"></label><label class="text-[10px] font-black uppercase tracking-[0.13em] text-slate-500">To<input type="date" class="mt-1 w-full rounded-xl border border-emerald-100 px-3 py-3 text-sm font-black text-slate-900" value="${escapeHtml(state.dateEnd)}" onchange="setManagerHistoricalDateRange('end', this.value)"></label><button type="button" class="min-h-[48px] self-end rounded-xl bg-[#007a4d] px-5 py-3 text-[11px] font-black uppercase tracking-[0.13em] text-white shadow-sm ${selectedCount ? '' : 'pointer-events-none opacity-50'}" onclick="return loadManagerHistoricalRows(true)"><i class="ph-bold ph-play mr-1"></i>Run Report</button></div></div>${renderManagerHistoricalColumnChooser()}${errorHtml}${resultHtml}${state.hasMore ? `<button type="button" class="w-full rounded-2xl border border-emerald-200 bg-white px-4 py-4 text-[11px] font-black uppercase tracking-[0.14em] text-emerald-700 shadow-sm ${state.loadingMore ? 'pointer-events-none opacity-60' : ''}" onclick="return loadManagerHistoricalRows(false)">${state.loadingMore ? 'Loading...' : 'Load 100 More Rows'}</button>` : ''}</div></div>`;
-        }
-
         // null means All; [] is an intentionally empty selection. Never persist across accounts.
         let managerAssignedColumnState = { owner: '', filters: {}, sort: null, editor: null };
         let managerItemLowStockTargetsState = { owner: '', key: '', loadingKey: '', errorKey: '', rowsByCode: new Map(), loading: false, error: '', promise: null, requestId: 0, revision: 0, drafts: new Map(), saving: new Set() };
@@ -109597,39 +109424,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             </div>`;
         }
 
-        function openManagerAssignedColumnFilter(field, trigger) {
-            if (!canViewAssignedItemsExport() || !getManagerAssignedColumnDefinitions().some(([key]) => key === field)) return false;
-            const state = getManagerAssignedColumnState();
-            state.editor = { field, values: Array.isArray(state.filters[field]) ? state.filters[field].slice() : null,
-                sort: state.sort ? { ...state.sort } : null, search: '', limit: 100, trigger };
-            let host = document.getElementById('manager-assigned-filter-host');
-            if (!host) {
-                host = document.createElement('div');
-                host.id = 'manager-assigned-filter-host';
-                document.body.appendChild(host);
-            }
-            const label = getManagerAssignedColumnDefinitions().find(([key]) => key === field)[1];
-            host.innerHTML = `<section id="manager-assigned-filter-panel" class="excel-filter-panel assigned-column-panel fixed" role="dialog" aria-modal="false" aria-label="${escapeHtml(label)} filter" onkeydown="handleManagerAssignedFilterKey(event)">
-                <div class="assigned-filter-body"><strong>${escapeHtml(label)}</strong>
-                <div class="assigned-filter-sort"><button type="button" data-assigned-sort="asc" onclick="setManagerAssignedDraftSort('asc')">Sort A–Z ↑</button><button type="button" data-assigned-sort="desc" onclick="setManagerAssignedDraftSort('desc')">Sort Z–A ↓</button><button type="button" data-assigned-sort="none" onclick="setManagerAssignedDraftSort('none')">Clear Sort</button></div>
-                <label class="excel-filter-search-wrap">Search values<input id="manager-assigned-value-search" class="excel-filter-search" type="search" autocomplete="off" oninput="searchManagerAssignedColumnOptions(this.value)"></label>
-                <div class="assigned-filter-selection"><button type="button" onclick="selectManagerAssignedColumnValues(true)">Select All</button><button type="button" onclick="selectManagerAssignedColumnValues(false)">Clear Selection</button><button type="button" onclick="clearManagerAssignedColumnFilter('${field}')">Clear Column Filter</button></div>
-                <div id="manager-assigned-filter-options" class="excel-filter-options"></div></div>
-                <div class="excel-filter-footer assigned-filter-actions"><button type="button" onclick="closeManagerAssignedColumnFilter()">Cancel</button><button type="button" class="assigned-filter-apply" onclick="applyManagerAssignedColumnFilter()">Apply</button></div>
-            </section>`;
-            document.querySelectorAll('[data-assigned-filter-trigger]').forEach(button => button.setAttribute('aria-expanded', String(button.dataset.assignedFilterTrigger === field)));
-            renderManagerAssignedColumnOptions();
-            syncManagerAssignedDraftSortButtons();
-            positionManagerAssignedColumnFilter();
-            document.getElementById('manager-assigned-value-search').focus({ preventScroll: true });
-            document.addEventListener('keydown', handleManagerAssignedFilterEscape, true);
-            window.addEventListener('resize', positionManagerAssignedColumnFilter);
-            window.visualViewport?.addEventListener('resize', positionManagerAssignedColumnFilter);
-            window.visualViewport?.addEventListener('scroll', positionManagerAssignedColumnFilter);
-            ensureNativeBackGuard();
-            return false;
-        }
-
         function positionManagerAssignedColumnFilter() {
             const panel = document.getElementById('manager-assigned-filter-panel');
             if (!panel) return;
@@ -109667,98 +109461,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             if (!editor.searchDraft) return;
             const { before, choices } = editor.searchDraft;
             editor.values = shown.filter(({value}) => choices.get(value) ?? (before === null || before.has(value))).map(option => option.value);
-        }
-
-        function renderManagerAssignedColumnOptions() {
-            const editor = getManagerAssignedColumnState().editor;
-            const host = document.getElementById('manager-assigned-filter-options');
-            if (!editor || !host) return;
-            const options = getManagerAssignedPopoverOptions(editor);
-            const shown = options.slice(0, editor.limit);
-            scopeManagerAssignedSearch(editor, shown);
-            const active = document.activeElement, focused = host.contains(active) && active.matches('input[type="checkbox"]');
-            if (focused && !shown.some(option => option.value === active.value)) {
-                document.getElementById('manager-assigned-value-search')?.focus({ preventScroll: true });
-            }
-            const scrollTop = host.scrollTop;
-            const existing = new Map(Array.from(host.querySelectorAll('label')).map(label => [label.querySelector('input').value, label]));
-            const retained = new Set(shown.map(option => option.value));
-            existing.forEach((label, value) => { if (!retained.has(value)) label.remove(); });
-            shown.forEach((option, index) => {
-                let label = existing.get(option.value);
-                if (!label) {
-                    label = document.createElement('label');
-                    label.className = 'excel-filter-option assigned-filter-option';
-                    const input = document.createElement('input');
-                    input.type = 'checkbox'; input.value = option.value;
-                    input.onchange = () => toggleManagerAssignedColumnValue(input.value, input.checked);
-                    label.append(input, document.createElement('span'));
-                    host.appendChild(label);
-                }
-                label.querySelector('input').checked = editor.values === null || editor.values.includes(option.value);
-                label.querySelector('span').textContent = `${option.label} (${option.count})`;
-                if (!focused && host.children[index] !== label) host.insertBefore(label, host.children[index] || null);
-            });
-            let more = host.querySelector('[data-assigned-more]');
-            if (options.length > editor.limit) {
-                if (!more) {
-                    more = document.createElement('button'); more.type = 'button'; more.dataset.assignedMore = 'true';
-                    more.textContent = 'Show more values'; more.onclick = showMoreManagerAssignedColumnOptions;
-                    host.appendChild(more);
-                }
-            } else if (more) {
-                if (document.activeElement === more) host.querySelector('input')?.focus({ preventScroll: true });
-                more.remove();
-            }
-            let empty = host.querySelector('p');
-            if (!shown.length && !empty) { empty = document.createElement('p'); empty.textContent = 'No values match.'; host.appendChild(empty); }
-            else if (shown.length && empty) empty.remove();
-            host.scrollTop = scrollTop;
-        }
-
-        function searchManagerAssignedColumnOptions(value) {
-            const editor = getManagerAssignedColumnState().editor;
-            if (!editor) return;
-            if (value.trim() && !editor.searchDraft) {
-                editor.searchDraft = { before:editor.values === null ? null : new Set(editor.values), choices:new Map() };
-            } else if (!value.trim() && editor.searchDraft) {
-                editor.values = editor.searchDraft.before === null ? null : Array.from(editor.searchDraft.before);
-                delete editor.searchDraft;
-            }
-            editor.search = value;
-            editor.limit = 100;
-            renderManagerAssignedColumnOptions();
-        }
-
-        function showMoreManagerAssignedColumnOptions() {
-            const editor = getManagerAssignedColumnState().editor;
-            if (!editor) return;
-            editor.limit += 100;
-            renderManagerAssignedColumnOptions();
-        }
-
-        function toggleManagerAssignedColumnValue(value, checked) {
-            const editor = getManagerAssignedColumnState().editor;
-            if (!editor) return;
-            const values = new Set(editor.values === null ? getManagerAssignedColumnOptions(editor.field).map(option => option.value) : editor.values);
-            editor.searchDraft?.choices.set(value, checked);
-            if (checked) values.add(value); else values.delete(value);
-            editor.values = Array.from(values);
-        }
-
-        function selectManagerAssignedColumnValues(all) {
-            const editor = getManagerAssignedColumnState().editor;
-            if (!editor) return;
-            const options = getManagerAssignedPopoverOptions(editor);
-            const values = new Set(options.filter(option => editor.values === null || editor.values.includes(option.value)).map(option => option.value));
-            const visible = options.slice(0, editor.limit);
-            for (const option of visible) {
-                editor.searchDraft?.choices.set(option.value, all);
-                if (all) values.add(option.value);
-                else values.delete(option.value);
-            }
-            editor.values = Array.from(values);
-            renderManagerAssignedColumnOptions();
         }
 
         function syncManagerAssignedDraftSortButtons() {
@@ -109810,7 +109512,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             if (!canViewAssignedItemsExport()) return closeManagerAssignedColumnFilter();
             const state = getManagerAssignedColumnState(), editor = state.editor;
             if (!editor) return false;
-            if (editor.searchDraft) scopeManagerAssignedSearch(editor, getManagerAssignedPopoverOptions(editor).slice(0, editor.limit));
+            if (editor.searchDraft) scopeManagerAssignedSearch(editor, getManagerAssignedPopoverOptions(editor));
             if (editor.values === null) delete state.filters[editor.field]; else state.filters[editor.field] = editor.values.slice();
             state.sort = editor.sort;
             const trigger = editor.trigger, field = editor.field;
@@ -112401,8 +112103,8 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             const searchContainer = document.getElementById('managers-search-container');
             if (managersView) managersView.classList.toggle('manager-eval2-drive-shell', driveAroundLayout);
             if (managersView) managersView.classList.toggle('manager-block-clearing-shell', blockClearingLayout);
-            if (moduleFreeze) moduleFreeze.classList.toggle('hidden', driveAroundLayout || blockClearingLayout || tab === MANAGER_PRODUCTION_SCHEDULE_VIEW || tab === MANAGER_HR_COMMAND_VIEW);
-            if (eyebrow) eyebrow.innerText = tab === 'dashboard' ? 'Managers' : 'Active Module';
+            if (moduleFreeze) moduleFreeze.classList.toggle('hidden', driveAroundLayout || blockClearingLayout || tab === MANAGER_PRODUCTION_SCHEDULE_VIEW || tab === MANAGER_HR_COMMAND_VIEW || tab === MANAGER_ASSIGNED_ITEMS_EXPORT_VIEW);
+            if (eyebrow) eyebrow.hidden = tab !== 'dashboard';
             if (title) title.innerText = meta.label || 'Managers';
             if (modulesButton) modulesButton.classList.toggle('hidden', tab === 'dashboard');
             if (searchContainer) searchContainer.classList.toggle('hidden', tab === MANAGER_ORDERS_VIEW || tab === MANAGER_PRODUCTION_SCHEDULE_VIEW || tab === MANAGER_HR_COMMAND_VIEW || tab === MANAGER_COMPANY_DIRECTORY_VIEW);

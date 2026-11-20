@@ -36,7 +36,8 @@ function workflowForm(tab) {
     return '';
 }
 
-function renderBloomscapesWorkflowPanel(tab) {
+function renderBloomscapesWorkflowPanel(tab,{showLabForms=false}={}) {
+    if (tab==='bloomscapes-lab' && !showLabForms) return '<section data-bloomscapes-workflow="bloomscapes-lab" data-lab-review></section>';
     if (tab === 'bloomscapes-studio') return renderBloomscapesWorkStudio();
     if (tab === 'bloomscapes-replenishment') return renderBloomscapesTransferBuilder();
     if (tab === 'bloomscapes-radio') return renderBloomscapesRadioControls();
@@ -91,7 +92,7 @@ function showWorkflowRows(host, tab, rows, run) {
     if (tab === 'bloomscapes-vault') {
         results.className='bloomscapes-sales-card-list';
         const lookup=createSalesStudioTargetLookup();
-        renderBloomscapesListWindow(results,rows,row=>renderBloomscapesSalesCard(row,lookup(row),button=>openBloomscapesVaultPdf(row,button)));
+        renderBloomscapesScrollCards(results,rows,row=>renderBloomscapesSalesCard(row,lookup(row),button=>openBloomscapesVaultPdf(row,button)));
         return;
     }
     const list = appendWorkflowNode(results, 'ul', '');
@@ -124,6 +125,7 @@ function mountBloomscapesWorkflowPanel(container, tab) {
     if (tab === 'bloomscapes-radio') return mountBloomscapesRadioControls(container);
     const host = container.querySelector('[data-bloomscapes-workflow]');
     if (!host) return;
+    if (host.hasAttribute('data-lab-review')) return mountBloomscapesLabDiagnostics(host);
     if (tab==='bloomscapes-sales-vault') {
         mountBloomscapesDockCreditVault(host);
         mountBloomscapesOrderDocuments(host,'rep');

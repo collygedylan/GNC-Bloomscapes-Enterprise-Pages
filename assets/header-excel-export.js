@@ -2,7 +2,7 @@ function inventoryExcelBarHtml(scope) {
     const state = getInventoryExcelState(scope);
     const fields = getVisibleInventoryExcelFields(scope);
     const headers = fields.map(([key, label]) => renderInventoryExcelHeader(scope, state, key, label));
-    if (['request','suspend'].includes(scope)) return headers.join('');
+    if (['request','suspend','inventory'].includes(scope)) return headers.join('');
     if (scope==='drive') return headers[0]
         +'<details class="bloomscapes-extra-filters"><summary>More filters</summary><div class="inventory-excel-fields">'
         +headers.slice(1).join('')+'</div><div data-excel-popover></div></details>';

@@ -39,6 +39,7 @@ async function openBloomscapesStudioModule(menu,panel,key) {
         work.replaceChildren(section);
         void openBloomscapesScopedWork(section,panel,key,row,selection);
     };
+    if (key==='disease-pest') return mountBloomscapesLabDiagnostics(work);
     mountBloomscapesWorkBrowser(browser,enter,{locationDrill:true,studioScopes:true,onPathChange:()=>work.replaceChildren()});
     mountInventoryExcelFilters('studio');
     if (!bloomscapesWorkBrowserRows().length) {
@@ -50,7 +51,6 @@ async function openBloomscapesStudioModule(menu,panel,key) {
 const bloomStudioIcons=['ph-tree','ph-plant','ph-arrows-left-right','ph-truck','ph-scissors','ph-sun','ph-snowflake','ph-leaf','ph-shovel','ph-bug','ph-warehouse'];
 
 async function openBloomscapesScopedWork(body,panel,key,source,selection) {
-    if (key==='disease-pest') return mountBloomscapesLabDiagnostics(body,selection);
     if (key==='replenishment') {
         body.innerHTML=renderBloomscapesTransferBuilder();
         return mountBloomscapesTransferBuilder(body,selection);

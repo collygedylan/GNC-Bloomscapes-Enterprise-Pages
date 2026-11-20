@@ -81,7 +81,7 @@ function renderBloomscapesStudioScopes(host,list,rows,state) {
         });
     }
     const groups=groupBloomscapesStudioRows(rows,mode);
-    renderBloomscapesListWindow(list,groups,group=>bloomscapesStudioStockCard(group,mode,state));
+    renderBloomscapesScrollCards(list,groups,group=>bloomscapesStudioStockCard(group,mode,state));
 }
 
 function bloomscapesStudioStockCard(group,mode,state) {
