@@ -69,6 +69,9 @@ function renderBloomscapesSalesCard(record, row, pdfAction = null) {
     if (record.sandbox_delivery_status === 'sandbox_archived_for_dylan') {
         appendSalesCardNode(card,'small','sales-card-receipt','Archived for Dylan. Storage and local copies verified.');
     }
+    if (record.kind === 'ORDER') {
+        card.insertAdjacentHTML('beforeend',renderBloomscapesLoadMaximizer({kind:'order',id:record.row_id}));
+    }
     appendSalesStudioActions(card,record,row,pdfAction);
     return card;
 }

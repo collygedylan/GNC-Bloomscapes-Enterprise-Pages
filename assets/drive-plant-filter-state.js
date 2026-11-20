@@ -315,3 +315,11 @@ function getDriveQuickFilterStateKey(contextKey) {
         buildDriveColumnFilterStateKey()
     ].join('::');
 }
+
+function getDrivePlantGenusValue(item) {
+    return String(getTaskGenusName(item) || '').trim() || '(Blank)';
+}
+
+function getDrivePlantCommonName(item) {
+    return String(firstNonEmptyValue(item && item.COMMONNAME, item && item.DESCRIPTION, item && item.PLANT_NAME, item && item.ITEMCODE, '')).trim();
+}

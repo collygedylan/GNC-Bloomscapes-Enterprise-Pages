@@ -12,9 +12,9 @@ function plantHealthSameView(state) {
     return state.owner === getSupabaseReadIdentityScope() && state.farm === getBloomscapesFarm();
 }
 
-function mountBloomscapesLabDiagnostics(host) {
+function mountBloomscapesLabDiagnostics(host,selection) {
     if (!host?.closest('#view-production')) return;
-    const state = {host,owner:getSupabaseReadIdentityScope(),farm:getBloomscapesFarm(),offset:0};
+    const state = {host,selection,owner:getSupabaseReadIdentityScope(),farm:getBloomscapesFarm(),offset:0};
     host.replaceChildren();
     state.status = plantHealthNode('p','Loading flagged photos…',host);
     state.status.setAttribute('role','status');
@@ -36,7 +36,7 @@ async function loadPlantHealthQueuePage(state,offset = 0) {
     state.previous.disabled = true;
     state.next.disabled = true;
     try {
-        const page = await readPlantHealthQueue(state.farm,offset);
+        const page = await readPlantHealthQueue(state.farm,offset,state.selection);
         if (!state.host.isConnected || !plantHealthSameView(state)) return;
         const fragment = await buildPlantHealthPage(state,page.slice(0,50));
         if (!state.host.isConnected || !plantHealthSameView(state)) return;

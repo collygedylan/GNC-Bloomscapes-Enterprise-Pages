@@ -37,6 +37,7 @@ function mountBloomscapesWorkBrowser(host,onSelect,options={}) {
         +'<button type="button" data-work-back>Back in work inventory</button><p data-work-breadcrumb></p>'
         +'<div data-work-group-selection></div>'
         +'<p data-work-browser-status></p><div data-work-source-cards class="bloomscapes-work-cards"></div>';
+    if (options.studioScopes) host.querySelector('[data-work-modes]').closest('label').hidden=true;
     mountBloomscapesWorkFilters(host,state);
     state.searchInput=host.querySelector('[data-work-search]');
     state.searchInput.addEventListener('input',()=>{renderBloomscapesWorkBrowser(host,state);});
@@ -65,7 +66,7 @@ function bloomscapesWorkBrowseProjection(host,state) {
         const parts=bloomscapesWorkBrowseParts(row,state.mode,state.options);
         return state.path.every((part,index)=>part===parts[index]);
     });
-    const leaf=state.mode==='all' || search.trim()!=='' || state.path.length>=(state.mode==='block'?2:3);
+    const leaf=state.mode==='all' || (!state.options.studioScopes && search.trim()!=='') || state.path.length>=(state.mode==='block'?2:3);
     if (leaf) return {rows,leaf,groups:[]};
     const groups=new Map();
     for (const row of rows) {
@@ -84,6 +85,7 @@ function bloomscapesWorkBrowseParts(row,mode,options) {
 
 function renderBloomscapesWorkBrowser(host,state) {
     if (state.owner!==getSupabaseReadIdentityScope()) return;
+    state.options.onPathChange?.();
     const projection=bloomscapesWorkBrowseProjection(host,state);
     renderBloomscapesWorkGroupSelection(host,state,projection.rows);
     host.querySelector('[data-work-browser-status]').textContent=`${projection.rows.length} rows · ${getBloomscapesFarm()}`;
@@ -92,6 +94,7 @@ function renderBloomscapesWorkBrowser(host,state) {
     for (const button of host.querySelectorAll('[data-work-mode]')) button.setAttribute('aria-pressed',String(button.dataset.workMode===state.mode));
     const list=host.querySelector('[data-work-source-cards]');
     if (typeof parkBloomscapesWorkRowEditor==='function') parkBloomscapesWorkRowEditor(host);
+    if (projection.leaf && state.options.studioScopes) return renderBloomscapesStudioScopes(host,list,projection.rows,state);
     if (projection.leaf) renderBloomscapesListWindow(list,projection.rows,row=>bloomscapesWorkSourceCard(row,state.onSelect,state.options));
     else renderBloomscapesListWindow(list,projection.groups,([key,count])=>bloomscapesWorkBrowseGroup(host,state,key,count,projection.rows));
 }
@@ -231,4 +234,12 @@ function bloomscapesWorkBrowserDataset() {
     }
     const sorted = Object.fromEntries(Object.entries(options).map(([key,values])=>[key,[...values].sort()]));
     return bloomscapesWorkBrowserDataset.cached = {source:fullInventory,owner,epoch,rows,options:sorted};
+}
+
+function getDriveBlockAlphaLabel(value = '') {
+    return String(value || '') === DRIVE_NO_BLOCK_ALPHA ? 'No Block Alpha' : String(value || '').trim();
+}
+
+function getDriveBlockNumberLabel(value = '') {
+    return String(value || '') === DRIVE_NO_BLOCK_NUMBER ? 'No Block Number' : String(value || '').trim();
 }

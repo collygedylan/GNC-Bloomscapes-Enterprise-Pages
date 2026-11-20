@@ -23,7 +23,8 @@ function renderBloomscapesCompactTrip(card, trip, canEdit, workflow) {
     const status = workflow?.truck === 'live' ? '🚨 LIVE DRIVER · ' + workflow.status : (workflow?.status || savedInfo.status);
     return `<div class="flex min-h-9 flex-nowrap items-center gap-1 overflow-x-auto whitespace-nowrap rounded-lg border border-current px-1.5 text-[10px]" data-dock-trip-strip>
         <strong>${pullHtml(tripNumber)}</strong><span>${pullHtml(status)}</span>${team}
-        ${editStatus ? `<button type="button" ${attrs('Team & Status')} class="rounded-full border border-current px-1.5 py-1">✏️ Team &amp; Status</button>` : ''}</div>`;
+        ${editStatus ? `<button type="button" ${attrs('Team & Status')} class="rounded-full border border-current px-1.5 py-1">✏️ Team &amp; Status</button>` : ''}</div>
+        ${renderBloomscapesLoadMaximizer({kind:'trip',dock:card.dockNum,trip:tripNumber})}`;
 }
 
 function dockCompactFact(label, value) {
@@ -45,6 +46,7 @@ function renderBloomscapesCompactDockCard(card, canEdit, tripIndex = new Map()) 
             <span class="text-xs">${summary.dropCount} Drops · ${summary.rowCount} Rows · Qty ${pullHtml(summary.quantity)} <i class="ph-bold ph-caret-right"></i></span>
         </button>
         <div class="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-xs">${facts}</div>
+        ${renderBloomscapesLoadMaximizer({kind:'dock',dock:card.dockNum})}
         <div class="mt-1 space-y-1">${trips}</div></article>`;
 }
 

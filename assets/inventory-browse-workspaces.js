@@ -78,7 +78,7 @@ function openSalesStudioSection(studio,key) {
         host.innerHTML=renderBloomscapesWorkflowPanel('bloomscapes-vault');
         return mountBloomscapesWorkflowPanel(host,'bloomscapes-vault');
     }
-    if (key==='rep') return mountSalesRepRecords(host);
+    if (key==='rep') return mountSalesRepWorkspace(host);
     if (key==='flyer' && canAccessView('tasks')) {
         const folders=host.appendChild(document.createElement('button'));
         folders.type='button';folders.className='sales-studio-navigation';folders.textContent='Open Flyer Folders';
@@ -90,6 +90,14 @@ function openSalesStudioSection(studio,key) {
         moves.addEventListener('click',()=>switchView('smart-moves'));
     }
     mountSalesStudioLots(host,key);
+}
+
+function mountSalesRepWorkspace(host) {
+    mountBloomscapesDockCreditVault(host);
+    const records=host.appendChild(document.createElement('details'));
+    records.appendChild(document.createElement('summary')).textContent='Other Sales Rep records';
+    const body=records.appendChild(document.createElement('div'));
+    records.addEventListener('toggle',()=>{ if (records.open && !body.firstChild) mountSalesRepRecords(body); });
 }
 
 function mountSalesStudioLots(host,key) {

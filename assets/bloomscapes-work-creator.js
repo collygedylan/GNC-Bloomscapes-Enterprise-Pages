@@ -33,23 +33,13 @@ async function mountBloomscapesWorkCreator(host,options={}) {
     const root = host.querySelector('[data-work-creator]');
     if (!root) return;
     const owner = getSupabaseReadIdentityScope();
-    const state = {owner,source:null,attempt:null,busy:false,previewRevision:0};
+    const state = {owner,selection:options.selection || null,source:null,attempt:null,busy:false,previewRevision:0};
     const form = root.querySelector('form');
     for (const option of form.elements.workView.options) {
         option.disabled = !isFullAppAdministrator() && bloomscapesFieldQueueState.canCreate?.[option.value]!==true;
     }
     const browser=root.querySelector('[data-work-browser]');
-    mountBloomscapesWorkBrowser(browser,(row,scope,action)=>{
-        if (action && !selectBloomscapesStudioAction(form,action)) return;
-        selectBloomscapesWorkSource(root,form,state,row,scope);
-    },
-        {locationDrill:options.phase==='bunch' || root.dataset.workCreator==='BUNCH_NOTES' && !options.phase,getWorkView:()=>form.elements.workView.value});
-    form.elements.workView.addEventListener('change',()=>{
-        syncBloomscapesWorkCreatorKind(form);refreshBloomscapesWorkBrowser(browser);
-    });
-    const modes=browser.querySelector('[data-work-modes]');
-    root.querySelector('[data-work-type-bar]').appendChild(modes.closest('label'));
-    applyInventoryExcelFilters('studio',bloomscapesWorkBrowserRows());
+    if (!options.selection) mountBloomscapesCreatorBrowser(root,form,state,browser,options);
     syncBloomscapesWorkCreatorKind(form);
     bindBloomscapesWorkTypes(root,form,options);
     bindBloomscapesShiftPlan(form);
@@ -57,6 +47,7 @@ async function mountBloomscapesWorkCreator(host,options={}) {
         selectBloomscapesWorkSource(root,form,state,options.source);
         form.elements.scope.value='SINGLE_ROW';form.elements.percent.value='100';
         browser.hidden=options.quick===true;
+        if (options.selection) form.elements.scope.closest('label').hidden=true;
     }
     bindBloomscapesWorkCreator(form,state);
     bindBloomscapesLifecyclePicker(form);
@@ -125,7 +116,10 @@ function bindBloomscapesWorkCreator(form,state) {
     form.querySelector('[data-simulate-work]').addEventListener('click',async()=>{
         const revision = ++state.previewRevision;
         try {
-            const preview = await previewBloomscapesFieldWork(readBloomscapesWorkCreatorInput(form,state));
+            const input=readBloomscapesWorkCreatorInput(form,state);
+            const previews=[];
+            for (const entry of planBloomscapesWorkSelection(input,state.source,state.selection)) previews.push(await previewBloomscapesFieldWork(entry));
+            const preview={rows:previews.reduce((sum,row)=>sum+row.rows,0),quantity:previews.reduce((sum,row)=>sum+row.quantity,0),gates:previews.flatMap(row=>row.gates)};
             if (state.owner!==getSupabaseReadIdentityScope() || revision!==state.previewRevision || !form.isConnected) return;
             status.textContent = `${preview.rows} rows · Qty ${preview.quantity} · `
                 + preview.gates.map(gate=>`${gate.gate}: ${gate.state}`).join(' | ');
@@ -145,7 +139,7 @@ async function submitBloomscapesWorkCreator(form,state,status) {
     try {
         const input = readBloomscapesWorkCreatorInput(form,state);
         const farm = getBloomscapesFarm();
-        const selection=await confirmBloomscapesWorkRowScope(state.source,input);
+        const selection=state.selection || await confirmBloomscapesWorkRowScope(state.source,input);
         if (state.owner!==getSupabaseReadIdentityScope() || farm!==getBloomscapesFarm() || !form.isConnected) return;
         const inputs=planBloomscapesWorkSelection(input,state.source,selection);
         if (!inputs.length) return;
@@ -158,4 +152,19 @@ async function submitBloomscapesWorkCreator(form,state,status) {
         await openBloomscapesWorkQueue(receipt.work_view);
     } catch (error) { if (form.isConnected) status.textContent = error.message; }
     finally { state.busy = false; button.disabled = false; }
+}
+
+function mountBloomscapesCreatorBrowser(root,form,state,browser,options) {
+    mountBloomscapesWorkBrowser(browser,(row,scope,action)=>{
+        if (action && !selectBloomscapesStudioAction(form,action)) return;
+        selectBloomscapesWorkSource(root,form,state,row,scope);
+    },
+        {locationDrill:options.phase==='bunch' || root.dataset.workCreator==='BUNCH_NOTES' && !options.phase,getWorkView:()=>form.elements.workView.value});
+    form.elements.workView.addEventListener('change',()=>{
+        syncBloomscapesWorkCreatorKind(form);refreshBloomscapesWorkBrowser(browser);
+    });
+    const modes=browser.querySelector('[data-work-modes]');
+    root.querySelector('[data-work-type-bar]').appendChild(modes.closest('label'));
+    applyInventoryExcelFilters('studio',bloomscapesWorkBrowserRows());
+    mountInventoryExcelFilters('studio');
 }

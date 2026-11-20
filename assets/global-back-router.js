@@ -7,6 +7,7 @@ function goBackUniversal() {
     if (currentView==='docks' && dockViewLevel>0) return backGlobalDocksSurface({restoreViewBack:restoreGlobalViewBack,currentView});
     if (typeof backBloomscapesActiveWorkBrowser==='function' && backBloomscapesActiveWorkBrowser()) return false;
     if (closeOpenInteractiveSurfaceForBack()) return false;
+    if (typeof backBloomscapesDockCreditVault==='function' && backBloomscapesDockCreditVault()) return false;
     if (typeof backBloomscapesDepartmentWorkspace==='function' && backBloomscapesDepartmentWorkspace(currentView)) return false;
     if (currentView==='managers') return backGlobalManagersSurface({restoreViewBack:restoreGlobalViewBack,currentView});
     const parent=Array.isArray(viewHistoryStack)?viewHistoryStack.at(-1):null;

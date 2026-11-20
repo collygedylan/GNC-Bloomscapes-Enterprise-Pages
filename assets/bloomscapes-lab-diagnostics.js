@@ -37,11 +37,13 @@ async function runPlantHealthPhotoJob(job) {
     bloomscapesData(await client.rpc('queue_plant_health_photo_v2',{p_farm:job.farm,p_uid:job.uid,p_url:job.url}));
 }
 
-async function readPlantHealthQueue(farm,offset) {
+async function readPlantHealthQueue(farm,offset,selection) {
     const {client,owner} = await requireBloomscapesSession();
-    const data = bloomscapesData(await client.from('plant_health_diagnostics_queue')
+    let query = client.from('plant_health_diagnostics_queue')
         .select('id,warehouse_id,row_uid,photo_url,diagnosis,confidence,analysis_source,calibration_cases,precedent,alternatives,verdict,corrected_diagnosis,sample_id')
-        .eq('warehouse_id',farm).eq('analysis_state','flagged').order('created_at',{ascending:false}).order('id').range(offset,offset+50));
+        .eq('warehouse_id',farm).eq('analysis_state','flagged');
+    if (selection) query=query.in('row_uid',selection);
+    const data=bloomscapesData(await query.order('created_at',{ascending:false}).order('id').range(offset,offset+50));
     await requireBloomscapesOwner(owner);
     const known = new Map();
     for (const {row_uid} of data) {

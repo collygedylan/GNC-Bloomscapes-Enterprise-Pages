@@ -11,7 +11,7 @@ function renderBloomscapesTransferBuilder() {
         <nav data-po-pagination aria-label="Purchase order pages"></nav></section>`;
 }
 
-async function mountBloomscapesTransferBuilder(host) {
+async function mountBloomscapesTransferBuilder(host,selection) {
     const root=host.querySelector('[data-bloomscapes-workflow="bloomscapes-replenishment"]');
     if (!root) return;
     const existing=bloomscapesTransferMounts.get(root);
@@ -20,7 +20,7 @@ async function mountBloomscapesTransferBuilder(host) {
         return;
     }
     const filters=getBloomscapesTransferFilters();
-    const state={root,owner:bloomscapesTransferOwner(),rows:[],cards:[],offset:0,drafts:new Map(),revision:0,filters};
+    const state={root,selection:selection && new Set(selection),owner:bloomscapesTransferOwner(),rows:[],cards:[],offset:0,drafts:new Map(),revision:0,filters};
     bloomscapesTransferMounts.set(root,state);
     root.querySelector('[data-po-history]').checked=filters.history;
     syncGlobalHeaderChrome({reason:'purchase-order-search',force:true});
@@ -34,7 +34,8 @@ async function loadBloomscapesTransferCards(state) {
     try {
         const rows=await readBloomscapesPanel('bloomscapes-replenishment',{includeHistory:state.filters.history});
         if (revision!==state.revision || !state.root.isConnected || state.owner!==bloomscapesTransferOwner()) return;
-        state.rows=rows.map(po=>({...po,genus:buildInventoryExcelFact(po).genus}));
+        const scoped=scopeBloomscapesTransferTargets(rows,state.selection);
+        state.rows=scoped.map(po=>({...po,genus:buildInventoryExcelFact(po).genus}));
         state.ready=true;
         populateBloomscapesPoOptions(state);
         filterBloomscapesTransferCards(state);
@@ -285,4 +286,14 @@ function refreshBloomscapesTransferFilters() {
 function matchesBloomscapesPoSearch(po,query='') {
     const haystack=[po.itemcode,po.commonname,po.contsize,po.po_season,po.origin_farm,po.po_number].join(' ').toLowerCase();
     return query.toLowerCase().trim().split(/\s+/).every(term=>haystack.includes(term));
+}
+
+function scopeBloomscapesTransferTargets(rows,selection) {
+    if (!selection) return rows;
+    const scoped=[];
+    for (const po of rows) {
+        const targets=(po.targets || []).filter(target=>selection.has(String(target.row_id)));
+        if (targets.length) scoped.push({...po,targets});
+    }
+    return scoped;
 }

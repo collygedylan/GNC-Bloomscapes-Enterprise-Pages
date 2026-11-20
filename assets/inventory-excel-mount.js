@@ -4,7 +4,7 @@ function getInventoryExcelHost(scope) {
     if (browse) return browse;
     const hosts = {drive:'view-drive',av:'view-av',docks:'view-docks',suspend:'view-request',request:'view-request',evalwork:'view-request',locationwork:'view-request',recount:'view-request',shear:'view-shear-list',queueshear:'view-request',smart:'smart-moves-intelligence-panel',eval1:'view-managers',eval2:'view-managers',reclass:'argos-reclass-item-inquiry'};
     if (scope==='po') return document.querySelector('[data-transfer-excel]');
-    if (scope==='studio') return document.querySelector('[data-work-creator] [data-studio-excel]');
+    if (scope==='studio') return document.getElementById('view-'+getCurrentVisibleViewId())?.querySelector('[data-studio-excel]');
     const host=document.getElementById(hosts[scope]);
     if (!host || host.closest('.hidden') || host.style.display==='none') return null;
     const view = typeof getCurrentVisibleViewId === 'function' ? getCurrentVisibleViewId() : '';
@@ -134,7 +134,7 @@ function getInventoryExcelParityAudit() {
         const primary = scope === 'docks' ? host.closest('#view-docks')?.querySelector('[data-docks-primary-filters]') : null;
         const missing = getVisibleInventoryExcelFields(scope).some(([key]) =>
             !bar?.querySelector('[data-field="'+key+'"]') && !primary?.querySelector('[data-field="'+key+'"]'));
-        if (!bar || missing) return {missing:true};
+        if (!bar || missing) return {missing:true,scope};
     }
     return {missing:false};
 }

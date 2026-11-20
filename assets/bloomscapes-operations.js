@@ -124,7 +124,10 @@ function mountBloomscapesWorkflowPanel(container, tab) {
     if (tab === 'bloomscapes-radio') return mountBloomscapesRadioControls(container);
     const host = container.querySelector('[data-bloomscapes-workflow]');
     if (!host) return;
-    if (tab==='bloomscapes-sales-vault') mountBloomscapesOrderDocuments(host,'rep');
+    if (tab==='bloomscapes-sales-vault') {
+        mountBloomscapesDockCreditVault(host);
+        mountBloomscapesOrderDocuments(host,'rep');
+    }
     const status = host.querySelector('[role="status"]');
     let generation = 0;
     let busy = false;

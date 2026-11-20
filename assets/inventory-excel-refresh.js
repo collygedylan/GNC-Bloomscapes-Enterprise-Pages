@@ -23,6 +23,6 @@ function refreshEval1ExcelProjection() {
     getManagerReportPageController().refresh('eval1');scheduleManagersRender(true);
 }
 function refreshStudioExcelProjection() {
-    const host=document.querySelector('[data-work-creator] [data-work-browser]');
+    const host=getInventoryExcelHost('studio')?.parentElement?.querySelector('[data-work-browser]');
     if (host) refreshBloomscapesWorkBrowser(host);
 }
