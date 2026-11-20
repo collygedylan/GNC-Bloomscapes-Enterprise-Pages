@@ -11,6 +11,7 @@ function renderViewContent(viewId, forceReset = false, forceRender = false, sync
     bloomscapesThumbnailView=viewId;
     const state = ensureViewRenderState(viewId);
     if (!forceReset && !forceRender && state.initialized && !state.dirty) {
+        if (changedView && ['messages','push-to-talk'].includes(viewId)) renderBloomscapesMessagesView(viewId);
         renderBloomscapesDispatchWorkspaces(viewId);
         mountBloomscapesFieldBorrowing(viewId);
         mountBloomscapesInventoryBrowse(viewId);
@@ -155,4 +156,8 @@ function initializeMobileExcelFilterViewportSafety() {
             if (document.body && document.body.classList.contains('mobile-excel-filter-panel-open')) schedule('visual-scroll');
         }, { passive: true });
     }
+}
+
+function getPrimaryViewIds() {
+    return ['home', ...TRACKED_VIEW_IDS, 'detail'];
 }

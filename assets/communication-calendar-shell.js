@@ -11,6 +11,7 @@ function mountBloomscapesCommunicationViews(doc) {
     if (!anchor || doc.getElementById('view-communication')) return;
     anchor.insertAdjacentHTML('beforebegin',`<div id="view-communication" class="hidden"></div>
                 <div id="view-department-calendar" class="hidden"></div>
+                <div id="view-messages" class="hidden" aria-label="Messages"></div>
                 <div id="view-chat" class="hidden"></div>
                 <div id="view-push-to-talk" class="hidden" aria-label="Push to Talk"></div>
                 <div id="view-time-cards" class="hidden" aria-label="Time Cards"></div>`);

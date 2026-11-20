@@ -10,17 +10,19 @@ const BLOOMSCAPES_LEGACY_CHAT=`                    <div class="freeze-panel">
                     <div id="chat-content"></div>
                 `;
 function openBloomscapesMessages() {
-    bloomscapesCommState.mode='text';
-    switchView('chat');
-    renderBloomscapesComm();
-    return false;
+    return switchView('messages');
 }
 
 function renderBloomscapesMessagesView(view) {
-    if (!['chat','push-to-talk'].includes(view)) return false;
-    if (!nativeAuthSessionActive) {mountBloomscapesLegacyChat();return false;}
+    if (view === 'chat') {
+        mountBloomscapesLegacyChat();
+        return false;
+    }
+    if (!['messages','push-to-talk'].includes(view)) return false;
     const root=document.getElementById('view-'+view);
-    if (!root.querySelector('[data-comm-hub]')) root.innerHTML=renderBloomscapesCommHub();
+    if (!canOpenCommunicationView(view)) {root.replaceChildren();return true;}
+    bloomscapesCommState.mode=view==='messages'?'text':'voice';
+    if (!root.querySelector('[data-comm-hub]')) root.innerHTML=renderBloomscapesCommHub(view);
     mountBloomscapesCommHub(root);
     renderBloomscapesComm();
     void connectBloomscapesMessages().catch(reportBloomscapesMessagesFailure);

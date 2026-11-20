@@ -26,6 +26,24 @@ function scopeBloomscapesComm() {
     } catch {state.status='Saved conversations could not be read on this device.';}
 }
 
+const standardRadioChannels=[
+    {slug:'inventory_156',title:'Inventory 156',id:'68a06579-e420-5ecc-86cd-2c9abe3c3098'},
+    {slug:'qc_161',title:'QC 161',id:'b11662a2-6aea-5137-bdb6-cf6f504ff9ab'},
+    {slug:'shipping_docks_154',title:'Shipping/Docks 154',id:'48632bbb-12ca-5353-a208-f57ef7b4e92e'},
+    {slug:'growers',title:'Growers',id:'a568859e-1ba8-50d8-b5bf-0f6ac056395c'}
+];
+
+async function readCommunicationDirectory(farm) {
+    const inbox=await readBloomscapesCommInbox(farm);
+    if (getCurrentVisibleViewId()!=='push-to-talk' || inbox.voiceAccess==='HIDDEN') return inbox;
+    const channels=await listBloomscapesRadioChannels();
+    const registered=channels.filter(row=>standardRadioChannels.some(channel=>channel.id===row.id && channel.title===row.title));
+    for (const row of registered) {
+        if (!inbox.conversations.some(existing=>existing.id===row.id)) inbox.conversations.push({...row,participant_usernames:[],unread:0,unreadText:0});
+    }
+    return inbox;
+}
+
 async function refreshBloomscapesComm() {
     if (!window.BloomscapesBatteryGovernor.visible()) return;
     scopeBloomscapesComm();
@@ -35,7 +53,7 @@ async function refreshBloomscapesComm() {
     if (!access || !state.owner || Date.now()<state.retryAt) return;
     if (state.pending) return state.pending;
     const generation=state.generation,farm=state.farm;
-    state.pending=readBloomscapesCommInbox(farm).then(async data=>{
+    state.pending=readCommunicationDirectory(farm).then(async data=>{
         if (generation!==state.generation || getBloomscapesFarm()!==farm || bloomscapesCommAccess('inbox')!==true) return;
         Object.assign(state,{people:data.people,conversations:data.conversations,textAccess:data.textAccess,voiceAccess:data.voiceAccess,retryAt:0});
         if (!state.conversations.some(row=>row.id===state.selected)) state.selected=sortedBloomscapesConversations()[0]?.id || '';
@@ -134,8 +152,12 @@ async function dispatchBloomscapesCommText() {
     const body=thread?.draft?.trim();
     if (!body || thread.sending) return;
     const prior=thread.command,command=prior?.body===body?prior:{id:crypto.randomUUID(),farm:state.farm,channel:id,body};
-    thread.command=command;thread.sending=true;thread.sendingId=command.id;saveBloomscapesCommCache();renderBloomscapesCommComposer();
+    thread.command=command;thread.sending=true;thread.sendingId=command.id;
+    showPendingCommunicationText(thread);
     try {
+        await new Promise(resolve=>setTimeout(resolve,0));
+        if (generation!==state.generation || getBloomscapesFarm()!==command.farm) return;
+        saveBloomscapesCommCache();
         await sendBloomscapesCommText(command);
         if (generation!==state.generation) return;
         const current=state.threads[id];
@@ -143,7 +165,7 @@ async function dispatchBloomscapesCommText() {
         if (current.draft?.trim()===body) current.draft='';
         current.command=null;state.status='Message saved.';
         await refreshBloomscapesComm();
-    } catch(error) {showBloomscapesCommStatus(error.message+' Your text is saved here; tap Send to retry.');}
+    } catch(error) {if (generation===state.generation) showBloomscapesCommStatus(error.message+' Your text is saved here; tap Send to retry.');}
     finally {
         const current=state.threads[id];
         if (generation===state.generation && current?.sendingId===command.id) {current.sending=false;delete current.sendingId;}

@@ -37,7 +37,7 @@ function mountBloomscapesHomeModules(opening = false) {
 function mountBloomscapesCommunicationTiles(grid) {
     const modules=[['smart-moves','Smart Sales & Move Intelligence','ph-chart-line-up',()=>switchView('smart-moves')],
         ['messages','Messages','ph-chat-circle-text',()=>openBloomscapesMessages()],
-        ['walkie','Push to Talk Walkie','ph-microphone',()=>openBloomscapesComm('voice')]];
+        ['walkie','Push to Talk','ph-microphone',()=>openBloomscapesComm('voice')]];
     for (const [id,title,icon,open] of modules) {
         let tile=grid.querySelector('#home-tile-'+id);
         if (!tile) {
@@ -46,7 +46,7 @@ function mountBloomscapesCommunicationTiles(grid) {
             tile.innerHTML='<i class="ph '+icon+'" aria-hidden="true"></i><span>'+title+'</span><b data-home-count hidden></b>';
             tile.addEventListener('click',open);grid.appendChild(tile);
         }
-        tile.hidden=!canAccessView(id==='messages'?'chat':id==='walkie'?'communication':id);
+        tile.hidden=!canAccessView(id==='walkie'?'push-to-talk':id);
     }
     syncBloomscapesHomeBadges();
 }
@@ -58,6 +58,8 @@ function syncBloomscapesHomeBadges() {
         const badge=document.querySelector('#home-tile-'+id+' [data-home-count]');
         if (badge) {badge.hidden=!(count>0);badge.textContent=String(count);}
     }
+    const menu=queryBloomscapesStaticBody('side-drawer','[data-menu-unread]');
+    if (menu) {menu.hidden=!counts.messages;menu.textContent=String(counts.messages);}
     updateFooterChatBadge();
 }
 

@@ -14,9 +14,6 @@ if (!(typeof window !== 'undefined' ? window : globalThis).GncLiveAppUpdate) {
     let targetVersion = '', inFlightCheck = null, applyFlight = null, registrationFlight = null, registration = null;
     let registeredVersion = '', activation = null, activationTimer = null;
     let restoreReady = false, started = false, reloading = false, lastCheckAt = 0, lastShellProof = null;
-    let prepareExplicitUpdate = null, applyMessage = '', userRequestedUpdateApply = false;
-    let pauseNoticeDeadline = 0, pauseNoticeTimer = null;
-    const pauseMessage = 'Update paused — tap to retry';
     let retryNotBefore = 0, manifestBackoff = 45000;
     let retiredWorkerCleanupStarted = false;
     let handoffFlight = null, handoffPostedWorker = null;
@@ -25,56 +22,15 @@ if (!(typeof window !== 'undefined' ? window : globalThis).GncLiveAppUpdate) {
     const deadline = work => typeof root.withBootDeadline === 'function' ? root.withBootDeadline(work,null) : Promise.resolve(null);
     const runtimeReady = () => typeof root.saveWorkStateBeforeAppUpdate === 'function' && typeof root.getAppUpdateBusyState === 'function' && typeof root.isAppUpdateSnapshotCurrent === 'function' && typeof root.commitAppUpdateSnapshotForReload === 'function';
     const busy = () => {
-        if (!restoreReady || !runtimeReady()) return true;
+        if (!restoreReady || !runtimeReady() || doc.activeElement?.matches?.('input,textarea')) return true;
         try { return root.GncCameraState?.cameraCaptureInFlight === true || root.isCameraCaptureProtected?.() === true || Number(root.GncLiveUpdateNetwork?.pendingWrites || 0)>0 || root.getAppUpdateBusyState()?.busy !== false; }
         catch (error) { reportUnexpected(error,'UPDATE_BUSY_CHECK_FAILED'); return true; }
     };
-    function renderPill(message = '') {
-        if (!doc.body || !targetVersion || !newer(targetVersion,currentVersion())) return;
-        let pill = doc.getElementById('agdata-live-update-pill');
-        if (!message && !userRequestedUpdateApply && applyMessage === pauseMessage && busy()) {
-            if (pill) pill.hidden = true;
-            return;
-        }
-        if (!pill) {
-            pill=doc.createElement('button');pill.id='agdata-live-update-pill';pill.type='button';pill.setAttribute('aria-live','polite');
-            pill.style.cssText='position:fixed;top:calc(env(safe-area-inset-top,0px) + 8px);left:50%;transform:translateX(-50%);z-index:10020;max-width:calc(100vw - 32px);border:1px solid #b7dfce;border-radius:999px;padding:9px 15px;background:#123d2c;color:#ecfdf5;font:600 12px/1.3 system-ui;box-shadow:0 2px 10px #0003;cursor:pointer;pointer-events:auto';
-            pill.addEventListener('click',event => { if (event.isTrusted) void applyBannerTap(); });
-            doc.body.appendChild(pill);
-        }
-        pill.hidden = false;
-        pill.textContent = message || (userRequestedUpdateApply
-            ? 'Applying v' + targetVersion + '…'
-            : applyMessage || 'Update v' + targetVersion + ' ready — tap to apply');
-    }
-    function dismissPausedUpdate() {
-        pauseNoticeTimer = null;
-        if (applyMessage !== pauseMessage || pauseNoticeDeadline > Date.now()) return;
-        applyMessage = '';
-        const pill = doc.getElementById('agdata-live-update-pill');
-        if (pill && !userRequestedUpdateApply) pill.hidden = true;
-    }
-    function finishUpdateTap() {
-        applyFlight = null;
-        if (!activation) userRequestedUpdateApply = false;
-        if (reloading) return;
-        if (applyMessage === pauseMessage) {
-            root.clearTimeout(pauseNoticeTimer);
-            pauseNoticeDeadline = Date.now() + 4000;
-            pauseNoticeTimer = root.setTimeout(dismissPausedUpdate, 4000);
-        }
-        renderPill();
-    }
-    function showPendingUpdate() {
-        if (!targetVersion || reloading) return false;
-        renderPill();
-        return true;
-    }
     function rememberTarget(value) {
         const candidate=normalize(value);
         if (!candidate || !newer(candidate,currentVersion())) return false;
-        if (!targetVersion || newer(candidate,targetVersion)) { targetVersion=candidate;lastShellProof=null;applyMessage=''; }
-        root.__gncShellUpdateReady=true;renderPill();return true;
+        if (!targetVersion || newer(candidate,targetVersion)) { targetVersion=candidate;lastShellProof=null; }
+        root.__gncShellUpdateReady=true;return true;
     }
     function watchInstallation(reg) {
         const installing = reg.installing;
@@ -83,7 +39,7 @@ if (!(typeof window !== 'undefined' ? window : globalThis).GncLiveAppUpdate) {
         installing?.addEventListener?.('statechange', () => {
             if (installing.state !== 'installed') return;
             void askWorkerVersion(reg.waiting || installing);
-            offerInstalledBannerWorker(reg);
+            offerInstalledWorker(reg);
             void resumeReloadHandoff(reg);
             void applyAutomaticUpdate();
         });
@@ -154,7 +110,7 @@ if (!(typeof window !== 'undefined' ? window : globalThis).GncLiveAppUpdate) {
         const key='agdata_live_update_reload_v1';
         try {
             const prior=JSON.parse(root.sessionStorage.getItem(key)||'null');
-            if(prior?.target===target && prior?.from===currentVersion() && Date.now()-prior.at<60000)return false;
+            if(prior?.target===target && prior?.from===currentVersion())return false;
         } catch (error) { reportUnexpected(error,'UPDATE_RELOAD_MARKER_FAILED'); return false; }
         const next=new URL(root.location.href);next.searchParams.set('v',target);next.searchParams.set('shellv','AgData v'+target);next.searchParams.set('_reload',String(Date.now()));
         // No await follows this final snapshot/account/input check and commit marker.
@@ -196,7 +152,7 @@ if (!(typeof window !== 'undefined' ? window : globalThis).GncLiveAppUpdate) {
                 : automaticRelease === currentVersion() && snapshotIsCurrent(receipt,currentVersion(),true);
             if (!current || reg.waiting!==worker) return false;
             const build='AgData v'+currentVersion();
-            worker.postMessage({type:'SKIP_WAITING',protocol:'agdata-update-restore-v1',trigger:marker?'update-banner':'update-auto',snapshotId:receipt.snapshotId,targetBuild:build,build,version:build});
+            worker.postMessage({type:'SKIP_WAITING',protocol:'agdata-update-restore-v1',trigger:'update-auto',snapshotId:receipt.snapshotId,targetBuild:build,build,version:build});
             handoffPostedWorker=worker;
             return true;
         })().catch(error=>{reportUnexpected(error,'UPDATE_HANDOFF_FAILED');return false;}).finally(()=>{handoffFlight=null;});
@@ -210,67 +166,52 @@ if (!(typeof window !== 'undefined' ? window : globalThis).GncLiveAppUpdate) {
     function finishActivation(tap, result) {
         if (activation !== tap) return false;
         activation = null;
-        userRequestedUpdateApply = false;
         root.clearTimeout(activationTimer);
         activationTimer = null;
         tap.resolve(result);
-        if (!reloading) renderPill();
         return result;
     }
-    async function fallbackBannerActivation(tap) {
-        if (activation !== tap) return false;
-        if (tap.automatic) return finishActivation(tap,false);
-        if (!snapshotIsCurrent(tap.receipt,tap.target)) return finishActivation(tap,false);
-        const verified = await verifyShell(tap.target);
-        if (activation !== tap) return false;
-        if (!verified) applyMessage='Update unavailable — tap to retry';
-        return finishActivation(tap,verified && navigate(tap.target,tap.receipt));
-    }
-    function beginBannerActivation(target, receipt, automatic) {
+    function beginUpdateActivation(target, receipt) {
         let resolve;
         const completion = new Promise(done => { resolve=done; });
         root.clearTimeout(activationTimer);
-        const tap = {worker:null, target, receipt, resolve, completion, automatic};
+        const tap = {worker:null, target, receipt, resolve, completion};
         activation = tap;
         activationTimer = root.setTimeout(() => {
             activationTimer = null;
-            void fallbackBannerActivation(tap).catch(error => {
-                reportUnexpected(error,'UPDATE_ACTIVATION_FALLBACK_FAILED');
-                finishActivation(tap,false);
-            });
-        }, automatic ? 2500 : 800);
+            finishActivation(tap,false);
+        }, 2500);
         return tap;
     }
     function activateWaitingWorker(tap, worker) {
         const build = 'AgData v' + tap.target;
         tap.worker = worker;
-        try { worker.postMessage({type:'SKIP_WAITING',protocol:'agdata-update-restore-v1',trigger:tap.automatic?'update-auto':'update-banner',snapshotId:tap.receipt.snapshotId,targetBuild:build,build,version:build}); }
+        try { worker.postMessage({type:'SKIP_WAITING',protocol:'agdata-update-restore-v1',trigger:'update-auto',snapshotId:tap.receipt.snapshotId,targetBuild:build,build,version:build}); }
         catch (error) { reportUnexpected(error,'UPDATE_ACTIVATION_MESSAGE_FAILED'); }
         return true;
     }
-    async function offerInstalledBannerWorker(reg) {
+    async function offerInstalledWorker(reg) {
         const tap=activation,worker=reg.waiting;
         if (!tap?.shellVerified || !worker || tap.worker || !snapshotIsCurrent(tap.receipt,tap.target)) return;
-        if (tap.automatic && await askWorkerVersion(worker) !== tap.target) return;
+        if (await askWorkerVersion(worker) !== tap.target) return;
         if (activation !== tap || reg.waiting !== worker || tap.worker || !snapshotIsCurrent(tap.receipt,tap.target)) return;
         activateWaitingWorker(tap,worker);
     }
-    function finishBannerActivation(worker, version) {
+    function finishUpdateActivation(worker, version) {
         const tap = activation;
-        if (!tap || tap.worker !== worker || worker !== serviceWorker?.controller || tap.target !== version) return false;
+        if (!tap?.shellVerified || (tap.worker && tap.worker !== worker) || worker !== serviceWorker?.controller || tap.target !== version) return false;
         return finishActivation(tap,navigate(tap.target,tap.receipt));
     }
-    async function prepareBannerActivation(tap) {
+    async function prepareUpdateActivation(tap) {
         const [reg,verified] = await Promise.all([ensureRegistration(true),verifyShell(tap.target)]);
         if (activation !== tap) return reloading;
         if (!verified) {
-            applyMessage='Update unavailable — tap to retry';
             return finishActivation(tap,false);
         }
         if (!snapshotIsCurrent(tap.receipt,tap.target)) return finishActivation(tap,false);
         tap.shellVerified=true;
         if (reg?.installing && !reg.waiting) return tap.completion;
-        if (tap.automatic && serviceWorker?.register) {
+        if (serviceWorker?.register) {
             const worker = reg?.waiting || serviceWorker.controller;
             if (await askWorkerVersion(worker) !== tap.target || worker !== (reg?.waiting || serviceWorker.controller)
                 || activation !== tap || !snapshotIsCurrent(tap.receipt,tap.target)) return finishActivation(tap,false);
@@ -278,49 +219,30 @@ if (!(typeof window !== 'undefined' ? window : globalThis).GncLiveAppUpdate) {
         if (!reg?.waiting) return finishActivation(tap,navigate(tap.target,tap.receipt));
         return activateWaitingWorker(tap,reg.waiting);
     }
-    async function applyTarget(target, automatic = false) {
+    async function applyTarget(target) {
         const receipt = await checkpoint(target);
         if (!receipt) return false;
-        const tap = beginBannerActivation(target,receipt,automatic);
-        const preparing = prepareBannerActivation(tap).catch(error => {
+        const tap = beginUpdateActivation(target,receipt);
+        const preparing = prepareUpdateActivation(tap).catch(error => {
             reportUnexpected(error,'UPDATE_ACTIVATION_PREPARATION_FAILED');
             return finishActivation(tap,false);
         });
         return Promise.race([preparing,tap.completion]);
     }
     function applyAutomaticUpdate() {
-        if (!targetVersion || automaticRelease !== targetVersion || !visible() || busy() || reloading || applyFlight || activation) return false;
-        applyFlight = applyTarget(targetVersion,true).catch(error => {
+        if (!targetVersion || !visible() || busy() || reloading || applyFlight || activation) return false;
+        applyFlight = applyTarget(targetVersion).catch(error => {
             reportUnexpected(error,'UPDATE_AUTO_APPLY_FAILED');
             return false;
-        }).finally(finishUpdateTap);
+        }).finally(()=>{applyFlight=null;});
         return applyFlight;
     }
-    function onUpdateRuntimeReady(prepare) {
+    function onUpdateRuntimeReady() {
         restoreReady = true;
-        prepareExplicitUpdate = prepare;
         void retryPendingRestore();
         void resumeReloadHandoff();
         void applyAutomaticUpdate();
         void askWorkerVersion(serviceWorker?.controller).then(() => announceCurrentShell());
-    }
-    function applyBannerTap() {
-        if (reloading || !restoreReady || !visible() || !newer(targetVersion,currentVersion())) return false;
-        if (applyFlight || activation) return false;
-        prepareExplicitUpdate?.();
-        if (busy()) {
-            applyMessage = pauseMessage;
-            finishUpdateTap();
-            return false;
-        }
-        userRequestedUpdateApply = true;
-        applyMessage=pauseMessage;
-        renderPill('Applying v' + targetVersion + '…');
-        applyFlight = applyTarget(targetVersion).catch(error => {
-            reportUnexpected(error,'UPDATE_APPLY_FAILED');
-            return false;
-        }).finally(finishUpdateTap);
-        return applyFlight;
     }
     function retryPendingRestore() {
         if(!restoreReady || reloading || !visible() || typeof root.retryAppUpdateWorkRestore!=='function')return Promise.resolve(false);
@@ -353,16 +275,16 @@ if (!(typeof window !== 'undefined' ? window : globalThis).GncLiveAppUpdate) {
             updateManifestBackoff(manifest);
             if(manifest) {
                 const release = manifest.version || manifest.release;
-                automaticRelease = manifest.autoApply === true ? normalize(release) : '';
+                automaticRelease = normalize(release);
                 rememberTarget(release);
                 void resumeReloadHandoff();
             }
-            if(targetVersion) {void ensureRegistration(true).then(() => applyAutomaticUpdate());renderPill();return true;}
+            if(targetVersion) {void ensureRegistration(true).then(() => applyAutomaticUpdate());return true;}
             return false;
         })().finally(()=>{inFlightCheck=null;});return inFlightCheck;
     }
     function requestLiveAppUpdate(value,options={}) {
-        if(rememberTarget(value)) return Promise.resolve(true);
+        if(rememberTarget(value)) {void applyAutomaticUpdate();return Promise.resolve(true);}
         return checkForLiveAppUpdate(options.reason || 'legacy-update',{force:options.force===true});
     }
     function isRetiredTestRegistration(candidate) {
@@ -398,7 +320,7 @@ if (!(typeof window !== 'undefined' ? window : globalThis).GncLiveAppUpdate) {
         root.BloomscapesBatteryGovernor.schedule('shell-version', () => {
             if (!visible() || reloading || inFlightCheck || Date.now() < retryNotBefore) return;
             void checkForLiveAppUpdate('interval',{force:true});
-        },45000);
+        },60000);
         return true;
     }
     serviceWorker?.addEventListener?.('message',event=>{
@@ -417,15 +339,25 @@ if (!(typeof window !== 'undefined' ? window : globalThis).GncLiveAppUpdate) {
         void askWorkerVersion(worker).then(version=>{
             if (worker !== serviceWorker.controller) return;
             finishReloadHandoff(worker,version);
-            if (!finishBannerActivation(worker,version) && !rememberTarget(version)) announceCurrentShell(worker);
+            if (finishUpdateActivation(worker,version)) return;
+            if (rememberTarget(version)) void applyAutomaticUpdate();
+            else announceCurrentShell(worker);
         });
     });
     const resumed=reason=>{if(visible())void checkForLiveAppUpdate(reason,{force:true});};
     doc.addEventListener('visibilitychange',()=>resumed('visible'),{passive:true});
     root.addEventListener('online',()=>resumed('online'));root.addEventListener('pageshow',()=>resumed('pageshow'));root.addEventListener('focus',()=>resumed('focus'));
+    let cameraResumeTimer;
+    root.addEventListener('agdata:camera-settled',()=>{
+        root.clearTimeout(cameraResumeTimer);
+        if (!targetVersion) return;
+        const delay=Math.max(0,Math.min(15000,root.GncCameraState.returnUntil-Date.now()));
+        cameraResumeTimer=root.setTimeout(applyAutomaticUpdate,delay+1);
+    });
+    doc.addEventListener('focusout',()=>root.queueMicrotask(()=>void applyAutomaticUpdate()));
     root.addEventListener('agdata:update-work-settled',()=>{void resumeReloadHandoff();void applyAutomaticUpdate();});
     root.checkForLiveAppUpdate=checkForLiveAppUpdate;root.requestLiveAppUpdate=requestLiveAppUpdate;
-    root.GncLiveAppUpdate=Object.freeze({start,runtimeReady:onUpdateRuntimeReady,check:checkForLiveAppUpdate,request:requestLiveAppUpdate,requestApply:()=>applyFlight || Promise.resolve(false),scheduleApply:showPendingUpdate,ensureRegistration,
-        getState:()=>({targetVersion,currentVersion:currentVersion(),busy:busy(),checking:!!inFlightCheck,applying:userRequestedUpdateApply,userRequestedUpdateApply,reloading,lastShellProof})});
+    root.GncLiveAppUpdate=Object.freeze({start,runtimeReady:onUpdateRuntimeReady,check:checkForLiveAppUpdate,request:requestLiveAppUpdate,requestApply:()=>applyFlight || Promise.resolve(false),scheduleApply:applyAutomaticUpdate,ensureRegistration,
+        getState:()=>({targetVersion,currentVersion:currentVersion(),busy:busy(),checking:!!inFlightCheck,applying:!!applyFlight,userRequestedUpdateApply:false,reloading,lastShellProof})});
     if(doc.readyState==='loading')doc.addEventListener('DOMContentLoaded',start,{once:true});else start();
 }

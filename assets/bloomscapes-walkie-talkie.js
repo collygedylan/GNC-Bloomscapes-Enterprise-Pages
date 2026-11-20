@@ -154,3 +154,37 @@ function releaseBloomscapesWaveMeter(capture) {
     capture.meter=null;
     if (context && context.state!=='closed') void context.close().catch(error=>showBloomscapesCommStatus(error.message));
 }
+
+function renderWalkieShell() {
+    return '<section data-comm-hub data-radio-panel aria-label="Push to Talk"><h2>Push to Talk</h2>'
+        +'<header class="radio-channel-bar"><strong data-radio-title></strong><label><input type="checkbox" data-comm-autoplay> 🔊 Live Speaker</label></header>'
+        +'<nav data-radio-channels aria-label="Radio channels"></nav><label>Direct Radio <select data-radio-person aria-label="Direct radio recipient"></select></label>'
+        +'<div class="radio-transmitter"><button type="button" data-comm-talk data-recording-label="Push to Talk">Push to Talk</button>'
+        +'<output data-comm-recording></output><button type="button" data-comm-cancel-record hidden>Cancel</button></div>'
+        +'<section data-radio-clips aria-label="Voice clips"></section><p data-comm-status role="status"></p></section>';
+}
+
+function renderWalkieControls(host) {
+    const state=bloomscapesCommState;
+    const selected=state.conversations.find(row=>row.id===state.selected);
+    host.querySelector('[data-radio-title]').textContent=selected?commConversationName(selected):'Choose a channel';
+    host.querySelector('[data-comm-autoplay]').checked=bloomscapesRadioAutoPlay();
+    host.querySelector('[data-comm-talk]').disabled=!selected || state.voiceAccess!=='FULL_EDIT' || state.opening;
+    const all=state.conversations.find(row=>row.is_group && row.title===state.farm+' All' && !row.participant_usernames?.length);
+    const channels=[{slug:'all_call',title:'All Call',id:all?.id},...standardRadioChannels];
+    const available=channels.filter(channel=>state.conversations.some(row=>row.id===channel.id));
+    host.querySelector('[data-radio-channels]').innerHTML=available.map(channel=>
+        '<button type="button" data-radio-channel="'+channel.slug+'" data-comm-conversation="'+commEscape(channel.id)+'" aria-pressed="'+(channel.id===state.selected)+'">'+channel.title+'</button>').join('')
+        +'<button type="button" data-radio-channel="direct_radio" data-comm-direct>Direct Radio</button>';
+    const direct=host.querySelector('[data-radio-person]');
+    direct.innerHTML='<option value="">Select person</option>'+state.people.filter(user=>user.username!==currentUser).map(user=>
+        '<option value="'+commEscape(user.username)+'">'+commEscape(user.name)+'</option>').join('');
+    renderWalkieClips(host);
+    syncBloomscapesWalkieRecording();
+}
+
+function renderWalkieClips(host) {
+    const state=bloomscapesCommState;
+    const clips=state.threads[state.selected]?.rows?.filter(row=>row.type==='voice') || [];
+    host.querySelector('[data-radio-clips]').innerHTML=clips.map(renderBloomscapesCommBubble).join('');
+}

@@ -57,7 +57,7 @@ function applyNavigationDisplayPromotion(pending) {
 }
 
 function switchView(viewId, options = {}) {
-    const target = String(viewId || 'home').trim();
+    const target = String(viewId==='chat' && nativeAuthSessionActive?'messages':viewId || 'home').trim();
     if (!canDisplayNavigationView(target)) {
         showToast('Access unavailable', 'You do not have permission to open this view.', true);
         return false;
@@ -73,7 +73,7 @@ function switchView(viewId, options = {}) {
     const navigationSeq = ++navTransitionSeq;
     if (viewId === 'home' && restoreCameraDetailSession()) return;
     if (typeof getManagerTableManagementKey === 'function' && getManagerTableManagementKey(viewId)) return openManagerTableManagement(getManagerTableManagementKey(viewId));
-    const context = beginPrimaryViewNavigation(viewId, options, navigationSeq);
+    const context = beginPrimaryViewNavigation(target, options, navigationSeq);
     preparePrimaryNavigationTarget(context);
     if (!preparePrimaryNavigationOrigin(context)) return false;
     mountPrimaryNavigation(context);

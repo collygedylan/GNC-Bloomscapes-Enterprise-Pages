@@ -1,3 +1,10 @@
+function canOpenCommunicationView(view, user) {
+    if (!nativeAuthSessionActive || (user && user !== currentUser)) return false;
+    const key = view === 'messages' ? 'view_messages' : 'view_walkie';
+    const grant=getAppAccessSnapshot()?.permissionMap?.[key];
+    return grant ? grant.allowed===true : hasExplicitViewPermission(view,user);
+}
+
 const FULL_NAVIGATION_USERNAMES = new Set([
     'nelly_aguilar', 'dylan_collyge', 'megan_kelly', 'jd_jones',
     'mitch_kaiser', 'morgan_anderson', 'melissa_dowty'
@@ -64,7 +71,7 @@ function resolveNavigationViewFlag(view, flags = {}) {
         return isNavigationFlagEnabled(flags.view_que_request) || isNavigationFlagEnabled(flags.view_que_suspend) ? 'Y' : 'N';
     }
     const keys = {
-        drive:'drive_mode', communication:nativeAuthSessionActive?'walkie':'comm', chat:nativeAuthSessionActive?'messages':'comm', 'department-calendar':'comm',
+        'push-to-talk':'walkie', drive:'drive_mode', communication:nativeAuthSessionActive?'walkie':'comm', chat:nativeAuthSessionActive?'messages':'comm', 'department-calendar':'comm',
         'sales-inventory':'inventory', 'inventory-suggestion':'inventory', 'inv-consolidation':'inventory',
         'hl-order':'hl_order', 'sales-office':'sales_office', 'historical-requests':'historical_requests',
         'request-history':'historical_requests', tasks:'flyers', flyer:'flyers',
@@ -132,6 +139,7 @@ function canDisplayNavigationView(viewId = '', userOverride = '') {
     if (window.__agdataSessionBoundary === true || hasExplicitLogoutMarker() || hasConfirmedCurrentAccountRevocation()) return false;
     const identity = getNavigationVisibilityIdentity(userOverride);
     if (!identity || !view || ['crop-roll', 'manager-crop-roll'].includes(view)) return false;
+    if (['messages','push-to-talk'].includes(view)) return canOpenCommunicationView(view,userOverride);
     if (isBloomscapesDockRoute(view)) return canOpenBloomscapesDocksWorkspace(view,userOverride);
     const row = window.GncUserAccessControl?.state?.userAccess?.find(value => normalizeNavigationVisibilityUsername(value.username) === identity.username);
     const staleProfile = row?.profile_id && row.profile_id !== identity.id;
@@ -219,6 +227,7 @@ function syncHomeModuleVisibility(access, userOverride, fullVisibility, grid) {
     grid.dataset.authorizedModuleCount = String(authorized);
     grid.dataset.renderedModuleCount = String(grid.querySelectorAll('[data-home-module-view]:not([hidden])').length);
     syncHomeAccountNavigation(grid, authorized);
+    if (nativeAuthSessionActive) mountBloomscapesCommunicationTiles(grid);
 }
 
 function syncHomeAccountNavigation(grid, authorized) {
@@ -278,7 +287,7 @@ const bloomscapesDormantBodyIds = [
     'view-hl-order', 'view-take-back', 'view-low-stock', 'view-production', 'view-inventory-suggestion',
     'view-inv-consolidation', 'view-weather-hold', 'view-shear-list', 'view-disease-pest',
     'view-office', 'view-po-management', 'view-sales-office', 'view-moves', 'view-review', 'view-move-up',
-    'view-grower', 'view-pest-management', 'view-communication', 'view-push-to-talk', 'view-managers', 'view-tasks',
+    'view-grower', 'view-pest-management', 'view-communication', 'view-messages', 'view-push-to-talk', 'view-managers', 'view-tasks',
     'view-docks', 'view-request',
     'bloom-picker-modal', 'eval-task-modal', 'hold-release-modal', 'request-rep-modal',
     'flyer-assignee-modal', 'pull-clown-tape-side-modal',
@@ -310,7 +319,7 @@ function queryBloomscapesStaticBody(id,selector) {
 }
 
 function resetBloomscapesStaticBodyScope(root) {
-    if (root.id==='view-push-to-talk') root.replaceChildren();
+    if (['view-push-to-talk','view-messages'].includes(root.id)) root.replaceChildren();
     root.querySelectorAll(bloomscapesScopedProjectionSelector).forEach(host=>{
         if (typeof setContainerHtml==='function') setContainerHtml(host,'');
         else {delete host.dataset.renderSignature;host.replaceChildren();}

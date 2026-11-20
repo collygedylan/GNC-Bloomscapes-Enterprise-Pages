@@ -72,8 +72,7 @@ async function installCurrentShell() {
   await Promise.all(Array.from({ length: Math.min(6, pending.length) }, () => fillShellInstallLane(cache, state)));
   if (state.failure) throw state.failure;
   await cache.put(SHELL_INSTALL_RECEIPT, new Response(APP_SHELL_BUILD, { status: 200 }));
-  const tabs = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-  if (!tabs.some(tab => isProductionShellUrl(tab.url))) await self.skipWaiting();
+  await self.skipWaiting();
 }
 function releaseDescriptorUrl(request) {
   const url = getRequestUrl(request);

@@ -488,3 +488,10 @@ html body #app-wrapper [data-bloom-empty] { flex-basis:100%; font-size:13px; }
  .comm-tools {gap:5px;}
  [data-comm-hub] [data-comm-talk] {min-height:68px;font-size:11px;}
 }
+
+.radio-channel-bar {min-height:40px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+[data-radio-channels] {display:grid;grid-template-columns:repeat(auto-fit,minmax(115px,1fr));gap:8px;margin:12px 0}
+.radio-transmitter {display:grid;justify-items:center;gap:8px;margin:18px auto}
+[data-radio-panel] [data-comm-talk] {width:8rem;height:8rem;border-radius:50%;border:4px solid #76ba90}
+[data-radio-panel] [data-recording=true] {background:#812a27;border-color:#ff9080}
+[data-radio-clips] {max-height:28vh;overflow:auto}

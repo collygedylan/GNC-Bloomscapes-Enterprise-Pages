@@ -2,14 +2,13 @@ function commEscape(value) {
     return String(value ?? '').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 }
 
-function renderBloomscapesCommHub() {
-    return '<section data-comm-hub aria-label="Push to Talk"><header class="comm-heading"><div>'
-        +'<h2>Push to Talk</h2></div>'
-        +'<label class="comm-autoplay"><input type="checkbox" data-comm-autoplay> 🔊 Live Speaker</label></header>'
+function renderBloomscapesCommHub(view) {
+    if (view==='push-to-talk') return renderWalkieShell();
+    return '<section data-comm-hub aria-label="Messages"><header class="comm-heading"><h2>Messages</h2></header>'
         +'<div class="comm-layout"><aside class="comm-inbox"><div class="comm-search"><input data-comm-search aria-label="Search people, crews, or conversations" '
-        +'placeholder="Search people, crews, or conversations..."><button type="button" data-comm-new>+ New Walkie / Text</button></div>'
+        +'placeholder="Search people, crews, or conversations..."><button type="button" data-comm-new>New conversation</button></div>'
         +'<nav class="comm-filters" aria-label="Conversation filters">'
-        +[['all','All'],['recent','Recent People'],['unread','Unread / Unplayed'],['direct','Direct (1-on-1)'],['groups','Departments & Farms']]
+        +[['all','All'],['recent','Recent People'],['unread','Unread'],['direct','Direct (1-on-1)'],['groups','Departments & Farms']]
             .map(([key,label])=>'<button type="button" data-comm-filter="'+key+'">'+label+'</button>').join('')
         +'</nav><div data-comm-people></div><div data-comm-list></div></aside>'
         +'<section class="comm-thread" aria-label="Conversation"><div data-comm-thread-heading></div>'
@@ -22,7 +21,7 @@ function bloomscapesCommHost() {
     return document.querySelector('#view-'+view+' [data-comm-hub]');
 }
 
-function isBloomscapesCommVisible() {return !!bloomscapesCommHost();}
+function isBloomscapesCommVisible() {return getCurrentVisibleViewId()==='messages' && !!bloomscapesCommHost();}
 
 function mountBloomscapesCommHub(container) {
     const host=container.querySelector('[data-comm-hub]');
@@ -32,9 +31,9 @@ function mountBloomscapesCommHub(container) {
     host.addEventListener('input',event=>inputBloomscapesComm(event));
     host.addEventListener('change',event=>changeBloomscapesComm(event));
     host.addEventListener('submit',event=>{event.preventDefault();void submitBloomscapesComm(event.target);});
-    bindBloomscapesWalkieButton(host);
+    if (container.id==='view-push-to-talk') bindBloomscapesWalkieButton(host);
     scopeBloomscapesComm();renderBloomscapesComm();
-    void refreshBloomscapesComm().catch(error=>showBloomscapesCommStatus(error.message));
+    void refreshMountedCommunication(container).catch(error=>showBloomscapesCommStatus(error.message));
 }
 
 function renderBloomscapesComm() {
@@ -42,17 +41,17 @@ function renderBloomscapesComm() {
     if (!host) return;
     const state=bloomscapesCommState;
     host.dataset.threadOpen=String(state.mobileThread);host.dataset.mode=state.mode;
-    host.querySelector('[data-comm-autoplay]').checked=bloomscapesRadioAutoPlay();
-    renderBloomscapesCommList();renderBloomscapesCommPeople();renderBloomscapesCommTimeline();renderBloomscapesCommComposer();
+    if (host.closest('#view-push-to-talk')) {renderWalkieControls(host);return;}
+    renderBloomscapesCommList();renderBloomscapesCommPeople();renderBloomscapesCommComposer();
     showBloomscapesCommStatus(state.status);
 }
 
 function matchesBloomscapesComm(row) {
-    const state=bloomscapesCommState,query=state.search.trim().toLowerCase();
+    const state=bloomscapesCommState,query=state.search.trim().toLowerCase().replace(/^[@#]/,'');
     const text=[commConversationName(row),row.title,...(row.participant_usernames || []),row.last?.body].join(' ').toLowerCase();
     if (query && !query.split(/\s+/).every(word=>text.includes(word))) return false;
     if (state.filter==='recent') return !!row.last;
-    if (state.filter==='unread') return row.unread>0;
+    if (state.filter==='unread') return row.unreadText>0;
     if (state.filter==='direct') return !row.is_group;
     if (state.filter==='groups') return row.is_group;
     return true;
@@ -60,7 +59,7 @@ function matchesBloomscapesComm(row) {
 
 function renderBloomscapesCommList() {
     const host=bloomscapesCommHost();
-    if (!host) return;
+    if (!host?.querySelector('[data-comm-list]')) return;
     const state=bloomscapesCommState,rows=sortedBloomscapesConversations().filter(matchesBloomscapesComm);
     host.querySelectorAll('[data-comm-filter]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.commFilter===state.filter)));
     const list=host.querySelector('[data-comm-list]');
@@ -70,19 +69,19 @@ function renderBloomscapesCommList() {
 
 function commInboxRow(row) {
     const name=commConversationName(row),last=row.last;
-    const preview=last?(last.type==='voice'?'🎙 Voice Walkie ('+commDuration(last.duration_ms)+')':'💬 Text')+' · '+(last.body || 'Tap to listen'):'Start a voice or text conversation';
+    const preview=last?.type==='text'?last.body || 'Text message':'Open conversation';
     const username=row.participant_usernames?.find(user=>user!==currentUser),person=getBloomscapesCommPerson(username);
     const farm=person?.farms?.join(' / ') || bloomscapesCommState.farm;
     return '<button type="button" class="comm-person" data-comm-conversation="'+row.id+'" aria-current="'+(row.id===bloomscapesCommState.selected)+'">'
         +'<span class="comm-avatar">'+commEscape(name.slice(0,2).toUpperCase())+commActivityDot(person)+'</span><span class="comm-person-copy"><strong>'+commEscape(name)+'</strong>'
         +'<small>'+commEscape(farm+' · '+(person?.role || 'Group'))+'</small><span>'+commEscape(preview)+'</span></span>'
-        +'<span class="comm-person-meta"><time>'+commTime(last?.created_at)+'</time>'+(row.unread>0?'<b class="comm-badge">'+row.unread+'</b>':'')+'</span></button>';
+        +'<span class="comm-person-meta"><time>'+commTime(last?.created_at)+'</time>'+(row.unreadText>0?'<b class="comm-badge">'+row.unreadText+'</b>':'')+'</span></button>';
 }
 
 function renderBloomscapesCommPeople() {
     const host=bloomscapesCommHost();
     if (!host) return;
-    const state=bloomscapesCommState,query=state.search.toLowerCase();
+    const state=bloomscapesCommState,query=state.search.toLowerCase().replace(/^@/,'');
     const people=state.people.filter(user=>user.username!==currentUser && [user.name,user.username,user.role,...user.farms].join(' ').toLowerCase().includes(query));
     const root=host.querySelector('[data-comm-people]');
     if (state.creating) return renderCommRecipientForm(root,people);
@@ -107,7 +106,7 @@ function commDirectoryPerson(person) {
 function renderCommRecipientForm(root,people) {
     let form=root.querySelector('.comm-create');
     if (!form) {
-        root.innerHTML='<form class="comm-create"><h3>New Walkie / Text</h3><input name="title" maxlength="100" placeholder="Group name (optional)" aria-label="Group name">'
+        root.innerHTML='<form class="comm-create"><h3>New conversation</h3><input name="title" maxlength="100" placeholder="Group name (optional)" aria-label="Group name">'
             +'<div class="comm-picker"></div><button type="submit">Open conversation</button><button type="button" data-comm-cancel-new>Cancel</button></form>';
         form=root.firstElementChild;
         const selected=new Set();
@@ -144,6 +143,13 @@ function openBloomscapesComm(mode='voice') {
 }
 
 function syncBloomscapesCommLifecycle(view) {
-    if (['communication','chat','push-to-talk'].includes(view) || view==='managers' && activeHomeTab==='bloomscapes-radio') return;
+    if (view==='push-to-talk') return;
     stopBloomscapesWalkie(true);releaseBloomscapesCommAudio();
+}
+
+async function refreshMountedCommunication(container) {
+    await refreshBloomscapesComm();
+    if (container.id!=='view-push-to-talk' || getCurrentVisibleViewId()!=='push-to-talk') return;
+    const channel=bloomscapesCommState.selected;
+    if (channel) await selectBloomscapesConversation(channel,false);
 }

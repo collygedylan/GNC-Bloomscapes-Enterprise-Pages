@@ -81,6 +81,7 @@ if (!(typeof window !== 'undefined' ? window : globalThis).AgMetricLifecycle) {
         state.cameraCaptureInFlight = active;
         if (!active) { state.startedAt = 0; state.returnUntil = Date.now()+15_000; }
         root.persistCameraCaptureState();
+        if (!active) root.dispatchEvent(new Event('agdata:camera-settled'));
     };
     root.beginCameraCapture = () => { cameraPickerOpen = true; updateCameraActivity(); };
     root.finishCameraCapture = () => { cameraPickerOpen = false; updateCameraActivity(); };
