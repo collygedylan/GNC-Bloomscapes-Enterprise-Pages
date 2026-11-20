@@ -112,7 +112,7 @@ if (!(typeof window !== 'undefined' ? window : globalThis).GncLiveAppUpdate) {
             const prior=JSON.parse(root.sessionStorage.getItem(key)||'null');
             if(prior?.target===target && prior?.from===currentVersion())return false;
         } catch (error) { reportUnexpected(error,'UPDATE_RELOAD_MARKER_FAILED'); return false; }
-        const next=new URL(root.location.href);next.searchParams.set('v',target);next.searchParams.set('shellv','AgData v'+target);next.searchParams.set('_reload',String(Date.now()));
+        const next=new URL(root.location.href);next.search='';next.hash='';
         // No await follows this final snapshot/account/input check and commit marker.
         if(!snapshotIsCurrent(receipt,target))return false;
         try {

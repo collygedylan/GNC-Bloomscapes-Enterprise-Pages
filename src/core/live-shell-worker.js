@@ -123,10 +123,59 @@ async function validateShellNetworkResponse(response, descriptor, expectedBuild)
   return response;
 }
 
+async function fetchImmutableAsset(request) {
+  const cached = await matchRootCache(request);
+  if (cached?.status === 200 && request.cache !== 'reload') return cached;
+  try {
+    const response = await fetchWithTimeout(request, {}, SHELL_FETCH_TIMEOUT_MS);
+    if (response.ok) return response;
+  } catch { /* Keep the previous immutable bytes when the network is down. */ }
+  return cached?.status === 200 ? cached : Response.error();
+}
+
+async function fetchRuntimeResource(event) {
+  const request = event.request;
+  const cached = await matchRootCache(request);
+  const network = fetch(request).then(response => {
+    if (shouldRuntimeCacheRequest(request, response)) {
+      const copy = response.clone();
+      caches.open(CACHE_NAME).then(cache => cache.put(request, copy)).catch(() => {});
+    }
+    return response;
+  });
+  if (cached) {
+    event.waitUntil(network.catch(() => null));
+    return cached;
+  }
+  return network.catch(() => matchRootCache(request));
+}
+
+function isImmutableAssetRequest(request) {
+  const requestUrl = getRequestUrl(request);
+  const versionedAsset = requestUrl && requestUrl.origin === self.location.origin
+    && requestUrl.pathname.startsWith(new URL('./assets/', self.registration.scope).pathname)
+    && /\.(?:css|js|mjs)$/i.test(requestUrl.pathname) && !!requestUrl.searchParams.get('v');
+  return versionedAsset || isPrecachedRuntimeAssetUrl(requestUrl) || (requestUrl && requestUrl.origin === self.location.origin && CONTENT_VERSION_REGEX.test(requestUrl.pathname));
+}
+
 async function handleShellResourceRequest(event, descriptor) {
-  // Root documents and release descriptors must observe the origin on every request.
-  // The bounded transport falls back to the last successfully installed offline shell.
-  return fetchCurrentShellResource(event.request, descriptor, event);
+  const request = event.request;
+  if (request.mode !== 'navigate') return fetchCurrentShellResource(request, descriptor, event);
+  try {
+    const response = await fetchCurrentShellResource(request, descriptor, event);
+    if (response && response.type !== 'error') return response;
+  } catch { /* A cache failure still permits a direct network attempt. */ }
+  try {
+    const direct = await fetchWithTimeout(request, {cache: 'no-store'}, SHELL_FETCH_TIMEOUT_MS);
+    if (direct && direct.type !== 'error') return direct;
+  } catch { /* Offline navigation can use the installed root document. */ }
+  try {
+    const cached = !descriptor && await matchRootCache(new URL('./index.html', self.registration.scope).href);
+    if (cached?.status === 200) return cached;
+  } catch { /* Storage can be inaccessible in a restricted browser. */ }
+  return new Response('<!doctype html><title>Bloomscapes</title><h1>Bloomscapes is offline</h1><p>Reconnect and reload this page.</p>', {
+    status: 503, headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store'}
+  });
 }
 
 function readWindowShellBuild(client) {
@@ -201,6 +250,6 @@ async function prepareCurrentShellActivation() {
   return true;
 }
 
-self.GncLiveShellWorker = Object.freeze({ installCurrentShell, fetchWithTimeout, handleShellResourceRequest, acceptsBannerCheckpoint,
+self.GncLiveShellWorker = Object.freeze({ fetchImmutableAsset, fetchRuntimeResource, isImmutableAssetRequest, installCurrentShell, fetchWithTimeout, handleShellResourceRequest, acceptsBannerCheckpoint,
   releaseDescriptorUrl, broadcastShellVersion, retireUnusedShellGenerations, activateBannerCheckpoint, prepareCurrentShellActivation });
 }

@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.24';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.25';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -267,6 +267,7 @@
             syncAuraVoiceSettings();
         }
         function syncAuraVoiceSettings() {
+            auraCloudPanelState();
             const visible = !!auraWidgetHandle && isAuraRouterWidgetAuthorized();
             const voice = document.getElementById('aura-voice-preference');
             if (voice && visible) voice.value = auraWidgetHandle.getVoicePreference();
@@ -465,12 +466,6 @@
             };
         }
 
-        function auraCommandRetryResponse(requestId = '') {
-            const reply = 'Aura could not finish that command, but your conversation is ready to retry.';
-            return { ok: true, requestId: requestId || null, reply, speech: reply, actions: [], retryable: true,
-                interpretation: { engine: 'router-fallback-v1', complete: false }, source: { kind: 'router-fallback', complete: false } };
-        }
-
         function buildAuraDeterministicInventoryAnswer(query, rows = [], options = {}) {
             if (!query || !Array.isArray(rows)) return null;
             const text = value => String(value ?? '').normalize('NFKC').trim();
@@ -572,136 +567,7 @@
                 deterministic: true
             };
         }
-        async function requestAuraDeterministicInventoryAnswer(text, options = {}) {
-            const query = parseAuraDeterministicInventoryQuestion(text);
-            if (!query) return null;
-            try {
-                const response = await requestAuraV2Inventory(query.cropTier
-                    ? { operation: 'crop_tier', cropTier: query.cropTier, itemcode: query.itemcode || undefined, commonName: query.itemcode ? undefined : query.plantTerms.join(' ') || undefined, limit: 50 }
-                    : { operation: 'resolve_query', question: query.question }, { ...options, explicitRetry: true });
-                const data = response?.data ?? response;
-                const serverRows = Array.isArray(data?.rows) ? data.rows : [];
-                const answer = buildAuraDeterministicInventoryAnswer(query, serverRows, {
-                    requestId: options.requestId, source: 'ph_master_inventory', checkedAt: data?.checkedAt, complete: data?.complete !== false,
-                    total: Number(data?.total), currentSalesYear: Number(data?.currentSalesYear || data?.salesYear)
-                });
-                if (answer && (serverRows.length || data?.complete === true)) return answer;
-            } catch (error) {
-                if (options.signal?.aborted) throw error;
-            }
-            return buildAuraDeterministicInventoryAnswer(query, Array.isArray(fullInventory) ? fullInventory : [], {
-                requestId: options.requestId, source: 'masterInventory', complete: true
-            });
-        }
-        async function requestAuraQuery(body, options = {}) {
-            // Conversation history operations keep request-scoped idempotency and
-            // use the server-verified Gemini router for every authorized profile.
-            const request = { ...options, requestId: options.requestId || crypto.randomUUID() };
-            if (!isAuraRouterWidgetAuthorized()) throw Object.assign(new Error('AURA requires verified router access.'), { status: 403 });
-            if (body?.mode !== 'command') {
-                try { return await callAuraLlmRouter(body, request); }
-                catch (error) {
-                    if (body?.mode === 'create' && !request.signal?.aborted) {
-                        return { ok: true, conversationId: crypto.randomUUID(), revision: 0, localOnly: true };
-                    }
-                    throw error;
-                }
-            }
-            const deterministicQuery = parseAuraDeterministicInventoryQuestion(body?.text);
-            if (auraRouterCapabilities?.configured !== true) {
-                const fallback = deterministicQuery ? await requestAuraDeterministicInventoryAnswer(body.text, request) : null;
-                if (fallback) return fallback;
-                return auraCommandRetryResponse(request.requestId);
-            }
-
-            const identity = getSupabaseReadIdentityScope();
-            const originalTurnId = String(body.turnId || request.requestId);
-            const currentSettings = getCurrentAppSeasonSettings();
-            const appContext = {
-                season: currentSettings.seasonCode,
-                salesyear: currentSettings.salesYear,
-                settingRevision: currentSettings.revision
-            };
-            const command = { ...body, turnId: originalTurnId, appContext };
-            try {
-                const routed = await callAuraLlmRouter(command, { ...request, requestId: originalTurnId });
-                if (routed?.deterministicFallbackRequired && deterministicQuery) {
-                    return await requestAuraDeterministicInventoryAnswer(body.text, { ...request, requestId: originalTurnId });
-                }
-                return routed;
-            } catch (error) {
-                if (String(error?.code || '').toUpperCase() !== 'AURA_APP_CONTEXT_STALE'
-                    || Number(error?.status) !== 409) {
-                    const fallback = deterministicQuery ? await requestAuraDeterministicInventoryAnswer(body.text, { ...request, requestId: originalTurnId }) : null;
-                    if (fallback) return fallback;
-                    if (Number(error?.status) === 503) return auraCommandRetryResponse(originalTurnId);
-                    throw error;
-                }
-                if (!isAuraRouterWidgetAuthorized() || identity !== getSupabaseReadIdentityScope()
-                    || request.signal?.aborted) throw error;
-
-                const normalizeAuthoritativeContext = (value) => {
-                    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-                    const rawSeason = value.season ?? value.seasonCode ?? value.season_code;
-                    const rawYear = value.salesyear ?? value.salesYear ?? value.sales_year;
-                    const rawRevision = value.settingRevision ?? value.revision ?? value.setting_revision;
-                    const normalizedRawSeason = String(rawSeason || '').trim().toUpperCase().replace(/\s+/g, '');
-                    const yearNumber = Number(rawYear);
-                    if ((!APP_CURRENT_SEASON_OPTIONS.includes(normalizedRawSeason) && !['S', 'F'].includes(normalizedRawSeason))
-                        || !Number.isInteger(yearNumber) || (yearNumber < 1 || yearNumber > 99) && (yearNumber < 2000 || yearNumber > 2099)) return null;
-                    const settings = normalizeAppSeasonSettingsPayload({ seasonCode: rawSeason, salesYear: rawYear, revision: rawRevision });
-                    if (!rawSeason || rawYear == null || !Number.isSafeInteger(rawRevision) || rawRevision < 0) return null;
-                    return { season: settings.seasonCode, salesyear: settings.salesYear, settingRevision: settings.revision };
-                };
-                let refreshedContext = normalizeAuthoritativeContext(error?.appContext ?? error?.payload?.appContext ?? error?.payload?.error?.appContext);
-                if (!refreshedContext) {
-                    if (typeof shouldUseProductionLiveSyncSideLoad === 'function' && shouldUseProductionLiveSyncSideLoad()) {
-                        const refreshed = await ensureProductionLiveSyncSideData('settings', true);
-                        if (!refreshed) throw error;
-                        const settings = getCurrentAppSeasonSettings();
-                        refreshedContext = { season: settings.seasonCode, salesyear: settings.salesYear, settingRevision: settings.revision };
-                    } else if (canManageCurrentSeasonSettings()) {
-                        const settings = await callManagerSeasonSettings({ operation: 'read' });
-                        writeLocalAppSeasonSettings(settings);
-                        appSeasonSettingsRemoteLoaded = true;
-                        refreshedContext = { season: settings.seasonCode, salesyear: settings.salesYear, settingRevision: settings.revision };
-                    } else {
-                        const rows = await supabaseFetch(APP_SEASON_SETTINGS_TABLE, 'GET', null,
-                            `select=key,value,updated_by,updated_at&key=eq.${encodeURIComponent(APP_SEASON_SETTINGS_KEY)}&limit=1`);
-                        const settings = parseRemoteAppSeasonSettingsRow(Array.isArray(rows) ? rows[0] : null);
-                        if (!settings) throw error;
-                        writeLocalAppSeasonSettings(settings);
-                        appSeasonSettingsRemoteLoaded = true;
-                        refreshedContext = { season: settings.seasonCode, salesyear: settings.salesYear, settingRevision: settings.revision };
-                    }
-                }
-                if (!isAuraRouterWidgetAuthorized() || identity !== getSupabaseReadIdentityScope()
-                    || request.signal?.aborted) throw error;
-                writeLocalAppSeasonSettings({
-                    seasonCode: refreshedContext.season,
-                    salesYear: refreshedContext.salesyear,
-                    revision: refreshedContext.settingRevision
-                });
-                appSeasonSettingsRemoteLoaded = true;
-
-                // The stale-context check happens before the router creates a
-                // turn. Reuse the interaction ID so an in-flight cancel still
-                // addresses this command after its single context refresh.
-                const retryBody = { ...body, turnId: originalTurnId, appContext: refreshedContext };
-                try {
-                    const routed = await callAuraLlmRouter(retryBody, { ...request, requestId: originalTurnId });
-                    if (routed?.deterministicFallbackRequired && deterministicQuery) {
-                        return await requestAuraDeterministicInventoryAnswer(body.text, { ...request, requestId: originalTurnId });
-                    }
-                    return routed;
-                } catch (retryError) {
-                    const fallback = deterministicQuery ? await requestAuraDeterministicInventoryAnswer(body.text, { ...request, requestId: originalTurnId }) : null;
-                    if (fallback) return fallback;
-                    if (Number(retryError?.status) === 503) return auraCommandRetryResponse(originalTurnId);
-                    throw retryError;
-                }
-            }
-        }
+        window.requestAuraQuery = (body, options) => callAuraLlmRouter(body, options, buildAuraDeterministicInventoryAnswer);
         async function openAuraQueryAction(action, options = {}) {
             const authorize = typeof options.authorize === 'function' ? options.authorize : isAuraWidgetAuthorized;
             if (!authorize()) throw new Error('Sign in with your active account.');
@@ -23532,7 +23398,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.24';
+        const APP_VERSION = '3.1.25';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 

@@ -1,10 +1,10 @@
 /* AG DATA SOLUTIONS PROFESSIONAL SERVICE WORKER
    Optimized for: Instant Load, Offline Stability, Push Notifications, and staged shell updates.
 */
-// AgData source commit: be3c5d0894052df19dabaf80f798328934d655b4
-const APP_SHELL_BUILD = 'AgData v3.1.24';
+// AgData source commit: 97c710b839d3d2c472db3e81194770c99f9c4992
+const APP_SHELL_BUILD = 'AgData v3.1.25';
 const APP_SHELL_RUNTIME_REVISION = 'cloud-relay-cache-r2';
-const APP_ASSET_VERSION = '3.1.24';
+const APP_ASSET_VERSION = '3.1.25';
 importScripts('./assets/storage-request-guard.js?v=' + APP_ASSET_VERSION);
 importScripts('./assets/service-worker-url.js?v=' + APP_ASSET_VERSION);
 importScripts('./assets/bloomscapes-radio-worker.js?v=' + APP_ASSET_VERSION);
@@ -16,8 +16,8 @@ const APP_SHELL_URL = './index.html?shellv=' + encodeURIComponent(APP_SHELL_BUIL
 const INSTALL_ASSET_TIMEOUT_MS = 8500;
 const INSTALL_REMOTE_ASSET_TIMEOUT_MS = 4500;
 // A fresh root cache cannot inherit a /v2 response cached by the older broad worker.
-const CACHE_VERSION = 'agdata-v3.1.24';
-const CACHE_RUNTIME_REVISION = 'be3c5d0894052df19dabaf80f798328934d655b4';
+const CACHE_VERSION = 'agdata-v3.1.25';
+const CACHE_RUNTIME_REVISION = '97c710b839d3d2c472db3e81194770c99f9c4992';
 const CACHE_NAME = CACHE_VERSION + '-' + CACHE_RUNTIME_REVISION;
 const SHELL_FETCH_TIMEOUT_MS = 1200;
 const IMAGE_CACHE_NAME = 'agdata-photo-cache-v1';
@@ -204,7 +204,7 @@ const SHELL_INSTALL_RECEIPT = './__agdata_shell_install_complete__';
 const ASSETS_TO_CACHE = [
   './services/bunch-note-pdf.mjs',
   ...STATIC_ASSETS,
-  ...["./assets/photo-workflow-controls.css?v=3.1.24","./assets/bloomscapes-workflows.css?v=3.1.24","./assets/bloomscapes-cards.css?v=3.1.24","./assets/bloomscapes-handheld.css?v=3.1.24","./assets/bloomscapes-timecards.css?v=3.1.24","./assets/bloomscapes-work-studio.css?v=3.1.24","./assets/bloomscapes-load-maximizer.css?v=3.1.24","./assets/bloomscapes-flyer-designer.css?v=3.1.24","./assets/bloomscapes-flyer-history.css?v=3.1.24","./assets/battery-mobile.css?v=3.1.24","./assets/preboot-recovery.js?v=3.1.24","./assets/location-code.js?v=3.1.24","./assets/bunch-note.js?v=3.1.24","./assets/bunch-queue-shell.js?v=3.1.24","./assets/sales-workspace.js?v=3.1.24","./assets/mobile-workspace.js?v=3.1.24","./assets/navigation-preferences.js?v=3.1.24","./assets/access-matrix-policy.js?v=3.1.24","./assets/user-access-control.js?v=3.1.24","./assets/bunch-note.css?v=3.1.24","./assets/bunch-queue.css?v=3.1.24","./assets/bunch-note-cards.css?v=3.1.24","./assets/sales-workspace.css?v=3.1.24","./assets/mobile-workspace.css?v=3.1.24","./assets/navigation-preferences.css?v=3.1.24","./assets/user-access-control.css?v=3.1.24","./assets/theme-tokens.css?v=3.1.24","./assets/live-tailwind-v2026082010.min.css?v=3.1.24","./assets/vendor/phosphor/regular/style.css?v=3.1.24","./assets/vendor/phosphor/bold/style.css?v=3.1.24","./assets/vendor/phosphor/duotone/style.css?v=3.1.24","./assets/vendor/phosphor/fill/style.css?v=3.1.24","./assets/vendor/phosphor/light/style.css?v=3.1.24","./assets/battery-live-sync-governor.js?v=3.1.24","./assets/live-app-update.js?v=3.1.24","./assets/live-app-styles-base-v2026090503.css?v=3.1.24","./assets/ops-precision-pilot.css?v=3.1.24","./assets/production-schedule.css?v=3.1.24","./assets/live-app-styles-authority-v2026090503.css?v=3.1.24","./assets/app-styles.css?v=3.1.24","./assets/av-mobile-toolbar.css?v=3.1.24","./assets/manager-workspace.css?v=3.1.24","./assets/assigned-items.css?v=3.1.24","./assets/app-shell-style-16.css?v=3.1.24","./assets/erp-sync-progress.css?v=3.1.24","./assets/editable-input-contrast.css?v=3.1.24","./assets/request-detail-reference.css?v=3.1.24","./assets/body-prepaint-theme.js?v=3.1.24","./assets/vendor/supabase-browser-2.112.3.min.js?v=3.1.24","./assets/drive-demand-detail.js?v=3.1.24","./assets/inventory-list-contract.js?v=3.1.24","./assets/inventory-card-window.js?v=3.1.24","./assets/chunk-render-pacing.js?v=3.1.24","./assets/suspend-tag-page.js?v=3.1.24","./assets/drive-common-name-preparation.js?v=3.1.24","./assets/queue-inventory-hydration.js?v=3.1.24","./assets/login-network-trace.js?v=3.1.24","./assets/smart-hold-intelligence.js?v=3.1.24","./assets/agdata-kernel.js?v=3.1.24","./assets/storage-request-guard.js?v=3.1.24","./assets/watchdog-queue-controls.js?v=3.1.24","./assets/preboot-health.js?v=3.1.24","./assets/runtime-watchdog.js?v=3.1.24","./assets/live-sync-registry.js?v=3.1.24","./assets/manager-source-live-events.js?v=3.1.24","./assets/customer-mapping-live-events.js?v=3.1.24","./assets/live-sync-adapters.js?v=3.1.24","./assets/live-sync-coordinator.js?v=3.1.24","./assets/inventory-hydration-recovery.js?v=3.1.24","./assets/av-derived-rows.js?v=3.1.24","./assets/bounded-snapshot-cache.js?v=3.1.24","./assets/stable-view-dom.js?v=3.1.24","./assets/company-directory-cache.js?v=3.1.24","./assets/nursery-command-tables.css?v=3.1.24","./assets/nursery-command-model.js?v=3.1.24","./assets/nursery-command-tables.js?v=3.1.24","./assets/manager-table-management.js?v=3.1.24","./assets/queue-completion-state.js?v=3.1.24","./assets/request-submission.js?v=3.1.24","./assets/ops-precision-pilot.js?v=3.1.24","./assets/production-schedule.js?v=3.1.24","./assets/eval-reports-engine.js?v=3.1.24","./assets/report-pages-live.js?v=3.1.24","./assets/photo-history-v2026090401.js?v=3.1.24","./assets/runtime-watchdog-panel.js?v=3.1.24","./assets/bloomscapes-notification-links.js?v=3.1.24"],
+  ...["./assets/photo-workflow-controls.css?v=3.1.25","./assets/bloomscapes-workflows.css?v=3.1.25","./assets/bloomscapes-cards.css?v=3.1.25","./assets/bloomscapes-handheld.css?v=3.1.25","./assets/bloomscapes-timecards.css?v=3.1.25","./assets/bloomscapes-work-studio.css?v=3.1.25","./assets/bloomscapes-load-maximizer.css?v=3.1.25","./assets/bloomscapes-flyer-designer.css?v=3.1.25","./assets/bloomscapes-flyer-history.css?v=3.1.25","./assets/battery-mobile.css?v=3.1.25","./assets/preboot-recovery.js?v=3.1.25","./assets/location-code.js?v=3.1.25","./assets/bunch-note.js?v=3.1.25","./assets/bunch-queue-shell.js?v=3.1.25","./assets/sales-workspace.js?v=3.1.25","./assets/mobile-workspace.js?v=3.1.25","./assets/navigation-preferences.js?v=3.1.25","./assets/access-matrix-policy.js?v=3.1.25","./assets/user-access-control.js?v=3.1.25","./assets/bunch-note.css?v=3.1.25","./assets/bunch-queue.css?v=3.1.25","./assets/bunch-note-cards.css?v=3.1.25","./assets/sales-workspace.css?v=3.1.25","./assets/mobile-workspace.css?v=3.1.25","./assets/navigation-preferences.css?v=3.1.25","./assets/user-access-control.css?v=3.1.25","./assets/theme-tokens.css?v=3.1.25","./assets/live-tailwind-v2026082010.min.css?v=3.1.25","./assets/vendor/phosphor/regular/style.css?v=3.1.25","./assets/vendor/phosphor/bold/style.css?v=3.1.25","./assets/vendor/phosphor/duotone/style.css?v=3.1.25","./assets/vendor/phosphor/fill/style.css?v=3.1.25","./assets/vendor/phosphor/light/style.css?v=3.1.25","./assets/battery-live-sync-governor.js?v=3.1.25","./assets/live-app-update.js?v=3.1.25","./assets/live-app-styles-base-v2026090503.css?v=3.1.25","./assets/ops-precision-pilot.css?v=3.1.25","./assets/production-schedule.css?v=3.1.25","./assets/live-app-styles-authority-v2026090503.css?v=3.1.25","./assets/app-styles.css?v=3.1.25","./assets/av-mobile-toolbar.css?v=3.1.25","./assets/manager-workspace.css?v=3.1.25","./assets/assigned-items.css?v=3.1.25","./assets/app-shell-style-16.css?v=3.1.25","./assets/erp-sync-progress.css?v=3.1.25","./assets/editable-input-contrast.css?v=3.1.25","./assets/request-detail-reference.css?v=3.1.25","./assets/body-prepaint-theme.js?v=3.1.25","./assets/vendor/supabase-browser-2.112.3.min.js?v=3.1.25","./assets/drive-demand-detail.js?v=3.1.25","./assets/inventory-list-contract.js?v=3.1.25","./assets/inventory-card-window.js?v=3.1.25","./assets/chunk-render-pacing.js?v=3.1.25","./assets/suspend-tag-page.js?v=3.1.25","./assets/drive-common-name-preparation.js?v=3.1.25","./assets/queue-inventory-hydration.js?v=3.1.25","./assets/login-network-trace.js?v=3.1.25","./assets/smart-hold-intelligence.js?v=3.1.25","./assets/agdata-kernel.js?v=3.1.25","./assets/storage-request-guard.js?v=3.1.25","./assets/watchdog-queue-controls.js?v=3.1.25","./assets/preboot-health.js?v=3.1.25","./assets/runtime-watchdog.js?v=3.1.25","./assets/live-sync-registry.js?v=3.1.25","./assets/manager-source-live-events.js?v=3.1.25","./assets/customer-mapping-live-events.js?v=3.1.25","./assets/live-sync-adapters.js?v=3.1.25","./assets/live-sync-coordinator.js?v=3.1.25","./assets/inventory-hydration-recovery.js?v=3.1.25","./assets/av-derived-rows.js?v=3.1.25","./assets/bounded-snapshot-cache.js?v=3.1.25","./assets/stable-view-dom.js?v=3.1.25","./assets/company-directory-cache.js?v=3.1.25","./assets/nursery-command-tables.css?v=3.1.25","./assets/nursery-command-model.js?v=3.1.25","./assets/nursery-command-tables.js?v=3.1.25","./assets/manager-table-management.js?v=3.1.25","./assets/queue-completion-state.js?v=3.1.25","./assets/request-submission.js?v=3.1.25","./assets/ops-precision-pilot.js?v=3.1.25","./assets/production-schedule.js?v=3.1.25","./assets/eval-reports-engine.js?v=3.1.25","./assets/report-pages-live.js?v=3.1.25","./assets/photo-history-v2026090401.js?v=3.1.25","./assets/runtime-watchdog-panel.js?v=3.1.25","./assets/bloomscapes-notification-links.js?v=3.1.25"],
   './assets/app-styles.css',
   ...DEFERRED_VIEW_ASSETS,
   './assets/bunch-queue-shell.js?v=' + encodeURIComponent(APP_SHELL_BUILD),
@@ -260,7 +260,7 @@ const ASSETS_TO_CACHE = [
   if (!/\.(?:css|js|mjs)(?:\?|$)/i.test(asset)) return asset;
   const revision = new URL(asset, 'https://cache.invalid/').searchParams.get('v') || '';
   const version = revision.startsWith(APP_ASSET_VERSION + '.') ? revision : APP_ASSET_VERSION;
-  return asset.split('?')[0] + '?v=' + version + '&rev=be3c5d0894052df19dabaf80f798328934d655b4';
+  return asset.split('?')[0] + '?v=' + version + '&rev=97c710b839d3d2c472db3e81194770c99f9c4992';
 });
 const RUNTIME_CACHE_EXTENSION_REGEX = /\.(?:css|js|mjs|json|png|jpg|jpeg|webp|svg|ico|woff2?)$/i;
 const CONTENT_VERSION_REGEX = /(?:[._-](?:v?20\d{6,}|[a-f0-9]{8,})[._-]|\/assets\/vendor\/)/i;
@@ -575,40 +575,11 @@ function handleProductionFetch(event) {
     event.respondWith(handleRuntimeImageRequest(event));
     return;
   }
-  const requestUrl = getRequestUrl(event.request);
-  const versionedAsset = requestUrl && requestUrl.origin === self.location.origin
-    && requestUrl.pathname.startsWith(new URL('./assets/', self.registration.scope).pathname)
-    && /\.(?:css|js|mjs)$/i.test(requestUrl.pathname) && !!requestUrl.searchParams.get('v');
-  if (versionedAsset || isPrecachedRuntimeAssetUrl(requestUrl) || (requestUrl && requestUrl.origin === self.location.origin && CONTENT_VERSION_REGEX.test(requestUrl.pathname))) {
-    event.respondWith(
-      matchRootCache(event.request).then((cached) => {
-        if (cached?.status === 200 && event.request.cache !== 'reload') return cached;
-        // Do not cache later-release bytes fetched under an old asset query.
-        const network = fetchWithTimeout(event.request,{},SHELL_FETCH_TIMEOUT_MS).then(response => {
-          if (!response.ok) throw new Error('ASSET_NETWORK_UNAVAILABLE');
-          return response;
-        });
-        return network.catch(() => cached?.status === 200 ? cached : Response.error());
-      })
-    );
+  if (self.GncLiveShellWorker.isImmutableAssetRequest(event.request)) {
+    event.respondWith(self.GncLiveShellWorker.fetchImmutableAsset(event.request));
     return;
   }
-  event.respondWith(
-    matchRootCache(event.request).then((cachedResponse) => {
-      const networkRequest = fetch(event.request).then((networkResponse) => {
-      if (shouldRuntimeCacheRequest(event.request, networkResponse)) {
-        const responseClone = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone)).catch(() => {});
-      }
-      return networkResponse;
-      });
-      if (cachedResponse) {
-        event.waitUntil(networkRequest.catch(() => null));
-        return cachedResponse;
-      }
-      return networkRequest.catch(() => matchRootCache(event.request));
-    })
-  );
+  event.respondWith(self.GncLiveShellWorker.fetchRuntimeResource(event));
 }
 
 self.addEventListener('fetch', (event) => {
