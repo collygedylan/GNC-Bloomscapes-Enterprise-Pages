@@ -61,3 +61,20 @@ function getDockItemProgress(uniqueId = '') {
     return legacy;
 }
 
+
+function invalidateDockWorkflowResolvedState() {
+    dockWorkflowStateEpoch += 1;
+    docksScopedItemsCacheKey = '';
+    docksScopedItemsCache = null;
+    dockResolvedStateCacheKey = '';
+    dockResolvedStateCache = null;
+    dockDisplayInventory = [];
+    dockDisplayInventoryById = new Map();
+    dockDisplayInventoryBySourceUid = new Map();
+    dockFilterStateCacheKey = '';
+    dockFilterStateCache = null;
+    dockIssueSourceRowsCacheKey = '';
+    dockIssueSourceRowsById = new Map();
+    dockIssueSourceRowsByCurrentUid = new Map();
+    dockIssueSourceRowsByMatchKey = new Map();
+}

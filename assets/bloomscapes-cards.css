@@ -401,3 +401,20 @@ html[data-theme=dark] .user-directory-dialog { background:#112d22; }
 [data-bloomscapes-studio]:has([data-module-back]) > h2{display:none;}
 .inventory-reports{min-width:0;color:var(--bloom-ink);}
 .report-tabs{padding:6px 0;}.report-actions{margin-top:5px;}
+
+.dock-dispatch-pill {
+  width:auto;height:36px;white-space:nowrap;color:var(--bloom-pill-ink);background:var(--bloom-pill);
+  border:1px solid var(--bloom-border);
+}
+.dock-dispatch-card {
+  background:var(--bloom-card);border:1px solid var(--bloom-border);box-shadow:var(--bloom-shadow);
+  content-visibility:auto;contain-intrinsic-size:auto 80px;
+}
+html body #view-pull-tags [aria-label="Pull Tag filters"] {
+  display:flex;flex-flow:row nowrap;align-items:center;box-sizing:border-box;height:36px;min-height:36px;
+  padding-block:0;overflow-x:auto;
+}
+html body #view-pull-tags [aria-label="Pull Tag filters"] :is(select,button) {
+  box-sizing:border-box;width:auto;height:36px!important;min-height:36px!important;max-height:36px;
+  margin-block:0;padding-block:0;
+}

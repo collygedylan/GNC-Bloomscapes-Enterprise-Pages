@@ -130,6 +130,7 @@ function canDisplayNavigationView(viewId = '', userOverride = '') {
     if (window.__agdataSessionBoundary === true || hasExplicitLogoutMarker() || hasConfirmedCurrentAccountRevocation()) return false;
     const identity = getNavigationVisibilityIdentity(userOverride);
     if (!identity) return false;
+    if (isBloomscapesDockRoute(view)) return canOpenBloomscapesDocksWorkspace(view,userOverride);
     const row = window.GncUserAccessControl?.state?.userAccess?.find(value => normalizeNavigationVisibilityUsername(value.username) === identity.username);
     const staleProfile = row?.profile_id && row.profile_id !== identity.id;
     if (!staleProfile && canAccessView(view, userOverride)) return true;

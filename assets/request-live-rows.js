@@ -86,7 +86,7 @@ async function fetchActiveRequestLiveRows(selectFields = '*', options = {}) {
                 requireActiveDocument();
                 if (error && error.code === 'REQUEST_ABORTED') throw error;
                 if (requestOwner !== getSupabaseReadIdentityScope()) throw Object.assign(new Error('Request owner changed.'), {code:'REQUEST_ABORTED'});
-                if (isOperationalTransientError(error)) {
+                if (error?.code === 'NATIVE_SESSION_RECOVERY_REQUIRED' || isOperationalTransientError(error)) {
                     queueRequestForceRefreshRetry('retained-request-read');
                 } else window.GncRuntimeWatchdog?.capture?.(error, 'fetchActiveRequestLiveRows:canonicalPending');
                 const retained = (Array.isArray(requestsInventory) ? requestsInventory : []).filter(row => row && !row.REQUEST_HISTORY);

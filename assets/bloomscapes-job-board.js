@@ -203,9 +203,10 @@ function buildSuspendTagRenderPlan(items) {
         latestSourceWatermark.lastUpdated
     ]);
     const mode = `request:suspend-tag:${filterKey}`;
-    const plan = buildRequestPagedRenderPlan(mode,'Suspend Tag',filteredItems);
+    const sortedItems = requestSuspendTagStatusFilter === 'active' ? sortBloomscapesUrgentSuspendTags(filteredItems) : filteredItems;
+    const plan = buildRequestPagedRenderPlan(mode,'Suspend Tag',sortedItems);
     return { ...plan, allItems, searchItems, assignedItems, contSizeItems, sourceLookup,
-        renderSignature: buildSuspendTagPlanSignature(plan, latestSourceRows, sourceLookupRevision) };
+        renderSignature: buildSuspendTagPlanSignature(plan, latestSourceRows, sourceLookupRevision) + ':' + bloomscapesDockBoardRevision() };
 }
 
 const bloomscapesJobFacets = new Map();

@@ -16,6 +16,8 @@ function resetBloomscapesFarmNavigation() {
 
 function renderBloomscapesFarmNavigation() {
     const view = getCurrentVisibleViewId();
+    activateBloomscapesDocksWorkspace(view);
+    activateBloomscapesBorrowedField(view);
     if (view==='home' && document.getElementById('home-dashboard-grid')?.dataset.bloomscapesHome==='true') {
         mountDivisionWeather();
         return;

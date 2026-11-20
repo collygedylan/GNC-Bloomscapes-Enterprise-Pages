@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.16';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.17';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -2583,23 +2583,6 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
             salesOfficeOrderItemsCacheKey = '';
             salesOfficeOrderItemsCache = null;
             if (typeof invalidateDriveResolvedCardState === 'function') invalidateDriveResolvedCardState();
-        }
-
-        function invalidateDockWorkflowResolvedState() {
-            dockWorkflowStateEpoch += 1;
-            docksScopedItemsCacheKey = '';
-            docksScopedItemsCache = null;
-            dockResolvedStateCacheKey = '';
-            dockResolvedStateCache = null;
-            dockDisplayInventory = [];
-            dockDisplayInventoryById = new Map();
-            dockDisplayInventoryBySourceUid = new Map();
-            dockFilterStateCacheKey = '';
-            dockFilterStateCache = null;
-            dockIssueSourceRowsCacheKey = '';
-            dockIssueSourceRowsById = new Map();
-            dockIssueSourceRowsByCurrentUid = new Map();
-            dockIssueSourceRowsByMatchKey = new Map();
         }
 
         function pruneRecentLocalRealtimeWrites(now = Date.now()) {
@@ -23756,7 +23739,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.16';
+        const APP_VERSION = '3.1.17';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -54544,6 +54527,7 @@ function toggleDriveQuickRequestItem(domId) {
 
         function canAccessView(viewId, userOverride = '') {
             const targetView = String(viewId || '').trim();
+            if (isBloomscapesDockRoute(targetView)) return canOpenBloomscapesDocksWorkspace(targetView,userOverride);
             if (!targetView || targetView === 'home') return true;
             if (targetView === 'crop-roll' || targetView === 'manager-crop-roll') return false;
             if (!isFullAppAdministrator(userOverride) && !hasExplicitViewPermission(targetView,userOverride)) return false;
@@ -54774,6 +54758,7 @@ function toggleDriveQuickRequestItem(domId) {
             const currentlyOpen = drawer.classList.contains('open') || overlay.classList.contains('open');
             if (!shouldOpen && !currentlyOpen) return false;
             if (shouldOpen) {
+                void refreshBloomscapesBorrowedRoutes();
                 drawer.classList.remove('hidden');
                 overlay.classList.remove('hidden');
                 overlay.style.display = '';
@@ -57050,7 +57035,7 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
             if (canAccessView(target)) switchView(target);
         }
 
-        const TRACKED_VIEW_IDS = ['bunch-note','drive','tasks','review','move-up','advertisement','grower','pest-management','communication','department-calendar','sales','smart-moves','request-sales-impact','historical-requests','request-history','sales-credit','credit-request','managers','qc','production','production-workflow','weather-hold','shear-list','sales-inventory','inventory-suggestion','inv-consolidation','disease-pest','office','po-management','sales-office','moves','reports','low-stock','docks','hl-order','take-back','request','chat','reserves','av','hours'];
+        const TRACKED_VIEW_IDS = ['borrowed-work','pull-tags','mistake-fix','traffic-office','bunch-note','drive','tasks','review','move-up','advertisement','grower','pest-management','communication','department-calendar','sales','smart-moves','request-sales-impact','historical-requests','request-history','sales-credit','credit-request','managers','qc','production','production-workflow','weather-hold','shear-list','sales-inventory','inventory-suggestion','inv-consolidation','disease-pest','office','po-management','sales-office','moves','reports','low-stock','docks','hl-order','take-back','request','chat','reserves','av','hours'];
 
         function getAffectedViewsForDatasets(changedKeys = []) {
             const changedSet = new Set((changedKeys || []).filter(Boolean));
@@ -73439,6 +73424,7 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
             });
             scheduleRequestRenderSideData();
             scheduleQueCategoryRefresh(nextTab, navTransitionSeq);
+            if (nextTab === 'suspend-tag') activateBloomscapesDocksWorkspace('request');
             return scheduled;
         }
 
@@ -81856,212 +81842,7 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
         }
 
         function renderDocks() {
-            if (ensureViewDataForRender('docks')) return;
-            const container = document.getElementById('docks-content');
-            rememberOperationalExport('docks',[]);
-            const crumb = document.getElementById('docks-crumb');
-            const access = getRoleAccessState();
-            const canEditDockConfig = canEditDockWorkflow();
-            updateDockModeToggleUi();
-            const waitingForDockAssignments = ((!dockTeamStatusLoaded) && dockTeamSchemaReady !== false)
-                || (access.isQc && !access.isAdmin && !access.isQcSupervisor && ((!dockItemProgressLoaded) && dockItemSchemaReady !== false));
-            const waitingForDockIssues = (!dockIssueDataLoaded) && dockIssueStatusSchemaReady !== false && dockIssueAllocationSchemaReady !== false;
-            if (waitingForDockAssignments || waitingForDockIssues) {
-                if (!dockTeamStatusPromise) ensureDockTeamStatusLoaded().then(() => scheduleDocksRender(0)).catch(() => scheduleDocksRender(0));
-                if (!dockItemProgressPromise) ensureDockItemStatusLoaded().then(() => scheduleDocksRender(0)).catch(() => scheduleDocksRender(0));
-                if (!dockIssueDataPromise) ensureDockIssueDataLoaded().then(() => scheduleDocksRender(0)).catch(() => scheduleDocksRender(0));
-                // Team/progress metadata enriches these read-only SOC cards.
-                // Its refresh must not hide already published/cached orders;
-                // each work action still performs its own assignment check.
-            }
-            const term = document.getElementById('docks-search').value.toLowerCase().trim();
-            if (dockViewMode === 'mistakes' || dockViewMode === 'dropoff') {
-                const filterStatus = document.querySelector('[data-dock-filter-status]');
-                if (filterStatus) filterStatus.classList.add('hidden');
-                const resolvedState = getDockResolvedState();
-                if (dockIssueStatusSchemaReady === false || dockIssueAllocationSchemaReady === false) {
-                    container.innerHTML = `<div class="p-8 text-center text-gray-400">Run dock_issue_resolution_migration.sql and dock_issue_source_match_key_migration.sql in Supabase to use the shared dock mistake queue.</div>`;
-                    crumb.innerText = 'Dock Setup Required';
-                    return;
-                }
-                if (dockViewMode === 'dropoff') {
-                    selectedDockIssueUid = null;
-                    selectedDockIssueAllocationId = '';
-                    renderDockDropOffQueue(container, crumb, term);
-                } else if (selectedDockIssueUid) renderDockMistakeDetail(container, crumb, term);
-                else renderDockMistakeQueue(container, crumb, term);
-                return;
-            }
-
-            const resolvedState = !dockIssueDataLoaded
-                ? { rows: Array.isArray(socInventory) ? socInventory : [], cacheKey: `dock-fast:${getDatasetLoadSignature('soc')}:${dockWorkflowStateEpoch}` }
-                : getDockResolvedState();
-            let items = getScopedDocksItems(resolvedState.rows, `dock-display:${resolvedState.cacheKey}`);
-            syncDockFilterControls(items);
-            const unfilteredDockItems = items;
-            items = applyDockStructuredFilters(items);
-            if(term) items = filterBySearch(items, term, 'docks');
-            updateDockFilterSummary(unfilteredDockItems, items, term);
-            if (items.length === 0) {
-                if (dockTeamSchemaReady === false || (access.isQc && !access.isAdmin && !access.isQcSupervisor && dockItemSchemaReady === false)) {
-                    const missingParts = [];
-                    if (dockTeamSchemaReady === false) missingParts.push('shared Trip status');
-                    if (dockItemSchemaReady === false) missingParts.push('dock_item_status_migration.sql');
-                    container.innerHTML = `<div class="p-8 text-center text-gray-400">${missingParts.join(' and ')} ${missingParts.length === 1 ? 'is' : 'are'} unavailable. Refresh after the current release finishes deploying.</div>`;
-                    crumb.innerText = 'Dock Setup Required';
-                    return;
-                }
-                container.innerHTML = `<div class="p-8 text-center text-gray-400">No dock items found.</div>`;
-                crumb.innerText = 'No Results';
-                return;
-            }
-
-            const sortStops = (a, b) => {
-                let numA = parseFloat(String(a).replace(/[^0-9.]/g, ''));
-                let numB = parseFloat(String(b).replace(/[^0-9.]/g, ''));
-                if(!isNaN(numA) && !isNaN(numB) && numA !== numB) return numA - numB;
-                return String(a).localeCompare(String(b), undefined, {numeric: true});
-            };
-            const sortDockRows = (a, b) => {
-                let stopA = parseFloat(normalizeDockViewStopKey(firstNonEmptyValue(a.STOPNUMBER, a.stopnumber, ''))); if(isNaN(stopA)) stopA = 9999;
-                let stopB = parseFloat(normalizeDockViewStopKey(firstNonEmptyValue(b.STOPNUMBER, b.stopnumber, ''))); if(isNaN(stopB)) stopB = 9999;
-                if(stopA !== stopB) return stopA - stopB;
-                const locationCompare = compareLocationCodeValues(firstNonEmptyValue(a.LOCATIONCODE, a.locationcode, ''), firstNonEmptyValue(b.LOCATIONCODE, b.locationcode, ''));
-                if (locationCompare !== 0) return locationCompare;
-                const lineA = String(firstNonEmptyValue(a.ORDERLINE, a.orderline, a.ORDER_LINE, a.order_line, a.LINENO, a.lineno, a.LINE_NUMBER, a.line_number, a.LINESEQ, a.lineseq, a.SEQUENCE, a.sequence, '') || '').trim();
-                const lineB = String(firstNonEmptyValue(b.ORDERLINE, b.orderline, b.ORDER_LINE, b.order_line, b.LINENO, b.lineno, b.LINE_NUMBER, b.line_number, b.LINESEQ, b.lineseq, b.SEQUENCE, b.sequence, '') || '').trim();
-                const lineCompare = lineA.localeCompare(lineB, undefined, { numeric: true, sensitivity: 'base' });
-                if (lineCompare !== 0) return lineCompare;
-                const nameCompare = String(a.COMMONNAME || '').localeCompare(String(b.COMMONNAME || ''), undefined, { sensitivity: 'base' });
-                if (nameCompare !== 0) return nameCompare;
-                return String(a.CONTSIZE || '').localeCompare(String(b.CONTSIZE || ''), undefined, {numeric:true, sensitivity:'base'});
-            };
-
-            if (dockViewLevel === 0) {
-                rememberOperationalExport('docks',items.slice().sort((a,b)=>sortStops(a.DOCK_NUM,b.DOCK_NUM)||sortDockRows(a,b)));
-                const dockGroups = new Map();
-                items.forEach((item) => {
-                    const dockNum = normalizeDockViewDockKey(item && item.DOCK_NUM);
-                    let entry = dockGroups.get(dockNum);
-                    if (!entry) {
-                        entry = { dockNum, count: 0, rows: [], hasCoUt: false, states: new Set(), planStartDates: new Set(), tripCounts: new Map() };
-                        dockGroups.set(dockNum, entry);
-                    }
-                    entry.count += 1;
-                    entry.rows.push(item);
-                    const tripNumber = String(firstNonEmptyValue(item && item.TRIPNUMBER, '') || '').trim();
-                    if (tripNumber) entry.tripCounts.set(tripNumber, (entry.tripCounts.get(tripNumber) || 0) + 1);
-                    const state = getDockCardStateValue(item);
-                    const planStartDate = formatDockCardPlanStartValue(getDockCardPlanStartValue(item));
-                    if (state) entry.states.add(state);
-                    if (planStartDate) entry.planStartDates.add(planStartDate);
-                    if (!entry.hasCoUt) {
-                        const city = String(item && item.CONSIGNEECITY || '').toUpperCase().trim();
-                        entry.hasCoUt = state === 'CO' || state === 'UT' || state === 'COLORADO' || state === 'UTAH' || city.includes(' CO') || city.includes(' UT') || city.endsWith('CO') || city.endsWith('UT');
-                    }
-                });
-                const dockCards = [...dockGroups.values()].sort((a, b) => sortStops(a.dockNum, b.dockNum)).map((entry) => {
-                    const dockNum = entry.dockNum;
-                    const trips = Array.from(entry.tripCounts.entries())
-                        .sort((a, b) => String(a[0]).localeCompare(String(b[0]), undefined, { numeric: true }))
-                        .map(([tripNumber, rowCount]) => ({ tripNumber, rowCount, savedInfo: getDockTeamInfo(tripNumber) }));
-                    const summary = buildDockBrowseSummary(entry.rows);
-                    const consigneeNames = [...new Set(entry.rows.map(row => String(firstNonEmptyValue(row.CONSIGNEENAME, row.CONSIGNEE, row.CUSTOMERNAME, '') || '').trim()).filter(Boolean))];
-                    const repNames = [...new Set(entry.rows.map(row => String(firstNonEmptyValue(row.SALESREPNAME, row.SALESREPID, row.SALESREP, '') || '').trim()).filter(Boolean))];
-                    return { dockNum, dockLabel: formatDockViewDockLabel(dockNum), count: entry.count, summary, consigneeSummary: consigneeNames.slice(0, 3).join(', ') || 'Unknown Consignee', repSummary: repNames.slice(0, 3).join(', ') || 'Unknown Rep', states: Array.from(entry.states).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })), planStartDates: Array.from(entry.planStartDates).sort(compareDockPlanStartLabels), trips, dockTeamRenderVersion: dockTeamStatusRenderVersion, borderCls: entry.hasCoUt ? 'border-red-500' : 'border-[#007a4d]', bgCls: entry.hasCoUt ? 'bg-red-50' : 'bg-green-50', textCls: entry.hasCoUt ? 'text-red-700' : 'text-[#007a4d]' };
-                });
-                renderMarkupChunkedByKey('docks-main', container, crumb, dockCards, 'Select a Dock', (dockCard) => {
-                    const statesLabel = dockCard.states.length ? dockCard.states.join(', ') : '-';
-                    const planStartLabel = dockCard.planStartDates.length ? dockCard.planStartDates.join(', ') : '-';
-                    const tripHtml = dockCard.trips.length ? dockCard.trips.map((trip) => {
-                        const info = trip.savedInfo;
-                        let statusColor = 'text-blue-600 bg-blue-50';
-                        if (info.status.includes('Missing')) statusColor = 'text-red-600 bg-red-50';
-                        else if (info.status === 'Palletize') statusColor = 'text-purple-600 bg-purple-50';
-                        else if (info.status === 'Complete') statusColor = 'text-green-600 bg-green-50';
-                        const editButton = canEditDockConfig ? `<button class="mt-3 w-full rounded-lg border border-gray-200 bg-white py-2 text-xs font-bold text-gray-600 shadow-sm transition-colors hover:border-[#007a4d] hover:text-[#007a4d]" ${buildFastInvokeAttrs('openDockInfoModal', [dockCard.dockNum, trip.tripNumber], `Edit Trip ${trip.tripNumber}`)}><i class="ph-bold ph-pencil-simple mr-1"></i> Edit Trip Team & Status</button>` : '';
-                        return `<section class="rounded-xl border border-gray-200 bg-gray-50 p-3"><div class="mb-2 flex items-center justify-between gap-2"><div><span class="text-[9px] font-black uppercase tracking-wider text-gray-400">Trip</span><div class="text-sm font-black text-gray-800">${escapeHtml(trip.tripNumber)}</div></div><div class="text-right"><span class="rounded px-2 py-1 text-[9px] font-bold uppercase tracking-wider ${statusColor}">${escapeHtml(info.status)}</span><div class="mt-1 text-[8px] font-bold uppercase tracking-wider text-gray-400">${trip.rowCount} rows</div></div></div><div class="grid grid-cols-3 gap-2"><div class="rounded border border-gray-200 bg-white p-2 text-center"><div class="mb-0.5 text-[8px] font-bold uppercase text-gray-400">Checker</div><div class="truncate text-xs font-bold text-gray-700">${escapeHtml(info.checker || '-')}</div></div><div class="rounded border border-gray-200 bg-white p-2 text-center"><div class="mb-0.5 text-[8px] font-bold uppercase text-gray-400">Inspector</div><div class="truncate text-xs font-bold text-gray-700">${escapeHtml(info.inspector || '-')}</div></div><div class="rounded border border-gray-200 bg-white p-2 text-center"><div class="mb-0.5 text-[8px] font-bold uppercase text-gray-400">Mistake Guy</div><div class="truncate text-xs font-bold text-gray-700">${escapeHtml(info.mistake || '-')}</div></div></div>${editButton}</section>`;
-                    }).join('') : '<div class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[10px] font-bold text-amber-800">No TRIPNUMBER is available for these rows.</div>';
-                    const summary = dockCard.summary;
-                    const statusSummary = [summary.suspended ? `Suspended ${summary.suspended}` : '', summary.approved ? `Approved ${summary.approved}` : ''].filter(Boolean).join(' · ') || 'Ready';
-                    return `<div data-docks-dock-card="${escapeHtml(dockCard.dockNum)}" class="bg-white border-2 ${dockCard.borderCls} rounded-xl shadow-sm mb-4 overflow-hidden"><div class="p-4 cursor-pointer active:${dockCard.bgCls} transition-colors" ${buildFastInvokeAttrs('selectDock', [dockCard.dockNum], `Open ${dockCard.dockLabel}`)}><div class="flex justify-between items-center"><div class="flex items-center gap-3"><div class="${dockCard.bgCls} p-2 rounded-lg"><i class="ph-fill ph-truck text-2xl ${dockCard.textCls}"></i></div><div><div class="font-black text-lg ${dockCard.textCls} leading-tight">${dockCard.dockLabel}</div><div class="text-[10px] font-bold text-gray-500 uppercase mt-0.5">${summary.dropCount} Drops · ${summary.rowCount} Rows · Qty ${escapeHtml(summary.quantity)}</div></div></div><i class="ph-bold ph-caret-right text-gray-300 text-xl"></i></div><div class="mt-3 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-wider"><span class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-gray-700">Consignee: ${escapeHtml(dockCard.consigneeSummary)}</span><span class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-gray-700">Rep: ${escapeHtml(dockCard.repSummary)}</span><span class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-gray-700">${escapeHtml(statusSummary)}</span></div><div class="mt-2 grid grid-cols-1 gap-2 text-[10px] font-bold uppercase tracking-wider sm:grid-cols-2"><div class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-gray-700"><i class="ph-bold ph-map-pin mr-1 text-[#007a4d]"></i><span class="text-gray-400">States:</span> ${escapeHtml(statesLabel)}</div><div class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-gray-700"><i class="ph-bold ph-calendar-blank mr-1 text-[#007a4d]"></i><span class="text-gray-400">Plan Start:</span> ${escapeHtml(planStartLabel)}</div></div></div><div class="space-y-3 border-t border-gray-100 bg-gray-50 p-3">${tripHtml}</div></div>`;
-                }, {
-                    approxCardHeight: 260,
-                    emptyHtml: `<div class="p-8 text-center text-gray-400">No dock items found.</div>`,
-                    renderSignature: buildRowsRenderSignature('docks-main|Select a Dock', dockCards, ['dockTeamRenderVersion'])
-                });
-                return;
-            }
-
-            const selectedDockKey = normalizeDockViewDockKey(selectedDockNum);
-            const selectedDockLabel = formatDockViewDockLabel(selectedDockNum);
-            let dItems = items.filter(i => normalizeDockViewDockKey(i && i.DOCK_NUM) === selectedDockKey).sort(sortDockRows);
-            if (!dItems.length) {
-                dockViewLevel = 0;
-                selectedDockNum = null;
-                selectedDockStop = null;
-                scheduleDocksRender(0);
-                return;
-            }
-
-            const groupedStops = {};
-            dItems.forEach((item) => {
-                const stopKey = normalizeDockViewStopKey(item && item.STOPNUMBER);
-                if (!groupedStops[stopKey]) groupedStops[stopKey] = [];
-                groupedStops[stopKey].push(item);
-            });
-
-            if (dockViewLevel === 1) {
-                rememberOperationalExport('docks',dItems);
-                const stopCards = Object.keys(groupedStops).sort(sortStops).map((stopNum) => {
-                    const stopItems = groupedStops[stopNum];
-                    const lead = stopItems[0] || {};
-                    const doneCount = stopItems.filter(item => {
-                        const progress = getDockItemProgress(item.UNIQUE_ID);
-                        return progress.checker && progress.inspector;
-                    }).length;
-                    return { stopNum, planStarts:[...new Set(stopItems.map(getDockCardPlanStartValue).filter(Boolean))], count: stopItems.length, doneCount, summary: buildDockBrowseSummary(stopItems), rep: lead.SALESREPNAME || lead.SALESREPID || 'Unknown Rep', cust: lead.CUSTOMERNAME || 'Unknown Customer', cons: lead.CONSIGNEENAME || lead.CONSIGNEE || '', state: lead.CONSIGNEESTATE || lead.STATE || 'N/A' };
-                });
-                const prefixHtml = `<div data-secondary-back="true" aria-hidden="true" class="back-btn" onclick="return resetDockView()"><i class="ph-bold ph-arrow-left"></i> Back to Docks</div>`;
-                renderMarkupChunkedByKey('docks-stops', container, crumb, stopCards, selectedDockLabel, (stopCard) => {
-                    const summary = stopCard.summary;
-                    const badges = [summary.suspended ? `<span class="rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-amber-800">Suspended ${summary.suspended}</span>` : '', summary.approved ? `<span class="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-emerald-800">Approved ${summary.approved}</span>` : '', summary.ready ? `<span class="rounded-full border border-slate-200 bg-slate-100 px-2 py-1 text-slate-700">Ready ${summary.ready}</span>` : ''].filter(Boolean).join('');
-                    return `<div class="bg-white border border-gray-200 rounded-xl shadow-sm mb-3 overflow-hidden cursor-pointer active:scale-[0.99] transition-transform" data-docks-drop-card="${escapeHtml(stopCard.stopNum)}" ${buildFastInvokeAttrs('selectDockStop', [stopCard.stopNum], `Open Drop ${stopCard.stopNum}`)}><div class="p-4"><div class="flex justify-between items-start gap-3 mb-2"><div><div class="font-black text-xl text-[#007a4d] leading-none">Drop ${escapeHtml(stopCard.stopNum)}</div><div class="mt-2 inline-flex rounded-full border border-blue-200 bg-blue-50 px-2 py-1 text-[9px] font-black uppercase tracking-wider text-blue-700">${escapeHtml(selectedDockLabel)}</div><div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mt-1">${stopCard.count} Rows · Qty ${escapeHtml(summary.quantity)}</div></div><div class="text-right"><div class="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded ${stopCard.doneCount === stopCard.count ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}">${stopCard.doneCount}/${stopCard.count} Done</div></div></div><div class="text-sm font-bold text-gray-800 leading-tight">${escapeHtml(stopCard.cust)}</div>${stopCard.cons && stopCard.cons !== stopCard.cust ? `<div class="text-xs font-semibold text-gray-500 mt-1">${escapeHtml(stopCard.cons)}</div>` : ''}<div class="flex flex-wrap gap-2 mt-3 text-[10px] font-bold uppercase tracking-wider"><span class="bg-blue-50 text-blue-700 px-2 py-1 rounded border border-blue-100"><i class="ph-bold ph-user mr-1"></i>${escapeHtml(stopCard.rep)}</span><span class="bg-gray-100 text-gray-700 px-2 py-1 rounded border border-gray-200"><i class="ph-bold ph-map-pin mr-1"></i>${escapeHtml(stopCard.state)}</span>${badges}${stopCard.planStarts.map(value => { const info=getDockSuspendDcRequestPlanstartInfo({PLANSTART:value}); const colors={monday:'#7C3AED',tuesday:'#DC2626',wednesday:'#16A34A',thursday:'#2563EB',friday:'#64748B'}; return '<span class="rounded px-2 py-1 text-white" style="background:'+ (colors[info.tone] || '#475569') +'">Plan Start: '+escapeHtml(formatDockCardPlanStartValue(value))+'</span>'; }).join('')}</div></div><div class="bg-gray-50 border-t border-gray-100 px-4 py-3 flex items-center justify-between"><span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Open Drop</span><i class="ph-bold ph-caret-right text-gray-300 text-xl"></i></div></div>`;
-                }, { prefixHtml, approxCardHeight: 175, emptyHtml: `<div class="p-8 text-center text-gray-400">No stops remain in this dock.</div>` });
-                return;
-            }
-
-            const selectedStopKey = normalizeDockViewStopKey(selectedDockStop);
-            const stopItems = (groupedStops[selectedStopKey] || []).slice().sort(sortDockRows);
-            rememberOperationalExport('docks',stopItems);
-            if (!stopItems.length) {
-                dockViewLevel = 1;
-                selectedDockStop = null;
-                scheduleDocksRender(0);
-                return;
-            }
-            const lead = stopItems[0] || {};
-            const rep = lead.SALESREPNAME || lead.SALESREPID || 'Unknown Rep';
-            const cust = lead.CUSTOMERNAME || 'Unknown Customer';
-            const cons = lead.CONSIGNEENAME || lead.CONSIGNEE || '';
-            const state = lead.CONSIGNEESTATE || lead.STATE || 'N/A';
-            const doneCount = stopItems.filter(item => {
-                const progress = getDockItemProgress(item.UNIQUE_ID);
-                return progress.checker && progress.inspector;
-            }).length;
-            crumb.innerText = `${selectedDockLabel} > Drop ${selectedDockStop}`;
-            const stopHeaderHtml = `<div data-secondary-back="true" aria-hidden="true" class="back-btn" onclick="dockViewLevel=1; scheduleDocksRender(0)"><i class="ph-bold ph-arrow-left"></i> Back to Drops</div><div class="bg-white border border-green-200 rounded-xl shadow-lg mb-4 overflow-hidden"><div class="bg-gradient-to-r from-[#007a4d] to-[#119b6a] text-white p-4 border-b border-green-200/40"><div class="flex justify-between items-center gap-3 mb-2 border-b border-white/20 pb-2"><div><div class="font-black text-xl tracking-wider">Drop ${escapeHtml(selectedDockStop)}</div><div class="text-[10px] font-bold text-green-50 uppercase tracking-wider mt-1">${stopItems.length} Rows · Qty ${escapeHtml(buildDockBrowseSummary(stopItems).quantity)}</div></div><div class="flex items-center gap-2"><div class="text-[10px] font-bold bg-white/15 px-2 py-1 rounded text-white uppercase border border-white/15"><i class="ph-bold ph-user mr-1"></i>${escapeHtml(rep)}</div><div class="text-[10px] font-bold bg-white/15 px-2 py-1 rounded text-white uppercase border border-white/15">${doneCount}/${stopItems.length} Done</div></div></div><div class="font-bold text-[15px] leading-tight mb-0.5">${escapeHtml(cust)}</div>${cons && cons !== cust ? `<div class="text-[12px] text-green-50 font-semibold mb-2 flex items-center gap-1"><i class="ph-bold ph-arrow-bend-down-right"></i> ${escapeHtml(cons)}</div>` : '<div class="mb-2"></div>'}<div class="text-[10px] font-bold text-green-50 uppercase tracking-wider flex items-center gap-1"><i class="ph-bold ph-map-pin"></i> State: <span class="text-white">${escapeHtml(state)}</span></div></div></div>`;
-            renderMarkupChunkedByKey('docks-stop-items', container, crumb, stopItems, `${selectedDockLabel} > Drop ${selectedDockStop}`, (item) => generateCard(getDockCardLiveInventoryDisplayRow(item), 'docks', 'status-orange'), {
-                prefixHtml: stopHeaderHtml,
-                approxCardHeight: 265,
-                emptyHtml: `<div class="p-8 text-center text-gray-400">No rows remain in this Drop.</div>`,
-                renderSignature: buildDocksStopItemsRenderSignature(selectedDockLabel, selectedDockStop, stopItems) + JSON.stringify(stopItems.map(row => {
-                    const live=getQueueDisplayEvidenceRow({...row,SOURCE_TABLE:'ph_soc_master'}) || {};
-                    return [live.UNIQUE_ID,live.PHOTO_LINK,live.SPEC,live.AV_NOTE,live.MATCH,live.LOC_MATCH_QTY,live.PTRONHAND,live.LAST_UPDATED];
-                })),
-                verifyRowSelector: '[data-docks-stop-card]',
-                reserveSpace: true
-            });
+            return renderBloomscapesDocksBrowse();
         }
 
         // HL selections mirror into the isolated server-backed HL Cart only,
@@ -115864,7 +115645,18 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
 /* @runtime-fragment assets/bloomscapes-ptt.js */
 /* @runtime-fragment assets/bloomscapes-push.js */
 
-/* @runtime-fragment assets/bloomscapes-radio-inbox.js */ /* @runtime-fragment assets/bloomscapes-dock.js */ /* @runtime-fragment assets/bloomscapes-dock-controls.js */ /* @runtime-fragment assets/bloomscapes-workflows.js */ /* @runtime-fragment assets/bloomscapes-vault-filter.js */
+/* @runtime-fragment assets/bloomscapes-radio-inbox.js */ /* @runtime-fragment assets/bloomscapes-dock.js */ /* @runtime-fragment assets/bloomscapes-split-order-documents.js */
+/* @runtime-fragment assets/bloomscapes-dock-route-access.js */
+/* @runtime-fragment assets/bloomscapes-borrowed-route-read.js */
+/* @runtime-fragment assets/bloomscapes-docks-transport.js */
+/* @runtime-fragment assets/bloomscapes-docks-workspace.js */
+/* @runtime-fragment assets/bloomscapes-docks-render.js */
+/* @runtime-fragment assets/bloomscapes-docks-borrowed-cards.js */
+/* @runtime-fragment assets/bloomscapes-docks-borrowed-field.js */
+/* @runtime-fragment assets/bloomscapes-docks-documents.js */
+/* @runtime-fragment assets/bloomscapes-docks-compact.js */
+/* @runtime-fragment assets/bloomscapes-docks-browse.js */
+/* @runtime-fragment assets/bloomscapes-dock-controls.js */ /* @runtime-fragment assets/bloomscapes-workflows.js */ /* @runtime-fragment assets/bloomscapes-vault-filter.js */
         /* @runtime-fragment assets/bloomscapes-farm-dialog.js */
         /* @runtime-fragment assets/bloomscapes-owner-command.js */
         /* @runtime-fragment assets/bloomscapes-farm-access.js */
