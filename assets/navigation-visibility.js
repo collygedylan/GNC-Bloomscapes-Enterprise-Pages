@@ -52,13 +52,16 @@ function normalizeNavigationAccessRows(result) {
     return { ...result, data: result.data.map(row => ({ ...row, username: normalizeNavigationVisibilityUsername(row.username) })) };
 }
 
+function isNavigationFlagEnabled(value) {
+    return /^(?:y|yes|true|1)$/i.test(String(value ?? '').trim());
+}
+
 function resolveNavigationViewFlag(view, flags = {}) {
-    const yes = value => String(value || '').trim().toUpperCase() === 'Y';
     if (String(view).startsWith('production:')) return resolveNavigationViewFlag('production', flags);
     if (typeof getManagerTableManagementKey === 'function' && getManagerTableManagementKey(view)) return resolveNavigationNurseryFlag(flags);
     if (view === 'request') {
         if (flags.view_que_request == null && flags.view_que_suspend == null) return resolveNavigationFlagValue(flags, 'view_que');
-        return yes(flags.view_que_request) || yes(flags.view_que_suspend) ? 'Y' : 'N';
+        return isNavigationFlagEnabled(flags.view_que_request) || isNavigationFlagEnabled(flags.view_que_suspend) ? 'Y' : 'N';
     }
     const keys = {
         drive:'drive_mode', communication:nativeAuthSessionActive?'walkie':'comm', chat:nativeAuthSessionActive?'messages':'comm', 'department-calendar':'comm',
@@ -71,20 +74,20 @@ function resolveNavigationViewFlag(view, flags = {}) {
         'bunch-note':'inventory', moves:'inventory', 'move-up':'inventory', review:'qc', reserves:'sales_office'
     };
     const key = 'view_' + (keys[view] || String(view).replaceAll('-', '_'));
-    if (Object.hasOwn(flags, key)) return yes(flags[key]) ? 'Y' : 'N';
-    if (view === 'drive' && flags.view_drive != null) return yes(flags.view_drive) ? 'Y' : 'N';
+    if (Object.hasOwn(flags, key)) return isNavigationFlagEnabled(flags[key]) ? 'Y' : 'N';
+    if (view === 'drive' && flags.view_drive != null) return isNavigationFlagEnabled(flags.view_drive) ? 'Y' : 'N';
     const nested = QUICK_ACCESS_NESTED_ROUTES[view];
     return nested && nested.parent !== view ? resolveNavigationViewFlag(nested.parent, flags) : null;
 }
 
 function resolveNavigationNurseryFlag(flags) {
     if (flags.view_nursery_command_tables == null) return null;
-    return String(flags.view_nursery_command_tables).toUpperCase() === 'Y' ? 'Y' : 'N';
+    return resolveNavigationFlagValue(flags, 'view_nursery_command_tables');
 }
 
 function resolveNavigationFlagValue(flags, key) {
     if (flags[key] == null) return null;
-    return String(flags[key]).trim().toUpperCase() === 'Y' ? 'Y' : 'N';
+    return isNavigationFlagEnabled(flags[key]) ? 'Y' : 'N';
 }
 
 function getRoleNavigationDisplayDefaults(identity) {

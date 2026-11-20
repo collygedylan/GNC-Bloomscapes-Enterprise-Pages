@@ -246,7 +246,8 @@ function openAppShellAfterLogin() {
     document.documentElement.classList.remove('agdata-retained-prepaint','agdata-authenticated-boot');
     clearLoginStartupWatchdog();
     const loginView=document.getElementById('view-login');
-    if (shouldPreserveMountedBootView()) {
+    const retained = shouldPreserveMountedBootView() && getViewElementById(getCurrentVisibleViewId());
+    if (retained && retained.getBoundingClientRect().height > 0 && !retained.classList.contains('hidden')) {
         finishInitialAppLoad();
         if (loginView) loginView.style.display='none';
         window.__agdataMarkBootComplete?.();
@@ -256,7 +257,7 @@ function openAppShellAfterLogin() {
 
     blurActiveField();
     revealBloomscapesLoginShell();
-    runLoginInitializationStep('Home view',()=>showOnlyPrimaryView('home',{boot:true}));
+    runLoginInitializationStep('Home view',()=>showOnlyPrimaryView('home'));
     runLoginInitializationStep('Home render',()=>renderHome(true));
     runLoginInitializationStep('Role controls',()=>synchronizeLoginRoleControls(getRoleAccessState(),true));
     document.body.classList.add('role-access-ready');

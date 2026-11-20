@@ -15,7 +15,7 @@ function hasPrebootRememberedSession(env) {
     const nativeToken = authKey && (env.localStorage.getItem(authKey) || env.sessionStorage.getItem(authKey));
     const session = JSON.parse(nativeToken || 'null');
     if (profile && profile.id && profile.username && session && session.user && session.user.id === profile.id
-      && (session.access_token || session.refresh_token) && !profile.disabled_at && !profile.must_change_password
+      && (session.access_token && Number(session.expires_at) * 1000 > Date.now()) && !profile.disabled_at && !profile.must_change_password
       && (!profile.locked_until || Date.parse(profile.locked_until) <= Date.now())) return true;
     const record = JSON.parse(env.sessionStorage.getItem('gnc_app_session_v1') || 'null');
     return !!(record && record.token && record.username && Number(record.expiresAt) > Date.now() && !record.mustChangePassword);
