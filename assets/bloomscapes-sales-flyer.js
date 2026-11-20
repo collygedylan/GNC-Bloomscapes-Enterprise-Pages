@@ -44,3 +44,12 @@ async function requestBloomscapesFlyerFolderName(existing) {
     if (!name) showToast('Folder Required', 'Enter a flyer folder name before creating the folder.', true);
     return name;
 }
+
+function getFlyerAssigneeList(value = '') {
+    const rawValues = Array.isArray(value) ? value : String(value || '').split(/[;,\n]+/);
+    return [...new Set(rawValues.map(entry => entry == null ? '' : String(entry).trim()).filter(Boolean))];
+}
+
+function normalizeFlyerAssigneeKey(value = '') {
+    return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+}

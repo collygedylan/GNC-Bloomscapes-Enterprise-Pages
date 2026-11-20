@@ -1,0 +1,43 @@
+.flyer-designer{--flyer-border:#6e8c79;--flyer-well:var(--surface-2,#103220);--flyer-panel:var(--surface-1,#123928);--flyer-ink:var(--text-main,#f0f8ef);display:grid;gap:.65rem;color:inherit;min-width:0}
+.flyer-control-bar,.flyer-pages,.flyer-rail-tabs,.flyer-inspector-actions{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem}
+.flyer-control-bar{padding:.55rem;border:1px solid var(--flyer-border);border-radius:.65rem}
+.flyer-control-bar input[data-flyer-title]{flex:1 1 14rem;font-weight:700}
+.flyer-designer button,.flyer-designer select,.flyer-designer input,.flyer-designer textarea{color:inherit;min-height:36px;font:inherit}
+.flyer-designer button,.flyer-designer select,.flyer-designer input:not([type=range]),.flyer-designer textarea{border:1px solid var(--flyer-border);border-radius:.38rem;padding:.25rem .45rem;background:transparent}
+.flyer-designer select option{background:var(--flyer-panel);color:var(--flyer-ink)}
+.flyer-designer button:hover,.flyer-designer button[aria-pressed=true]{background:#257850;color:white}
+.flyer-designer button:disabled{opacity:.55;cursor:default}
+.flyer-designer button:focus-visible,.flyer-designer :is(input,select,textarea):focus-visible{outline:2px solid #5fc9ab;outline-offset:2px}
+.flyer-designer [hidden]{display:none!important}
+.flyer-designer p[role=status]{margin:0;min-height:1.2em;font-size:.85rem}
+.flyer-grid{display:grid;grid-template-columns:minmax(180px,220px) minmax(0,1fr) minmax(160px,200px);gap:.65rem;min-width:0}
+.flyer-rail,.flyer-style{padding:.6rem;border:1px solid var(--flyer-border);border-radius:.6rem;min-width:0;align-self:start}
+.flyer-rail h3,.flyer-style h3{font-weight:700;margin:.1rem 0 .4rem;font-size:1rem}
+.flyer-asset-list{display:grid;gap:.3rem;max-height:55vh;overflow:auto;padding:.26rem .05rem}
+.flyer-asset-list button{text-align:left;white-space:normal;min-height:38px;overflow-wrap:anywhere}
+.flyer-rail input,.flyer-rail select{width:100%}
+.flyer-rail-tabs button{font-size:.82rem}
+.flyer-stage{display:flex;flex-direction:column;gap:.5rem;min-width:0}
+.flyer-sheet-well{background:#dbe8df;color:#173b27;border:1px solid var(--flyer-border);border-radius:.6rem;overflow:auto;min-height:180px;padding:12px}
+.flyer-sheet-viewport{position:relative;margin-inline:auto;flex:none}
+.flyer-sheet{transform-origin:top left;position:absolute;inset:0 auto auto 0;overflow:hidden;box-shadow:0 3px 8px #173b2752;isolation:isolate}
+.flyer-object{position:absolute;overflow:hidden;user-select:none;line-height:1.2}
+.flyer-object[tabindex]{touch-action:none;cursor:move}
+.flyer-object-selected{outline:3px solid #0f9976;outline-offset:-3px;z-index:auto}
+.flyer-object-text{position:absolute;overflow:hidden;white-space:pre-wrap;overflow-wrap:anywhere;margin:0;line-height:1.2;color:inherit}
+.flyer-object-image{position:absolute;inset:0 0 auto;width:100%;object-fit:cover;background:#e4eddf}
+.flyer-object-handle{position:absolute;right:0;bottom:0;width:35px;height:35px;cursor:nwse-resize;display:none;background:linear-gradient(135deg,transparent 47%,#0f9976 48%);z-index:1}
+.flyer-object-selected .flyer-object-handle{display:block}
+.flyer-guide{position:absolute;background:#e21a85;pointer-events:none;z-index:3}
+.flyer-guide-x{top:0;bottom:0;width:2px}
+.flyer-guide-y{left:0;right:0;height:2px}
+.flyer-style label{display:flex;flex-direction:column;font-size:.78rem;gap:.15rem;margin:.35rem 0}
+.flyer-style input,.flyer-style textarea,.flyer-style select{width:100%;min-width:0}
+.flyer-style textarea{resize:vertical;min-height:68px}
+.flyer-style-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.2rem .5rem}
+.flyer-style-fields label.flyer-wide{grid-column:1/-1}
+.flyer-designer-viewer .flyer-grid{grid-template-columns:minmax(0,1fr)}
+.flyer-designer-viewer .flyer-stage{grid-column:1}
+@media(max-width:850px){.flyer-grid{grid-template-columns:minmax(0,1fr) minmax(140px,195px)}.flyer-rail{grid-column:1/-1}.flyer-asset-list{max-height:170px;grid-template-columns:repeat(auto-fit,minmax(132px,1fr))}}
+@media(max-width:520px){.flyer-grid{grid-template-columns:minmax(0,1fr)}.flyer-rail,.flyer-stage,.flyer-style{grid-column:1}.flyer-control-bar button,.flyer-pages button{font-size:.8rem}.flyer-style-fields{grid-template-columns:repeat(4,minmax(0,1fr))}.flyer-style-fields label.flyer-wide{grid-column:span 2}}
+.flyer-asset-list button[data-flyer-action=plant]{display:flex;align-items:center;gap:.38rem}.flyer-asset-list button img{width:38px;height:38px;object-fit:cover;border-radius:.25rem;flex:none}

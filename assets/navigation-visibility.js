@@ -126,10 +126,9 @@ function hasFullNavigationVisibility(userOverride = '') {
 
 function canDisplayNavigationView(viewId = '', userOverride = '') {
     const view = String(viewId || '').trim();
-    if (!view || ['crop-roll', 'manager-crop-roll'].includes(view)) return false;
     if (window.__agdataSessionBoundary === true || hasExplicitLogoutMarker() || hasConfirmedCurrentAccountRevocation()) return false;
     const identity = getNavigationVisibilityIdentity(userOverride);
-    if (!identity) return false;
+    if (!identity || !view || ['crop-roll', 'manager-crop-roll'].includes(view)) return false;
     if (isBloomscapesDockRoute(view)) return canOpenBloomscapesDocksWorkspace(view,userOverride);
     const row = window.GncUserAccessControl?.state?.userAccess?.find(value => normalizeNavigationVisibilityUsername(value.username) === identity.username);
     const staleProfile = row?.profile_id && row.profile_id !== identity.id;
@@ -249,6 +248,10 @@ function syncNavigationDisplayStatus(host, message = '') {
         host.append(status);
     }
     status.textContent = message;
+}
+
+function syncInitialHomeNavigationVisibility(access, grid) {
+    syncHomeModuleVisibility(access, '', hasFullNavigationVisibility(), grid);
 }
 
 function syncNavigationVisibilityUi(access, userOverride, grid) {

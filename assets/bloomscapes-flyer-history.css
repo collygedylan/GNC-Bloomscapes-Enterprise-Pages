@@ -1,0 +1,11 @@
+[data-marketing-studio] [data-studio-modules]{display:flex;flex-wrap:wrap;gap:.4rem;padding-block:.75rem}
+[data-marketing-studio] [data-sales-section]{padding:.5rem .8rem;border:1px solid #b7c7bf;border-radius:.45rem;background:#fff;color:#164735}
+[data-marketing-studio] [data-sales-section][aria-pressed=true]{background:#164735;color:white}
+.flyer-history-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,16rem),1fr));gap:1rem;margin-top:1rem}
+.flyer-history-card{padding:1rem;border:1px solid #c9d5cc;border-radius:.6rem;background:white;color:#203c2d}
+.flyer-history-card img{width:100%;height:13rem;object-fit:contain;background:#f2f4ee}
+.flyer-history-card h3{font-weight:700;margin-top:.6rem}
+.flyer-history-card button{display:block;text-align:left;padding:.45rem .15rem;color:#086642;text-decoration:underline}
+.flyer-history-preview{width:min(96vw,60rem);max-height:94vh;margin:auto;padding:1rem;border:none;border-radius:.6rem}
+.flyer-history-preview iframe,.flyer-history-preview img{display:block;width:100%;height:72vh;object-fit:contain}
+.flyer-history-preview::backdrop{background:#102419aa}

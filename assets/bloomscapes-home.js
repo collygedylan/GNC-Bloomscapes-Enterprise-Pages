@@ -1,12 +1,12 @@
 const BLOOMSCAPES_BASE_HOME = "<button type=\"button\" id=\"home-tile-drive\" data-home-module-view=\"drive\" class=\"home-module-tile role-access hidden\" onclick=\"switchView('drive')\" aria-label=\"Open Drive Mode\"><i class=\"ph ph-car\" aria-hidden=\"true\"></i><span>Drive Mode</span></button>\n                                <button type=\"button\" id=\"home-tile-hl-order\" data-home-module-view=\"hl-order\" class=\"home-module-tile role-access hidden\" onclick=\"switchView('hl-order')\" aria-label=\"Open PO Management\"><i class=\"ph ph-truck\" aria-hidden=\"true\"></i><span>PO Management</span></button>\n                                <button type=\"button\" id=\"home-tile-av\" data-home-module-view=\"av\" class=\"home-module-tile role-access hidden\" onclick=\"switchView('av')\" aria-label=\"Open AV\"><i class=\"ph ph-notebook\" aria-hidden=\"true\"></i><span>AV</span></button>\n                                <button type=\"button\" id=\"home-tile-sales-office\" data-home-module-view=\"sales-office\" class=\"home-module-tile role-access hidden\" onclick=\"switchView('sales-office')\" aria-label=\"Open Sales Office\"><svg class=\"home-module-icon\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"M9 7V4h6v3M3 7h18v14H3zM3 12h18M10 12v3h4v-3\"/></svg><span>Sales Office</span></button>\n                                <button type=\"button\" id=\"home-tile-sales\" data-home-module-view=\"sales\" class=\"home-module-tile role-access hidden\" onclick=\"switchView('sales')\" aria-label=\"Open Sales\"><i class=\"ph ph-handshake\" aria-hidden=\"true\"></i><span>Sales</span></button>\n                                <button type=\"button\" id=\"home-tile-historical-requests\" data-home-module-view=\"historical-requests\" class=\"home-module-tile role-access hidden\" onclick=\"switchView('historical-requests')\" aria-label=\"Open Historical Requests\"><i class=\"ph ph-clock-counter-clockwise\" aria-hidden=\"true\"></i><span>Historical Requests</span></button>\n                                <button type=\"button\" id=\"home-tile-managers\" data-home-module-view=\"managers\" class=\"home-module-tile role-access hidden\" onclick=\"switchView('managers')\" aria-label=\"Open Managers\"><i class=\"ph ph-users-three\" aria-hidden=\"true\"></i><span>Managers</span></button>\n                                <button type=\"button\" id=\"home-tile-qc\" data-home-module-view=\"qc\" class=\"home-module-tile role-access hidden\" onclick=\"switchView('qc')\" aria-label=\"Open QC\"><i class=\"ph ph-shield-check\" aria-hidden=\"true\"></i><span>QC</span></button>\n                                <button type=\"button\" id=\"home-tile-office\" data-home-module-view=\"office\" class=\"home-module-tile role-access hidden\" onclick=\"switchView('office')\" aria-label=\"Open Office\"><i class=\"ph ph-buildings\" aria-hidden=\"true\"></i><span>Office</span></button>\n                                <button type=\"button\" id=\"home-tile-sales-inventory\" data-home-module-view=\"sales-inventory\" class=\"home-module-tile role-access hidden\" onclick=\"openInventoryHubView()\" aria-label=\"Open Inventory\"><i class=\"ph ph-storefront\" aria-hidden=\"true\"></i><span>Inventory</span></button>\n                                <button type=\"button\" id=\"home-tile-production\" data-home-module-view=\"production\" class=\"home-module-tile role-access hidden\" onclick=\"switchView('production')\" aria-label=\"Open Production\"><i class=\"ph ph-plant\" aria-hidden=\"true\"></i><span>Production</span></button>";
 
-function mountBloomscapesHomeModules() {
+function mountBloomscapesHomeModules(opening = false) {
     for (const id of ['header-version','app-release-version']) {
         const pill = document.getElementById(id);
         if (pill) pill.textContent = window.__APP_RELEASE_VERSION__;
     }
     mountBloomscapesFarmSelector();
-    mountDivisionWeather();
+    if (!opening) mountDivisionWeather();
     const grid = document.getElementById('home-dashboard-grid');
     if (!grid) return;
     grid.dataset.bloomscapesHome = 'true';
@@ -125,12 +125,14 @@ function openBloomscapesHomeModule(tab) {
 const homeMarkupByNode = new WeakMap();
 function renderHome(opening = false) {
     if (getCurrentVisibleViewId() !== 'home') return;
-    mountBloomscapesHomeModules();
+    mountBloomscapesHomeModules(opening);
     const dynamicContent = document.getElementById('home-dynamic-content');
     const dashboardContent = document.getElementById('home-dashboard-content');
     if (!dynamicContent || !dashboardContent) return;
-    syncGoogleScriptButton();
-    if (!opening) refreshBloomscapesHomeStatus();
+    if (!opening) {
+        syncGoogleScriptButton();
+        refreshBloomscapesHomeStatus();
+    }
     const dashboardSticky = document.getElementById('home-dashboard-sticky');
     const dashboardHero = document.getElementById('home-dashboard-hero');
     if (shouldUseRepSalesHomeHub()) {
@@ -158,7 +160,7 @@ function renderHome(opening = false) {
     if (typeof syncCurrentViewBodyClass === 'function') syncCurrentViewBodyClass('home');
 }
 
-function synchronizeLoginRoleControls(access) {
+function synchronizeLoginRoleControls(access, initialHome = false) {
     document.querySelectorAll('.role-access').forEach(el => {
         const isAllowed =
             (access.isAdmin && el.classList.contains('role-admin')) ||
@@ -170,7 +172,8 @@ function synchronizeLoginRoleControls(access) {
         el.classList.toggle('hidden', !isAllowed);
         el.style.display = '';
     });
-    syncRoleAccessUi(access);
+    if (initialHome) syncInitialHomeNavigationVisibility(access,ensureHomeModuleRegistry());
+    else syncRoleAccessUi(access);
 }
 
 function runLoginInitializationStep(label, task) {
@@ -187,7 +190,8 @@ function runLoginInitializationStep(label, task) {
 function confirmBloomscapesHomeMount() {
     setHomeDashboardModulesReady(!shouldUseRepSalesHomeHub());
     const grid = document.getElementById(shouldUseRepSalesHomeHub() ? 'home-rep-dashboard-grid' : 'home-dashboard-modules');
-    if (!grid || grid.hidden || grid.classList.contains('hidden') || !grid.querySelector('button,[data-home-module],a')) {
+    if (!grid || grid.hidden || grid.classList.contains('hidden')
+        || !grid.querySelector(':is(button,[data-home-module],a):not(.hidden):not([hidden])')) {
         ensureHomeDashboardReadyAfterLogin('login-shell-open');
         return;
     }
@@ -198,7 +202,11 @@ function confirmBloomscapesHomeMount() {
 
 function finishBloomscapesShellStartup(touchShell) {
     runLoginInitializationStep('AURA widget', () => syncAuraWidgetForSession());
-    if (getCurrentVisibleViewId() === 'home') refreshBloomscapesHomeStatus();
+    if (getCurrentVisibleViewId() === 'home') {
+        mountDivisionWeather();
+        syncGoogleScriptButton();
+        refreshBloomscapesHomeStatus();
+    }
     document.body.classList.remove('detail-field-active');
     repairAppShellScrollState('login-shell-open', { resetGestureState: true });
     applyRolePermissions();
@@ -231,4 +239,55 @@ function finishBloomscapesShellStartup(touchShell) {
 function refreshBloomscapesHomeStatus() {
     if (typeof updateDashboardSyncSummary === 'function') updateDashboardSyncSummary();
     auditLocalRequestDurability('home').catch(error => reportHandledRuntimeIssue('home-request-audit',error.message));
+}
+
+function openAppShellAfterLogin() {
+    window.__agdataSessionBoundary = false;
+    document.documentElement.classList.remove('agdata-retained-prepaint','agdata-authenticated-boot');
+    clearLoginStartupWatchdog();
+    const loginView=document.getElementById('view-login');
+    if (shouldPreserveMountedBootView()) {
+        finishInitialAppLoad();
+        if (loginView) loginView.style.display='none';
+        window.__agdataMarkBootComplete?.();
+        void runAppUpdateRestoreAfterShell();
+        return;
+    }
+
+    blurActiveField();
+    revealBloomscapesLoginShell();
+    runLoginInitializationStep('Home view',()=>showOnlyPrimaryView('home',{boot:true}));
+    runLoginInitializationStep('Home render',()=>renderHome(true));
+    runLoginInitializationStep('Role controls',()=>synchronizeLoginRoleControls(getRoleAccessState(),true));
+    document.body.classList.add('role-access-ready');
+    if (loginView) loginView.style.display='none';
+    confirmBloomscapesHomeMount();
+    finishInitialAppLoad();
+    document.getElementById('login-inputs')?.classList.remove('hidden');
+    document.getElementById('loading-spinner')?.classList.add('hidden');
+    window.__agdataMarkBootComplete?.();
+    try { window.GncLoginTrace?.finish('shell-ready'); }
+    catch { globalThis.reportHandledRuntimeIssue?.('openAppShellAfterLogin','HANDLED_OPERATION_FAILURE'); }
+    const owner=currentUser;
+    runAfterShellInteractive(()=>{
+        if (currentUser!==owner) return;
+        runLoginInitializationStep('Menu reset',()=>setMenuOpenState(false));
+        finishBloomscapesShellStartup(isTouchConstrainedDevice());
+    });
+}
+
+function revealBloomscapesLoginShell() {
+    const wrapper=document.getElementById('app-wrapper');
+    if (wrapper) {
+        wrapper.classList.remove('hidden');
+        wrapper.hidden=false;
+        if (wrapper.style.display==='none') wrapper.style.removeProperty('display');
+        wrapper.style.pointerEvents='auto';
+        wrapper.style.opacity='1';
+    }
+    const scrollArea=document.getElementById('main-scroll-area');
+    if (scrollArea) {
+        scrollArea.style.pointerEvents='auto';
+        scrollArea.style.opacity='1';
+    }
 }

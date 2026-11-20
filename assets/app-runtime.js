@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.19';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.20';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -23706,7 +23706,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.19';
+        const APP_VERSION = '3.1.20';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -44327,15 +44327,6 @@ function toggleDriveQuickRequestItem(domId) {
             if (!silent && hadItems) showToast('Cleared', 'Drive builder rows cleared.');
         }
 
-        function getFlyerAssigneeList(value = '') {
-            const rawValues = Array.isArray(value) ? value : String(value || '').split(/[;,\n]+/);
-            return [...new Set(rawValues.map(entry => entry == null ? '' : String(entry).trim()).filter(Boolean))];
-        }
-
-        function normalizeFlyerAssigneeKey(value = '') {
-            return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
-        }
-
         const FLYER_ASSIGNABLE_USER_FALLBACK = Object.freeze([
             { username: 'morgan_anderson', display: 'morgan_anderson' },
             { username: 'kayla_knepp', display: 'kayla_knepp' },
@@ -49871,67 +49862,6 @@ function toggleDriveQuickRequestItem(domId) {
             }
         }
 
-        function openAppShellAfterLogin(fromCache = false) {
-            window.__agdataSessionBoundary = false;
-            document.documentElement.classList.remove('agdata-retained-prepaint', 'agdata-authenticated-boot');
-            if (shouldPreserveMountedBootView()) {
-                // A later restore/hydration completion may finish login, but never reroute the user.
-                clearLoginStartupWatchdog();
-                finishInitialAppLoad();
-                const loginView = document.getElementById('view-login');
-                if (loginView) loginView.style.display = 'none';
-                window.__agdataMarkBootComplete?.();
-            void runAppUpdateRestoreAfterShell();
-                return;
-            }
-            window.__agdataMarkBootComplete?.();
-            clearLoginStartupWatchdog();
-            blurActiveField();
-            setLoginProgress(100, fromCache ? 'Opening cached data...' : 'Opening app...');
-            finishInitialAppLoad();
-            const loginView = document.getElementById('view-login');
-            const loginInputs = document.getElementById('login-inputs');
-            const spinner = document.getElementById('loading-spinner');
-            const appWrapper = document.getElementById('app-wrapper');
-            const scrollArea = document.getElementById('main-scroll-area');
-            const touchShell = isTouchConstrainedDevice();
-            runLoginInitializationStep('Menu reset', () => setMenuOpenState(false));
-            if (appWrapper) {
-                appWrapper.classList.remove('hidden');
-                appWrapper.hidden = false;
-                if (appWrapper.style.display === 'none') appWrapper.style.removeProperty('display');
-                appWrapper.style.pointerEvents = 'auto';
-                appWrapper.style.opacity = '1';
-            }
-            if (scrollArea) {
-                scrollArea.style.pointerEvents = 'auto';
-                scrollArea.style.opacity = '1';
-            }
-            runLoginInitializationStep('Home view', () => showOnlyPrimaryView('home', { boot: true }));
-            runLoginInitializationStep('Home render', () => renderHome(true));
-            runLoginInitializationStep('Role controls', () => synchronizeLoginRoleControls(getRoleAccessState()));
-            document.body.classList.add('role-access-ready');
-            if (loginView) loginView.style.display = 'none';
-            confirmBloomscapesHomeMount();
-            if (loginInputs) loginInputs.classList.remove('hidden');
-            if (spinner) spinner.classList.add('hidden');
-            window.__agdataMarkBootComplete?.();
-            try { window.GncLoginTrace?.finish('shell-ready'); } catch { globalThis.reportHandledRuntimeIssue?.("openAppShellAfterLogin", 'HANDLED_OPERATION_FAILURE'); }
-            const owner = currentUser;
-            runAfterShellInteractive(() => {
-                if (currentUser === owner) finishBloomscapesShellStartup(touchShell);
-            }, 0);
-        }
-
-                function addLoginWarmupTarget(targetMap, key, mode = 'initial') {
-            const nextMode = mode === 'full' ? 'full' : 'initial';
-            const current = targetMap.get(key);
-            if (!current || (nextMode === 'full' && current.mode !== 'full')) {
-                targetMap.set(key, { key, mode: nextMode });
-            }
-        }
-
-
         function isTouchConstrainedDevice() {
             return !!(isAdaptivePerformanceMode() || isIOSDevice() || isStandaloneApp() || /Android/i.test(navigator.userAgent) || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches));
         }
@@ -50029,9 +49959,9 @@ function toggleDriveQuickRequestItem(domId) {
             const allowedViews = access.allowedViews instanceof Set ? access.allowedViews : new Set(access.allowedViews || []);
             const initialTargets = new Map();
             const prefersDeferredWarm = isTouchConstrainedDevice();
-            addLoginWarmupTarget(initialTargets, 'master', 'initial');
+            addRefreshTarget(initialTargets, 'master', 'initial');
             if (allowedViews.has('request') || allowedViews.has('reports') || canUseRequestRepScopedAccess()) {
-                addLoginWarmupTarget(initialTargets, 'requests', 'initial');
+                addRefreshTarget(initialTargets, 'requests', 'initial');
             }
 
             const initialPriority = ['master', 'requests'];
@@ -50061,7 +49991,7 @@ function toggleDriveQuickRequestItem(domId) {
             const addTarget = (key, mode = 'initial') => {
                 const safeKey = String(key || '').trim();
                 if (!safeKey || !DATASET_DEFINITIONS[safeKey]) return;
-                addLoginWarmupTarget(targetMap, safeKey, mode);
+                addRefreshTarget(targetMap, safeKey, mode);
             };
             const access = getRoleAccessState();
             const allowedViews = access.allowedViews instanceof Set ? access.allowedViews : new Set(access.allowedViews || []);
@@ -115580,7 +115510,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
 /* @runtime-fragment assets/bloomscapes-history.js */
 /* @runtime-fragment assets/bloomscapes-sales-flyer.js */
         /* @runtime-fragment assets/bloomscapes-sales-cards.js */
-        /* @runtime-fragment assets/inventory-browse-workspaces.js */ /* @runtime-fragment assets/inventory-excel-facts.js */ /* @runtime-fragment assets/bloomscapes-message-state.js */ /* @runtime-fragment assets/bloomscapes-message-transport.js */  /* @runtime-fragment assets/bloomscapes-planning-card.js */ /* @runtime-fragment assets/bloomscapes-planning-transport.js */ /* @runtime-fragment assets/bloomscapes-planning-state.js */ /* @runtime-fragment assets/bloomscapes-module-access.js */ /* @runtime-fragment assets/bloomscapes-module-access-editor.js */ /* @runtime-fragment assets/bloomscapes-viewport-scaler.js */
+        /* @runtime-fragment assets/bloomscapes-flyer-archive.js */ /* @runtime-fragment assets/bloomscapes-flyer-model.js */ /* @runtime-fragment assets/bloomscapes-flyer-layout.js */ /* @runtime-fragment assets/bloomscapes-flyer-export.js */ /* @runtime-fragment assets/bloomscapes-flyer-artboard.js */ /* @runtime-fragment assets/bloomscapes-flyer-designer-controls.js */ /* @runtime-fragment assets/bloomscapes-flyer-designer.js */ /* @runtime-fragment assets/bloomscapes-flyer-history.js */ /* @runtime-fragment assets/inventory-browse-workspaces.js */ /* @runtime-fragment assets/inventory-excel-facts.js */ /* @runtime-fragment assets/bloomscapes-message-state.js */ /* @runtime-fragment assets/bloomscapes-message-transport.js */  /* @runtime-fragment assets/bloomscapes-planning-card.js */ /* @runtime-fragment assets/bloomscapes-planning-transport.js */ /* @runtime-fragment assets/bloomscapes-planning-state.js */ /* @runtime-fragment assets/bloomscapes-module-access.js */ /* @runtime-fragment assets/bloomscapes-module-access-editor.js */ /* @runtime-fragment assets/bloomscapes-viewport-scaler.js */
 /* @runtime-fragment assets/request-photo-gallery-read.js */
 /* @runtime-fragment assets/request-photo-gallery-modal.js */
 /* @runtime-fragment assets/request-photo-gallery-deep-link.js */

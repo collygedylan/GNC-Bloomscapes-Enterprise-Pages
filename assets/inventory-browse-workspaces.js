@@ -37,7 +37,7 @@ function refreshBloomscapesInventoryBrowse(scope) {
     if (root) refreshBloomscapesWorkBrowser(root);
 }
 
-function renderBloomscapesNativeSalesOffice(view) {
+function renderBloomscapesNativeSalesOffice(view,section='design') {
     if (!nativeAuthSessionActive || !['sales','sales-office'].includes(view)) return false;
     const root=document.getElementById('view-'+view);
     const owner=getSupabaseReadIdentityScope()+':'+getBloomscapesFarm();
@@ -50,30 +50,34 @@ function renderBloomscapesNativeSalesOffice(view) {
     studio.dataset.owner=owner;
     studio.innerHTML='<h2>Sales &amp; Marketing Studio</h2><nav data-studio-modules></nav><section data-sales-content></section>';
     const menu=studio.querySelector('nav');
-    const entries=[['flyer','Flyer Folders & Marketing Flyer Builder'],['rep','Sales Rep Vault'],
-        ['archive','My Work & Inquiry PDF Vault'],['smart','Smart Sales & Move Intelligence']];
+    const entries=[['design','🎨 Design Studio'],['flyer','🗂️ Flyer Folders'],['history','🏛️ Flyer History Archive'],['rep','💼 Sales Rep Vault'],
+        ['archive','📄 Inquiry PDF Vault'],['smart','🧠 Smart Sales']];
     for (const [key,title] of entries) {
         const button=menu.appendChild(document.createElement('button'));
         button.type='button';button.textContent=title;
         button.dataset.salesSection=key;button.setAttribute('aria-pressed','false');
         button.addEventListener('click',()=>openSalesStudioSection(studio,key));
     }
+    openSalesStudioSection(studio,section);
     return true;
 }
 
 function openBloomscapesSalesFlyerStudio(view) {
     switchView(view);
-    renderBloomscapesNativeSalesOffice(view);
-    openSalesStudioSection(document.querySelector('#view-'+view+' [data-marketing-studio]'),'flyer');
+    renderBloomscapesNativeSalesOffice(view,'flyer');
+    const studio=document.querySelector('#view-'+view+' [data-marketing-studio]');
+    if (!studio?.querySelector('[data-sales-section=flyer][aria-pressed=true]')) openSalesStudioSection(studio,'flyer');
 }
 
-function openSalesStudioSection(studio,key) {
+function openSalesStudioSection(studio,key,canvas=null,options={}) {
     if (!studio) return;
     for (const button of studio.querySelectorAll('[data-sales-section]')) {
         button.setAttribute('aria-pressed',String(button.dataset.salesSection===key));
     }
     const host=studio.querySelector('[data-sales-content]');
     host.replaceChildren();
+    if (key==='design') return openSalesStudioDesign(studio,host,canvas,options);
+    if (key==='history') return mountBloomscapesFlyerHistory(host,(copy,settings)=>openSalesStudioSection(studio,'design',copy,settings));
     if (key==='archive') {
         host.innerHTML=renderBloomscapesWorkflowPanel('bloomscapes-vault');
         return mountBloomscapesWorkflowPanel(host,'bloomscapes-vault');
@@ -172,4 +176,15 @@ function showSalesRepPage(state, rows, page) {
 function buildSalesRepRecordCard(record, row) {
     const pdfAction = record.folder ? button=>printSalesStudioGallery(record,button) : null;
     return renderBloomscapesSalesCard(record,row,pdfAction);
+}
+
+function openSalesStudioDesign(studio,host,canvas,options) {
+    const saved=canvas ? {canvas,options} : studio.flyerDraft || {canvas:null,options:{}};
+    if (canvas && !options.readOnly) studio.flyerDraft=saved;
+    const onChange=updated=>{
+        if (!saved.options.readOnly && studio.isConnected && studio.dataset.owner===getSupabaseReadIdentityScope()+':'+getBloomscapesFarm()) {
+            studio.flyerDraft={canvas:updated,options:saved.options};
+        }
+    };
+    return mountBloomscapesFlyerDesigner(host,saved.canvas,{...saved.options,onChange});
 }
