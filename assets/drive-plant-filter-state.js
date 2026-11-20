@@ -40,7 +40,7 @@ function prepareBloomscapesDriveProjection(inventory) {
 function getDrivePlantOptionLists(items) {
     const snapshot = typeof getBloomscapesWarmFarm==='function' && typeof nativeAuthSessionActive!=='undefined' && nativeAuthSessionActive ? getBloomscapesWarmFarm(getBloomscapesFarm()) : null;
     const prepared = snapshot?.inventory===fullInventory ? snapshot.driveProjection : null;
-    if (prepared && items.length===prepared.rows.length && items.every((row,index)=>row===prepared.rows[index])) return prepared.options;
+    if (prepared && (items===prepared.rows || items.length===prepared.rows.length && items.every((row,index)=>row===prepared.rows[index]))) return prepared.options;
     return buildDrivePlantOptionLists(items);
 }
 
@@ -301,3 +301,17 @@ function syncDriveCrumb(crumb, crumbText = '') {
     if (crumb.textContent !== nextText) crumb.textContent = nextText;
 }
 
+
+function getDriveQuickFilterStateKey(contextKey) {
+    return [
+        contextKey,
+        String(driveQuickFilterName || '').toLowerCase().trim(),
+        String(driveQuickFilterLocation || '').trim(),
+        String(driveQuickFilterLot || '').trim(),
+        String(driveQuickFilterSize || '').trim(),
+        getDriveQuickPriorityValues().join('|'),
+        String(driveQuickFilterLtsMode || '').trim(),
+        String(driveQuickFilterLtsValue || '').trim(),
+        buildDriveColumnFilterStateKey()
+    ].join('::');
+}

@@ -1,4 +1,6 @@
 async function registerCurrentBloomscapesRadioDevice(options={}) {
+    if (bloomscapesCommAccess('walkie')!==true) return false;
+    const farm=getBloomscapesFarm();
     let permission=Notification.permission;
     if(permission==='default' && options.prompt)permission=await Notification.requestPermission();
     if(permission!=='granted')return false;
@@ -15,10 +17,11 @@ async function registerCurrentBloomscapesRadioDevice(options={}) {
     }
     subscription ||= await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:bytes});
     await requireBloomscapesOwner(owner);
+    if (farm!==getBloomscapesFarm() || bloomscapesCommAccess('walkie')!==true) return false;
     const data=subscription.toJSON();
     const saved=await bloomscapesRadioRpc(client,'gnc_register_walkie_push',{
         p_endpoint:data.endpoint,p_p256dh:data.keys.p256dh,p_auth:data.keys.auth,
-        p_farm_code:getBloomscapesFarm(),p_user_agent:navigator.userAgent});
+        p_farm_code:farm,p_user_agent:navigator.userAgent});
     if (saved!==true) throw Error('Radio notification registration was not confirmed.');
     return true;
 }

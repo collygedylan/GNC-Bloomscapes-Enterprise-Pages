@@ -2,6 +2,9 @@ async function connectBloomscapesMessages() {
     if (!nativeAuthSessionActive) return disconnectBloomscapesMessages();
     if (!window.BloomscapesBatteryGovernor.visible()) return;
     const state=bloomscapesMessagesState;
+    const access=bloomscapesCommAccess('inbox');
+    if (access===false) { await disconnectBloomscapesMessages(); return refreshBloomscapesComm(); }
+    if (!access) return;
     const {owner}=await requireBloomscapesSession(),farm=getBloomscapesFarm();
     if (state.channel && (state.owner!==owner || state.farm!==farm)) await disconnectBloomscapesMessages();
     if (!state.channel) {

@@ -1,11 +1,11 @@
 /* Compact operational filter owners: shared controls retain their commands. */
 html body #app-wrapper #view-drive #drive-toolbar-rail {
-  display:grid!important; grid-template-columns:repeat(5,minmax(0,1fr))!important; gap:4px!important;
+  display:grid!important; grid-template-columns:repeat(4,minmax(0,1fr))!important; gap:4px!important;
   padding:4px 6px!important; height:42px!important; align-items:center!important; box-sizing:border-box; min-height:0!important; overflow:visible!important;
 }
 html body #app-wrapper #view-drive #drive-toolbar-rail > :is(#drive-excel-salesyear-btn,#drive-excel-season-btn,#drive-excel-lotcode-btn,#drive-filters-btn) { display:none!important; }
 html body #app-wrapper #view-drive #drive-toolbar-rail[data-universal-drive-toolbar] > :is(#drive-mobile-mode,#drive-excel-contsize-btn,#drive-excel-holdstopcode-btn) {
-  width:100%!important; min-width:0!important; max-width:none!important; height:34px!important; min-height:34px!important; max-height:34px!important; grid-column:auto!important;
+  width:100%!important; min-width:0!important; max-width:none!important; height:36px!important; min-height:36px!important; max-height:36px!important; grid-column:auto!important; border-radius:999px!important;
 }
 html body #app-wrapper #view-drive #drive-toolbar-rail > [data-inventory-excel-scope="drive"] {
   display:block!important; min-width:0!important; padding:0!important; margin:0!important; border:0!important; background:none!important;
@@ -13,24 +13,10 @@ html body #app-wrapper #view-drive #drive-toolbar-rail > [data-inventory-excel-s
 html body #app-wrapper #view-drive [data-inventory-excel-scope="drive"] .inventory-excel-field { gap:0!important; }
 html body #app-wrapper #view-drive [data-inventory-excel-scope="drive"] .inventory-excel-field > span { display:none!important; }
 html body #app-wrapper #view-drive [data-inventory-excel-scope="drive"] select {
-  height:34px!important; min-height:34px!important; margin:0!important; border-radius:8px!important;
+  height:36px!important; min-height:36px!important; margin:0!important; border-radius:999px!important;
 }
 html body #app-wrapper #view-drive #drive-advanced-filters { display:none!important; }
 html body #app-wrapper #view-request > [data-job-board-header] { padding:0!important; overflow:visible!important; }
-html body #app-wrapper #view-request #request-filter-toolbar {
-  display:grid!important; grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important; align-items:end;
-  gap:6px!important; padding:6px 8px!important; overflow:visible!important; height:auto!important; max-height:none!important;
-}
-html body #app-wrapper #view-request #request-filter-toolbar :is([data-job-board-tools],[data-inventory-excel-scope]) { display:contents!important; }
-html body #app-wrapper #request-filter-toolbar .request-category-options { order:0; min-width:0!important; }
-html body #app-wrapper #request-filter-toolbar .bloomscapes-compact-select { order:1; }
-html body #app-wrapper #request-filter-toolbar [data-job-board-tools] > label { order:2; min-width:0; }
-html body #app-wrapper #request-filter-toolbar .bloomscapes-extra-filters { order:3; min-width:0; align-self:end; }
-html body #app-wrapper #request-filter-toolbar :is(select,input,summary) {
-  width:100%!important; min-width:0!important; min-height:36px!important; box-sizing:border-box; margin:0!important;
-}
-html body #app-wrapper #request-filter-toolbar :is(label,span) { white-space:nowrap; overflow:visible; }
-html body #app-wrapper #request-filter-toolbar .bloomscapes-extra-filters[open] { grid-column:1/-1; }
 html body #app-wrapper #view-docks [data-docks-excel-drawer] { position:static!important; width:100%; min-width:0; }
 html body #app-wrapper #view-docks [data-docks-excel-fields] .inventory-excel-bar {
   position:static!important; inset:auto!important; transform:none!important; width:100%!important; max-height:none!important;
@@ -38,26 +24,18 @@ html body #app-wrapper #view-docks [data-docks-excel-fields] .inventory-excel-ba
 html body #app-wrapper #view-docks [data-docks-excel-drawer]:not([open]) > [data-docks-excel-fields] { display:none!important; }
 html body #app-wrapper #view-drive [data-inventory-excel-scope="drive"] .bloomscapes-extra-filters { display:none!important; }
 
-html body #app-wrapper #view-request #request-filter-toolbar > .request-category-options:not([hidden]) {
-  grid-area:auto!important; height:auto!important; display:block!important; overflow:visible!important;
-}
-html body #app-wrapper #view-request #request-filter-toolbar label { display:flex; flex-direction:column; gap:3px; margin:0!important; padding:0!important; border:0!important; min-height:0!important; line-height:14px; }
-html body #app-wrapper #view-request #request-filter-toolbar label > span { display:block; height:14px; line-height:14px; font-size:11px; margin:0!important; }
-html body #app-wrapper #view-request #request-filter-toolbar :is(select,input) { height:36px!important; min-height:36px!important; font-size:12px!important; }
-html body #app-wrapper #view-request #request-filter-toolbar input[data-job-filter] { height:36px!important; min-height:36px!important; font-size:12px!important; }
-
 html body #app-wrapper #view-drive #drive-toolbar-rail :is(select,button) {
-  width:100%!important; min-width:0!important; max-width:100%!important; height:34px!important;
-  min-height:34px!important; max-height:34px!important; font-size:11px!important; padding:0 4px!important;
+  width:100%!important; min-width:0!important; max-width:100%!important; height:36px!important;
+  min-height:36px!important; max-height:36px!important; font-size:11px!important; padding:0 4px!important;
   white-space:nowrap!important; overflow:hidden!important; text-overflow:ellipsis!important; letter-spacing:normal!important;
-  box-sizing:border-box; border-radius:8px!important;
+  box-sizing:border-box; border-radius:999px!important;
 }
 html body #app-wrapper #drive-toolbar-rail .bloomscapes-farm-selector {
   width:100%!important; min-width:0!important; margin:0!important; padding:0!important; border:0!important; font-size:0!important;
 }
-html body #app-wrapper [data-docks-primary-filters] {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:4px 6px;}
+html body #app-wrapper [data-docks-primary-filters] {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;padding:4px 6px;}
 html body #app-wrapper [data-docks-primary-filters] :is(label,.inventory-excel-field) {min-width:0;margin:0;padding:0;border:0;}
-html body #app-wrapper [data-docks-primary-filters] select {width:100%;min-width:0;height:34px;min-height:34px;font-size:11px;padding:0 4px;margin:0;}
+html body #app-wrapper [data-docks-primary-filters] select {width:100%;min-width:0;height:36px;min-height:36px;font-size:11px;padding:0 4px;margin:0;}
 html body #app-wrapper [data-docks-primary-filters] .inventory-excel-field > span {display:none;}
 html body #app-wrapper #dashboard-sync-accordion > summary {flex-wrap:nowrap!important;align-items:center!important;gap:4px!important;padding:6px!important;}
 html body #app-wrapper #dashboard-sync-accordion .home-sync-target-toolbar {flex-wrap:nowrap!important;gap:4px!important;}
@@ -68,4 +46,24 @@ html body #app-wrapper #view-detail [data-photo-slot] {width:80px;min-width:80px
 html body #app-wrapper #view-detail [data-photo-slot] img {width:80px;height:80px;min-height:80px;aspect-ratio:1;object-fit:cover;}
 
 html body #app-wrapper #av-filter-options > .bloomscapes-farm-selector {flex:0 0 74px!important;min-width:74px!important;padding:0!important;border:0!important;margin:0!important;align-self:center;}
-html body #app-wrapper #av-filter-options > .bloomscapes-farm-selector select {width:100%!important;min-width:0!important;height:34px!important;min-height:34px!important;font-size:11px!important;padding:0 4px!important;}
+html body #app-wrapper #av-filter-options > .bloomscapes-farm-selector select {width:100%!important;min-width:0!important;height:36px!important;min-height:36px!important;font-size:11px!important;padding:0 4px!important;}
+
+html body #app-wrapper #app-top-chrome #home-header-sync{display:none!important;}
+html body.current-view-home #app-wrapper #app-top-chrome #home-header-sync{display:flex!important;align-items:center;gap:6px;min-width:0;}
+html body.current-view-home #app-wrapper #app-top-chrome #global-header-search-row > :is(#global-header-search-slot,#global-header-inline-title,#global-header-inline-back):not([popover]){
+  display:none!important;
+}
+html body.current-view-home #app-wrapper #home-dashboard-sticky{display:none!important;}
+html body #app-wrapper #home-header-sync > button:not([hidden]):not(.hidden){display:inline-flex!important;align-items:center;justify-content:center;gap:3px;height:36px!important;min-height:36px!important;min-width:0!important;padding:0 7px!important;border:1px solid var(--bloom-border);background:var(--bloom-pill);color:var(--bloom-ink);border-radius:999px!important;font-size:11px!important;white-space:nowrap;}
+html body #app-wrapper #home-header-sync :is([hidden],button.hidden){display:none!important;}
+html body #app-wrapper #view-request > [data-job-board-header]{padding:0!important;background:transparent!important;border:0!important;box-shadow:none!important;}
+html body #app-wrapper #view-request #request-filter-toolbar[data-toolbar-single-row]{display:flex!important;align-items:center!important;flex-flow:row nowrap!important;height:38px!important;min-height:38px!important;max-height:38px!important;overflow-x:auto!important;overflow-y:hidden!important;scrollbar-width:none;gap:4px!important;padding:1px 4px!important;border:0!important;background:transparent;box-shadow:none;box-sizing:border-box;}
+html body #app-wrapper #view-request #request-filter-toolbar :is([data-job-board-tools],[data-inventory-excel-scope],.request-category-options,.bloomscapes-compact-select):not([hidden]){display:contents!important;}
+html body #app-wrapper #view-request #request-filter-toolbar [data-inventory-excel-scope] span{display:none!important;}
+html body #app-wrapper #view-request #request-filter-toolbar[data-toolbar-single-row] :is(#que-view-select,select){flex:1 0 82px;width:auto!important;max-width:none!important;min-width:0!important;margin:0!important;height:36px!important;min-height:36px!important;font:600 11px/1.1 system-ui!important;padding:0 5px!important;border-radius:999px!important;color:var(--bloom-ink)!important;background:var(--bloom-pill)!important;border:1px solid var(--bloom-border)!important;}
+#request-filter-toolbar #que-view-select{order:0;}
+#request-filter-toolbar :is([data-field="username"],[data-job-filter="assigned"]){order:1;}
+#request-filter-toolbar [data-job-filter="block"]{order:2;}
+#request-filter-toolbar [data-job-filter="priorityStatus"]{order:3;}
+html body #app-wrapper #request-filter-toolbar [hidden]{display:none!important;}
+html body #app-wrapper #global-header-search-row #bloomscapes-farm-selector{border-radius:999px!important;}

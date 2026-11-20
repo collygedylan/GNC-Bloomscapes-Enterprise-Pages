@@ -1,5 +1,5 @@
 const GLOBAL_HEADER_SEARCH_CONFIG = {
-    communication:'communication-shared-search',
+    po:'po-workspace-search', communication:'communication-shared-search',
     'smart-moves':'smart-moves-shared-search', 'sales-office':'sales-office-shared-search',
     sales:'sales-shared-search', qc:'qc-shared-search', production:'production-shared-search',
     'sales-inventory':'sales-inventory-shared-search',
@@ -15,8 +15,7 @@ const GLOBAL_HEADER_SEARCH_CONFIG = {
     tasks: 'tasks-search-container'
 };
 
-function getGlobalHeaderChromeState() {
-    const backState = getGlobalBackState();
+function getGlobalHeaderChromeState(backState = getGlobalBackState()) {
     const currentView = backState.currentView;
     mountBloomscapesViewSearch(currentView);
     ensureGlobalHeaderSearchPlaceholders();
@@ -27,8 +26,9 @@ function getGlobalHeaderChromeState() {
     const moduleTitle = bloomscapesDepartmentTitle(currentView)
         || (currentView === 'managers' ? bloomscapesWorkflowTab(activeHomeTab)?.label : '');
     const resolvedTitle = moduleTitle || meta.title || formatGlobalHeaderTitle(currentView);
-    const showHomeBack = currentView === 'home' && backState.showBack;
-    const searchContainerId = currentView === 'tasks'
+    const showHomeBack = currentView === 'home' && backState.modalBack;
+    const po=document.getElementById('view-'+currentView)?.querySelector('[data-bloomscapes-workflow="bloomscapes-replenishment"]');
+    const searchContainerId = po && !po.closest('[hidden],.hidden') ? getBloomscapesPoHeaderSearch(po) : currentView === 'tasks'
         ? (shouldShowTaskHeaderSearch() ? GLOBAL_HEADER_SEARCH_CONFIG.tasks : '')
         : GLOBAL_HEADER_SEARCH_CONFIG[currentView];
     const searchContainer = searchContainerId ? document.getElementById(searchContainerId) : null;
@@ -86,7 +86,7 @@ function applyGlobalBackState(state) {
         } catch { globalThis.reportHandledRuntimeIssue?.("applyGlobalBackState", 'HANDLED_OPERATION_FAILURE'); }
         button.removeAttribute('popover');
     }
-    const visible = showBack || !!currentUser;
+    const visible = (currentView !== 'home' || modalBack) && (showBack || !!currentUser);
     button.classList.toggle('hidden', !visible);
     button.hidden = !visible;
     button.disabled = !showBack;
@@ -127,4 +127,30 @@ function mountBloomscapesViewSearch(view) {
         input.dataset.headerSearchBound = 'true';
         input.addEventListener('input', event => {event.stopPropagation();inputBloomscapesComm(event);});
     }
+}
+
+function updateGlobalBackButton() {
+    const state = getGlobalBackState();
+    applyGlobalBackState(state);
+    return state;
+}
+
+function getVisibleSecondaryBack(modalOnly = false) {
+    const root = modalOnly ? document : document.getElementById('view-' + getCurrentVisibleViewId());
+    if (!root) return undefined;
+    const controls = root.querySelectorAll('[data-secondary-back]');
+    for (let i=controls.length-1;i>=0;i--) {
+        const control = controls[i];
+        if (control.disabled || control.closest('.hidden,[hidden],details:not([open]),dialog:not([open])')) continue;
+        if (modalOnly && !control.closest('[id$="-modal"],dialog,[role="dialog"]')) continue;
+        if (typeof control.checkVisibility==='function' ? control.checkVisibility() : secondaryBackHasVisibleParents(control)) return control;
+    }
+    return undefined;
+}
+
+function secondaryBackHasVisibleParents(control) {
+    for (let parent=control.parentElement;parent;parent=parent.parentElement) {
+        if (getComputedStyle(parent).display==='none') return false;
+    }
+    return true;
 }

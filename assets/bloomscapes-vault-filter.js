@@ -17,11 +17,10 @@ function bindBloomscapesVaultFilter(host,rows,render) {
         const started=performance.now();
         const matches=filterBloomscapesVault(rows,Object.fromEntries(new FormData(form)));
         const elapsed=performance.now()-started;
-        render(matches.slice(0,100));
+        render(matches);
         const status=host.querySelector('[role="status"]');
         status.dataset.searchMs=String(elapsed);
-        status.textContent=matches.length+' matches · '+elapsed.toFixed(2)+' ms search'
-            +(matches.length>100?' · first 100 shown; narrow the filters':'');
+        status.textContent=matches.length+' matches · '+elapsed.toFixed(2)+' ms search';
     };
     form.oninput=apply;
     form.onsubmit=event=>{event.preventDefault();apply();};

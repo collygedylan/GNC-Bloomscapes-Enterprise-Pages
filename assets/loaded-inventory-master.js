@@ -129,14 +129,11 @@ function installMasterInventoryIndexMaps(indexes) {
     if (!indexes) return false;
     if (typeof queueCardInventoryHydrator !== 'undefined') queueCardInventoryHydrator?.invalidate();
     masterInventoryById = indexes.byId;
-    masterInventoryLookup = indexes.lookup;
-
-
-
-
+    masterInventoryLookup = indexes.lookup || window.AgMetricQueueInventory.createIndex(fullInventory.flatMap(row=>row.__physicalInventoryRows || [row]));
     masterInventoryByItemCode = indexes.byItemCode;
     const state = getManagerAssignedColumnState();
     state.inventoryByRowKeyMap = indexes.byId;
+    state.inventoryByExactKeyMap = indexes.byExactKey;
     state.inventoryByItemcodeMap = indexes.byItemCode;
     indexes.byItemPrefix ||= buildMasterInventoryPrefixIndex(indexes.byItemCode);
     state.inventoryByItemPrefixMap = indexes.byItemPrefix;

@@ -90,14 +90,14 @@ function removeBloomscapesTransferLine(id) {
     return true;
 }
 
-function summarizeBloomscapesTransferOrder(origin) {
-    const lines=getBloomscapesTransferState().lines.filter(line=>line.origin===origin);
+function summarizeBloomscapesTransferOrder(origin,ids) {
+    const lines=getBloomscapesTransferState().lines.filter(line=>line.origin===origin && (!ids || ids.has(line.poId)));
     return {origin,rows:lines.length,cans:lines.reduce((sum,line)=>sum+line.quantity,0),
         beds:lines.reduce((sum,line)=>sum+line.quantity/line.cpb,0),lines};
 }
 
-function beginBloomscapesTransferSubmission(origin) {
-    const state=getBloomscapesTransferState(),summary=summarizeBloomscapesTransferOrder(origin);
+function beginBloomscapesTransferSubmission(origin,ids) {
+    const state=getBloomscapesTransferState(),summary=summarizeBloomscapesTransferOrder(origin,ids);
     if (!summary.rows || state.pending.get(origin)?.busy) return null;
     const input=summary.lines.map(line=>({id:line.id,poId:line.poId,targetId:line.targetId,quantity:line.quantity}));
     const signature=JSON.stringify(input),previous=state.pending.get(origin);

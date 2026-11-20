@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.15';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.16';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -21066,23 +21066,7 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
 
         async function fetchRemoteLoginUser(normalizedUsername, normalizedPassword) {
             const nativeResult = await tryNativeAuthPasswordLogin(normalizedUsername, normalizedPassword);
-            if (nativeResult) {
-                const bridge = await window.withBootDeadline(
-                    window.GncLoginTrace?.measure('session-bridge', () => ensureNativeAppSessionBridge(true)) ?? ensureNativeAppSessionBridge(true));
-                // Native auth and the canonical profile are already server verified.
-                // The optional bridge cannot gate that identity's direct authorized reads.
-                if (nativeAuthSessionActive && nativeResult.profile?.id) {
-                    return {
-                        ok: true,
-                        user: nativeResult.user,
-                        source: 'native-auth',
-                        session: readPersistedAppSessionRecord(),
-                        nativeSession: nativeResult.session,
-                        homeSyncMetadata: bridge?.homeSyncMetadata || null,
-                        mustChangePassword: nativeResult.mustChangePassword === true
-                    };
-                }
-            }
+            if (nativeResult && nativeAuthSessionActive && nativeResult.profile?.id) return verifiedNativeLoginResult(nativeResult);
             let payload = null;
             let lastError = null;
             for (let attempt = 0; attempt <= LOGIN_FETCH_RETRY_COUNT; attempt += 1) {
@@ -21492,15 +21476,6 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
                 } : entry.formSnapshot });
             }
             return owned;
-        }
-
-        function scheduleRequestDeliveryWake(source = 'request_action') {
-            if (!currentUser || navigator.onLine === false) return false;
-            const deliverySource = String(source || 'request_action').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-').slice(0, 80);
-            Promise.resolve().then(() => postAppFunctionJson(APP_API_FUNCTION_URL, {
-                action: 'delivery_wake', source: deliverySource
-            }, { timeoutMs: 5000, label: 'Request delivery wake' })).catch(() => false);
-            return true;
         }
 
         function getRequestSubmissionController() {
@@ -21989,7 +21964,7 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
         let fullInventory=[]; let avOpenInventory=[]; let avHotPriceKeysInventory=[]; let lowStockInventory=[]; let socInventory=[]; let reservesInventory=[]; let customerRepMapRows=[]; let requestsInventory=[]; let requestHistoryInventory=[]; let salesCreditRequestsInventory=[]; let inventoryEditRequestInventory=[]; let optimisticRequestIds=new Set(); let optimisticCompletedRowIds=new Set(); let managerReviewInventory=[]; let moveUpInventory=[]; let salesOfficeInventory=[]; let flyerFolderInventory=[]; let flyerFolderHistoryInventory=[]; let growerScoutReportsInventory=[]; let growerScoutAssetsInventory=[]; let warehouseAssignedItemsInventory=[]; let cavInventory=[]; let cavAvBlankKeyInventory=[]; let avNotesDb=[]; let avNotesCommonNameIndex=new Map(); let avNotesItemcodeIndex=new Map(); let avNotesPlantPrefixIndex=new Map(); let avNotesCommonNameIndexVersion=-1; let avNoteFilterTimers={}; let avNoteFilterResultCache=new Map(); let avNoteRenderedKeys={}; let avNoteServerOptionsCache=new Map();
 let chatConversations=[]; let chatParticipants=[]; let chatMessages=[]; let chatUsers=[]; let chatDataLoaded=false; let chatLoadPromise=null; let chatSchemaReady=null; let chatSchemaProbePromise=null; let chatSchemaWarningShown=false; let activeChatConversationId=''; let pendingChatOpenConversationId=''; let chatComposeOpen=false; let chatUserSearchTerm=''; let chatComposeTitle=''; let chatSelectedUsers=new Set(); let chatMessageDraft=''; let chatMessageSendInFlight=false; let chatLastRenderSignature=''; let chatBackgroundPollTimer=null; let chatBackgroundPollAttempt=0; let foregroundChatNotificationIds=new Set(); let foregroundDepartmentCalendarNotificationIds=new Set(); let chatVoiceRecorder=null; let chatVoiceRecorderStream=null; let chatVoiceChunks=[]; let chatVoiceRecordingStartAt=0; let chatVoiceRecordingForComposer=false; let chatVoiceRecordingActive=false; let chatVoiceUploadInFlight=false; let chatVoiceRecordMimeType=''; let chatVoiceRecordTimer=null; let chatVoiceHoldPointerId=''; let chatVoiceHoldForComposer=false; let chatVoiceHoldFinishPending=''; let chatVoiceHoldStartPromise=null;
         let masterInventoryById=new Map();
-        let masterInventoryLookup = null;
+        let masterInventoryLookup = window.AgMetricQueueInventory.createIndex();
         let masterInventoryByItemCode=new Map(); let avOpenInventoryById=new Map(); let avHotPriceKeysInventoryById=new Map(); let lowStockInventoryById=new Map(); let socInventoryById=new Map(); let reservesInventoryById=new Map(); let requestsInventoryById=new Map(); let requestsInventoryByMasterId=new Map(); let requestHistoryInventoryById=new Map(); let salesCreditRequestsById=new Map(); let managerReviewInventoryById=new Map(); let moveUpInventoryById=new Map(); let salesOfficeInventoryById=new Map(); let flyerFolderInventoryById=new Map(); let flyerFolderHistoryInventoryById=new Map(); let growerScoutReportsInventoryById=new Map(); let growerScoutAssetsByReportId=new Map(); let warehouseAssignedItemsByLookupKey=new Map(); let warehouseAssignedItemMatchCache=new WeakMap(); let warehouseAssignedItemIndexCacheKey=''; let cavInventoryById=new Map(); let inventoryDomIdLookupCache=new Map(); let inventoryDomIdLookupCacheSignature=''; let inventoryDomIdLookupCacheVersion=0; let lowStockInventoryDirty=true; let managerReviewInventoryDirty=true; let moveUpInventoryDirty=true; let ncrActionabilitySummaryCache=new Map(); let ncrCurrentCropInheritancePatchIds=new Set();
         let activeGrowerScoutTab='inventory'; let growerScoutRecorder=null; let growerScoutRecorderStream=null; let growerScoutRecordingActive=false; let growerScoutRecordingStartedAt=0; let growerScoutRecordingTimer=null; let growerScoutRecordMimeType=''; let growerScoutAudioChunks=[]; let growerScoutAudioBlob=null; let growerScoutAudioDurationSeconds=0; let growerScoutSubmitInFlight=false;
         let growerInventorySearch=''; let growerInventorySeason='all'; let growerInventoryLocation='all'; let growerInventorySize='all'; let growerInventoryVisibleCount=80; let growerInventorySearchTimer=null; let growerScoutExpandedItem=''; let growerScoutExpandedRow=''; let growerScoutSavingRow=''; const growerScoutRowDrafts=new Map();
@@ -23781,7 +23756,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.15';
+        const APP_VERSION = '3.1.16';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -25144,10 +25119,10 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         function syncGlobalHeaderChrome(options = {}) {
             // Navigation visibility is synchronous even when search ownership
             // is unchanged, focused, or deferred to preserve typing/scrolling.
-            updateGlobalBackButton();
+            const backState = updateGlobalBackButton();
             const nextOptions = (options && typeof options === 'object' && !Array.isArray(options)) ? options : {};
             const syncReason = normalizeUiSyncReason(nextOptions.reason);
-            const chromeState = getGlobalHeaderChromeState();
+            const chromeState = getGlobalHeaderChromeState(backState);
             if (typeof syncHeaderExcelExport === 'function') syncHeaderExcelExport(chromeState.currentView);
             const searchRow = document.getElementById('global-header-search-row');
             const title = document.getElementById('global-header-view-title');
@@ -30220,12 +30195,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             return prepared;
         }
 
-        function takePreparedMasterIndexMaps(prepared, rowsUnchanged = false) {
-            if (!rowsUnchanged || !prepared || !prepared.indexMaps) return null;
-            const indexes = prepared.indexMaps;
-            prepared.indexMaps = null;
-            return indexes;
-        }
 
         function hydrateReserveInventoryRowFast(item, idx) {
             const reserveFieldKeys = Object.keys(item || {}).filter((key) => String(key || '').trim() !== '');
@@ -31741,13 +31710,14 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         }
 
         function createMasterInventoryIndexMaps() {
+            const byItemLoc = new Map();
             return {
-                byId: new Map(),
+                byItemLoc, byId: new Map(),
                 byLocation: new Map(),
                 byExactKey: new Map(),
                 byItemCode: new Map(),
                 byItemLocationOnHand: new Map(),
-                byNormalizedItemLocation: new Map(),
+                byNormalizedItemLocation: byItemLoc,
                 lookup: null
             };
         }
@@ -31763,13 +31733,13 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             }
             const location = String(item.LOCATIONCODE || item.locationcode || item.LOCATION || item.location || '').trim().toUpperCase();
             if (!indexes.byLocation.has(location)) indexes.byLocation.set(location, []);
-            indexes.byLocation.get(location).push(item);
+            indexes?.byLocation?.get(location)?.push(item);
             const exactKey = getMasterInventoryExactKey(item);
             if (exactKey && !indexes.byExactKey.has(exactKey)) indexes.byExactKey.set(exactKey, item);
             const itemCode = getItemInquiryItemCode(item);
             if (itemCode) {
                 if (!indexes.byItemCode.has(itemCode)) indexes.byItemCode.set(itemCode, []);
-                indexes.byItemCode.get(itemCode).push(item);
+                indexes?.byItemCode?.get(itemCode)?.push(item);
             }
             const normalizedItemLocationKey = getInventoryCardItemLocationKey(item);
             if (normalizedItemLocationKey) {
@@ -44081,17 +44051,7 @@ return false;
         function applyDriveQuickFiltersToItems(items = [], contextKey = '') {
             const safeItems = Array.isArray(items) ? items : [];
             if (!hasActiveDriveQuickFilters()) return safeItems;
-            const quickCacheKey = [
-                String(contextKey || `items:${safeItems.length}`),
-                String(driveQuickFilterName || '').toLowerCase().trim(),
-                String(driveQuickFilterLocation || '').trim(),
-                String(driveQuickFilterLot || '').trim(),
-                String(driveQuickFilterSize || '').trim(),
-                getDriveQuickPriorityValues().join('|'),
-                String(driveQuickFilterLtsMode || '').trim(),
-                String(driveQuickFilterLtsValue || '').trim(),
-                buildDriveColumnFilterStateKey()
-            ].join('::');
+            const quickCacheKey = getDriveQuickFilterStateKey(String(contextKey || `items:${safeItems.length}`));
             if (driveQuickFilterCacheKey === quickCacheKey) return driveQuickFilterCacheItems;
             let nextItems = safeItems;
             if (driveQuickFilterName) {
@@ -49985,16 +49945,6 @@ function toggleDriveQuickRequestItem(domId) {
             const appWrapper = document.getElementById('app-wrapper');
             const scrollArea = document.getElementById('main-scroll-area');
             const touchShell = isTouchConstrainedDevice();
-            const runLoginInitializationStep = (label, task) => {
-                try {
-                    const result = task();
-                    if (result && typeof result.catch === 'function') result.catch(error => console.warn(`${label} deferred after login.`, error));
-                    return result;
-                } catch (error) {
-                    console.warn(`${label} deferred after login.`, error);
-                    return null;
-                }
-            };
             runLoginInitializationStep('Menu reset', () => setMenuOpenState(false));
             if (appWrapper) {
                 appWrapper.classList.remove('hidden');
@@ -50003,52 +49953,24 @@ function toggleDriveQuickRequestItem(domId) {
                 appWrapper.style.pointerEvents = 'auto';
                 appWrapper.style.opacity = '1';
             }
-            runLoginInitializationStep('AURA widget', () => syncAuraWidgetForSession());
             if (scrollArea) {
                 scrollArea.style.pointerEvents = 'auto';
                 scrollArea.style.opacity = '1';
             }
-            runLoginInitializationStep('Home module registry', () => setHomeDashboardModulesReady(true));
-            runLoginInitializationStep('Home body state', () => { if (typeof syncCurrentViewBodyClass === 'function') syncCurrentViewBodyClass('home'); });
-            document.body.classList.remove('detail-field-active');
-            runLoginInitializationStep('Shell scroll state', () => repairAppShellScrollState('login-shell-open', { resetGestureState: true }));
-            runLoginInitializationStep('Role access UI', () => syncRoleAccessUi(getRoleAccessState()));
-            runLoginInitializationStep('Role permissions', () => applyRolePermissions());
-            // A preset Home identity does not prove that its DOM was mounted.
-            // Reveal and render synchronously before the login overlay leaves.
             runLoginInitializationStep('Home view', () => showOnlyPrimaryView('home', { boot: true }));
-            runLoginInitializationStep('Home render', () => renderHome());
-            runLoginInitializationStep('Navigation preferences', () => updateFooterNavState());
-            runLoginInitializationStep('Header chrome', () => syncGlobalHeaderChrome({ reason: 'login-home-mount', force: true }));
-            runAfterShellInteractive(() => scheduleRequestModalReferencePrefetch(), touchShell ? 180 : 40);
-            runAfterShellInteractive(() => scheduleGlobalReferencePrefetch(), touchShell ? 260 : 80);
-            runLoginInitializationStep('Home readiness', () => ensureHomeDashboardReadyAfterLogin('login-shell-open'));
+            runLoginInitializationStep('Home render', () => renderHome(true));
+            runLoginInitializationStep('Role controls', () => synchronizeLoginRoleControls(getRoleAccessState()));
+            document.body.classList.add('role-access-ready');
             if (loginView) loginView.style.display = 'none';
-            runLoginInitializationStep('Home readiness confirmation', () => ensureHomeDashboardReadyAfterLogin('login-shell-open'));
+            confirmBloomscapesHomeMount();
             if (loginInputs) loginInputs.classList.remove('hidden');
             if (spinner) spinner.classList.add('hidden');
             window.__agdataMarkBootComplete?.();
-            try { window.GncLoginTrace?.finish('shell-ready'); } catch (_) { globalThis.reportHandledRuntimeIssue?.("openAppShellAfterLogin", 'HANDLED_OPERATION_FAILURE'); }
-            if (touchShell) {
-                runAfterShellInteractive(() => {
-                    runAfterTouchInteraction(() => refreshRealtimeSubscriptionsForCurrentView(true), 2800, 'current-view-realtime-subscriptions');
-                }, 220);
-            } else {
-                runLoginInitializationStep('Realtime subscriptions', () => refreshRealtimeSubscriptionsForCurrentView(true));
-            }
-            setTimeout(() => ensureHomeDashboardReadyAfterLogin('login-shell-watchdog-1'), 650);
-            setTimeout(() => ensureHomeDashboardReadyAfterLogin('login-shell-watchdog-2'), 1800);
-            void runAppUpdateRestoreAfterShell();
-            if (canUseProductionLiveSync()) {
-                runLoginInitializationStep('Production live sync', () => signalProductionLiveSync('login-shell-open', 0));
-                return;
-            }
+            try { window.GncLoginTrace?.finish('shell-ready'); } catch { globalThis.reportHandledRuntimeIssue?.("openAppShellAfterLogin", 'HANDLED_OPERATION_FAILURE'); }
+            const owner = currentUser;
             runAfterShellInteractive(() => {
-                wakeRequestQueueLiveData('login-shell-open', {
-                    force: true,
-                    minIntervalMs: 0
-                });
-            }, touchShell ? 40 : 0);
+                if (currentUser === owner) finishBloomscapesShellStartup(touchShell);
+            }, 0);
         }
 
                 function addLoginWarmupTarget(targetMap, key, mode = 'initial') {
@@ -54796,18 +54718,7 @@ function toggleDriveQuickRequestItem(domId) {
             setRoleAccessReadyState(false);
             document.getElementById('app-wrapper').classList.remove('hidden');
             const access = getRoleAccessState();
-            document.querySelectorAll('.role-access').forEach(el => {
-                const isAllowed =
-                    (access.isAdmin && el.classList.contains('role-admin')) ||
-                    (access.isRepLike && el.classList.contains('role-rep')) ||
-                    (access.isRequestRepScopedUser && el.classList.contains('role-request-enabled')) ||
-                    (access.isGrower && el.classList.contains('role-grower')) ||
-                    (access.isQcSupervisor && el.classList.contains('role-qc-supervisor')) ||
-                    (access.isQc && el.classList.contains('role-qc'));
-                el.classList.toggle('hidden', !isAllowed);
-                el.style.display = '';
-            });
-            syncRoleAccessUi(access);
+            synchronizeLoginRoleControls(access);
             setHomeDashboardModulesReady(!shouldUseRepSalesHomeHub());
             // Layout and the first Home render must run after the CSS access gate opens.
             setRoleAccessReadyState(true);
@@ -72159,9 +72070,6 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
             return { currentView, modalBack, showBack };
         }
 
-        function updateGlobalBackButton() {
-            applyGlobalBackState(getGlobalBackState());
-        }
 
         let canonicalUserAccessAccount = '';
         let canonicalUserAccessRevision = 0;
@@ -72524,18 +72432,6 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
         }
 
         /* @runtime-fragment assets/navigation-routing.js */
-        function getVisibleSecondaryBack(modalOnly = false) {
-            const view = document.getElementById('view-' + getCurrentVisibleViewId());
-            return [...document.querySelectorAll('[data-secondary-back]')].reverse().find(control => {
-                const modal = control.closest('[id$="-modal"],dialog,[role="dialog"]');
-                if (modalOnly ? !modal : !view?.contains(control)) return false;
-                if (control.disabled || control.classList.contains('hidden') || control.closest('details:not([open])')) return false;
-                for (let parent=control.parentElement; parent; parent=parent.parentElement) {
-                    if (parent.classList.contains('hidden') || getComputedStyle(parent).display==='none') return false;
-                }
-                return true;
-            });
-        }
         function syncGlobalModalBack() {
             updateGlobalBackButton();
         }
@@ -111776,7 +111672,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
         }
         function filterManagerBlockClearingRowsForSearch(rows = []) { return getManagersSearchTokens().length ? rows.filter(managerBlockClearingRowMatchesSearch) : rows; }
         function getManagerBlockClearingLocationGroupsForBlock(block = '') { return getManagerBlockClearingCache().locationsByBlock.get(String(block).trim().toUpperCase()) || []; }
-        function getManagerBlockClearingRowsForSelectedLocation() { const code=LocationCode.normalize(managerBlockClearingSelectedLocation), cache=getManagerBlockClearingCache(); const exact=cache.rows.filter(row=>getManagerBlockClearingRawLocation(row)===code); return exact.length ? exact : (code.split('.').length <= 2 ? cache.byLocation.get(normalizeManagerBlockClearingLocationBucket(code))?.rows || [] : []); }
+        function getManagerBlockClearingRowsForSelectedLocation() { const code=LocationCode.normalize(managerBlockClearingSelectedLocation), cache=getManagerBlockClearingCache(); const exact=cache.rows.filter(row=>getManagerBlockClearingRawLocation(row)===code); return exact.length ? exact : (code.split('.').length <= 2 ? cache?.byLocation?.get(normalizeManagerBlockClearingLocationBucket(code))?.rows || [] : []); }
         function buildManagerBlockClearingGroups(rows = null) {
             const groups = new Map(), seen = new Set();
             (Array.isArray(rows) ? rows : getManagerBlockClearingSelectedRows()).forEach((row) => {
@@ -115962,7 +115858,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
 /* @runtime-fragment assets/request-photo-gallery-modal.js */
 /* @runtime-fragment assets/request-photo-gallery-deep-link.js */
         /* @runtime-fragment assets/bloomscapes-home.js */ /* @runtime-fragment assets/bloomscapes-job-board.js */
-/* @runtime-fragment assets/bloomscapes-field-controls.js */ /* @runtime-fragment assets/bloomscapes-lab.js */ /* @runtime-fragment assets/bloomscapes-lab-controls.js */ /* @runtime-fragment assets/bloomscapes-radio.js */ /* @runtime-fragment assets/bloomscapes-radio-controls.js */
+/* @runtime-fragment assets/bloomscapes-field-controls.js */ /* @runtime-fragment assets/bloomscapes-lab.js */ /* @runtime-fragment assets/plant-health-ml-engine.js */ /* @runtime-fragment assets/bloomscapes-lab-diagnostics.js */ /* @runtime-fragment assets/bloomscapes-lab-review-panel.js */ /* @runtime-fragment assets/bloomscapes-lab-controls.js */ /* @runtime-fragment assets/bloomscapes-radio.js */ /* @runtime-fragment assets/bloomscapes-radio-controls.js */
 /* @runtime-fragment assets/battery-runtime-fragments.js */
 /* @runtime-fragment assets/bloomscapes-ptt-drafts.js */
 /* @runtime-fragment assets/bloomscapes-ptt.js */
@@ -119142,22 +119038,12 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
         }
 
         let queueCardInventoryHydrator = null;
-        let queueCardInventoryIndex = null;
+        let queueCardInventoryIndex = window.AgMetricQueueInventory.createIndex();
         let queueCardInventoryIndexRows = null;
         let queueCardInventoryIndexReceipt = '';
         let queueCardInventoryRevisionReceipt = null;
         let queueCardInventoryRenderVersion = 0;
 
-        function acceptQueueInventorySourceRevision(source, permission) {
-            if (!(source?.state === 'ready' || window.AgMetricLiveSync?.isPublishedReadable(source)) || !/^[1-9]\d*$/.test(String(source.revision || ''))) return;
-            const next = { scope: getSupabaseReadIdentityScope(), permission: String(permission || ''), revision: String(source.revision) };
-            if (!next.scope || !next.permission) return;
-            if (JSON.stringify(queueCardInventoryRevisionReceipt) !== JSON.stringify(next)) {
-                queueCardInventoryRevisionReceipt = next;
-                queueCardInventoryHydrator?.invalidate();
-                queueCardInventoryIndex = null;
-            }
-        }
 
         function getQueueCardInventoryAuthorizationContext() {
             if (!canUseProductionLiveSync()) return null;
@@ -128113,7 +127999,7 @@ ${folderNote ? `Folder Note: ${folderNote}
             </div>`;
         }
 
-        const CLIENT_BROWSE_PAGE_SIZE = 100;
+        const CLIENT_BROWSE_PAGE_SIZE = 50;
         const clientBrowsePageCounts = new Map();
         const CLIENT_BROWSE_PAGE_KEY_CACHE_LIMIT = 12;
         const clientBrowsePageKeyCache = new Map();
@@ -128168,7 +128054,7 @@ ${folderNote ? `Folder Note: ${folderNote}
             const buttonClass = 'min-h-[44px] rounded-xl border border-[var(--color-border-subtle)] bg-[var(--bg-surface)] px-3 text-[11px] font-black uppercase tracking-[0.1em] text-[var(--text-main)] disabled:opacity-40';
             const previous = pageIndex <= 0 ? 'disabled aria-disabled="true"' : '';
             const next = pageIndex >= pageCount - 1 ? 'disabled aria-disabled="true"' : '';
-            return `<div class="browse-page-footer mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--color-border-subtle)] p-3 text-xs font-bold text-[var(--text-meta)]" style="background:var(--bg-surface);color:var(--text-main)"><span>Rows ${Number(start + 1).toLocaleString()}–${Number(end).toLocaleString()} of ${Number(total).toLocaleString()}</span><div class="flex gap-2"><button type="button" class="${buttonClass}" ${previous} ${buildFastInvokeAttrs('loadMoreClientBrowseRows', [view, key, -1], 'Previous 100 rows')}>Previous</button><button type="button" class="${buttonClass}" ${next} ${buildFastInvokeAttrs('loadMoreClientBrowseRows', [view, key, 1], 'Next 100 rows')}>Next</button></div></div>`;
+            return `<div class="browse-page-footer mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--color-border-subtle)] p-3 text-xs font-bold text-[var(--text-meta)]" style="background:var(--bg-surface);color:var(--text-main)"><span>Rows ${Number(start + 1).toLocaleString()}–${Number(end).toLocaleString()} of ${Number(total).toLocaleString()}</span><div class="flex gap-2"><button type="button" class="${buttonClass}" ${previous} ${buildFastInvokeAttrs('loadMoreClientBrowseRows', [view, key, -1], 'Previous 50 rows')}>Previous</button><button type="button" class="${buttonClass}" ${next} ${buildFastInvokeAttrs('loadMoreClientBrowseRows', [view, key, 1], 'Next 50 rows')}>Next</button></div></div>`;
         }
         function loadMoreClientBrowseRows(view = '', key = '', direction = 1) {
             const safeView = String(view || '').trim();
@@ -138972,26 +138858,7 @@ ${folderNote ? `Folder Note: ${folderNote}
             const sourceItemCode = getRequestItemCodeOptionItemCode(baseRow);
             if (!sourceItemCode) return [];
             const index = getDockSuspendTagDriveOptionRowsCandidateIndex();
-            const sourceName = getRequestItemCodeOptionCommonNameKey(baseRow);
-            const sourceSize = getRequestItemCodeOptionContSizeKey(baseRow);
-            const itemCodeCandidates = index.byItemCode.get(sourceItemCode) || [];
-            const plantCandidates = [];
-            const candidates = [];
-            for (let itemIndex = 0, plantIndex = 0; itemIndex < itemCodeCandidates.length || plantIndex < plantCandidates.length;) {
-                const itemCandidate = itemCodeCandidates[itemIndex];
-                const plantCandidate = plantCandidates[plantIndex];
-                if (itemCandidate && plantCandidate && itemCandidate.index === plantCandidate.index) {
-                    candidates.push(itemCandidate.row);
-                    itemIndex++;
-                    plantIndex++;
-                } else if (!plantCandidate || (itemCandidate && itemCandidate.index < plantCandidate.index)) {
-                    candidates.push(itemCandidate.row);
-                    itemIndex++;
-                } else {
-                    candidates.push(plantCandidate.row);
-                    plantIndex++;
-                }
-            }
+            const candidates = (index?.byItemCode?.get(sourceItemCode) || []).map(entry=>entry.row);
             const optionCandidates = (Array.isArray(optionState.rows) ? optionState.rows : []).filter((row) => {
                 if (!row) return false;
                 const rowItemCode = getRequestItemCodeOptionItemCode(row);

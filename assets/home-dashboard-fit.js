@@ -24,16 +24,16 @@ function calculateHomeDashboardFit(input) {
     const compact = profile.width<768;
     const columns = expanded ? (profile.width>=900 ? 5 : 3) : compact?2:getHomeDesktopColumnCount(tileCount);
     const rows = Math.max(1,Math.ceil(tileCount/columns));
-    const minimum = expanded ? 44 : compact?54:72;
-    let rowGap = compact?4:12;
-    const colGap = compact?4:12;
-    const clearance = compact?clamp(Math.round(profile.height*.018),8,18):clamp(Math.round(profile.height*.036),24,48);
+    const minimum = expanded ? 58 : compact?54:72;
+    let rowGap = expanded ? 10 : compact?4:12;
+    const colGap = expanded ? 10 : compact?4:12;
+    const clearance = expanded ? 4 : compact?clamp(Math.round(profile.height*.018),8,18):clamp(Math.round(profile.height*.036),24,48);
     let fitHeight = Math.floor((availableHeight-clearance-rowGap*(rows-1))/rows);
     if (fitHeight<minimum) { rowGap=2;fitHeight=Math.floor((availableHeight-clearance-rowGap*(rows-1))/rows); }
-    const height = expanded ? Math.max(1,fitHeight) : Math.max(minimum,Math.min(compact?72:104,fitHeight));
+    const height = expanded ? Math.max(minimum,fitHeight) : Math.max(minimum,Math.min(compact?72:104,fitHeight));
     return {columns,rows,rowGap,colGap,clearance,height,fitHeight,minimum,availableHeight,
         width:Math.max(minimum,Math.floor((gridWidth-colGap*(columns-1))/columns)),
-        icon:compact?18:clamp(Math.round(height*.3),24,32),label:compact?11:clamp(Math.round(height*.14),12,15),
+        icon:expanded ? 24 : compact?18:clamp(Math.round(height*.3),24,32),label:expanded ? (compact?13:14) : compact?11:clamp(Math.round(height*.14),12,15),
         gap:compact?3:clamp(Math.round(height*.06),3,6),padding:compact?4:clamp(Math.round(height*.09),6,10)};
 }
 

@@ -1,15 +1,5 @@
-function placeBloomscapesFarmFilter(farm, view, header = document.getElementById('global-header-search-row')) {
-    if (!farm) return;
-    const selectors = {drive:'#drive-toolbar-rail', docks:'[data-docks-primary-filters]',
-        av:'#av-filter-options', request:'#request-filter-toolbar',
-        managers:'.manager-eval2-native-filters .mobile-browse-filter-panel'};
-    const root = document.getElementById('view-' + view);
-    const filters = selectors[view] && root?.querySelector(selectors[view]);
-    const host = filters && !filters.closest('.hidden') ? filters : header;
-    if (!host) return;
-    if (view === 'av' && host === filters) {
-        if (host.firstElementChild !== farm) host.prepend(farm);
-    } else if (farm.parentElement !== host || host === filters && host.lastElementChild !== farm) host.appendChild(farm);
+function placeBloomscapesFarmFilter(farm, _view, header = document.getElementById('global-header-search-row')) {
+    if (farm && header && farm.parentElement !== header) header.appendChild(farm);
 }
 
 function mountDocksPrimaryFilters(root, bar) {

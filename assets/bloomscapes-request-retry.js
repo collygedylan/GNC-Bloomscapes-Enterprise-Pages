@@ -119,3 +119,14 @@ async function acknowledgeBloomscapesRetry(context,reconciliation) {
         globalThis.GncRuntimeWatchdog?.capture?.(error,'requestRetryBlobCleanup'));
     return {saved:true,changed:false};
 }
+
+function scheduleRequestDeliveryWake(source = 'request_action') {
+    if (!currentUser || navigator.onLine === false) return false;
+    // The native receipt commits its outbox event and the database trigger wakes the cloud worker.
+    if (nativeAuthSessionActive && nativeAuthProfile?.id) return true;
+    const deliverySource = String(source || 'request_action').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-').slice(0, 80);
+    Promise.resolve().then(() => postAppFunctionJson(APP_API_FUNCTION_URL, {
+        action: 'delivery_wake', source: deliverySource
+    }, { timeoutMs: 5000, label: 'Request delivery wake' })).catch(() => false);
+    return true;
+}

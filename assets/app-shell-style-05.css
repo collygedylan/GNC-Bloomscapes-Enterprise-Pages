@@ -1500,7 +1500,7 @@ body.viewport-compact #docks-filter-controls.docks-top-inline [data-dock-filter-
         #hl-tags-date-selector{position:fixed;inset:0;margin:auto;max-height:90dvh;overflow-y:auto}
         #hl-tags-date-selector::backdrop{background:rgba(2,6,23,.65)}
         #pull-refresh-indicator{transform:translateY(-120%);opacity:0;transition:transform .16s ease,opacity .16s ease;padding-top:max(0px,env(safe-area-inset-top))}
-        #pull-refresh-indicator .pull-refresh-pill{backdrop-filter:saturate(140%) blur(8px)}
+        #pull-refresh-indicator .pull-refresh-pill{}
         #pull-refresh-indicator.visible{opacity:1}
         #pull-refresh-indicator.ready .pull-refresh-pill{background:#007a4d;color:#fff;border-color:#007a4d}
         #pull-refresh-indicator.refreshing .pull-refresh-pill{background:#111827;color:#fff;border-color:#111827}

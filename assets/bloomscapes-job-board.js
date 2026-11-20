@@ -12,16 +12,15 @@ function syncBloomscapesJobBoardToolbar(toolbar) {
     if (!tools) {
         tools = toolbar.appendChild(document.createElement('div'));
         tools.dataset.jobBoardTools = 'true';
-        tools.innerHTML = '<label>Block / Location <input data-job-filter="block" type="search" aria-label="Job Block or Location"></label>';
-        tools.addEventListener('input',event=>{
+        tools.innerHTML = '<select data-job-filter="assigned" aria-label="Assigned To"></select><select data-job-filter="block" aria-label="Location / Block"></select><select data-job-filter="priorityStatus" aria-label="Priority / Status"></select>';
+        tools.addEventListener('change',event=>{
             const key = event.target.dataset.jobFilter;
             if (key) setBloomscapesJobBoardFilter(key,event.target.value);
         });
     }
-    const filters = getBloomscapesJobBoardFilters();
-    for (const field of tools.querySelectorAll('[data-job-filter]')) {
-        if (field!==document.activeElement) field.value = filters[field.dataset.jobFilter];
-    }
+    tools.querySelector('[data-job-filter="assigned"]').hidden=!bloomscapesWorkKind(activeReqTab);
+    if (bloomscapesWorkKind(activeReqTab)) toolbar.querySelector('[data-inventory-excel-scope]')?.remove();
+    paintBloomscapesJobFacets(tools);
 
 }
 
@@ -191,7 +190,9 @@ function buildSuspendTagRenderPlan(items) {
     const searchItems = applyRequestSuspendTagCommonNameSearchFilter(allItems);
     const assignedItems = suspendQueueRowsForOwner(searchItems, requestSuspendTagStatusFilter === 'active' ? allItems : []);
     const contSizeItems = applyRequestSuspendTagContSizeFilter(assignedItems, sourceLookup);
-    const candidates = applyRequestSuspendTagDockFilter(contSizeItems, sourceLookup).filter(matchesBloomscapesJobBoardFilters);
+    const eligible = applyRequestSuspendTagDockFilter(contSizeItems, sourceLookup);
+    prepareBloomscapesJobFacets(eligible);
+    const candidates = eligible.filter(matchesBloomscapesJobBoardFilters);
     const filteredItems = typeof applyInventoryExcelFilters === 'function' ? applyInventoryExcelFilters('suspend',candidates) : candidates;
     const filterKey = JSON.stringify([
         requestSuspendTagStatusFilter, getSuspendEvalUserFilter('suspend-tag'),
@@ -202,17 +203,41 @@ function buildSuspendTagRenderPlan(items) {
         latestSourceWatermark.lastUpdated
     ]);
     const mode = `request:suspend-tag:${filterKey}`;
-    const renderKey = buildRequestChunkRenderKey(mode, 'Suspend Tag', filteredItems);
-    const plan = {
-        empty: !filteredItems.length,
-        crumbText: 'Suspend Tag',
-        items: filteredItems,
-        rows: filteredItems,
-        pageIndex: 0,
-        renderKey,
-        renderSignature: `${renderKey}:all:${buildRequestBrowseMembershipKey(mode, filteredItems)}`,
-        footerMarkup: ''
-    };
+    const plan = buildRequestPagedRenderPlan(mode,'Suspend Tag',filteredItems);
     return { ...plan, allItems, searchItems, assignedItems, contSizeItems, sourceLookup,
         renderSignature: buildSuspendTagPlanSignature(plan, latestSourceRows, sourceLookupRevision) };
+}
+
+const bloomscapesJobFacets = new Map();
+function prepareBloomscapesJobFacets(rows) {
+    const key=getSupabaseReadIdentityScope()+'|'+getBloomscapesFarm()+'|'+activeReqTab;
+    const signature=[getDatasetLoadSignature('requests'),getDatasetLoadSignature('soc'),resolvedViewStateEpoch,rows.length].join('|');
+    const saved=bloomscapesJobFacets.get(key);
+    if (saved?.signature===signature && saved.workRows===bloomscapesFieldQueueState.rows) return;
+    const fields={assigned:new Set(['mine','unassigned']),block:new Set(),priorityStatus:new Set()};
+    for (const row of rows) {
+        for (const value of bloomscapesJobPriorityStatus(row)) fields.priorityStatus.add(value);
+        const locations=[row.LOCATIONCODE,row.locationcode,row.target_location,...(row.source_rows || []).map(member=>member.locationcode)];
+        for (const loc of locations.filter(Boolean)) fields.block.add(loc);
+        if (row.assigned_to) fields.assigned.add(row.assigned_to);
+    }
+    if (bloomscapesJobFacets.size>=12) bloomscapesJobFacets.clear();
+    bloomscapesJobFacets.set(key,{signature,workRows:bloomscapesFieldQueueState.rows,fields});
+    paintBloomscapesJobFacets(document.querySelector('#request-filter-toolbar [data-job-board-tools]'));
+}
+function paintBloomscapesJobFacets(tools) {
+    if (!tools) return;
+    const key=getSupabaseReadIdentityScope()+'|'+getBloomscapesFarm()+'|'+activeReqTab;
+    const entry=bloomscapesJobFacets.get(key);
+    const filters=getBloomscapesJobBoardFilters();
+    for (const [field,title] of [['assigned','All Assigned'],['block','Location / Block'],['priorityStatus','Priority / Status']]) {
+        const select=tools.querySelector('[data-job-filter="'+field+'"]');
+        if (select.hidden) continue;
+        if (select._facetEntry!==entry || !select.options.length) {
+            const choices=[...(entry?.fields[field] || [])].sort((a,b)=>String(a).localeCompare(String(b),undefined,{numeric:true}));
+            select.replaceChildren(new Option(title,field==='assigned'?'all':''),...choices.map(value=>new Option(value,value)));
+            select._facetEntry=entry;
+        }
+        select.value=filters[field] || '';
+    }
 }

@@ -3,21 +3,25 @@ async function prepareBloomscapesFarmPublication(raw,owner,assertCurrent) {
     identity[identity.length-1] = raw.farm;
     const prepared = await prepareProductionMasterSnapshot(raw.inventory,{identity:JSON.stringify(identity),assertCurrent,includeRawRows:false});
     assertCurrent();
-    publishEarlyBloomscapesInventory(raw,prepared);
     const inventory = prepared.payload.data;
     const master = preparedMasterRows.get(inventory);
-    master.indexMaps.byItemPrefix = buildMasterInventoryPrefixIndex(master.indexMaps.byItemCode);
-    master.indexMaps.lookup = window.AgMetricQueueInventory?.createIndex(inventory.flatMap(row=>row.__physicalInventoryRows || [row])) || null;
-    const resolveMaster = row=>resolveCanonicalInventoryTarget(row,master.indexMaps.byId,master.indexMaps.byItemCode);
+    const indexes = master?.indexMaps;
+    if (!indexes?.byItemCode || !indexes.byId) throw new Error('Farm inventory indexes were not prepared.');
+    indexes.byItemPrefix = buildMasterInventoryPrefixIndex(indexes.byItemCode);
+    indexes.lookup = window.AgMetricQueueInventory.createIndex(inventory.flatMap(row=>row.__physicalInventoryRows || [row]));
+    publishEarlyBloomscapesInventory(raw,prepared);
+    const resolveMaster = row=>resolveCanonicalInventoryTarget(row,indexes.byId,indexes.byItemCode);
     const socRaw = formatFetchedRows(raw.soc,'ph_soc_master');
     const soc = await prepareBloomscapesSupportRows(socRaw,'soc',resolveMaster,assertCurrent);
     const reserves = await prepareBloomscapesSupportRows(formatFetchedRows(raw.reserves,'ph_reserves'),'reserves',resolveMaster,assertCurrent);
     const assigned = formatFetchedRows(raw.assigned,'ph_inventory_row_assignments').map((row,index)=>normalizeWarehouseAssignedItemRow(row,index)).filter(Boolean);
     const assignedMap = buildBloomscapesAssignmentIndex(raw.farm,raw.assigned,raw.defaults);
+    const defaultOwnersByCode = new Map(raw.defaults.map(row=>[buildManagerEvalAssignmentKey(row.itemcode_normalized),row]));
     const driveProjection = prepareBloomscapesDriveProjection(inventory);
+    const reportTabs = collectInventoryReportTabs(inventory,raw.farm,resolveMaster);
     assertCurrent();
-    return {owner,farm:raw.farm,revision:raw.revision,lastSyncRevisionAt:raw.lastSyncRevisionAt,inventory,soc,reserves,assigned,assignedMap,defaults:raw.defaults,
-        purchaseOrders:raw.purchaseOrders || [],indexes:master.indexMaps,av:master.avOpenRows,socRaw,driveProjection,loadedAt:Date.now()};
+    return {owner,farm:raw.farm,revision:raw.revision,lastSyncRevisionAt:raw.lastSyncRevisionAt,inventory,soc,reserves,assigned,assignedMap,defaultOwnersByCode,
+        purchaseOrders:raw.purchaseOrders || [],indexes,av:master.avOpenRows,socRaw,driveProjection,reportTabs,loadedAt:Date.now()};
 }
 
 async function prepareBloomscapesSupportRows(rows,kind,resolveMaster,assertCurrent) {
@@ -35,7 +39,7 @@ async function prepareBloomscapesSupportRows(rows,kind,resolveMaster,assertCurre
 }
 
 function publishEarlyBloomscapesInventory(raw,prepared) {
-    if (raw.farm !== getBloomscapesFarm()) return false;
+    if (raw.farm !== getBloomscapesFarm() || bloomscapesFarmState.readyFarm && bloomscapesFarmState.readyFarm!==raw.farm) return false;
     const context=getProductionLiveSyncContext();
     return applyColdOperationalDisplay('master',{payload:prepared.payload,
         rowCompleteness:'complete',rowCount:raw.inventory.length},context);

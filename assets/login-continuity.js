@@ -134,3 +134,18 @@ function syncAuraAfterCanonicalAccess(detail) {
     if (self?.denied || (self?.verified && self.profile?.id === nativeAuthProfile?.id
         && self.profile?.username === nativeAuthProfile?.username)) void syncAuraWidgetForSession();
 }
+
+function verifiedNativeLoginResult(result) {
+    const bridge = ensureNativeAppSessionBridge(true);
+    void bridge.catch(error => reportHandledRuntimeIssue('session-bridge',error?.message || 'Bridge unavailable'));
+    const cached = readPersistedAppSessionRecord();
+    return {
+        ok: true,
+        user: result.user,
+        source: 'native-auth',
+        session: cached?.displayProfileId === result.profile.id ? cached : null,
+        nativeSession: result.session,
+        homeSyncMetadata: null,
+        mustChangePassword: result.mustChangePassword === true
+    };
+}

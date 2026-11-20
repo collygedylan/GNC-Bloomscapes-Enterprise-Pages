@@ -123,3 +123,16 @@ function observeWatchdogError(deps, title, message, shown, kind, driveCommand) {
     const scope = watchdogFailureScope(value, kind, view, FIELD_SCOPES);
     return reportField(kind, scope, code, driveCommand, metadata);
 }
+
+function createWatchdogInspectionScheduler(env, inspect, onFailure) {
+    let pending = false;
+    return function() {
+        if (pending) return;
+        pending = true;
+        (env.requestAnimationFrame || env.setTimeout)(() => {
+            pending = false;
+            try { inspect(); }
+            catch { onFailure('watchdog-inspect'); }
+        }, 80);
+    };
+}

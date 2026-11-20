@@ -144,9 +144,9 @@ function erpHomeRunScriptLabel(manualSyncActive, progress) {
 function syncGoogleScriptButton() {
     const button = document.getElementById('run-google-script-btn');
     if (!button) return;
-    mountHomeSyncMultiselect(button);
-    const label = button.querySelector('[data-run-script-label]');
     const isVisible = canRunManualInventoryImport();
+    mountHomeSyncMultiselect(button,isVisible);
+    const label = button.querySelector('[data-run-script-label]');
     const panel = document.getElementById('dashboard-sync-accordion');
     if (panel) bindErpHomeStatusPanel(panel);
     const localRunInFlight = !!isRunScriptActive || !!window.googleScriptRunInFlight;
@@ -155,7 +155,8 @@ function syncGoogleScriptButton() {
     button.disabled = !recovering && (manualSyncStartPending || !!window.googleScriptRunInFlight);
     button.classList.toggle('opacity-60', localRunInFlight);
     button.classList.toggle('cursor-wait', localRunInFlight);
-    if (label) label.innerText = erpHomeRunScriptLabel(hasActiveManualSync(), getManualSyncProgressInfo());
+    const title = erpHomeRunScriptLabel(hasActiveManualSync(), getManualSyncProgressInfo());
+    if (label && label.textContent!==title) label.textContent = title;
 }
 
 function openErpSyncProgressModal() {

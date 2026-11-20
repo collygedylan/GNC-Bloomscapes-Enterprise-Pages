@@ -15,9 +15,3 @@ function selectBloomscapesTransferFilter(filters,key,value) {
     else if (allowed[key]?.includes(value)) filters[key]=value;
     return filters;
 }
-
-function reconcileBloomscapesTransferSeason(filters,rows) {
-    const cohort=rows.filter(po=>filters.origin==='ALL' || po.origin_farm===filters.origin);
-    if (!cohort.some(po=>matchesBloomscapesPoSeason(po,filters.season))) filters.season='ALL';
-    return cohort;
-}

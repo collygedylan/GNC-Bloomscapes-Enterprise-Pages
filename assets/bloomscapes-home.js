@@ -22,9 +22,13 @@ function mountBloomscapesHomeModules() {
     grid.querySelector('#home-tile-bloom')?.remove();
     mountBloomscapesCommunicationTiles(grid);
     const order=['drive','hl-order','av','sales-office','sales','historical-requests','managers','qc','office','sales-inventory','production','studio','smart-moves','messages','walkie'];
+    let previous = null;
     for (const id of order) {
-        const tile=grid.querySelector('#home-tile-'+id);
-        if (tile) grid.appendChild(tile);
+        const tile = grid.querySelector('#home-tile-'+id);
+        if (!tile) continue;
+        const next = previous ? previous.nextElementSibling : grid.firstElementChild;
+        if (tile!==next) grid.insertBefore(tile,next);
+        previous = tile;
     }
     const orderTile=grid.querySelector('#home-tile-hl-order');
     if (orderTile) orderTile.setAttribute('onclick',"return openBloomscapesDepartmentModule('hl-order','bloomscapes-replenishment')");
@@ -119,15 +123,14 @@ function openBloomscapesHomeModule(tab) {
 }
 
 const homeMarkupByNode = new WeakMap();
-function renderHome() {
+function renderHome(opening = false) {
     if (getCurrentVisibleViewId() !== 'home') return;
     mountBloomscapesHomeModules();
     const dynamicContent = document.getElementById('home-dynamic-content');
     const dashboardContent = document.getElementById('home-dashboard-content');
     if (!dynamicContent || !dashboardContent) return;
     syncGoogleScriptButton();
-    if (typeof updateDashboardSyncSummary === 'function') updateDashboardSyncSummary();
-    auditLocalRequestDurability('home').catch(() => {});
+    if (!opening) refreshBloomscapesHomeStatus();
     const dashboardSticky = document.getElementById('home-dashboard-sticky');
     const dashboardHero = document.getElementById('home-dashboard-hero');
     if (shouldUseRepSalesHomeHub()) {
@@ -155,16 +158,77 @@ function renderHome() {
     if (typeof syncCurrentViewBodyClass === 'function') syncCurrentViewBodyClass('home');
 }
 
-function mountBloomscapesHomeSearch(slot) {
-    if (!slot) return;
-    const input=document.createElement('input');
-    input.type='search';input.placeholder='Search modules...';input.setAttribute('aria-label','Search modules');
-    input.className='input-field';input.id='bloomscapes-home-search';
-    input.addEventListener('input',()=>{
-        const words=input.value.toLowerCase().trim().split(/\s+/);
-        for (const tile of document.querySelectorAll('#home-dashboard-grid .home-module-tile')) {
-            tile.classList.toggle('bloomscapes-home-query-hidden',!words.every(word=>tile.textContent.toLowerCase().includes(word)));
-        }
+function synchronizeLoginRoleControls(access) {
+    document.querySelectorAll('.role-access').forEach(el => {
+        const isAllowed =
+            (access.isAdmin && el.classList.contains('role-admin')) ||
+            (access.isRepLike && el.classList.contains('role-rep')) ||
+            (access.isRequestRepScopedUser && el.classList.contains('role-request-enabled')) ||
+            (access.isGrower && el.classList.contains('role-grower')) ||
+            (access.isQcSupervisor && el.classList.contains('role-qc-supervisor')) ||
+            (access.isQc && el.classList.contains('role-qc'));
+        el.classList.toggle('hidden', !isAllowed);
+        el.style.display = '';
     });
-    slot.replaceChildren(input);
+    syncRoleAccessUi(access);
+}
+
+function runLoginInitializationStep(label, task) {
+    try {
+        const result = task();
+        if (result && typeof result.catch === 'function') result.catch(error => console.warn(`${label} deferred after login.`, error));
+        return result;
+    } catch (error) {
+        console.warn(`${label} deferred after login.`, error);
+        return null;
+    }
+}
+
+function confirmBloomscapesHomeMount() {
+    setHomeDashboardModulesReady(!shouldUseRepSalesHomeHub());
+    const grid = document.getElementById(shouldUseRepSalesHomeHub() ? 'home-rep-dashboard-grid' : 'home-dashboard-modules');
+    if (!grid || grid.hidden || grid.classList.contains('hidden') || !grid.querySelector('button,[data-home-module],a')) {
+        ensureHomeDashboardReadyAfterLogin('login-shell-open');
+        return;
+    }
+    window.__agdataHomeReadyUser = String(currentUser).trim().toLowerCase();
+    window.__agdataMarkBootComplete?.();
+    void window.GncRuntimeWatchdog?.flushPrebootRecoveries?.();
+}
+
+function finishBloomscapesShellStartup(touchShell) {
+    runLoginInitializationStep('AURA widget', () => syncAuraWidgetForSession());
+    if (getCurrentVisibleViewId() === 'home') refreshBloomscapesHomeStatus();
+    document.body.classList.remove('detail-field-active');
+    repairAppShellScrollState('login-shell-open', { resetGestureState: true });
+    applyRolePermissions();
+    updateFooterNavState();
+    syncGlobalHeaderChrome({reason:'login-home-mount',force:true});
+    runAfterShellInteractive(() => scheduleRequestModalReferencePrefetch(),touchShell ? 180 : 40);
+    runAfterShellInteractive(() => scheduleGlobalReferencePrefetch(),touchShell ? 260 : 80);
+    if (touchShell) {
+        runAfterShellInteractive(() => {
+            runAfterTouchInteraction(() => refreshRealtimeSubscriptionsForCurrentView(true), 2800, 'current-view-realtime-subscriptions');
+        }, 220);
+    } else {
+        runLoginInitializationStep('Realtime subscriptions', () => refreshRealtimeSubscriptionsForCurrentView(true));
+    }
+    setTimeout(() => ensureHomeDashboardReadyAfterLogin('login-shell-watchdog-1'), 650);
+    setTimeout(() => ensureHomeDashboardReadyAfterLogin('login-shell-watchdog-2'), 1800);
+    void runAppUpdateRestoreAfterShell();
+    if (canUseProductionLiveSync()) {
+        runLoginInitializationStep('Production live sync', () => signalProductionLiveSync('login-shell-open', 0));
+        return;
+    }
+    runAfterShellInteractive(() => {
+        wakeRequestQueueLiveData('login-shell-open', {
+            force: true,
+            minIntervalMs: 0
+        });
+    }, touchShell ? 40 : 0);
+}
+
+function refreshBloomscapesHomeStatus() {
+    if (typeof updateDashboardSyncSummary === 'function') updateDashboardSyncSummary();
+    auditLocalRequestDurability('home').catch(error => reportHandledRuntimeIssue('home-request-audit',error.message));
 }

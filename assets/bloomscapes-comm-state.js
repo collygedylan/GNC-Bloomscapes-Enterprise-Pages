@@ -30,19 +30,42 @@ async function refreshBloomscapesComm() {
     if (!window.BloomscapesBatteryGovernor.visible()) return;
     scopeBloomscapesComm();
     const state=bloomscapesCommState;
-    if (!nativeAuthSessionActive || !state.owner || Date.now()<state.retryAt) return;
+    const access=bloomscapesCommAccess('inbox');
+    if (access===false) return clearUnavailableCommInbox();
+    if (!access || !state.owner || Date.now()<state.retryAt) return;
     if (state.pending) return state.pending;
     const generation=state.generation,farm=state.farm;
     state.pending=readBloomscapesCommInbox(farm).then(async data=>{
-        if (generation!==state.generation || getBloomscapesFarm()!==farm) return;
+        if (generation!==state.generation || getBloomscapesFarm()!==farm || bloomscapesCommAccess('inbox')!==true) return;
         Object.assign(state,{people:data.people,conversations:data.conversations,textAccess:data.textAccess,voiceAccess:data.voiceAccess,retryAt:0});
         if (!state.conversations.some(row=>row.id===state.selected)) state.selected=sortedBloomscapesConversations()[0]?.id || '';
         bloomscapesMessagesState.unread=data.conversations.reduce((sum,row)=>sum+Number(row.unreadText || 0),0);
         syncBloomscapesHomeBadges();saveBloomscapesCommCache();renderBloomscapesComm();
         if (!document.hidden && state.selected && isBloomscapesCommVisible()) await selectBloomscapesConversation(state.selected,false);
-    }).catch(error=>{if(generation===state.generation)state.retryAt=Date.now()+15000;throw error;})
+    }).catch(error=>handleCommInboxReadFailure(error,generation))
         .finally(()=>{if(generation===state.generation)state.pending=null;});
     return state.pending;
+}
+
+function clearUnavailableCommInbox() {
+    const state=bloomscapesCommState;
+    state.generation++;
+    state.pending=null;
+    Object.assign(state,{people:[],conversations:[],threads:{},selected:'',textAccess:'HIDDEN',voiceAccess:'HIDDEN'});
+    bloomscapesMessagesState.unread=0;
+    syncBloomscapesHomeBadges();
+    renderBloomscapesComm();
+    showBloomscapesCommStatus('Communications are unavailable for this account.');
+}
+
+function handleCommInboxReadFailure(error,generation) {
+    const state=bloomscapesCommState;
+    if (generation!==state.generation) return;
+    state.retryAt=Date.now()+15000;
+    const kind=bloomscapesOptionalCommFailure(error);
+    if (kind==='denied') return clearUnavailableCommInbox();
+    if (kind==='unavailable') return showBloomscapesCommStatus('Inbox refresh is temporarily unavailable.');
+    throw error;
 }
 
 async function selectBloomscapesConversation(id,drill=true,before=null) {

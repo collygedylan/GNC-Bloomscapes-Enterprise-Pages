@@ -55,3 +55,9 @@ function prepareMasterAvRow(master,masterById,context) {
     context.avOpenByMasterId.set(id,item);
     context.avOpenRows.push(item);
 }
+
+function takePreparedMasterIndexMaps(prepared, rowsUnchanged = false) {
+    if (!rowsUnchanged || !prepared?.indexMaps || prepared.indexesConsumed) return null;
+    prepared.indexesConsumed = true;
+    return prepared.indexMaps;
+}

@@ -21,7 +21,7 @@ function getBloomscapesAssignmentIndex() {
     const state = getManagerAssignedColumnState();
     const cached = state.bloomscapesOwners;
     const farm = getBloomscapesFarm();
-    if (cached?.farm===farm && cached.epoch===state.dataEpoch && cached.owner===bloomscapesFarmCacheOwner()) return cached.index;
+    if (cached?.index && cached.farm===farm && cached.epoch===state.dataEpoch && cached.owner===bloomscapesFarmCacheOwner()) return cached.index;
     const index = buildBloomscapesAssignmentIndex(farm,warehouseAssignedItemsInventory || [],
         [...(state.defaultOwnersByCode || new Map()).values()]);
     state.bloomscapesOwners = {farm,epoch:state.dataEpoch,owner:bloomscapesFarmCacheOwner(),index};
@@ -32,7 +32,7 @@ function getBloomscapesWarmFarm(farm) {
     const cache = getBloomscapesFarmCache();
     assertBloomscapesFarmCache(cache,farm);
     const snapshot = cache.snapshots.get(farm);
-    return snapshot?.assignedMap && snapshot.driveProjection ? snapshot : null;
+    return snapshot?.indexes?.byItemCode && snapshot.indexes.byId ? snapshot : null;
 }
 
 async function ensureBloomscapesWarmFarm(farm,refresh=false,attempt=0) {
@@ -41,8 +41,7 @@ async function ensureBloomscapesWarmFarm(farm,refresh=false,attempt=0) {
     if (cache.pending.has(farm)) return cache.pending.get(farm);
     if (!refresh && cache.snapshots.has(farm)) {
         const snapshot = cache.snapshots.get(farm);
-        snapshot.assignedMap ||= buildBloomscapesAssignmentIndex(farm,snapshot.assigned,snapshot.defaults);
-        snapshot.driveProjection ||= prepareBloomscapesDriveProjection(snapshot.inventory);
+        scheduleBloomscapesWarmAssignments(snapshot);
         return snapshot;
     }
     const task = loadBloomscapesWarmFarm(cache,farm,refresh).catch(error=>{
@@ -99,7 +98,7 @@ function scheduleBloomscapesWarmAssignments(snapshot) {
         const cache = getBloomscapesFarmCache();
         if (snapshot.owner!==cache.owner || cache.snapshots.get(snapshot.farm)!==snapshot
             || document.hidden || navigator.onLine===false) return;
-        snapshot.assignedMap ||= buildBloomscapesAssignmentIndex(snapshot.farm,snapshot.assigned,snapshot.defaults);
+        snapshot.assignedMap ||= buildBloomscapesAssignmentIndex(snapshot.farm,snapshot.assigned,snapshot.defaultOwnersByCode.values());
         snapshot.driveProjection ||= prepareBloomscapesDriveProjection(snapshot.inventory);
     };
     if (typeof requestIdleCallback==='function') requestIdleCallback(prepare,{timeout:1500});

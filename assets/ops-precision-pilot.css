@@ -2956,7 +2956,7 @@ body.ops-precision-pilot #view-detail.detail-request-mode .request-detail-load-s
     border-radius: 16px !important;
     background: color-mix(in srgb, var(--ops-surface) 94%, transparent) !important;
     box-shadow: 0 14px 32px rgba(15, 23, 42, .2) !important;
-    backdrop-filter: blur(14px) !important;
+
   }
 
   body.ops-precision-pilot #view-detail.detail-request-mode #req-btn-save-complete {
@@ -5403,8 +5403,6 @@ body.ops-precision-pilot #side-drawer {
   color: var(--ui-text) !important;
   background: var(--ui-glass) !important;
   box-shadow: var(--ui-shadow-float) !important;
-  backdrop-filter: saturate(125%) blur(22px);
-  -webkit-backdrop-filter: saturate(125%) blur(22px);
 }
 
 body.ops-precision-pilot .drawer-header {
@@ -8481,7 +8479,7 @@ html.outdoor-mode body.ops-precision-pilot #item-inquiry-panel :is(
     border-radius: 16px !important;
     background: color-mix(in srgb, var(--ops-surface) 94%, transparent) !important;
     box-shadow: 0 14px 32px rgba(15, 23, 42, .2) !important;
-    backdrop-filter: blur(14px) !important;
+
   }
 
   body.ops-precision-pilot #view-detail.detail-request-mode #req-btn-save-complete {
@@ -9003,8 +9001,6 @@ html:not(.outdoor-mode) body.ops-precision-pilot :is(
   .grower-mobile-toolbar, .mobile-browse-rail,
   .mobile-browse-filter-panel, .grower-toolbar-popover
 ) {
-  -webkit-backdrop-filter: blur(12px) !important;
-  backdrop-filter: blur(12px) !important;
 }
 
 html:not(.outdoor-mode) body.ops-precision-pilot :is(
@@ -9173,8 +9169,6 @@ html[data-ops-prepaint-theme="dark"] :is(#bottom-nav, #side-drawer) {
 
 body.ops-precision-pilot[data-ops-theme="dark"] #app-top-chrome,
 body.ops-precision-pilot[data-ops-theme="dark"] :is(.nav-header, #global-header-search-row, #bottom-nav, .mobile-browse-rail, .grower-mobile-toolbar, .sticky-search, .freeze-panel) {
-  -webkit-backdrop-filter: blur(16px) saturate(1.12);
-  backdrop-filter: blur(16px) saturate(1.12);
 }
 
 body.ops-precision-pilot[data-ops-theme="dark"] #bottom-nav {
@@ -9263,8 +9257,6 @@ body.ops-precision-pilot[data-ops-theme="dark"] :is(.app-card-qty-label, .grower
     .sticky-search, .freeze-panel, .fixed-filter-rail, .mobile-browse-rail,
     .grower-mobile-toolbar, .grower-toolbar-popover
   ) {
-    -webkit-backdrop-filter: blur(16px) saturate(1.12) !important;
-    backdrop-filter: blur(16px) saturate(1.12) !important;
   }
 }
 

@@ -30,7 +30,13 @@ async function publishRowEvaluationToMasterAndNotes(item, patch, options = null)
     if (!item) throw new Error('Exact inventory row is required.');
     if (!canPublishRowEvidenceCommand(item,options)) throw new Error('ROW_EVALUATION_FORBIDDEN');
     if (options?.seasonSalesOffice === true) return publishSeasonSalesOfficeEvaluation(item, patch, options);
-    if (options?.requestWork) return publishRequestWorkEvaluation(item, patch, options);
+    if (options?.requestWork) {
+        const saved = await publishRequestWorkEvaluation(item, patch, options);
+        if ((options.photoAttachmentUrl || patch?.req_photo_link) && saved?.status === 'saved' && saved.result?.master_row) {
+            schedulePublishedPlantHealthPhoto(saved.result.master_row,{photo_link:options.photoAttachmentUrl || patch.req_photo_link},null,options.scope);
+        }
+        return saved;
+    }
     if (!options || options.suspendCompletionScope) {
         const completionScope = options?.suspendCompletionScope || getSupabaseReadIdentityScope();
         const source = findDockSuspendDcRequestSourceRow(item) || item;
@@ -38,6 +44,7 @@ async function publishRowEvaluationToMasterAndNotes(item, patch, options = null)
         const linked = findLinkedMasterRow(item) || getQueueCardInventoryRow(item,'request');
         const target = linked ? {...linked,LOTCODE:identity.lotCode,lotcode:identity.lotCode} : {...source,__queuePhotoOnly:true};
         const inventoryIdentity = identity;
+        const priorPhoto = {dock_photo_link:source.dock_photo_link ?? source.DOCK_PHOTO_LINK};
         patch = withCanonicalEvaluationMatchQuantity(target, patch);
         const rollback = options?.memoryRollback || beginRowEvaluationMemoryPublication(target,patch,completionScope,{source:item});
         try {
@@ -45,8 +52,9 @@ async function publishRowEvaluationToMasterAndNotes(item, patch, options = null)
                 completionScope:options?.preserveNavigation === true ? null : completionScope, requireInventoryReceipt:false,inventoryIdentity,inventoryMasterUid:String(target.UNIQUE_ID || target.unique_id),onConfirmed:options?.onConfirmed,
                 ...(options?.photoProof ? {photoProof:options.photoProof,serialized:options.serialized === true} : {})
             });
-            if (!result) rollback();
-            else rollback.commit?.();
+            if (!result) { rollback(); return result; }
+            rollback.commit?.();
+            if (linked && patch?.dock_photo_link) schedulePublishedPlantHealthPhoto(linked,patch,priorPhoto,completionScope);
             return result;
         } catch (error) { rollback(); throw error; }
     }
@@ -67,7 +75,7 @@ function prepareInventoryRowEvaluation(item,patch,options) {
     if (!uid || !['','ph_master_inventory'].includes(String(target.SOURCE_TABLE || target.source_table || ''))) throw new Error('Exact inventory row is required.');
     if (options.receipt?.row && String(options.receipt.row.UNIQUE_ID || options.receipt.row.unique_id || '') !== uid) throw new Error('EVALUATION_RECEIPT_IDENTITY_MISMATCH');
     if (!options.receipt) patch = withCanonicalEvaluationMatchQuantity(target,patch);
-    const baseline = options.receipt ? null : options.baseline ?? buildSecureDriveEvidenceBaseline(target);
+    const baseline = options.baseline ?? (options.receipt ? null : buildSecureDriveEvidenceBaseline(target));
     const rollback = !options.receipt && options.photoOnly !== true ? options.memoryRollback || beginRowEvaluationMemoryPublication(target,patch,scope) : () => {};
     return {target,patch,scope,baseline,rollback};
 }
@@ -80,9 +88,11 @@ function settleInventoryRowEvaluation(result,context,options) {
         const canonical = getCommittedDriveEvidenceReceipt(result,target).row;
         if (!isSameDriveEvidenceLocation(canonical,options.photoIdentity || target,true)) throw new Error('The saved photo location could not be verified. Reopen the item.');
         beginRowEvaluationMemoryPublication(target,patch,scope).commit?.();
+        schedulePublishedPlantHealthPhoto(target,patch,context.baseline,scope);
     }
     try {
         const applied = reconcileConfirmedDriveEvidence(result,target,options.prefix,{scope,photoOnly:options.photoOnly === true,preserveDetailDraft:options.preserveDetailDraft === true});
+        if (!options.photoOnly && !result.noOp && patch?.photo_link) schedulePublishedPlantHealthPhoto(target,patch,context.baseline,scope);
         return {result,applied};
     } catch (error) {
         if (options.photoOnly !== true) throw error;

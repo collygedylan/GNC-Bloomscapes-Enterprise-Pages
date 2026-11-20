@@ -2,7 +2,8 @@ function inventoryExcelBarHtml(scope) {
     const state = getInventoryExcelState(scope);
     const fields = getVisibleInventoryExcelFields(scope);
     const headers = fields.map(([key, label]) => renderInventoryExcelHeader(scope, state, key, label));
-    if (['drive','request','suspend'].includes(scope)) return headers[0]
+    if (['request','suspend'].includes(scope)) return headers.join('');
+    if (scope==='drive') return headers[0]
         +'<details class="bloomscapes-extra-filters"><summary>More filters</summary><div class="inventory-excel-fields">'
         +headers.slice(1).join('')+'</div><div data-excel-popover></div></details>';
     const chips = fields.filter(([key]) => state.filters[key]).map(([key, label]) =>
@@ -138,8 +139,7 @@ function mountGlobalHeaderChrome(chromeState, { searchRow, title, searchSlot, in
     }
     if (homeIdentityOnly) {
         syncGlobalHeaderSearchOwnership(null);
-        mountBloomscapesHomeSearch(searchSlot);
-        if (searchSlot) searchSlot.classList.remove('hidden');
+        if (searchSlot) searchSlot.classList.add('hidden');
         if (inlineTitle) inlineTitle.classList.add('hidden');
         if (searchRow) searchRow.classList.remove('hidden');
     } else if (searchSlot && chromeState.searchContainer && chromeState.searchVisible) {

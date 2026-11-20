@@ -16,9 +16,12 @@ function resetBloomscapesFarmNavigation() {
 
 function renderBloomscapesFarmNavigation() {
     const view = getCurrentVisibleViewId();
+    if (view==='home' && document.getElementById('home-dashboard-grid')?.dataset.bloomscapesHome==='true') {
+        mountDivisionWeather();
+        return;
+    }
     markViewDirty(view);
     renderViewContent(view,false,true);
-    updateGlobalBackButton();
 }
 
 function renderBloomscapesSubstituteFinder(item,row) {
@@ -80,6 +83,7 @@ function mountBloomscapesRowChoices(host) {
 
 function renderInventoryEditDetailAction(item = activeItem, detailSourceView = '') {
     renderBloomscapesDetailDispatch(item,detailSourceView);
+    renderPlantHealthDetail(item,detailSourceView);
     const sharedPanel = document.getElementById('detail-inventory-checks-panel');
     const tabPanel = document.getElementById('inventory-edit-tab-detail-action');
     const legacyPanels = ['inventory-edit-detail-action', 'inventory-edit-request-detail-action']

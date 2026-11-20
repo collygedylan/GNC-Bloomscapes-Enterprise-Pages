@@ -136,13 +136,14 @@ function publishPreparedBloomscapesFarm(snapshot) {
     socRawSourceRowsReady = true;
     suspendSocDisplayIdentity = getSuspendSocDisplayIdentity();
     state.fullInventory = fullInventory;
-    state.defaultOwnersByCode = new Map(snapshot.defaults.map(row=>[buildManagerEvalAssignmentKey(row.itemcode_normalized),row]));
+    state.defaultOwnersByCode = snapshot.defaultOwnersByCode;
     state.itemcodeDefaultOwners = state.defaultOwnersByCode;
     state.defaultOwnersCheckedAt = Date.now();
     managerEvalAssignmentSelection.clear();
     clearWarehouseAssignedItemCaches();
     installMasterInventoryIndexMaps(snapshot.indexes);
-    clearAcceptedLocOnHandAggregates();
+    // Each row receipt is checked against this gate, its exact farm scope and live revision.
+    acceptedLocOnHandAggregateReceipt.valid = false;
     invalidateMasterDerivedInventories();
     invalidateResolvedViewStateCaches();
     state.bloomscapesOwners = {farm:snapshot.farm,epoch:state.dataEpoch,owner:snapshot.owner,index:snapshot.assignedMap};
@@ -152,19 +153,22 @@ function publishPreparedBloomscapesFarm(snapshot) {
     }
     productionDisplayMasterReceipt = {rows:fullInventory,readScope:getSupabaseReadIdentityScope(),
         permission:String(appAccessSnapshotState.snapshot?.dataPermissionVersion || '')};
+    snapshot.reportEpoch = resolvedViewStateEpoch;
     pruneBloomscapesFarmInventoryCaches();
 }
 
 function captureBloomscapesFarmPublication(snapshot,invalidateDrive=false) {
     const state = getManagerAssignedColumnState();
     const cached = state.bloomscapesOwners;
+    if (invalidateDrive || snapshot.inventory!==fullInventory || snapshot.reportEpoch!==resolvedViewStateEpoch) snapshot.reportTabs=null;
     if (invalidateDrive || snapshot.inventory!==fullInventory) snapshot.driveProjection = null;
     Object.assign(snapshot,{inventory:fullInventory,soc:socInventory,reserves:reservesInventory,
         assigned:warehouseAssignedItemsInventory,av:avOpenInventory,socRaw:socRawSourceRows,
-        defaults:[...(state.defaultOwnersByCode || new Map()).values()],
+        defaultOwnersByCode:state.defaultOwnersByCode,
         assignedMap:cached?.farm===snapshot.farm && cached.epoch===state.dataEpoch ? cached.index : null});
     snapshot.indexes = {byId:masterInventoryById,lookup:masterInventoryLookup,byItemCode:masterInventoryByItemCode,
-        byLocation:state.inventoryByLocationMap,byItemLocationOnHand:masterInventoryByItemLocationOnHand,
+        byLocation:state.inventoryByLocationMap,byExactKey:state.inventoryByExactKeyMap || new Map(),
+        byItemLoc:masterInventoryByNormalizedItemLocation,byItemLocationOnHand:masterInventoryByItemLocationOnHand,
         byNormalizedItemLocation:masterInventoryByNormalizedItemLocation,byItemPrefix:state.inventoryByItemPrefixMap};
     scheduleBloomscapesWarmAssignments(snapshot);
 }

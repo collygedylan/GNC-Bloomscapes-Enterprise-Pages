@@ -69,7 +69,7 @@ async function deliverWatchdogReport(event, headers, backoff) {
 }
 
 function configureRuntimeWatchdogForCurrentSession() {
-    syncRuntimeWatchdogHeaderVisibility();
+    runAfterShellInteractive(syncRuntimeWatchdogHeaderVisibility, 0);
     const username = String(currentUser || '').trim().toLowerCase();
     const role = String(currentRole || '').trim();
     if (!username || !role || typeof window.GncRuntimeWatchdog?.configure !== 'function') return false;

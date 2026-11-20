@@ -1,7 +1,7 @@
 const bloomscapesStudioModules = [
     ['bunch','Bunch Notes'],['cans','Can Filling'],['grading','Shift Grading'],['haul','Hauling'],
     ['shear','Shear List'],['spring','Spring Spreading'],['winter','Over Wintering'],
-    ['drape','Drape Varieties'],['pit','Short Pit'],['replenishment','Intercompany & CPB']
+    ['drape','Drape Varieties'],['pit','Short Pit'],['disease-pest','Pest & Disease'],['replenishment','Intercompany & CPB']
 ];
 
 function renderBloomscapesWorkStudio() {
@@ -22,9 +22,10 @@ function mountBloomscapesWorkStudio(host) {
 async function openBloomscapesStudioModule(menu,panel,key) {
     menu.hidden=true;
     const title=bloomscapesStudioModules.find(([id])=>id===key)[1];
-    panel.innerHTML='<button type="button" data-module-back>All modules</button><h3>'+title+'</h3><div data-module-body></div>';
+    panel.innerHTML='<header class="studio-breadcrumb"><button type="button" data-module-back>← All Modules</button><h3>'+title+'</h3><span data-module-summary></span></header><div data-module-body></div>';
     const body=panel.querySelector('[data-module-body]');
-    panel.querySelector('[data-module-back]').addEventListener('click',()=>{panel.replaceChildren();menu.hidden=false;});
+    panel.querySelector('[data-module-back]').addEventListener('click',()=>{panel.replaceChildren();menu.hidden=false;syncGlobalHeaderChrome({reason:'studio-modules',force:true});});
+    if (key==='disease-pest') return mountBloomscapesLabDiagnostics(body);
     if (key==='replenishment') {
         body.innerHTML=renderBloomscapesTransferBuilder();
         return mountBloomscapesTransferBuilder(body);
@@ -38,6 +39,8 @@ async function openBloomscapesStudioModule(menu,panel,key) {
             body.textContent='You do not have permission to create this work.';
             return;
         }
+        const work=bloomscapesFieldQueueState.rows.filter(row=>row.work_view===phase[2] && row.farm_code===farm);
+        panel.querySelector('[data-module-summary]').textContent=work.length+' Lines · '+work.reduce((sum,row)=>sum+Number(row.quantity || 0),0).toLocaleString()+' Cans';
         body.innerHTML=renderBloomscapesWorkCreator('bloomscapes-field-jobs',key);
         await mountBloomscapesWorkCreator(body,{phase:key});
     } catch (error) { if (body.isConnected) body.textContent=error.message; }

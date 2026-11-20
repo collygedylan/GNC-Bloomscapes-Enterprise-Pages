@@ -1,8 +1,8 @@
 function renderBloomscapesCountedSelect(scope,state,key,label) {
     const options = getInventoryExcelOptions(state,key).filter(option=>option.count > 0);
     const selected = state.filters[key];
-    const total = state.rows.filter(row=>inventoryExcelRowMatches(row,state,key)).length;
-    const allLabel = key==='username' ? (scope==='drive' ? 'All Assigned' : 'All Assigned Users') : 'All Rows';
+    const total = state.optionTotals.get(key);
+    const allLabel = key==='username' ? (['drive','request','suspend'].includes(scope) ? 'All Assigned' : 'All Assigned Users') : 'All Rows';
     const choices = [['',allLabel+' ('+total+')'],...options.map(option=>[option.key,
         (option.label || 'Unassigned')+' ('+option.count+')'])];
     return '<label class="inventory-excel-field bloomscapes-compact-select"><span>'+escapeHtml(label)+'</span>'

@@ -25,7 +25,7 @@ function inventoryExcelDemandIndex(state) {
 
 function buildInventoryExcelFact(item) {
     const code=inventoryFacetValue(item,'itemcode','item_code','item').toUpperCase();
-    const metadata=typeof masterInventoryByItemCode==='undefined'?null:masterInventoryByItemCode.get(code)?.[0];
+    const metadata=typeof masterInventoryByItemCode==='undefined'?null:masterInventoryByItemCode?.get(code)?.[0];
     const field=(...keys)=>inventoryFacetValue(item,...keys) || inventoryFacetValue(metadata,...keys);
     const location=inventoryFacetValue(item,'locationcode','source_locationcode','location');
     const lot=inventoryFacetValue(item,'lotcode','lot');

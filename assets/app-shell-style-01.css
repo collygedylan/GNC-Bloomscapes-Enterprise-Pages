@@ -36,7 +36,7 @@ html body #bottom-nav,html body .bottom-nav,html body .quick-access-bar{position
 #bloom-inventory-project-modal :is(input,select,textarea),#project-reassign-dialog select{min-width:0;width:100%;box-sizing:border-box;font-size:16px;background:#0b2416;color:#ecfdf5;border:1px solid rgba(52,211,153,.34);border-radius:10px;padding:10px}
 #bloom-inventory-project-modal input[type=checkbox],#bloom-inventory-project-modal input[type=radio],.project-check input{width:20px;height:20px;flex:0 0 20px;accent-color:#10b981}
 .project-check{display:flex!important;align-items:center;gap:8px;margin:6px 0}.project-checks{display:flex;flex-wrap:wrap;gap:10px}
-.project-pills :is(button,span),.project-id-chip{background:rgba(6,78,59,.45);border:1px solid rgba(52,211,153,.25);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-radius:999px;padding:8px 12px;color:#ecfdf5}
+.project-pills :is(button,span),.project-id-chip{background:rgba(6,78,59,.45);border:1px solid rgba(52,211,153,.25);border-radius:999px;padding:8px 12px;color:#ecfdf5}
 .project-pills button[aria-pressed=true]{background:#1b432e;border-color:#34d399}
 #bloom-inventory-project-modal .bloom-project-submit,.project-row-card button[type=submit],#project-reassign-dialog button[type=submit]{background:linear-gradient(110deg,#059669,#16a34a);border:1px solid #34d399;color:#fff;padding:13px 18px;font-weight:800;border-radius:12px}
 #bloom-inventory-project-modal .bloom-project-submit:hover,.project-row-card button[type=submit]:hover{background:#10b981}

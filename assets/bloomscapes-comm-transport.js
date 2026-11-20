@@ -1,3 +1,23 @@
+function bloomscapesCommAccess(mode) {
+    if (!nativeAuthSessionActive || !currentUser) return false;
+    const state = bloomscapesFarmState;
+    if (state.owner!==String(currentUser) || !state.loaded || !state.allowed.includes(getBloomscapesFarm())) return null;
+    const snapshot = getAppAccessSnapshot();
+    if (!snapshot || appAccessSnapshotState.stale || appAccessSnapshotState.status!=='ready') return null;
+    const grants = snapshot.permissionMap;
+    if (mode==='walkie') return grants.view_walkie?.allowed===true;
+    return grants.view_walkie?.allowed===true || grants.view_messages?.allowed===true;
+}
+
+function bloomscapesOptionalCommFailure(error) {
+    const code = String(error?.code || '');
+    if (code==='42501') return 'denied';
+    if (['PGRST202','PGRST205','42883','42P01','PGRST000','PGRST001','PGRST002','57014'].includes(code)
+        || ['AbortError','TimeoutError','TypeError'].includes(error?.name)
+        || /failed to fetch|networkerror|timed out|timeout|bad gateway|service unavailable/i.test(error?.message || '')) return 'unavailable';
+    return '';
+}
+
 async function bloomscapesCommRpc(name,parameters) {
     const {client,owner}=await requireBloomscapesSession();
     const result=bloomscapesData(await client.rpc(name,parameters).abortSignal(AbortSignal.timeout(10000)));

@@ -81,6 +81,7 @@ async function renderBloomscapesFieldQueue(container,crumb,notice='') {
         const state = await ensureBloomscapesFieldQueue();
         if (!host.isConnected || owner!==getSupabaseReadIdentityScope() || tab!==activeReqTab) return;
         const rows = state.rows.filter(row=>row.work_view===kind);
+        prepareBloomscapesJobFacets(rows);
         const matches = rows.filter(matchesBloomscapesJobBoardFilters);
         status.textContent = `${matches.length} work cards · ${getBloomscapesFarm()}${notice ? ' · '+notice : ''}`;
         const list = host.appendChild(document.createElement('div'));
@@ -202,7 +203,21 @@ function configureBloomscapesCompletionForm(form,job) {
 }
 
 function renderBloomscapesWorkGroups(list,rows,status,kind) {
-    if (kind!=='CAN_FILLING') return list.replaceChildren(...rows.map(row=>renderBloomscapesFieldWorkCard(row,status)));
+    const paint=offset=>{
+        list.replaceChildren();
+        const page=rows.slice(offset,offset+50);
+        if (kind==='CAN_FILLING') renderBloomscapesCanGroups(list,page,status);
+        else list.append(...page.map(row=>renderBloomscapesFieldWorkCard(row,status)));
+        for (const [label,start] of [['Previous 50',offset-50],['Next 50',offset+50]]) {
+            if (start<0 || start>=rows.length) continue;
+            const button=list.appendChild(document.createElement('button'));
+            button.type='button';button.textContent=label;button.onclick=()=>paint(start);
+        }
+    };
+    paint(0);
+}
+
+function renderBloomscapesCanGroups(list,rows,status) {
     const groups = new Map();
     for (const row of rows) {
         const key = [row.command?.media || 'Media not specified',row.command?.fertilizer || 'Fertilizer not specified',row.target_location || 'No target block'].join(' · ');

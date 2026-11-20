@@ -27,30 +27,44 @@ function selectBloomscapesFarm(farm) {
     state.farm = farm;
     state.confirmed = true;
     state.busy = true;
-    persistBloomscapesSessionFarm(state);
     const selector = document.getElementById('bloomscapes-farm-selector');
     if (selector) selector.value = farm;
     if (previous!==farm) resetBloomscapesFarmNavigation();
-    state.selection = hydrateBloomscapesChosenFarm(state,farm);
+    state.selection = hydrateBloomscapesChosenFarm(state,farm,previous);
     return state.selection;
 }
 
-async function hydrateBloomscapesChosenFarm(state,farm) {
+async function hydrateBloomscapesChosenFarm(state,farm,previous) {
     try {
         const snapshot = getBloomscapesWarmFarm(farm) || await ensureBloomscapesWarmFarm(farm);
         if (state!==bloomscapesFarmState || state.farm!==farm) throw new Error('Signed-in account changed.');
         activateBloomscapesWarmFarm(snapshot);
         state.readyFarm = farm;
+        persistBloomscapesSessionFarm(state);
         globalThis.dispatchEvent?.(new CustomEvent('bloomscapes-farm-ready'));
         renderBloomscapesFarmNavigation();
+        scheduleBloomscapesFarmRevalidation(state,farm);
+        return farm;
+    } catch (error) {
+        if (state===bloomscapesFarmState && state.readyFarm!==farm) {
+            state.farm=previous;
+            renderBloomscapesFarmNavigation();
+        }
+        throw error;
+    } finally {
+        if (state===bloomscapesFarmState) { state.busy = false; state.selection = null; }
+    }
+}
+
+function scheduleBloomscapesFarmRevalidation(state,farm) {
+    const refresh = () => {
+        if (state!==bloomscapesFarmState || state.farm!==farm || state.readyFarm!==farm) return;
         void refreshBloomscapesWarmFarm(farm);
         void prewarmBloomscapesFarms();
         if (typeof ensureBloomscapesFieldQueue==='function') void ensureBloomscapesFieldQueue(true).catch(error=>
             globalThis.reportHandledRuntimeIssue?.('field_work_queue',error.code || 'FIELD_WORK_READ_FAILED'));
-        return farm;
-    } finally {
-        if (state===bloomscapesFarmState) { state.busy = false; state.selection = null; }
-    }
+    };
+    requestAnimationFrame(()=>setTimeout(refresh,0));
 }
 
 function bloomscapesFarmNeedsHydration() {
@@ -182,7 +196,7 @@ function getBloomscapesJobBoardFilters(tab=activeReqTab) {
 }
 
 function setBloomscapesJobBoardFilter(key,value) {
-    if (!['assigned','block','search'].includes(key)) return;
+    if (!['assigned','block','search','priorityStatus'].includes(key)) return;
     getBloomscapesJobBoardFilters()[key] = String(value || '');
     scheduleTrackedSearchViewRender('request','job-board-filter',String(value || ''),{force:true,debounceDelay:1,typingDelay:18});
 }
@@ -191,6 +205,7 @@ function matchesBloomscapesJobBoardFilters(row) {
     const filter = getBloomscapesJobBoardFilters();
     const farm = row.farm_code || bloomscapesRowFarm(row);
     if (farm!==getBloomscapesFarm()) return false;
+    if (filter.priorityStatus && !bloomscapesJobPriorityStatus(row).includes(filter.priorityStatus)) return false;
     const rawOwner = row.work_view ? row.assigned_to : typeof getAssignedQueueOwner==='function'
         ? getAssignedQueueOwner(row) : row.ASSIGNEDTO || row.assignedto || row.EVAL_USER || row.eval_user || '';
     const owner = String(typeof normalizeEvalAssignableUser==='function' ? normalizeEvalAssignableUser(rawOwner) : rawOwner || '').trim().toLowerCase();
@@ -202,4 +217,10 @@ function matchesBloomscapesJobBoardFilters(row) {
     if (filter.block && !locations.includes(filter.block.toLowerCase().trim())) return false;
     const text = [row.ITEMCODE,row.itemcode,row.COMMONNAME,row.commonname,row.action_type,row.instructions,locations,row.command?.media,row.command?.fertilizer].filter(Boolean).join(' ').toLowerCase();
     return filter.search.toLowerCase().trim().split(/\s+/).every(term=>text.includes(term));
+}
+
+function bloomscapesJobPriorityStatus(row) {
+    const priority = row.PRIORITY || row.priority || row.priority_code;
+    const status = row.STATUS || row.status || row.workflow_status || row.REQUEST_STATUS;
+    return [priority && 'Priority '+priority,status && 'Status '+status].filter(Boolean);
 }

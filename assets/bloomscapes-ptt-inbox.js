@@ -1,6 +1,9 @@
 const bloomscapesRadioInbox={owner:'',farm:'',calls:[],count:0,channel:null,pending:null,generation:0,audio:null};
 async function refreshBloomscapesRadioInbox() {
     if (!window.BloomscapesBatteryGovernor.visible()) return;
+    const access=bloomscapesCommAccess('walkie');
+    if (access===false) return clearUnavailableRadioInbox();
+    if (!access) return;
     const {client,owner}=await requireBloomscapesSession();
     await requireBloomscapesOwner(owner);
     if (!window.BloomscapesBatteryGovernor.visible()) return;
@@ -14,19 +17,22 @@ async function refreshBloomscapesRadioInbox() {
     const generation=state.generation;
     state.pending=bloomscapesRadioRpc(client,'gnc_radio_unplayed',{p_farm:farm}).then(async receipt=>{
         await requireBloomscapesOwner(owner);
-        if (generation!==state.generation || state.owner!==owner || getBloomscapesFarm()!==farm) return;
+        if (generation!==state.generation || state.owner!==owner || getBloomscapesFarm()!==farm || bloomscapesCommAccess('walkie')!==true) return;
         if(!Array.isArray(receipt?.calls) || !Number.isSafeInteger(receipt.count) || receipt.count<0)throw Error('Radio inbox receipt unavailable; saved calls are retained.');
         state.calls=receipt.calls;state.count=receipt.count;
         renderBloomscapesRadioInbox();
         void refreshBloomscapesComm().catch(reportBloomscapesRadioInboxFailure);
         if (bloomscapesRadioAutoPlay() && !document.hidden && !state.audio && state.calls.length) void playNextBloomscapesRadioCall();
-    }).finally(()=>{if(generation===state.generation)state.pending=null;});
+    }).catch(error=>handleRadioReadFailure(error,generation)).finally(()=>{if(generation===state.generation)state.pending=null;});
     return state.pending;
 }
 async function connectBloomscapesRadioInbox(refresh = true) {
     if (!nativeAuthSessionActive || !currentUser) return disconnectBloomscapesRadioInbox();
     if (!window.BloomscapesBatteryGovernor.visible()) return;
     void connectBloomscapesMessages().catch(reportBloomscapesMessagesFailure);
+    const access=bloomscapesCommAccess('walkie');
+    if (access===false) return clearUnavailableRadioInbox();
+    if (!access) return;
     const {owner}=await requireBloomscapesSession(),state=bloomscapesRadioInbox;
     if (state.channel && state.owner!==owner) await disconnectBloomscapesRadioInbox();
     await requireBloomscapesOwner(owner);
@@ -36,6 +42,23 @@ async function connectBloomscapesRadioInbox(refresh = true) {
     }
     if (refresh) await refreshBloomscapesRadioInbox();
 }
+function clearUnavailableRadioInbox() {
+    const state=bloomscapesRadioInbox;
+    state.channel?.();
+    state.generation++;
+    releaseBloomscapesRadioPlayback();
+    Object.assign(state,{channel:null,owner:'',farm:'',calls:[],count:0,pending:null});
+    renderBloomscapesRadioInbox();
+}
+
+function handleRadioReadFailure(error,generation) {
+    if (generation!==bloomscapesRadioInbox.generation) return;
+    const kind=bloomscapesOptionalCommFailure(error);
+    if (kind==='denied') return clearUnavailableRadioInbox();
+    if (kind==='unavailable') return showBloomscapesCommStatus('Radio inbox refresh is temporarily unavailable.');
+    throw error;
+}
+
 async function disconnectBloomscapesRadioInbox() {
     const state=bloomscapesRadioInbox,channel=state.channel;
     state.generation++;

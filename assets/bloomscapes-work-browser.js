@@ -10,7 +10,9 @@ function bloomscapesWorkViewForPanel(tab) {
 
 function bloomscapesWorkBrowserRows(search='',filters={}) {
     const terms = search.toLowerCase().trim().split(/\s+/).filter(Boolean);
-    return (fullInventory || []).filter(bloomscapesFarmRowIsVisible).filter(row=>{
+    const source = bloomscapesWorkBrowserDataset();
+    if (!terms.length && !Object.values(filters).some(Boolean)) return source.rows;
+    return source.rows.filter(row=>{
         const values = bloomscapesWorkBrowserIdentity(row);
         return Object.entries(filters).every(([key,value])=>!value || values[key]===value)
             && terms.every(term=>Object.values(values).join(' ').toLowerCase().includes(term));
@@ -90,9 +92,8 @@ function renderBloomscapesWorkBrowser(host,state) {
     for (const button of host.querySelectorAll('[data-work-mode]')) button.setAttribute('aria-pressed',String(button.dataset.workMode===state.mode));
     const list=host.querySelector('[data-work-source-cards]');
     if (typeof parkBloomscapesWorkRowEditor==='function') parkBloomscapesWorkRowEditor(host);
-    const cards=projection.leaf ? projection.rows.map(row=>bloomscapesWorkSourceCard(row,state.onSelect,state.options))
-        : projection.groups.map(([key,count])=>bloomscapesWorkBrowseGroup(host,state,key,count,projection.rows));
-    list.replaceChildren(...cards);
+    if (projection.leaf) renderBloomscapesListWindow(list,projection.rows,row=>bloomscapesWorkSourceCard(row,state.onSelect,state.options));
+    else renderBloomscapesListWindow(list,projection.groups,([key,count])=>bloomscapesWorkBrowseGroup(host,state,key,count,projection.rows));
 }
 
 function renderBloomscapesWorkGroupSelection(host,state,rows) {
@@ -142,7 +143,7 @@ function mountBloomscapesWorkFilters(host,state) {
         const label=filters.appendChild(document.createElement('label'));label.textContent=title;
         const select=label.appendChild(document.createElement('select'));select.dataset.workFilter=key;
         const all=document.createElement('option');all.textContent='All';all.value='';select.appendChild(all);
-        const values=[...new Set(bloomscapesWorkBrowserRows().map(row=>bloomscapesWorkBrowserIdentity(row)[key]))].filter(Boolean).sort();
+        const values=bloomscapesWorkBrowserDataset().options[key];
         values.forEach(value=>{const option=document.createElement('option');option.textContent=value;option.value=value;select.appendChild(option);});
         select.addEventListener('change',()=>{state.path=[];renderBloomscapesWorkBrowser(host,state);});
     }
@@ -215,4 +216,19 @@ function bloomscapesConsolidationDestinationLabel(row) {
     const space=row.CANSPACE ?? row.can_space ?? 'Not recorded';
     return 'LOCATIONCODE '+value('LOCATIONCODE')+' · LOTCODE '+value('LOTCODE')+' · PTRAVAILABLE '+value('PTRAVAILABLE')
         +' · PTRREVIEW '+value('PTRREVIEW')+' · PTRONHAND '+value('PTRONHAND')+' · Open Beds / Can Space '+beds+' beds / '+space+' cans';
+}
+
+function bloomscapesWorkBrowserDataset() {
+    const owner = getSupabaseReadIdentityScope();
+    const epoch = typeof resolvedViewStateEpoch === 'number' ? resolvedViewStateEpoch : 0;
+    const prior = bloomscapesWorkBrowserDataset.cached;
+    if (prior?.source===fullInventory && prior.owner===owner && prior.epoch===epoch) return prior;
+    const rows = (fullInventory || []).filter(bloomscapesFarmRowIsVisible);
+    const options = Object.fromEntries(['common','year','season','lot','size','hold'].map(key=>[key,new Set()]));
+    for (const row of rows) {
+        const identity = bloomscapesWorkBrowserIdentity(row);
+        for (const key of Object.keys(options)) if (identity[key]) options[key].add(identity[key]);
+    }
+    const sorted = Object.fromEntries(Object.entries(options).map(([key,values])=>[key,[...values].sort()]));
+    return bloomscapesWorkBrowserDataset.cached = {source:fullInventory,owner,epoch,rows,options:sorted};
 }

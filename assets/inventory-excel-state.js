@@ -1,5 +1,6 @@
 function getInventoryExcelFields(scope = '') {
     if (scope==='reclass') return [];
+    if (scope==='request' || scope==='suspend') return [['username','Assigned To']];
     const fields=[['username','Assigned To'],['stock','Stock / Season'],['view','View'],['genus','Genus'],
         ['plantgroupcode','Plant Group'],['contsize','Container Size'],['salesrep','Sales Rep'],['customer','Customer / Consignee']];
     if (scope === 'docks') fields.unshift(['commonname','Common Name']);
@@ -27,12 +28,24 @@ function inventoryExcelRowMatches(row, state, ignore = '') {
     return getInventoryExcelFacts(row,state).some(fact=>inventoryExcelFactMatches(fact,state.filters,ignore));
 }
 function getInventoryExcelOptions(state, field) {
+    const driveKey = state.scope === 'drive' ? getDriveQuickFilterStateKey(getDrivePlantFilterScopeKey(state.rows)) : '';
+    const photoMode = state.scope === 'av' ? getAvPhotoMode() : '';
+    const filtersKey = Object.entries(state.filters).map(([key, values])=>[key, values ? [...values].sort() : null]);
+    const key = JSON.stringify([state.revision, driveKey, photoMode, filtersKey]);
+    if (state.optionsKey !== key) {
+        state.optionsKey = key;
+        state.options = new Map();
+        state.optionTotals = new Map();
+    }
+    if (state.options.has(field)) return state.options.get(field);
     const counts = new Map();
     const candidates = state.scope === 'drive' ? getDriveExcelFacetRows(state.rows, field) : state.rows;
+    let matchingRows = 0;
     const filters = { ...state.filters };
     if (state.scope === 'av' && getAvPhotoMode() === 'valid_photos') delete filters.season;
     for (const row of candidates) {
         const facts = getInventoryExcelFacts(row, state).filter(fact => inventoryExcelFactMatches(fact, filters, field));
+        if (facts.length) matchingRows++;
         const values = new Map(facts.flatMap(fact => (fact[field] || []).map(value => [inventoryExcelKey(value), value])));
         for (const [key, label] of values) {
             const entry = counts.get(key) || { key, label, count: 0 };
@@ -40,15 +53,23 @@ function getInventoryExcelOptions(state, field) {
             counts.set(key, entry);
         }
     }
-    return [...counts.values()].sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' }));
+    const options = [...counts.values()].sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' }));
+    state.options.set(field, options);
+    state.optionTotals.set(field,matchingRows);
+    return options;
 }
 function applyInventoryExcelFilters(scope, rows) {
     if (scope==='reclass') return Array.isArray(rows)?rows:[];
     const state = getInventoryExcelState(scope);
     const allowed = new Set(getInventoryExcelFields(scope).map(([key]) => key));
     for (const key of Object.keys(state.filters)) if (!allowed.has(key)) delete state.filters[key];
-    if (state.rows!==rows) state.revision++;
-    state.rows = Array.isArray(rows) ? rows : []; state.facts = new WeakMap();
+    const epoch = typeof resolvedViewStateEpoch === 'number' ? resolvedViewStateEpoch : 0;
+    if (state.rows!==rows || state.sourceEpoch!==epoch) {
+        state.rows = Array.isArray(rows) ? rows : [];
+        state.sourceEpoch = epoch;
+        state.revision++;
+        state.facts = new WeakMap();
+    }
     const committed=typeof document !== 'undefined' && typeof commitActiveRequestExcelFilters === 'function'
         && commitActiveRequestExcelFilters(scope);
     if (typeof document !== 'undefined' && !committed && !state.paintPending) {

@@ -173,14 +173,6 @@ html body #app-wrapper #view-request #request-filter-toolbar [data-job-board-too
 @media (max-width:900px) {
   html body #app-wrapper #view-request #request-filter-toolbar [data-job-board-tools] { grid-template-columns:repeat(2,minmax(0,1fr)); gap:4px !important; }
 }
-.bloomscapes-transfer-builder > h2 {position:sticky;top:0;z-index:30;background:#0b2417;padding:1rem;font-weight:800;}
-.bloomscapes-transfer-builder [data-transfer-carts] {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:.5rem;}
-.bloomscapes-transfer-builder [data-transfer-carts] > section,.bloomscapes-transfer-card {background:#0b2417;border:1px solid #275a40;border-radius:12px;padding:.8rem;margin:.5rem 0;}
-.bloomscapes-transfer-card summary {font-weight:750;cursor:pointer;min-height:44px;}
-.bloomscapes-transfer-card dl {display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.6rem;}
-.bloomscapes-transfer-card dd {font-weight:800;color:#b9f7cc;}.bloomscapes-transfer-card progress {width:100%;height:20px;accent-color:#44d18a;}
-.bloomscapes-transfer-builder button,.bloomscapes-transfer-builder input,.bloomscapes-transfer-builder select {min-height:44px;background:#123e29;color:#e1f9e9;border:1px solid #397b51;border-radius:8px;padding:.5rem;}
-
 #view-managers .manager-module-freeze {background:#0b2417 !important;z-index:30 !important;opacity:1;isolation:isolate;}
 
 @layer bloomscapes-battery {
@@ -248,8 +240,8 @@ html body :is(.inventory-card,.drive-card,.app-smart-card,.metric-tile,tr)::afte
 [data-work-row-editor],[data-shift-plan] {min-width:0;}
 
 [data-transfer-filter-bar] {display:flex;align-items:end;gap:.5rem;flex-wrap:nowrap;max-width:100%;overflow-x:auto;}
-[data-transfer-filter-bar] label {min-width:0;flex:1;}
-[data-transfer-filter-bar] [data-po-seasons] {width:100%;min-width:170px;}
+
+
 [data-work-creator] > [data-studio-excel] {order:-1;}
 [data-work-type-bar] {padding:0;gap:.4rem;}
 [data-work-type-bar] > [data-phase-heading] {display:none;}
@@ -354,7 +346,7 @@ html body #bloomscapes-detail-dispatch:empty { display:none!important; }
 html body [data-department-shortcuts] [data-department-module="studio"] { display:none; }
 @media (max-width:639px) {
   html body input,html body select,html body textarea { font-size:16px; }
-  html body.ops-precision-pilot.current-view-home.home-dashboard-mode #app-wrapper #view-home #home-dashboard-grid[data-bloomscapes-home] .home-module-tile span { font-size:10px !important; }
+  html body.ops-precision-pilot.current-view-home.home-dashboard-mode #app-wrapper #view-home #home-dashboard-grid[data-bloomscapes-home] .home-module-tile span { font-size:13px !important; font-weight:600!important; }
   html body .bloomscapes-compact-select select { font-size:16px; }
 }
 

@@ -100,9 +100,7 @@ function mountSalesStudioLots(host,key) {
     const render=()=>{
         const rows=bloomscapesWorkBrowserRows(search.value).map(row=>resolveCanonicalInventoryRow(row))
             .filter(row=>Number(row.LOC_PHOTO_MATCH)>0);
-        list.replaceChildren(...rows.slice(0,50).map(row=>buildBloomscapesSalesInventoryCard(row,key)));
-        if (rows.length>50) list.append('Showing 50 of '+rows.length+' lots. Refine your search.');
-        if (!rows.length) list.textContent='No matching evaluated lots.';
+        renderBloomscapesListWindow(list,rows,row=>buildBloomscapesSalesInventoryCard(row,key),'No matching evaluated lots.');
     };
     search.addEventListener('input',render);render();
 }
@@ -116,34 +114,35 @@ function mountSalesRepRecords(host) {
     rep.type='search';rep.placeholder='Filter by sales rep';rep.setAttribute('aria-label',rep.placeholder);
     const list=host.appendChild(document.createElement('div'));
     list.className='bloomscapes-sales-card-list';
+    const previous=host.appendChild(document.createElement('button'));
+    previous.type='button';previous.className='sales-studio-navigation';previous.textContent='Previous';
     const more=host.appendChild(document.createElement('button'));
     more.type='button';more.className='sales-studio-navigation';more.textContent='Load more';
-    const state={kind,rep,list,more,page:0,revision:0,owner:getSupabaseReadIdentityScope(),farm:getBloomscapesFarm()};
-    rep.addEventListener('change',()=>loadSalesRepRecords(state,true));
-    kind.addEventListener('change',()=>loadSalesRepRecords(state,true));
-    more.addEventListener('click',()=>loadSalesRepRecords(state,false));
-    void loadSalesRepRecords(state,true);
+    const state={kind,rep,list,more,previous,page:0,revision:0,owner:getSupabaseReadIdentityScope(),farm:getBloomscapesFarm()};
+    rep.addEventListener('change',()=>loadSalesRepRecords(state,0));
+    kind.addEventListener('change',()=>loadSalesRepRecords(state,0));
+    previous.addEventListener('click',()=>loadSalesRepRecords(state,state.page-1));
+    more.addEventListener('click',()=>loadSalesRepRecords(state,state.retryPage ?? state.page+1));
+    void loadSalesRepRecords(state,0);
 }
 
-async function loadSalesRepRecords(state, reset) {
-    const {kind,rep,list,more}=state;
+async function loadSalesRepRecords(state, page) {
+    const {kind,rep,more}=state;
     const current=++state.revision;
-    if (reset) {
-        state.page=0;
-        list.replaceChildren();
-    }
+    state.previous.disabled=true;
+    state.retryPage=page;
     more.disabled=true;
-    more.textContent='Load more';
+    more.textContent='Next';
     try {
-        const rows=await readBloomscapesPanel('sales-studio-records',{kind:kind.value,page:state.page,rep:rep.value.trim()});
-        if (ownsSalesRepPage(state,current)) showSalesRepPage(state,rows);
+        const rows=await readBloomscapesPanel('sales-studio-records',{kind:kind.value,page,rep:rep.value.trim()});
+        if (ownsSalesRepPage(state,current)) showSalesRepPage(state,rows,page);
     } catch (error) {
         if (ownsSalesRepPage(state,current)) {
             more.hidden=false;
             more.textContent='Retry · '+error.message;
         }
     } finally {
-        if (state.revision===current) more.disabled=false;
+        if (state.revision===current) { more.disabled=false; state.previous.disabled=state.page===0; }
     }
 }
 
@@ -152,11 +151,13 @@ function ownsSalesRepPage(state, revision) {
         && state.owner===getSupabaseReadIdentityScope() && state.farm===getBloomscapesFarm();
 }
 
-function showSalesRepPage(state, rows) {
+function showSalesRepPage(state, rows, page) {
     const lookup=createSalesStudioTargetLookup();
-    state.list.append(...rows.map(row=>buildSalesRepRecordCard(row,lookup(row))));
+    state.retryPage=null;
+    if (page && !rows.length) { state.more.hidden=true; return; }
+    state.page=page;
+    state.list.replaceChildren(...rows.slice(0,50).map(row=>buildSalesRepRecordCard(row,lookup(row))));
     if (!state.page && !rows.length) state.list.textContent='No matching records.';
-    state.page++;
     state.more.hidden=rows.length<50;
 }
 

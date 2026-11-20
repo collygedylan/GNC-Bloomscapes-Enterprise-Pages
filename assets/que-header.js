@@ -79,7 +79,9 @@ function clearRequestHeaderSearch() {
 
 function buildPendingRequestRenderPlan(items) {
     const crumbText = 'All Request Que';
-    const candidates = items.filter(matchesQueHeaderSearch).filter(matchesBloomscapesJobBoardFilters).filter(isRequestPendingVisible).filter(isRegularRequestQueueItem);
+    const eligible = items.filter(isRequestPendingVisible).filter(isRegularRequestQueueItem);
+    prepareBloomscapesJobFacets(eligible);
+    const candidates = eligible.filter(matchesQueHeaderSearch).filter(matchesBloomscapesJobBoardFilters);
     const pendingItems = typeof applyInventoryExcelFilters === 'function' ? applyInventoryExcelFilters('request',candidates) : candidates;
     if (typeof rememberOperationalExport === 'function') rememberOperationalExport('request',pendingItems);
     if (!pendingItems.length) return { empty: true, crumbText, items: [], rows: [], pageIndex: 0, renderKey: '', renderSignature: '', footerMarkup: '' };
@@ -157,7 +159,7 @@ function syncQueCategoryButtons(group, categories) {
     if (!group) return;
     const options = categories.map(({key,label,count}) =>
         `<option value="${escapeHtml(key)}"${activeReqTab===key ? ' selected' : ''}>${escapeHtml(label)} (${escapeHtml(formatRequestTabCount(count))})</option>`).join('');
-    const markup = `<label class="bloomscapes-compact-select">Queue<select id="que-view-select" aria-label="Queue" onchange="setReqTab(this.value)"${categories.length<=1 ? ' disabled' : ''}>${options}</select></label>`;
+    const markup = `<label class="bloomscapes-compact-select"><select id="que-view-select" aria-label="Queue" onchange="setReqTab(this.value)"${categories.length<=1 ? ' disabled' : ''}>${options}</select></label>`;
     const focused = group.contains(document.activeElement);
     if (syncRequestChromeMarkup(group,markup,requestCategoryToolbarMarkupByNode) && focused) {
         group.querySelector('select')?.focus({preventScroll:true});

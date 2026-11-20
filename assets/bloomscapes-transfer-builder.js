@@ -2,15 +2,13 @@ const bloomscapesTransferMounts = new WeakMap();
 const bloomscapesTransferNumberFormat=new Intl.NumberFormat(undefined,{maximumFractionDigits:2});
 
 function renderBloomscapesTransferBuilder() {
+    const pairs=[['ALL','ALL'],...['60-HL','20-TX','40-NC'].flatMap(origin=>['F1','S1'].map(season=>[origin,season]))];
+    const pills=pairs.map(([origin,season])=>`<button type="button" data-po-origin="${origin}" data-po-season="${season}"><span>${origin==='ALL'?'All POs':origin.slice(3)+' '+season}</span><small></small></button>`).join('');
     return `<section data-bloomscapes-workflow="bloomscapes-replenishment" class="bloomscapes-transfer-builder">
-      <h2>PO Management · Intercompany Transfer Order Builder</h2>
-      <div id="hl-order-search-container"><input id="hl-order-search" type="search" placeholder="Search PO Management..." aria-label="Search PO Management"></div>
-      <div data-transfer-excel></div><div data-transfer-filter-bar><label>Origin <select data-origin-filter><option>ALL</option><option>60-HL</option><option>40-NC</option><option>20-TX</option></select></label>
-      <label>Season / PO Look <select data-po-seasons>${[['ALL','ALL SEASONS'],['F1','F1 POs (Fall · .F1)'],['S1','S1 POs (Spring · .S1)'],['OTHER','Other (.U1 / .U2 / .X / .Y)']].map(([value,label])=>
-        `<option value="${value}" data-po-season="${value}" data-label="${label}">${label}</option>`).join('')}</select></label>
-      <label><input type="checkbox" data-po-history> Show Completed / 0-Balance History</label></div>
-      <div data-transfer-carts></div>
-      <p role="status"></p><div data-transfer-cards></div></section>`;
+        <nav data-transfer-filter-bar aria-label="Purchase orders">${pills}<label><input type="checkbox" data-po-history> History</label>
+        <select aria-label="Container / Genus" data-po-facet><option value="">Container / Genus</option></select></nav>
+        <div data-transfer-carts></div><p role="status" aria-live="polite"></p><div data-transfer-cards></div>
+        <nav data-po-pagination aria-label="Purchase order pages"></nav></section>`;
 }
 
 async function mountBloomscapesTransferBuilder(host) {
@@ -22,33 +20,29 @@ async function mountBloomscapesTransferBuilder(host) {
         return;
     }
     const filters=getBloomscapesTransferFilters();
-    const state={root,owner:bloomscapesTransferOwner(),rows:[],cards:[],loading:false,filters};
+    const state={root,owner:bloomscapesTransferOwner(),rows:[],cards:[],offset:0,drafts:new Map(),revision:0,filters};
     bloomscapesTransferMounts.set(root,state);
-    root.querySelector('[data-origin-filter]').value=filters.origin;
     root.querySelector('[data-po-history]').checked=filters.history;
-    root.querySelector('[data-po-seasons]').value=filters.season;
-    const search=root.querySelector('#hl-order-search');search.value=filters.query || '';
-    search.addEventListener('input',()=>{filters.query=search.value.slice(0,200);filterBloomscapesTransferCards(state);});
+    syncGlobalHeaderChrome({reason:'purchase-order-search',force:true});
     bindBloomscapesTransferFilters(state);
     await loadBloomscapesTransferCards(state);
 }
 
 async function loadBloomscapesTransferCards(state) {
-    if (state.loading) return;
-    state.loading=true;
+    const revision=++state.revision;
     state.root.dataset.transferLoading='true';
     try {
         const rows=await readBloomscapesPanel('bloomscapes-replenishment',{includeHistory:state.filters.history});
-        if (!state.root.isConnected || state.owner!==bloomscapesTransferOwner()) return;
-        const drafts=captureBloomscapesTransferCards(state.cards);
-        state.rows=rows;state.cards=[];
+        if (revision!==state.revision || !state.root.isConnected || state.owner!==bloomscapesTransferOwner()) return;
+        state.rows=rows.map(po=>({...po,genus:buildInventoryExcelFact(po).genus}));
         state.ready=true;
-        const host=state.root.querySelector('[data-transfer-cards]');host.replaceChildren();
-        rows.forEach(po=>state.cards.push(createBloomscapesTransferCard(host,po,state)));
-        filterBloomscapesTransferCards(state);refreshBloomscapesTransferProjection(state);
-        restoreBloomscapesTransferCards(state.cards,drafts);
-    } catch(error) {state.root.querySelector('[role=status]').textContent=error.message;}
-    finally {state.loading=false;state.root.dataset.transferLoading='false';}
+        populateBloomscapesPoOptions(state);
+        filterBloomscapesTransferCards(state);
+    } catch(error) {
+        if (revision===state.revision) state.root.querySelector('[role=status]').textContent=error.message;
+    } finally {
+        if (revision===state.revision) state.root.dataset.transferLoading='false';
+    }
 }
 
 function captureBloomscapesTransferCards(cards) {
@@ -69,8 +63,8 @@ function restoreBloomscapesTransferCards(cards,drafts) {
 
 function createBloomscapesTransferCard(host,po,state) {
     po={...po,targets:matchingBloomscapesPoTargets(po)};
-    const card=document.createElement('details');card.dataset.poId=po.po_id;card.className='bloomscapes-transfer-card';
-    card.innerHTML='<summary><span data-transfer-title></span><strong data-po-lot></strong><span data-transfer-metrics></span><span data-po-line></span></summary><div class="bloomscapes-transfer-drawer"><label>Target Block / Location <select data-transfer-target></select></label>'
+    const card=document.createElement('details');card.dataset.poId=po.po_id;card.className='app-smart-card app-drive-compact-card bloomscapes-transfer-card';
+    card.innerHTML='<summary class="po-card-face"><div class="po-card-heading"><strong data-transfer-title></strong><span data-po-size></span><code data-po-item></code><span data-po-lot></span><span data-po-line></span></div><div data-transfer-metrics class="po-metrics"></div></summary><div class="bloomscapes-transfer-drawer"><label>Target Block / Location <select data-transfer-target></select></label>'
         +'<dl data-transfer-facts></dl><progress max="100" value="0" aria-label="Block fullness"></progress>'
         +'<form novalidate><label>Transfer Qty <input name="quantity" type="number" min="1" step="1" required></label>'
         +'<button type="button" data-action="add-transfer-line"></button><p data-transfer-message role="status"></p></form></div>';
@@ -81,6 +75,13 @@ function createBloomscapesTransferCard(host,po,state) {
     if (selected) select.value=selected.row_id;
     const entry={card,po,select};
     select.addEventListener('change',()=>updateBloomscapesTransferCard(entry,true));
+    const remove=card.querySelector('form').appendChild(document.createElement('button'));
+    remove.type='button';remove.dataset.removeTransfer='';remove.textContent='Remove staged line';
+    remove.onclick=()=>{
+        const target=po.targets.find(row=>row.row_id===select.value);
+        const line=getBloomscapesTransferState().lines.find(row=>row.poId===po.po_id && row.targetId===target?.row_id);
+        if (line && removeBloomscapesTransferLine(line.id)) refreshBloomscapesTransferProjection(state,line);
+    };
     card.querySelector('[data-action="add-transfer-line"]').addEventListener('click',event=>{
         event.preventDefault();
         if (state.owner!==bloomscapesTransferOwner() || !state.root.isConnected) return;
@@ -98,13 +99,20 @@ function createBloomscapesTransferCard(host,po,state) {
 function updateBloomscapesTransferCard(entry,reset=false) {
     const {card,po,select}=entry,target=po.targets.find(row=>row.row_id===select.value);
     const p=target ? bloomscapesTransferProjection(po,target) : null;
-    setBloomscapesTransferText(card.querySelector('[data-transfer-title]'),`${po.commonname || po.itemcode} · ${po.contsize || ''} · ${po.itemcode}`);
-    setBloomscapesTransferText(card.querySelector('[data-transfer-metrics]'),` · ${po.origin_farm} → 10-PH · Target ${target?.blockalpha || ''}.${target?.blocknumber || ''} / ${target?.locationcode || 'No matching receiving row'}`
-        +` · PO Remaining ${p?.remaining ?? po.remaining_on_po} · 10-PH PTR On Hand ${target?.current_ptronhand ?? 0} · Origin Available ${p?.available ?? po.origin_on_hand}`);
-    const badge=card.querySelector('[data-po-lot]');badge.textContent=po.po_season || 'Season unrecorded';badge.dataset.season=po.season_bucket;
-    card.querySelector('[data-po-line]').textContent=` · PO ${po.po_number || 'unrecorded'} · Page ${po.source_page || '—'} · Line ${po.po_line || po.po_id} · ${po.delivery_window || 'Delivery unrecorded'}`;
+    setBloomscapesTransferText(card.querySelector('[data-transfer-title]'),po.commonname || po.itemcode);
+    setBloomscapesTransferText(card.querySelector('[data-po-item]'),po.itemcode);
+    setBloomscapesTransferText(card.querySelector('[data-po-size]'),po.contsize || '—');
+    const badge=card.querySelector('[data-po-lot]');
+    badge.textContent=po.po_season || '—';badge.dataset.season=po.season_bucket;
+    card.querySelector('[data-po-line]').textContent=`${po.origin_farm.slice(3)} ${po.season_bucket || ''} · PO ${po.po_number || '—'} · P${po.source_page || '—'}/L${po.po_line || '—'}`;
+    const remaining=p?.remaining ?? po.remaining_on_po;
+    const metrics=[['PO REM',remaining],['10-PH ON HAND',target?.current_ptronhand],['ORIGIN AVAIL',p?.available ?? po.origin_on_hand],
+        ['TARGET LOC',target?.locationcode],['STATUS',remaining<=0?'Complete':!target?'Needs target':p?.suggested?'Ready':'Review']];
+    card.querySelector('[data-transfer-metrics]').innerHTML=metrics.map(([label,value])=>
+        '<span class="app-card-qty-chip"><small class="app-card-qty-label">'+label+'</small><strong class="app-card-qty-value">'+escapeHtml(String(value ?? '—'))+'</strong></span>').join('');
     const form=card.querySelector('form'),button=form.querySelector('button');
     const staged=getBloomscapesTransferState().lines.find(line=>line.poId===po.po_id && line.targetId===target?.row_id);
+    card.querySelector('[data-remove-transfer]').hidden=!staged;
     const limit=target ? bloomscapesTransferProjection(po,target,staged?.id) : null;
     button.textContent=staged ? `✓ Added ${staged.quantity} Cans (${(staged.quantity/staged.cpb).toFixed(2)} Beds) — Update Qty` : `+ Add to ${po.origin_farm} Transfer Order`;
     button.disabled=!limit?.suggested;
@@ -135,35 +143,89 @@ function renderBloomscapesTransferFacts(entry,facts) {
         value==null ? 'Unmeasured · review' : bloomscapesTransferNumberFormat.format(value));
 }
 
+function populateBloomscapesPoOptions(state) {
+    const select=state.root.querySelector('[data-po-facet]');
+    const fragment=document.createDocumentFragment();
+    fragment.appendChild(new Option('Container / Genus',''));
+    for (const [field,label] of [['contsize','Container'],['genus','Genus']]) {
+        const values=[...new Set(state.rows.map(po=>po[field] || po[field.toUpperCase()]).filter(Boolean))].sort();
+        const group=fragment.appendChild(document.createElement('optgroup'));group.label=label;
+        for (const value of values) group.appendChild(new Option(value,JSON.stringify([field,value])));
+    }
+    select.replaceChildren(fragment);select.value=state.filters.facet || '';
+    state.filters.facet=select.value;
+    for (const button of state.root.querySelectorAll('[data-po-origin]')) {
+        const {poOrigin,poSeason}=button.dataset;
+        const rows=state.rows.filter(po=>(poOrigin==='ALL' || poOrigin===po.origin_farm) && matchesBloomscapesPoSeason(po,poSeason));
+        const count=rows.reduce((sum,po)=>sum+Number(po.remaining_on_po),0);
+        button.querySelector('small').textContent=rows.length?rows.length+' lines · '+count.toLocaleString()+' cans':'';
+    }
+}
+
 function filterBloomscapesTransferCards(state) {
-    const {origin}=state.filters;
-    const rows=reconcileBloomscapesTransferSeason(state.filters,state.rows);
-    const filtered=applyInventoryExcelFilters('po',rows);
-    const visible=filtered.filter(po=>matchesBloomscapesPoSeason(po,state.filters.season) && matchesBloomscapesPoSearch(po,state.filters.query));
-    const visibleIds=new Set(visible.map(po=>po.po_id));
-    state.root.querySelector('[data-origin-filter]').value=origin;
-    state.root.querySelector('[data-po-seasons]').value=state.filters.season;
-    for (const {card,po} of state.cards) {
-        const hidden=!(origin==='ALL' || po.origin_farm===origin) || !matchesBloomscapesPoSeason(po,state.filters.season) || !visibleIds.has(po.po_id);
-        if (card.hidden!==hidden) card.hidden=hidden;
+    const {origin,season,query,facet}=state.filters;
+    const [field,value]=facet?JSON.parse(facet):[];
+    const visible=state.rows.filter(po=>(origin==='ALL' || po.origin_farm===origin) && matchesBloomscapesPoSeason(po,season)
+        && (!field || (po[field] || po[field.toUpperCase()])===value) && matchesBloomscapesPoSearch(po,query));
+    for (const entry of state.cards) state.drafts.delete(entry.po.po_id);
+    for (const [key,draft] of captureBloomscapesTransferCards(state.cards)) state.drafts.set(key,draft);
+    const host=state.root.querySelector('[data-transfer-cards]');
+    host.replaceChildren();
+    state.offset=Math.min(state.offset,Math.max(0,Math.floor((visible.length-1)/50)*50));
+    state.cards=visible.slice(state.offset,state.offset+50).map(po=>createBloomscapesTransferCard(host,po,state));
+    refreshBloomscapesTransferProjection(state);
+    restoreBloomscapesTransferCards(state.cards,state.drafts);
+    for (const button of state.root.querySelectorAll('[data-po-origin]')) {
+        button.setAttribute('aria-pressed',String(button.dataset.poOrigin===origin && button.dataset.poSeason===season));
     }
-    for (const button of state.root.querySelectorAll('[data-po-season]')) {
-        const matches=rows.filter(po=>matchesBloomscapesPoSeason(po,button.dataset.poSeason));
-        button.textContent=`${button.dataset.label} · ${matches.length} lines · ${matches.reduce((sum,po)=>sum+Number(po.remaining_on_po),0).toLocaleString()} cans`;
+    const cans=visible.reduce((sum,po)=>sum+Number(po.remaining_on_po),0);
+    const summary=visible.length+' Lines · '+cans.toLocaleString()+' Cans';
+    const studio=state.root.closest('[data-studio-module]')?.querySelector('[data-module-summary]');
+    if (studio) studio.textContent=summary;
+    state.root.querySelector('[role=status]').textContent=studio?'':summary;
+    const pager=state.root.querySelector('[data-po-pagination]');pager.replaceChildren();
+    for (const [title,offset] of [['Previous 50',state.offset-50],['Next 50',state.offset+50]]) {
+        if (offset<0 || offset>=visible.length) continue;
+        const button=pager.appendChild(document.createElement('button'));button.type='button';button.textContent=title;
+        button.onclick=()=>{state.offset=offset;filterBloomscapesTransferCards(state);};
     }
-    state.root.querySelector('[role=status]').textContent=`${visible.length} unique PO lines · ${visible.reduce((sum,po)=>sum+Number(po.remaining_on_po),0).toLocaleString()} cans. Stock and PO post on confirmed Qty Hauled.`;
 }
 
 function bindBloomscapesTransferFilters(state) {
-    const controls=[['[data-origin-filter]','origin'],['[data-po-seasons]','season'],['[data-po-history]','history']];
-    for (const [selector,key] of controls) {
-        state.root.querySelector(selector).addEventListener('change',event=>{
-            selectBloomscapesTransferFilter(state.filters,key,key==='history'?event.target.checked:event.target.value);
-            if (key==='history') {void loadBloomscapesTransferCards(state);return;}
-            filterBloomscapesTransferCards(state);
-            if (key==='origin') revealBloomscapesOriginHistory(state);
+    const bar=state.root.querySelector('[data-transfer-filter-bar]');
+    bar.addEventListener('click',event=>{
+        const choice=event.target.closest('[data-po-origin]');
+        if (!choice) return;
+        selectBloomscapesTransferFilter(state.filters,'origin',choice.dataset.poOrigin);
+        selectBloomscapesTransferFilter(state.filters,'season',choice.dataset.poSeason);
+        state.offset=0;filterBloomscapesTransferCards(state);
+    });
+    bar.addEventListener('change',event=>{
+        state.offset=0;
+        if (event.target.matches('[data-po-history]')) {
+            selectBloomscapesTransferFilter(state.filters,'history',event.target.checked);
+            void loadBloomscapesTransferCards(state);
+        } else {
+            state.filters.facet=event.target.value;filterBloomscapesTransferCards(state);
+        }
+    });
+}
+
+function getBloomscapesPoHeaderSearch(root) {
+    let container=document.getElementById('po-workspace-search');
+    if (!container) {
+        container=document.createElement('div');container.id='po-workspace-search';
+        container.innerHTML='<input type="search" placeholder="Search purchase orders" aria-label="Search purchase orders">';
+        document.getElementById('app-wrapper').appendChild(container);
+        container.querySelector('input').addEventListener('input',event=>{
+            const state=bloomscapesTransferMounts.get(container.poRoot);
+            if (!state || !state.root.isConnected || state.owner!==bloomscapesTransferOwner()) return;
+            state.filters.query=event.target.value.slice(0,200);state.offset=0;filterBloomscapesTransferCards(state);
         });
     }
+    container.poRoot=root;
+    container.querySelector('input').value=getBloomscapesTransferFilters().query || '';
+    return container.id;
 }
 
 function refreshBloomscapesTransferProjection(state,affected) {
@@ -179,27 +241,22 @@ function bloomscapesTransferCardIsAffected(entry,line) {
 
 function renderBloomscapesTransferCarts(state) {
     const host=state.root.querySelector('[data-transfer-carts]');host.replaceChildren();
-    BLOOMSCAPES_TRANSFER_ORIGINS.forEach(origin=>{
-        const order=summarizeBloomscapesTransferOrder(origin),box=document.createElement('section');
-        box.innerHTML=`<h3>${origin} Transfer Order</h3><ul></ul><button type="button" data-submit-origin="${origin}"></button>`;
-        order.lines.forEach(line=>appendBloomscapesTransferCartLine(box.querySelector('ul'),line,state));
-        const button=box.querySelector('[data-submit-origin]');
-        button.textContent=`🚜 Submit ${origin} Transfer Order to Que (${order.rows} Rows · ${order.cans} Cans · ${order.beds.toFixed(2)} Beds)`;
-        button.disabled=!order.rows || getBloomscapesTransferState().pending.get(origin)?.busy===true;
-        button.addEventListener('click',()=>void dispatchBloomscapesTransferCart(state,origin));
-        host.appendChild(box);
-    });
+    const {origin,season}=state.filters;
+    if (origin==='ALL') {
+        host.textContent='Select a PO to submit its transfer order.';
+        return;
+    }
+    const ids=new Set(state.rows.filter(po=>po.origin_farm===origin && matchesBloomscapesPoSeason(po,season)).map(po=>po.po_id));
+    const order=summarizeBloomscapesTransferOrder(origin,ids);
+    const label=host.appendChild(document.createElement('span'));
+    label.textContent=origin.slice(3)+' '+season+' · '+order.rows+' Lines · '+order.cans.toLocaleString()+' Cans';
+    const submit=host.appendChild(document.createElement('button'));submit.type='button';
+    submit.dataset.submitOrigin=origin;submit.textContent='Submit to Que';
+    submit.disabled=!order.rows || getBloomscapesTransferState().pending.get(origin)?.busy===true;
+    submit.onclick=()=>void dispatchBloomscapesTransferCart(state,origin,ids);
 }
 
-function appendBloomscapesTransferCartLine(host,line,state) {
-    const item=document.createElement('li');
-    item.textContent=`${line.commonname || line.itemcode} · ${line.location} · ${line.quantity} cans · ${(line.quantity/line.cpb).toFixed(2)} beds `;
-    const remove=item.appendChild(document.createElement('button'));remove.type='button';remove.textContent='Remove';
-    remove.addEventListener('click',()=>{removeBloomscapesTransferLine(line.id);refreshBloomscapesTransferProjection(state,line);});
-    host.appendChild(item);
-}
-
-async function dispatchBloomscapesTransferCart(state,origin) {
+async function dispatchBloomscapesTransferCart(state,origin,ids) {
     const status=state.root.querySelector('[role=status]');let attempt;
     try {
         if (getBloomscapesFarm()!=='10-PH') {
@@ -207,7 +264,7 @@ async function dispatchBloomscapesTransferCart(state,origin) {
             await changeBloomscapesFarmSelection(selector);
             if (getBloomscapesFarm()!=='10-PH') return;
         }
-        attempt=beginBloomscapesTransferSubmission(origin);if (!attempt) return;
+        attempt=beginBloomscapesTransferSubmission(origin,ids);if (!attempt) return;
         renderBloomscapesTransferCarts(state);
         const receipt=await submitBloomscapesTransferOrder(attempt);
         if (!finishBloomscapesTransferSubmission(attempt,receipt)) return;
@@ -223,12 +280,6 @@ function refreshBloomscapesTransferFilters() {
     const root=document.querySelector('[data-bloomscapes-workflow="bloomscapes-replenishment"]');
     const state=bloomscapesTransferMounts.get(root);
     if (state) filterBloomscapesTransferCards(state);
-}
-
-function revealBloomscapesOriginHistory(state) {
-    if (state.filters.history || state.filters.origin==='ALL' || state.rows.some(po=>po.origin_farm===state.filters.origin)) return;
-    state.filters.history=true;state.root.querySelector('[data-po-history]').checked=true;
-    void loadBloomscapesTransferCards(state);
 }
 
 function matchesBloomscapesPoSearch(po,query='') {

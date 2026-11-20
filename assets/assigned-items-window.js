@@ -1,5 +1,5 @@
 function renderManagerAssignedFallbackRows(rows = [], preview = false) {
-    const state = getManagerAssignedColumnState(), limit = 100;
+    const state = getManagerAssignedColumnState(), limit = 50;
     const columns = getManagerAssignedColumnDefinitions().slice(0, 9), editable = canManageEvalItemcodeAssignments();
     const roster = editable && !preview ? getManagerAssignableOwnerUsers() : [];
     const options = new Map();
@@ -18,12 +18,12 @@ function renderManagerAssignedFallbackRows(rows = [], preview = false) {
 function appendManagerAssignedFallbackPage(scroller, force = false) {
     const state = getManagerAssignedColumnState();
     const rows = getManagerAssignedSelectionSnapshot().rows;
-    const start = force ? (state.fallbackStart || 0) + 100 : Math.max(0, Math.floor(scroller.scrollTop / 48) - 10);
+    const start = force ? (state.fallbackStart || 0) + 50 : Math.max(0, Math.floor(scroller.scrollTop / 48) - 10);
     if (state.fallbackStart === start || state.fallbackFrame) return;
     state.fallbackFrame = requestAnimationFrame(() => {
         state.fallbackFrame = 0;
         if (!scroller.isConnected || state !== getManagerAssignedColumnState()) return;
-        state.fallbackStart = Math.min(start, Math.max(0, rows.length - 100));
+        state.fallbackStart = Math.min(start, Math.max(0, rows.length - 50));
         const template = document.createElement('template');
         template.innerHTML = renderManagerAssignedFallbackRows(rows);
         scroller.querySelector('tbody').replaceChildren(...template.content.querySelector('tbody').childNodes);
@@ -73,7 +73,8 @@ function assignedFallbackSpacer(count, columns) {
 }
 
 function scheduleAssignedItemsPrewarm() {
-    if (typeof currentUser !== 'string' || !currentUser || !canViewAssignedItemsExport() || !fullInventory.length) return;
+    if (typeof currentUser !== 'string' || !currentUser || getCurrentVisibleViewId()!=='managers'
+        || activeHomeTab!==MANAGER_ASSIGNED_ITEMS_EXPORT_VIEW || !canViewAssignedItemsExport() || !fullInventory.length) return;
     const state = getManagerAssignedColumnState();
     if (state.prewarmPending) return;
     state.prewarmPending = true;
@@ -102,7 +103,7 @@ function openAssignedItemsFirstFrame(state) {
         return renderManagers();
     }
     const ticket = state.opening = {};
-    const rows = getManagerAssignedItemsDisplayRows(input.slice(0, 100), { useMaster: input === fullInventory });
+    const rows = getManagerAssignedItemsDisplayRows(input.slice(0, 50), { useMaster: input === fullInventory });
     host.innerHTML = renderManagerTableManagementWorkspace(renderManagerAssignedFallbackRows(rows, true), 'assigned-items');
     requestAnimationFrame(() => setTimeout(() => finishAssignedItemsFirstFrame(state, ticket), 0));
 }

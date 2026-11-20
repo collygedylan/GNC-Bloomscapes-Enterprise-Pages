@@ -91,19 +91,20 @@ function showWorkflowRows(host, tab, rows, run) {
     if (tab === 'bloomscapes-vault') {
         results.className='bloomscapes-sales-card-list';
         const lookup=createSalesStudioTargetLookup();
-        results.append(...rows.map(row=>renderBloomscapesSalesCard(row,lookup(row),button=>openBloomscapesVaultPdf(row,button))));
+        renderBloomscapesListWindow(results,rows,row=>renderBloomscapesSalesCard(row,lookup(row),button=>openBloomscapesVaultPdf(row,button)));
         return;
     }
     const list = appendWorkflowNode(results, 'ul', '');
     list.className = 'divide-y divide-emerald-900';
-    rows.forEach(row => {
-        const item = appendWorkflowNode(list, 'li', '');
+    renderBloomscapesListWindow(list,rows,row => {
+        const item = document.createElement('li');
         item.className = 'py-2 space-x-2';
         const keys = workflowFields[tab] || workflowFields['bloomscapes-field-jobs'];
         const fields = keys.map(key => row[key]).filter(value => value != null && value !== '');
         appendWorkflowNode(item, 'span', fields.join(' · '));
         renderBloomscapesFieldExtras(item,tab,row);
         if (tab === 'bloomscapes-dock-approvals') renderDockWorkflowRow(item, row, run);
+        return item;
     });
 }
 

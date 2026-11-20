@@ -122,3 +122,15 @@ function commitProductionLiveSnapshots(snapshots, context, metadata) {
         scheduleProductionLiveSyncRender();
     }
 }
+
+function acceptQueueInventorySourceRevision(source, permission) {
+    if (!(source?.state === 'ready' || window.AgMetricLiveSync?.isPublishedReadable(source)) || !/^[1-9]\d*$/.test(String(source.revision || ''))) return;
+    const next = { scope: getSupabaseReadIdentityScope(), permission: String(permission || ''), revision: String(source.revision) };
+    if (!next.scope || !next.permission) return;
+    if (JSON.stringify(queueCardInventoryRevisionReceipt) !== JSON.stringify(next)) {
+        queueCardInventoryRevisionReceipt = next;
+        queueCardInventoryHydrator?.invalidate();
+        queueCardInventoryIndexRows = null;
+        queueCardInventoryIndex = window.AgMetricQueueInventory.createIndex();
+    }
+}

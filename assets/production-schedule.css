@@ -17,12 +17,12 @@
 #view-managers .ps-tab:active{transform:scale(.98)}
 #view-managers .ps-tab-count,#view-managers .ps-source-row,#view-managers .ps-card-fields dd,#view-managers .ps-details dd,#view-managers .ps-pager span{font-family:var(--ops-number-font,ui-monospace,SFMono-Regular,Consolas,monospace);font-variant-numeric:tabular-nums}
 #view-managers .ps-tab-count{font-size:.69rem;color:var(--ps-secondary)}
-#view-managers .ps-toolbar{position:sticky;top:0;z-index:3;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.45rem;padding:.45rem;background:var(--ps-glass);border:1px solid var(--ps-border);border-radius:.9rem;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);max-width:100%}
+#view-managers .ps-toolbar{position:sticky;top:0;z-index:3;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.45rem;padding:.45rem;background:var(--ps-glass);border:1px solid var(--ps-border);border-radius:.9rem;max-width:100%}
 #view-managers .ps-search-label{display:block;min-width:0}
 #view-managers .ps-search-label input{width:100%;min-width:0;height:44px;border:1px solid var(--ps-border);border-radius:.65rem;background:var(--ps-surface);color:var(--ps-text);padding:.5rem .7rem;font-size:16px}
 #view-managers .ps-search-label input::placeholder{color:var(--ps-secondary)}
 #view-managers .ps-filter-button{white-space:nowrap}
-#view-managers .ps-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(9rem,100%),1fr));gap:.5rem;margin:.35rem 0 .65rem;padding:.6rem;border:1px solid var(--ps-border);border-radius:.9rem;background:var(--ps-glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+#view-managers .ps-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(9rem,100%),1fr));gap:.5rem;margin:.35rem 0 .65rem;padding:.6rem;border:1px solid var(--ps-border);border-radius:.9rem;background:var(--ps-glass)}
 #view-managers .ps-filters[hidden]{display:none}
 #view-managers .ps-filter-label{display:flex;flex-direction:column;gap:.25rem;min-width:0;color:var(--ps-secondary);font-size:.72rem;font-weight:800}
 #view-managers .ps-filter-label select{max-width:100%;border:1px solid var(--ps-border);border-radius:.65rem;background:var(--ps-surface);color:var(--ps-text);padding:.45rem;font-size:16px}

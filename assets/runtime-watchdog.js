@@ -446,7 +446,11 @@ if (!window.GncRuntimeWatchdog) {
   }
   global.addEventListener('error', event => { if (!isExpectedRuntimeCancellation(event.error) && !isIgnorableRuntimeNoise(event.message)) record('UNHANDLED_JS_EXCEPTION', { severity: 'high', error_message: String(event.message || 'Unhandled error'), runtime_error_name:event.error?.name, runtime_source:event.filename, runtime_line:event.lineno, runtime_column:event.colno, runtime_stack:event.error?.stack }); });
   global.addEventListener('unhandledrejection', event => { const message = String(event.reason?.message || event.reason || 'Unhandled rejection'); if (!isExpectedRuntimeCancellation(event.reason) && !isIgnorableRuntimeNoise(message)) record('UNHANDLED_PROMISE_REJECTION', { severity: 'high', error_message: message, runtime_error_name:event.reason?.name, runtime_stack:event.reason?.stack }); });
-  let inspectionPending = false;
+  const scheduleInspection = createWatchdogInspectionScheduler(global, () => {
+    if (!state.username || document.hidden) return;
+    inspect();
+    for (const node of document.querySelectorAll?.(bannerSelector) || []) inspectBanner(node);
+  },safeIgnoreProbeError);
   const observer = new MutationObserver(records => {
     if (!state.username || document.hidden) return;
     for (const entry of records || []) {
@@ -455,16 +459,7 @@ if (!window.GncRuntimeWatchdog) {
       if (banner) inspectBanner(banner);
       for (const node of entry.addedNodes || []) if (node.nodeType === 1 && node.matches?.(bannerSelector)) inspectBanner(node);
     }
-    if (inspectionPending) return;
-    inspectionPending = true;
-    (global.requestAnimationFrame || global.setTimeout)(() => {
-      inspectionPending = false;
-      try {
-        if (!state.username || document.hidden) return;
-        inspect();
-        for (const node of document.querySelectorAll?.(bannerSelector) || []) inspectBanner(node);
-      } catch { safeIgnoreProbeError('watchdog-inspect'); }
-    }, 80);
+    scheduleInspection();
   });
   if (document.documentElement) observer.observe(document.documentElement, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['class', 'aria-busy', 'data-loading', 'data-eval-report-counts-ready', 'data-eval-report-count'] });
   document.addEventListener?.('error', event => { if (state.username && event.target?.matches?.('.photo-thumb img, .saved-photo-tile img')) thumbnail_broken_image_auto_heal(event.target.parentElement); }, true);
@@ -476,7 +471,7 @@ if (!window.GncRuntimeWatchdog) {
     } else void flushPendingReports();
   });
   global.GncRuntimeWatchdog = Object.freeze({
-    configure(options = {}) { state.getAvPhotoAudit=options.getAvPhotoAudit;state.recoverAvPhotoScope=options.recoverAvPhotoScope;state.getExcelFilterAudit=options.getExcelFilterAudit;state.recoverExcelFilters=options.recoverExcelFilters; state.filenameOrderValid=options.filenameOrderValid; state.recoverFilenameOrder=options.recoverFilenameOrder; state.recoverDocks=options.recoverDocks; state.getDocksSuspendAudit=options.getDocksSuspendAudit; state.getQueueAudit=options.getQueueAudit; state.queueAtRoot=options.queueAtRoot; state.recountQueue=options.recountQueue; state.recoverRead=options.recoverRead; state.memoryOnly = options.memoryOnly === true; state.durableRuntimeErrors = options.durableRuntimeErrors === true; const username = String(options.username || '').trim().toLowerCase(); if (username !== state.username || username !== state.reportQueueOwner) { state.reportGeneration += 1; state.revisions = {}; if (state.reportTimer !== null) { global.clearTimeout(state.reportTimer); state.reportTimer = null; } state.reportRetryMs = 1000; loadReportQueue(username); } state.apiUrl = String(options.apiUrl || ''); state.username = username; state.role = String(options.role || ''); state.report = options.reportEvent; state.getSubModule = options.getSubModule; state.configured = true; state.revisions = options.datasetRevisions && typeof options.datasetRevisions === 'object' ? options.datasetRevisions : state.revisions; flushInitialRuntimeErrors(); inspect(); void flushPendingReports(); void flushPrebootRecoveries(); },
+    configure(options = {}) { state.getAvPhotoAudit=options.getAvPhotoAudit;state.recoverAvPhotoScope=options.recoverAvPhotoScope;state.getExcelFilterAudit=options.getExcelFilterAudit;state.recoverExcelFilters=options.recoverExcelFilters; state.filenameOrderValid=options.filenameOrderValid; state.recoverFilenameOrder=options.recoverFilenameOrder; state.recoverDocks=options.recoverDocks; state.getDocksSuspendAudit=options.getDocksSuspendAudit; state.getQueueAudit=options.getQueueAudit; state.queueAtRoot=options.queueAtRoot; state.recountQueue=options.recountQueue; state.recoverRead=options.recoverRead; state.memoryOnly = options.memoryOnly === true; state.durableRuntimeErrors = options.durableRuntimeErrors === true; const username = String(options.username || '').trim().toLowerCase(); if (username !== state.username || username !== state.reportQueueOwner) { state.reportGeneration += 1; state.revisions = {}; if (state.reportTimer !== null) { global.clearTimeout(state.reportTimer); state.reportTimer = null; } state.reportRetryMs = 1000; loadReportQueue(username); } state.apiUrl = String(options.apiUrl || ''); state.username = username; state.role = String(options.role || ''); state.report = options.reportEvent; state.getSubModule = options.getSubModule; state.configured = true; state.revisions = options.datasetRevisions && typeof options.datasetRevisions === 'object' ? options.datasetRevisions : state.revisions; flushInitialRuntimeErrors(); scheduleInspection(); void flushPendingReports(); void flushPrebootRecoveries(); },
     expectDetailReturn(recover) { if (state.recoveringDetail) return; state.detailReturn = recover; global.setTimeout(() => detail_auto_return_on_mark_done_guard(),0); },
     deferReadTimeout, recoverReadTimeout,
     toTransportEvent(event) {
