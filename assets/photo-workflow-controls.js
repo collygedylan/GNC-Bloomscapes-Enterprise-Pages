@@ -87,9 +87,6 @@ async function handlePhotoUpload(input, prefix) {
         return;
     }
     const itemToUpload = activeItem;
-    if ((isIOSDevice() || isStandaloneApp()) && document.activeElement && ['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)) {
-        document.activeElement.blur();
-    }
     if (navigator.onLine === false && !['ssn-','lsn-','na-','req-','dock-'].includes(prefix)) {
         showToast('Offline', 'No service. Photo could not upload.', true);
         input.value = '';

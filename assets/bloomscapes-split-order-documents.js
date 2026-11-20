@@ -96,6 +96,7 @@ function mountBloomscapesDockShell(doc) {
 <div id="view-traffic-office" class="hidden" aria-label="Traffic Office"></div>`);
     const menu=doc.getElementById('drawer-docks-btn');
     menu?.insertAdjacentHTML('beforebegin',`<button type="button" class="drawer-item hidden" hidden data-drawer-view="pull-tags" onclick="return openDrawerView('pull-tags')">Pull Tags</button>
+<button type="button" class="drawer-item hidden" hidden data-drawer-view="time-cards" onclick="return openDrawerView('time-cards')">Time Cards</button>
 <button type="button" class="drawer-item hidden" hidden data-drawer-view="borrowed-work" onclick="return openDrawerView('borrowed-work')">Borrowed Work</button>
 <button type="button" class="drawer-item hidden" hidden data-drawer-view="mistake-fix" onclick="return openDrawerView('mistake-fix')">Mistake Fix</button>
 <button type="button" class="drawer-item hidden" hidden data-drawer-view="traffic-office" onclick="return openDrawerView('traffic-office')">Traffic Office</button>`);

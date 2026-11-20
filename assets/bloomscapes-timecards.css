@@ -1,0 +1,92 @@
+#view-time-cards [data-timecards-workspace] {
+    margin-inline: auto;
+    max-width: 74rem;
+    padding: .75rem;
+}
+#view-time-cards .timecard-panel {
+    border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+    border-radius: .85rem;
+    margin-bottom: .65rem;
+    padding: .8rem;
+}
+#view-time-cards .timecard-controls,
+#view-time-cards .timecard-clock-line,
+#view-time-cards .timecard-quick,
+#view-time-cards .timecard-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: .45rem;
+}
+#view-time-cards .timecard-clock-line {
+    align-items: center;
+    justify-content: space-between;
+}
+#view-time-cards form + form,
+#view-time-cards .timecard-quick,
+#view-time-cards [data-timecard-entry] > button {
+    margin-top: .55rem;
+}
+#view-time-cards label {
+    display: grid;
+    flex: 1 1 min(9rem, 100%);
+    gap: .16rem;
+    font-size: .82rem;
+    font-weight: 600;
+    min-width: 0;
+}
+#view-time-cards input,
+#view-time-cards select,
+#view-time-cards button {
+    min-height: 2.25rem;
+    min-width: 0;
+    max-width: 100%;
+    border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+    background: color-mix(in srgb, currentColor 6%, transparent);
+    border-radius: .55rem;
+    color: inherit;
+    font: inherit;
+    padding: .32rem .55rem;
+}
+#view-time-cards select {
+    color-scheme: light dark;
+    width: 100%;
+}
+#view-time-cards button {
+    justify-self: start;
+    cursor: pointer;
+    font-size: .82rem;
+    font-weight: 650;
+}
+#view-time-cards button:disabled {
+    opacity: .62;
+    cursor: progress;
+}
+#view-time-cards h3 {
+    margin: 0 0 .24rem;
+    font-size: .95rem;
+}
+#view-time-cards p {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+#view-time-cards .timecard-status:not(:empty),
+#view-time-cards .timecard-clock-line {
+    margin-bottom: .55rem;
+}
+#view-time-cards .timecard-entry {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: .5rem;
+}
+#view-time-cards .timecard-entry form {
+    grid-column: 1 / -1;
+}
+@media (max-width: 430px) {
+    #view-time-cards .timecard-entry {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    #view-time-cards .timecard-quick button {
+        text-align: left;
+    }
+}

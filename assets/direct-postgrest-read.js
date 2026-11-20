@@ -12,7 +12,7 @@ async function fetchDirectPostgrestReadPage(table, queryString = '', options = {
     const timeoutMs = Math.max(1000, Number(opts.timeoutMs) || SUPABASE_READ_TIMEOUT_MS);
     const nativeHeaders = opts.preferAnon === true ? null : await getNativeAuthRequestHeaders().catch(() => null);
     if (opts.signal?.aborted) throw Object.assign(new Error(`${safeTable} read cancelled.`), { code: 'REQUEST_ABORTED' });
-    if (!nativeHeaders && safeTable === 'ph_requests_pending') throw nativeSessionRecoveryError();
+    if (!nativeHeaders && authenticatedOnlyTable) throw nativeSessionRecoveryError();
     if (!nativeHeaders && !allowAnonFallback) return null;
     const headers = nativeHeaders ? { ...nativeHeaders } : {
         apikey: SUPABASE_KEY,

@@ -1,4 +1,4 @@
-function resolveReclassAdministrator(input = {}) {
+function resolveVerifiedReclassRole(input = {}) {
     const { identity, profile, matrix, currentActor, denied, now = Date.now() } = input;
     const actor = normalizeEvidenceActor(currentActor);
     if (!actor || !identity?.authenticated || identity.username !== actor || denied
@@ -9,18 +9,55 @@ function resolveReclassAdministrator(input = {}) {
         || matrix?.verified !== true || String(matrix.profile_id || '') !== String(profile.id)
         || normalizeEvidenceActor(matrix.username) !== actor) return null;
     const role = String(matrix.role || '').trim().toLowerCase();
-    return /^(admin|super[-_ ]?admin)$/.test(role) ? { actor, profileId: profile.id, matrix } : null;
+    return { actor, profileId: profile.id, matrix, role };
 }
 
-function getVerifiedReclassAdministrator(user = currentUser) {
+function resolveReclassAdministrator(input = {}) {
+    const grant = resolveVerifiedReclassRole(input);
+    return grant && /^(admin|super[-_ ]?admin)$/.test(grant.role)
+        ? { actor: grant.actor, profileId: grant.profileId, matrix: grant.matrix } : null;
+}
+
+function getReclassAuthorityInput(user) {
     const identity = getCanonicalAccessSessionIdentity();
     const actor = normalizeEvidenceActor(user);
     const self = globalThis.GncUserAccessControl?.getSelfState?.();
     const profile = identity?.legacy
         ? self?.verified === true && self.status === 'ready' ? self.profile : null
         : typeof nativeAuthProfile === 'undefined' ? null : nativeAuthProfile;
-    return resolveReclassAdministrator({ identity, profile, currentActor: actor,
-        matrix: resolveUserAccessMatrix(actor), denied: self?.denied === true });
+    return { identity, profile, currentActor: actor,
+        matrix: resolveUserAccessMatrix(actor), denied: self?.denied === true };
+}
+
+function getVerifiedReclassAdministrator(user = currentUser) {
+    return resolveReclassAdministrator(getReclassAuthorityInput(user));
+}
+
+function getVerifiedReclassExplanationExemption(user = currentUser) {
+    const grant = resolveVerifiedReclassRole(getReclassAuthorityInput(user));
+    return !!grant && /^(admin|super[-_ ]?admin|exec[-_ ]vp[-_ ]gm|executive|exec)$/.test(grant.role);
+}
+
+function updateReclassExplanation(input) {
+    const uid = input?.getAttribute('data-reclass-explanation-uid');
+    if (!uid) return false;
+    getArgosReclassRowProposalMap(uid, true).reclassExplanation = String(input.value || '');
+    argosInventoryTransactionState.reclassDraftsByRowUid = argosReclassMultiActionState.rowProposals;
+    input.removeAttribute('aria-invalid');
+    input.style.borderColor = '#34d399';
+    markArgosReclassProposalEdited(uid);
+    captureEvalWorkLocalDraftSoon(0);
+    return true;
+}
+
+function buildReclassExplanationField(uid) {
+    const exempt = isReclassExplanationExempt();
+    const label = exempt ? 'Reclass Explanation (Optional for Admin or Exec)' : 'Reclass Explanation * (Required)';
+    const style = 'display:block;width:100%;background:#052e24;color:#ecfdf5;border:1px solid #34d399;border-radius:10px;padding:12px';
+    return '<label class="argos-reclass-row-field argos-reclass-row-field--wide" style="display:block;margin:12px 0">'
+        + '<strong>' + label + '</strong><textarea class="reclass-explanation-input argos-reclass-row-input" data-reclass-explanation-uid="'
+        + escapeHtml(uid) + '" aria-label="Reclass Explanation" aria-required="' + !exempt + '" rows="3" maxlength="4000" style="'
+        + style + '" oninput="updateReclassExplanation(this)">' + escapeHtml(getReclassExplanation(uid)) + '</textarea></label>';
 }
 
 function isSeasonYReclassSource(row) {

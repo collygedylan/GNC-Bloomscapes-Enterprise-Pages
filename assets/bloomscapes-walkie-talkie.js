@@ -36,6 +36,7 @@ async function startBloomscapesWalkie() {
         await beginBloomscapesTransmission(capture);
         if (!capture.speaking) return;
         capture.startedAt=Date.now();
+        attachBloomscapesWaveMeter(capture);
         startBloomscapesWalkieTranscript(capture);
         showBloomscapesCommStatus('Recording. Tap again or release a held button to send.');
         clearBloomscapesWalkieTimers();
@@ -56,7 +57,7 @@ function stopBloomscapesWalkie(cancel=false) {
     const capture=bloomscapesWalkieCapture;
     const wasRecording=capture?.speaking;
     if (cancel && capture?.recording) capture.recording.cancelled=true;
-    if (capture) endBloomscapesTransmission(capture);
+    if (capture) {releaseBloomscapesWaveMeter(capture);endBloomscapesTransmission(capture);}
     clearBloomscapesWalkieTimers();bloomscapesWalkieTimer=null;
     syncBloomscapesWalkieRecording();
     if (cancel && wasRecording) showBloomscapesCommStatus('Recording cancelled.');
@@ -90,7 +91,8 @@ function syncBloomscapesWalkieRecording() {
     else return;
     if (cancel) cancel.hidden=!recording;
     const timer=host.querySelector('[data-comm-recording]');
-    if (timer) timer.textContent=recording?'▂▅▃▇▅▂ '+commDuration(Date.now()-capture.startedAt):'';
+    if (timer) timer.textContent=recording?bloomscapesWaveReading(capture)+' '+commDuration(Date.now()-capture.startedAt):'';
+    if (!recording && capture) releaseBloomscapesWaveMeter(capture);
     if (!recording) {clearBloomscapesWalkieTimers();bloomscapesWalkieTimer=null;}
 }
 
@@ -119,4 +121,36 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)stopBloomsc
 function clearBloomscapesWalkieTimers() {
     for (const timer of bloomscapesWalkieTimer || []) clearTimeout(timer);
     bloomscapesWalkieTimer=null;
+}
+
+function attachBloomscapesWaveMeter(capture) {
+    if (!window.AudioContext || !capture.stream?.active) return;
+    try {
+        const context=new AudioContext();
+        capture.meterContext=context;
+        const analyser=context.createAnalyser();
+        analyser.fftSize=256;
+        context.createMediaStreamSource(capture.stream).connect(analyser);
+        capture.meter=analyser;
+    } catch { releaseBloomscapesWaveMeter(capture); }
+}
+
+function bloomscapesWaveReading(capture) {
+    if (!capture.meter) return '';
+    const samples=new Uint8Array(capture.meter.fftSize);
+    capture.meter.getByteTimeDomainData(samples);
+    const bars='▁▂▃▄▅▆▇█';
+    const levels=[];
+    for (let offset=0;offset<samples.length;offset+=16) {
+        const peak=Math.max(...samples.subarray(offset,offset+16).map(value=>Math.abs(value-128)));
+        levels.push(bars[Math.min(7,Math.floor(peak/10))]);
+    }
+    return levels.join('');
+}
+
+function releaseBloomscapesWaveMeter(capture) {
+    const context=capture.meterContext;
+    capture.meterContext=null;
+    capture.meter=null;
+    if (context && context.state!=='closed') void context.close().catch(error=>showBloomscapesCommStatus(error.message));
 }

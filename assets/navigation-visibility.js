@@ -261,3 +261,7 @@ function syncNavigationVisibilityUi(access, userOverride, grid) {
     if (typeof syncRequestSalesImpactOwnership === 'function') syncRequestSalesImpactOwnership();
     scheduleHomeDashboardFitSettle('role-access-ui');
 }
+
+function canUseBloomscapesWorkStudio() {
+    return nativeAuthSessionActive && nativeAuthProfile?.username==='dylan_collyge' && currentUser==='dylan_collyge';
+}

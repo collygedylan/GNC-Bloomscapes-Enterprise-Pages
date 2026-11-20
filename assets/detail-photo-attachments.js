@@ -102,7 +102,6 @@ function queueDrivePhotoAttachment(item, prefix, file, fileName, formFields = nu
         identity: Object.fromEntries(['UNIQUE_ID', 'ITEMCODE', 'LOCATIONCODE', 'LOTCODE'].map(key => [key, String(item[key] || item[key.toLowerCase()] || '')])) };
     drivePhotoAttachments.set(job.id, job);
     if (isQueuedDetailPhoto(prefix)) stageDetailPhotoCapture(job);
-    setDrivePhotoAttachmentStatus(job, 'Uploading');
     retryDrivePhotoAttachment(job.id);
     return true;
 }

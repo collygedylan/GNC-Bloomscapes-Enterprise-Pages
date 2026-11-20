@@ -1,9 +1,13 @@
-function refreshPendingPhotoUiForItem(item, prefix = '') {
-    releaseSavedDetailPreviewUrls();
+function refreshPendingPhotoUiForItem(item, prefix = '', immediate = false) {
+    if (!immediate) releaseSavedDetailPreviewUrls();
     if (prefix === 'eval-') { scheduleRequestRender(0,0,true); return; }
     if (!item) return;
     const uid = String(item.UNIQUE_ID || '').trim();
     const sameActiveItem = activeItem && String(activeItem.UNIQUE_ID || '').trim() === uid;
+    if (immediate && sameActiveItem && getCurrentVisibleViewId() === 'detail') {
+        renderSavedPhotoSlots(prefix,true);
+        return;
+    }
     const renderKey = `${sameActiveItem ? 'active-' : ''}photo-preview-${uid}-${getPhotoBucketKey(prefix)}`;
     scheduleUiRender(renderKey, () => {
         if (sameActiveItem) {

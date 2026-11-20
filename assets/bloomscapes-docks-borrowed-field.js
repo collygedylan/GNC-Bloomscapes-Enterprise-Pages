@@ -115,7 +115,9 @@ function mountBloomscapesFieldBorrowing(view) {
     const route = borrowedFieldModules[view];
     if (!route || !nativeAuthSessionActive) return;
     const host = document.querySelector('#view-'+view+' .freeze-panel');
-    if (host) mountBorrowedFieldTrigger(host,[route],view);
+    if (!host) return;
+    mountBorrowedFieldTrigger(host,[route],view);
+    mountBloomscapesTimeCardLink(host);
 }
 
 function renderBloomscapesBorrowedCardTrigger(row, kind) {

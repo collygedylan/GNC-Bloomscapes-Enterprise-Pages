@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.17';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.18';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -7327,14 +7327,6 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
             if (event.target?.matches?.('input[type=file][accept*="image"]') && event.target.files?.length) triggerHaptic('success');
         }, true);
 
-        function triggerDetailKeyboardHaptic(duration = 8) {
-            const now = Date.now();
-            if (now - detailMeasurementKeyboardLastHapticAt < 14) return;
-            detailMeasurementKeyboardLastHapticAt = now;
-            if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return;
-            triggerHaptic(duration >= 15 ? 'medium' : 'light');
-        }
-
         function markDetailMeasurementKeyboardInteraction(durationMs = 900) {
             detailMeasurementKeyboardInteractionUntil = Math.max(
                 detailMeasurementKeyboardInteractionUntil,
@@ -8152,31 +8144,6 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
                 input.dispatchEvent(new Event('input', { bubbles: true }));
             }
             return true;
-        }
-
-        function updateDetailMeasurementKeyboardTargetValue(nextValue = '', nextCursor = null) {
-            const input = detailMeasurementKeyboardTarget;
-            if (!input) return false;
-            markDetailMeasurementKeyboardInteraction(1300);
-            const rawNextValue = String(nextValue || '');
-            const normalizedValue = normalizeDetailMeasurementKeyboardValueForInput(input, rawNextValue);
-            const normalizedCursor = getNormalizedDetailMeasurementCursor(input, rawNextValue, nextCursor);
-            input.value = normalizedValue;
-            const safeCursor = Math.min(String(input.value || '').length, Math.max(0, normalizedCursor));
-            if (input.dataset) {
-                input.dataset.detailKeypadCursorStart = String(safeCursor);
-                input.dataset.detailKeypadCursorEnd = String(safeCursor);
-            }
-            if (typeof input.setSelectionRange === 'function') input.setSelectionRange(safeCursor,safeCursor);
-            // Update the visible value immediately; coalesce autosave/listener work after this tap.
-            clearTimeout(input.__measurementDispatchTimer);
-            const owner = getSupabaseReadIdentityScope(), rowUid = getCompletedRowUnlockKey(activeItem);
-            input.__measurementDispatchTimer = setTimeout(() => {
-                if (input.isConnected && owner === getSupabaseReadIdentityScope() && rowUid === getCompletedRowUnlockKey(activeItem)) dispatchDetailMeasurementKeyboardInput(input);
-            }, 0);
-            const previewEl = document.getElementById('detail-measurement-keyboard-value-preview');
-            if (previewEl) previewEl.textContent = input.value || 'Type value...';
-            return false;
         }
 
         /* @runtime-fragment assets/detail-keypad-insertion.js */
@@ -23739,7 +23706,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.17';
+        const APP_VERSION = '3.1.18';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -54527,6 +54494,7 @@ function toggleDriveQuickRequestItem(domId) {
 
         function canAccessView(viewId, userOverride = '') {
             const targetView = String(viewId || '').trim();
+            if (targetView==='push-to-talk') return canAccessView('communication',userOverride);
             if (isBloomscapesDockRoute(targetView)) return canOpenBloomscapesDocksWorkspace(targetView,userOverride);
             if (!targetView || targetView === 'home') return true;
             if (targetView === 'crop-roll' || targetView === 'manager-crop-roll') return false;
@@ -55076,29 +55044,7 @@ function toggleDriveQuickRequestItem(domId) {
             return '';
         }
 
-        function getCurrentChatUsername() {
-            return normalizePushUsername(currentUser || currentUserDisplay || '');
-        }
-
-        function getCurrentChatDisplayName() {
-            return String(currentUserDisplay || currentUser || '').trim() || 'You';
-        }
-
-        function getFallbackChatDisplayName(username = '') {
-            const normalized = normalizePushUsername(username);
-            if (!normalized) return 'Unknown User';
-            return normalized.split('_').filter(Boolean).map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
-        }
-
-        function normalizeChatUser(row = null) {
-            const username = normalizePushUsername(chatField(row, 'username', 'USERNAME'));
-            if (!username) return null;
-            return {
-                username,
-                displayName: String(firstNonEmptyValue(chatField(row, 'display_name', 'displayName', 'name', 'username'), getFallbackChatDisplayName(username)) || '').trim() || getFallbackChatDisplayName(username),
-                role: String(chatField(row, 'role', 'ROLE') || '').trim()
-            };
-        }
+/* @runtime-fragment assets/bloomscapes-messages.js */
 
         function normalizeChatConversation(row = null) {
             const id = String(chatField(row, 'id', 'ID') || '').trim();
@@ -57035,7 +56981,7 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
             if (canAccessView(target)) switchView(target);
         }
 
-        const TRACKED_VIEW_IDS = ['borrowed-work','pull-tags','mistake-fix','traffic-office','bunch-note','drive','tasks','review','move-up','advertisement','grower','pest-management','communication','department-calendar','sales','smart-moves','request-sales-impact','historical-requests','request-history','sales-credit','credit-request','managers','qc','production','production-workflow','weather-hold','shear-list','sales-inventory','inventory-suggestion','inv-consolidation','disease-pest','office','po-management','sales-office','moves','reports','low-stock','docks','hl-order','take-back','request','chat','reserves','av','hours'];
+        const TRACKED_VIEW_IDS = ['push-to-talk','time-cards','borrowed-work','pull-tags','mistake-fix','traffic-office','bunch-note','drive','tasks','review','move-up','advertisement','grower','pest-management','communication','department-calendar','sales','smart-moves','request-sales-impact','historical-requests','request-history','sales-credit','credit-request','managers','qc','production','production-workflow','weather-hold','shear-list','sales-inventory','inventory-suggestion','inv-consolidation','disease-pest','office','po-management','sales-office','moves','reports','low-stock','docks','hl-order','take-back','request','chat','reserves','av','hours'];
 
         function getAffectedViewsForDatasets(changedKeys = []) {
             const changedSet = new Set((changedKeys || []).filter(Boolean));
@@ -115634,7 +115580,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
 /* @runtime-fragment assets/bloomscapes-history.js */
 /* @runtime-fragment assets/bloomscapes-sales-flyer.js */
         /* @runtime-fragment assets/bloomscapes-sales-cards.js */
-        /* @runtime-fragment assets/inventory-browse-workspaces.js */ /* @runtime-fragment assets/inventory-excel-facts.js */ /* @runtime-fragment assets/bloomscapes-message-state.js */ /* @runtime-fragment assets/bloomscapes-message-transport.js */ /* @runtime-fragment assets/bloomscapes-messages.js */ /* @runtime-fragment assets/bloomscapes-planning-card.js */ /* @runtime-fragment assets/bloomscapes-planning-transport.js */ /* @runtime-fragment assets/bloomscapes-planning-state.js */ /* @runtime-fragment assets/bloomscapes-module-access.js */ /* @runtime-fragment assets/bloomscapes-module-access-editor.js */ /* @runtime-fragment assets/bloomscapes-viewport-scaler.js */
+        /* @runtime-fragment assets/inventory-browse-workspaces.js */ /* @runtime-fragment assets/inventory-excel-facts.js */ /* @runtime-fragment assets/bloomscapes-message-state.js */ /* @runtime-fragment assets/bloomscapes-message-transport.js */  /* @runtime-fragment assets/bloomscapes-planning-card.js */ /* @runtime-fragment assets/bloomscapes-planning-transport.js */ /* @runtime-fragment assets/bloomscapes-planning-state.js */ /* @runtime-fragment assets/bloomscapes-module-access.js */ /* @runtime-fragment assets/bloomscapes-module-access-editor.js */ /* @runtime-fragment assets/bloomscapes-viewport-scaler.js */
 /* @runtime-fragment assets/request-photo-gallery-read.js */
 /* @runtime-fragment assets/request-photo-gallery-modal.js */
 /* @runtime-fragment assets/request-photo-gallery-deep-link.js */
@@ -115653,6 +115599,8 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
 /* @runtime-fragment assets/bloomscapes-docks-render.js */
 /* @runtime-fragment assets/bloomscapes-docks-borrowed-cards.js */
 /* @runtime-fragment assets/bloomscapes-docks-borrowed-field.js */
+/* @runtime-fragment assets/bloomscapes-timecards-transport.js */
+/* @runtime-fragment assets/bloomscapes-timecards.js */
 /* @runtime-fragment assets/bloomscapes-docks-documents.js */
 /* @runtime-fragment assets/bloomscapes-docks-compact.js */
 /* @runtime-fragment assets/bloomscapes-docks-browse.js */
@@ -131324,36 +131272,6 @@ ${folderNote ? `Folder Note: ${folderNote}
                 return commitTaskReserveCustomerSelection(draft);
             }
             return closeIosTaskFilterSheet();
-        }
-
-        function handleIosTaskFilterTriggerEvent(event = null) {
-            if (!event || !shouldUseIosStandaloneTaskFilterSheet()) return;
-            if (getCurrentVisibleViewId() !== 'tasks') return;
-            const target = event.target;
-            const trigger = target && target.closest ? target.closest('[data-ios-task-filter-trigger]') : null;
-            if (!trigger) return;
-            const kind = normalizeIosTaskFilterSheetKind(trigger.getAttribute('data-ios-task-filter-trigger'));
-            if (!kind) return;
-            const eventType = String(event.type || '').toLowerCase();
-            if (eventType === 'pointerdown') {
-                const pointerType = String(event.pointerType || '').toLowerCase();
-                if (pointerType && pointerType !== 'touch' && pointerType !== 'pen') return;
-            }
-            const passiveStartEvent = eventType === 'pointerdown' || eventType === 'touchstart';
-            const now = Date.now();
-            const actionKey = `task-filter:${kind}`;
-            if (iosTaskFilterLastTriggerKey === actionKey && now - iosTaskFilterLastTriggerAt < 450) {
-                if (!passiveStartEvent && event.cancelable) event.preventDefault();
-                event.stopPropagation();
-                if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
-                return;
-            }
-            iosTaskFilterLastTriggerKey = actionKey;
-            iosTaskFilterLastTriggerAt = now;
-            if (!passiveStartEvent && event.cancelable) event.preventDefault();
-            event.stopPropagation();
-            if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
-            openIosTaskFilterSheet(kind);
         }
 
         function initializeIosTaskFilterSheetTriggers() {

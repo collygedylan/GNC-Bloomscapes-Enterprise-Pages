@@ -58,3 +58,30 @@ bindFastInvokeById('footer-communication-btn', 'openBloomscapesComm', ['voice'],
     bindFastInvokeById('tab-move-up-loc', 'setMoveUpBrowseMode', ['block'], 'LOCATION');
     bindFastInvokeById('tab-move-up-card', 'setMoveUpBrowseMode', ['card'], 'CARD');
 }
+
+function handleIosTaskFilterTriggerEvent(event = null) {
+    const trigger = event?.target?.closest?.('[data-ios-task-filter-trigger]');
+    if (!trigger || getCurrentVisibleViewId() !== 'tasks' || !shouldUseIosStandaloneTaskFilterSheet()) return;
+    const kind = normalizeIosTaskFilterSheetKind(trigger.getAttribute('data-ios-task-filter-trigger'));
+    if (!kind) return;
+    const eventType = String(event.type || '').toLowerCase();
+    if (eventType === 'pointerdown') {
+        const pointerType = String(event.pointerType || '').toLowerCase();
+        if (pointerType && pointerType !== 'touch' && pointerType !== 'pen') return;
+    }
+    const passiveStartEvent = eventType === 'pointerdown' || eventType === 'touchstart';
+    const now = Date.now();
+    const actionKey = `task-filter:${kind}`;
+    if (iosTaskFilterLastTriggerKey === actionKey && now - iosTaskFilterLastTriggerAt < 450) {
+        if (!passiveStartEvent && event.cancelable) event.preventDefault();
+        event.stopPropagation();
+        if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+        return;
+    }
+    iosTaskFilterLastTriggerKey = actionKey;
+    iosTaskFilterLastTriggerAt = now;
+    if (!passiveStartEvent && event.cancelable) event.preventDefault();
+    event.stopPropagation();
+    if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+    openIosTaskFilterSheet(kind);
+}

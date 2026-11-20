@@ -40,11 +40,11 @@ function renderBloomscapesCommComposer() {
     if (state.opening) {root.innerHTML='<p>Opening selected conversation…</p>';return;}
     if (root.contains(document.activeElement) || bloomscapesWalkieCapture?.speaking) {syncBloomscapesWalkieRecording();return;}
     const row=state.conversations.find(item=>item.id===state.selected);
-    if (!row) {root.innerHTML='';return;}
+    if (!row) {root.innerHTML='<button type="button" data-comm-talk disabled aria-label="Select a channel to transmit">Select a channel</button>';return;}
     const name=commConversationName(row),thread=state.threads[row.id] || {},voice=state.voiceAccess==='FULL_EDIT',text=state.textAccess==='FULL_EDIT';
     root.innerHTML='<div class="comm-modes" role="group" aria-label="Choose Voice or Text"><button type="button" data-comm-mode="voice" aria-pressed="'+(state.mode==='voice')+'">🎙 Walkie Voice</button>'
         +'<button type="button" data-comm-mode="text" aria-pressed="'+(state.mode==='text')+'">💬 Type Text</button></div>'
-        +'<div class="comm-talk-row"><button type="button" data-comm-talk '+(!voice?'disabled':'')+'>🎙 HOLD TO TALK — OR TAP TO RECORD WALKIE TO '+commEscape(name)+'</button>'
+        +'<div class="comm-talk-row"><button type="button" data-comm-talk '+(!voice?'disabled':'')+'>Hold to talk</button>'
         +'<button type="button" data-comm-cancel-record hidden>Cancel</button><span data-comm-recording role="status"></span></div>'
         +'<form class="comm-text-form"><textarea name="body" data-comm-text maxlength="4000" rows="2" aria-label="Message '+commEscape(name)+'" placeholder="Message '+commEscape(name)+'..."'
         +(!text?' disabled':'')+'>'+commEscape(thread.draft || '')+'</textarea><button type="submit" '+(!text || thread.sending?'disabled':'')+'>Send</button>'
@@ -66,7 +66,7 @@ function dispatchBloomscapesCommClick(event,host) {
         commFilter:value=>{state.filter=value;renderBloomscapesCommList();renderBloomscapesCommPeople();},
         commMode:value=>{state.mode=value;document.activeElement?.blur();renderBloomscapesCommComposer();},
         commInbox:()=>{state.mobileThread=false;renderBloomscapesComm();},
-        commReply:value=>{draftBloomscapesCommText(value);document.activeElement?.blur();renderBloomscapesCommComposer();},
+        commReply:value=>sendBloomscapesQuickReply(value),
         commOlder:()=>void selectBloomscapesConversation(state.selected,false,state.threads[state.selected]?.rows?.[0])};
     const key=Object.keys(data).find(name=>actions[name]);
     if (key) actions[key](data[key]);
@@ -89,4 +89,13 @@ async function submitBloomscapesComm(form) {
     const values=new FormData(form),people=values.getAll('people');
     if (!people.length) return showBloomscapesCommStatus('Choose at least one person.');
     await chooseBloomscapesCommPeople(people,String(values.get('title') || ''));
+}
+
+function sendBloomscapesQuickReply(value) {
+    const state=bloomscapesCommState;
+    if (state.textAccess!=='FULL_EDIT' || !state.selected || state.threads[state.selected]?.sending) return;
+    const draft=state.threads[state.selected]?.draft || '';
+    if (draft.trim()) {showBloomscapesCommStatus('Send or clear the current draft before using a quick reply.');return;}
+    draftBloomscapesCommText(value);
+    void dispatchBloomscapesCommText();
 }

@@ -10,8 +10,10 @@ async function callAuraLlmRouter(body, options = {}) {
     const accessDiscovery = body?.mode === 'capabilities';
     const authorized = () => accessDiscovery ? isAuraRouterProfileCandidate() : isAuraRouterWidgetAuthorized();
     if (!authorized()) throw Object.assign(new Error('AURA is unavailable to the active account.'), { status: 403 });
-    const local=readBloomscapesLocalAuraCreation(body);
-    if (local) return local;
+    if (typeof navigator!=='undefined' && navigator.onLine===false) {
+        const draft=readBloomscapesLocalAuraCreation(body);
+        if (draft) return draft;
+    }
     const controller = new AbortController();
     const externalSignal = options.signal;
     const abort = () => controller.abort(externalSignal?.reason);

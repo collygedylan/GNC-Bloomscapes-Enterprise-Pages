@@ -1,4 +1,5 @@
 async function executeSelectedErpTarget(target, context) {
+    if (target.key==='CAV_PROJECTION') return verifyOperationalCavProjection(target);
     const session = await getNativeAuthSession();
     if (!session?.access_token) throw new Error('An authenticated ERP session is required.');
     const owner = getSupabaseReadIdentityScope();
@@ -68,4 +69,13 @@ function erpHomeSourceLabel(key) {
     if (key.endsWith('SOC_OPEN')) return 'SOC';
     if (key.endsWith('SOC_RESERVES')) return 'Reserves';
     return key;
+}
+
+async function verifyOperationalCavProjection(target) {
+    const owner=getSupabaseReadIdentityScope();
+    assertErpStageSession(owner);
+    const page=await fetchDirectPostgrestReadPage('ph_cav_import','select=unique_id&limit=1',{count:true,timeoutMs:6000},false);
+    assertErpStageSession(owner);
+    if (page?.authSource!=='native' || !Number.isInteger(page.total) || page.total<0) throw Error('CAV publication could not be verified.');
+    return {targetKey:target.key,status:'verified',row_count:page.total};
 }

@@ -3,9 +3,9 @@ function commEscape(value) {
 }
 
 function renderBloomscapesCommHub() {
-    return '<section data-comm-hub aria-label="Walkie & Direct Messenger"><header class="comm-heading"><div>'
-        +'<small>STAY CONNECTED · BLOOMSCAPES</small><h2>Walkie &amp; Direct Messenger</h2></div>'
-        +'<label class="comm-autoplay"><input type="checkbox" data-comm-autoplay> 🔊 Live Walkie Auto-Play</label></header>'
+    return '<section data-comm-hub aria-label="Push to Talk"><header class="comm-heading"><div>'
+        +'<h2>Push to Talk</h2></div>'
+        +'<label class="comm-autoplay"><input type="checkbox" data-comm-autoplay> 🔊 Live Speaker</label></header>'
         +'<div class="comm-layout"><aside class="comm-inbox"><div class="comm-search"><input data-comm-search aria-label="Search people, crews, or conversations" '
         +'placeholder="Search people, crews, or conversations..."><button type="button" data-comm-new>+ New Walkie / Text</button></div>'
         +'<nav class="comm-filters" aria-label="Conversation filters">'
@@ -108,10 +108,10 @@ function openBloomscapesComm(mode='voice') {
     if (!nativeAuthSessionActive) return switchView('communication');
     bloomscapesCommState.mode=mode;
     if (mode==='text') return openBloomscapesMessages();
-    return openBloomscapesDepartmentModule('communication','bloomscapes-radio');
+    return switchView('push-to-talk');
 }
 
 function syncBloomscapesCommLifecycle(view) {
-    if (['communication','chat'].includes(view) || view==='managers' && activeHomeTab==='bloomscapes-radio') return;
+    if (['communication','chat','push-to-talk'].includes(view) || view==='managers' && activeHomeTab==='bloomscapes-radio') return;
     stopBloomscapesWalkie(true);releaseBloomscapesCommAudio();
 }

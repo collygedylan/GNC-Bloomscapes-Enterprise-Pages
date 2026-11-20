@@ -17,9 +17,9 @@ function openBloomscapesMessages() {
 }
 
 function renderBloomscapesMessagesView(view) {
-    if (view!=='chat') return false;
+    if (!['chat','push-to-talk'].includes(view)) return false;
     if (!nativeAuthSessionActive) {mountBloomscapesLegacyChat();return false;}
-    const root=document.getElementById('view-chat');
+    const root=document.getElementById('view-'+view);
     if (!root.querySelector('[data-comm-hub]')) root.innerHTML=renderBloomscapesCommHub();
     mountBloomscapesCommHub(root);
     renderBloomscapesComm();
@@ -38,4 +38,28 @@ function updateFooterChatBadge() {
 function mountBloomscapesLegacyChat() {
     const root=document.getElementById('view-chat');
     if (root && !root.querySelector('#chat-content')) root.innerHTML=BLOOMSCAPES_LEGACY_CHAT;
+}
+
+function getCurrentChatUsername() {
+    return normalizePushUsername(currentUser || currentUserDisplay || '');
+}
+
+function getCurrentChatDisplayName() {
+    return String(currentUserDisplay || currentUser || '').trim() || 'You';
+}
+
+function getFallbackChatDisplayName(username = '') {
+    const normalized = normalizePushUsername(username);
+    if (!normalized) return 'Unknown User';
+    return normalized.split('_').filter(Boolean).map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
+}
+
+function normalizeChatUser(row = null) {
+    const username = normalizePushUsername(chatField(row, 'username', 'USERNAME'));
+    if (!username) return null;
+    return {
+        username,
+        displayName: String(firstNonEmptyValue(chatField(row, 'display_name', 'displayName', 'name', 'username'), getFallbackChatDisplayName(username)) || '').trim() || getFallbackChatDisplayName(username),
+        role: String(chatField(row, 'role', 'ROLE') || '').trim()
+    };
 }

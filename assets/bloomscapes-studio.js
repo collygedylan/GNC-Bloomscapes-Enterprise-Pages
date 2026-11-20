@@ -5,6 +5,7 @@ const bloomscapesStudioModules = [
 ];
 
 function renderBloomscapesWorkStudio() {
+    if (!canUseBloomscapesWorkStudio()) return '';
     return '<section data-bloomscapes-studio><h2>Build Work Studio</h2><nav data-studio-modules>'
         +bloomscapesStudioModules.map(([key,label])=>'<button type="button" data-open-module="'+key+'">'+label+'</button>').join('')
         +'</nav><div data-studio-module></div></section>';
@@ -13,6 +14,7 @@ function renderBloomscapesWorkStudio() {
 function mountBloomscapesWorkStudio(host) {
     const menu=host.querySelector('[data-studio-modules]');
     const panel=host.querySelector('[data-studio-module]');
+    if (!menu || !panel || !canUseBloomscapesWorkStudio()) return;
     menu.addEventListener('click',event=>{
         const key=event.target.closest('[data-open-module]')?.dataset.openModule;
         if (key) void openBloomscapesStudioModule(menu,panel,key);
@@ -20,6 +22,7 @@ function mountBloomscapesWorkStudio(host) {
 }
 
 async function openBloomscapesStudioModule(menu,panel,key) {
+    if (!canUseBloomscapesWorkStudio()) return;
     menu.hidden=true;
     const title=bloomscapesStudioModules.find(([id])=>id===key)[1];
     panel.innerHTML='<header class="studio-breadcrumb"><button type="button" data-module-back>← All Modules</button><h3>'+title+'</h3><span data-module-summary></span></header><div data-module-body></div>';

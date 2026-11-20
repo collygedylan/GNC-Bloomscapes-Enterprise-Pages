@@ -18,7 +18,7 @@ function mountBloomscapesHomeModules() {
         studio.className='home-module-tile';studio.innerHTML='<i class="ph ph-hammer" aria-hidden="true"></i><span>Build Work Studio</span>';
         studio.addEventListener('click',()=>openBloomscapesDepartmentModule('production','studio'));grid.appendChild(studio);
     }
-    studio.hidden=!isFullAppAdministrator();
+    studio.hidden=!canUseBloomscapesWorkStudio();
     grid.querySelector('#home-tile-bloom')?.remove();
     mountBloomscapesCommunicationTiles(grid);
     const order=['drive','hl-order','av','sales-office','sales','historical-requests','managers','qc','office','sales-inventory','production','studio','smart-moves','messages','walkie'];

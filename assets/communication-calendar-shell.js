@@ -5,3 +5,28 @@ function mountBloomscapesCalendarShell(view) {
     const root=document.getElementById('view-department-calendar');
     if (root && !root.querySelector('#department-calendar-content')) root.innerHTML=BLOOMSCAPES_CALENDAR_SHELL;
 }
+
+function mountBloomscapesCommunicationViews(doc) {
+    const anchor=doc.getElementById('view-reserves');
+    if (!anchor || doc.getElementById('view-communication')) return;
+    anchor.insertAdjacentHTML('beforebegin',`<div id="view-communication" class="hidden"></div>
+                <div id="view-department-calendar" class="hidden"></div>
+                <div id="view-chat" class="hidden"></div>
+                <div id="view-push-to-talk" class="hidden" aria-label="Push to Talk"></div>
+                <div id="view-time-cards" class="hidden" aria-label="Time Cards"></div>`);
+}
+function mountBloomscapesTimeCardLink(host) {
+    let button=host.querySelector('[data-time-cards-link]');
+    const allowed=canOpenBloomscapesDocksWorkspace('time-cards');
+    if (!button && allowed) {
+        button=host.appendChild(document.createElement('button'));
+        button.type='button';
+        button.className='sales-card-action';
+        button.dataset.timeCardsLink='true';
+        button.textContent='Time Cards';
+        button.addEventListener('click',()=>switchView('time-cards'));
+    }
+    if (button) button.hidden=!allowed;
+}
+
+if (typeof document!=='undefined') mountBloomscapesCommunicationViews(document);

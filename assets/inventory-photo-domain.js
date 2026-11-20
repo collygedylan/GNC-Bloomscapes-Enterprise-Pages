@@ -166,8 +166,9 @@ async function prepareQueuedRowPhoto(job) {
 
 function acceptQueuedRowPhotoUpload(job, uploaded) {
     if (!isCurrentDrivePhotoAttachment(job)) return;
-    const publicUrl = normalizeStoragePublicUrl(uploaded.publicUrl);
-    if (!publicUrl) throw new Error('Photo upload did not return a saved photo.');
+    const publicUrl = normalizeStoragePublicUrl(uploaded?.publicUrl);
+    if (uploaded?.ok !== true || !publicUrl) throw new Error('Photo upload did not return a confirmed object.');
+    if (job.upload?.publicUrl === publicUrl) return;
     job.upload = {
         publicUrl, fileName:String(uploaded.filePath || job.fileName).split('/').pop(),
         filePath:uploaded.filePath, receipt:uploaded.receipt
@@ -196,7 +197,6 @@ async function retainPreparedRowPhoto(job, optimized) {
 }
 
 async function uploadRowPhotoAttachment(job) {
-    setDrivePhotoAttachmentStatus(job,'Uploading');
     job.uploadController = new AbortController();
     const detailPhoto = isQueuedDetailPhoto(job.prefix);
     if (detailPhoto && !job.optimizedPhoto) {
@@ -204,6 +204,7 @@ async function uploadRowPhotoAttachment(job) {
         await retainPreparedRowPhoto(job, optimized);
     }
     if (!isCurrentDrivePhotoAttachment(job)) return;
+    if (job.status !== 'Uploading') setDrivePhotoAttachmentStatus(job,'Uploading');
     const master = await prepareQueuedRowPhoto(job);
     const nativeHeaders = SECURE_DRIVE_EVIDENCE_PREFIXES.has(job.prefix) ? await getQueuedRowPhotoHeaders(job) : null;
     if (!isCurrentDrivePhotoAttachment(job)) return;
@@ -287,7 +288,7 @@ function retryDrivePhotoAttachment(id) {
     if (conflict && !resetPhotoAttachmentConflict(job,conflict)) return false;
     if (!isPhotoMutationSurface(job.prefix,job.sourceView)) return false;
     if (job.status === 'Save failed') { job.upload = null; job.commandRow = null; job.payload = null; }
-    setDrivePhotoAttachmentStatus(job,'Uploading');
+    setDrivePhotoAttachmentStatus(job,isQueuedDetailPhoto(job.prefix) && !job.optimizedPhoto ? 'Optimizing' : 'Uploading');
     job.running = true;
     const run = runRowPhotoAttachmentWithRetry(job);
     job.promise = run;
@@ -328,6 +329,6 @@ function setDrivePhotoAttachmentStatus(job, status) {
     getPendingPhotoPreviewEntries(job.item, job.prefix).forEach(entry => {
         if (entry.id === job.preview.id) Object.assign(entry, { status, uploadId:job.id, scope:job.scope, storageUrl:job.upload?.publicUrl });
     });
-    refreshPendingPhotoUiForItem(job.item, job.prefix);
+    refreshPendingPhotoUiForItem(job.item, job.prefix, status === 'Optimizing');
 }
 

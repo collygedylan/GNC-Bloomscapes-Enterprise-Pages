@@ -41,5 +41,6 @@ function renderViewContent(viewId, forceReset = false, forceRender = false) {
 let bloomscapesThumbnailView='';
 
 function renderBloomscapesDispatchWorkspaces(viewId) {
+    if (viewId==='time-cards') {renderBloomscapesTimeCards();return true;}
     return renderBloomscapesBorrowedField(viewId) || renderBloomscapesDocksWorkspace(viewId);
 }

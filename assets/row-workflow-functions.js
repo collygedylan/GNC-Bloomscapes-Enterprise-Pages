@@ -2276,21 +2276,10 @@ function renderProjectSandboxResult(payload){let modal=document.getElementById('
 async function retrySavedInventoryProject(){let payload;try{payload=JSON.parse(localStorage.getItem(inventoryProjectCacheKey()+':draft')||'null');}catch{}if(!payload)return false;const scope=getSupabaseReadIdentityScope();try{const result=await inventoryProjectApi('project_create_from_bloom',payload);if(scope!==getSupabaseReadIdentityScope())return false;if(!result?.project?.id||!Array.isArray(result.rows))throw Error('Project receipt missing.');inventoryProjects=[...inventoryProjects.filter(p=>p.id!==result.project.id),result.project];inventoryProjectRows=[...inventoryProjectRows.filter(r=>r.project_id!==result.project.id),...result.rows];cacheInventoryProjects();localStorage.removeItem(inventoryProjectCacheKey()+':draft');syncRequestTabButtons();renderQueueInventoryProjects(true);showToast('Project saved','The saved draft is now published.');}catch(error){showToast('Project draft',error.message,true);}return false;}
 
 function isReclassExplanationExempt() {
-    return typeof getVerifiedReclassAdministrator === 'function' && !!getVerifiedReclassAdministrator();
+    return typeof getVerifiedReclassExplanationExemption === 'function' && getVerifiedReclassExplanationExemption();
 }
 function getReclassExplanation(uid) {
     return String(getArgosReclassRowProposalMap(String(uid || ''), false)?.reclassExplanation || '').trim();
-}
-function updateReclassExplanation(input) {
-    const uid = input?.getAttribute('data-reclass-explanation-uid');
-    if (!uid) return false;
-    getArgosReclassRowProposalMap(uid, true).reclassExplanation = String(input.value || '');
-    argosInventoryTransactionState.reclassDraftsByRowUid = argosReclassMultiActionState.rowProposals;
-    input.removeAttribute('aria-invalid');
-    input.style.borderColor = '#34d399';
-    markArgosReclassProposalEdited(uid);
-    captureEvalWorkLocalDraftSoon(0);
-    return true;
 }
 function requireReclassExplanation(uid) {
     if (!canStageArgosReclassRow(uid)) return false;
@@ -2300,10 +2289,6 @@ function requireReclassExplanation(uid) {
     if (input) { input.setAttribute('aria-invalid','true'); input.style.borderColor='#f87171'; input.focus(); }
     showToast('Reclass Explanation Required', 'Reclass Explanation is required before submitting a Reclass.', true);
     return false;
-}
-function buildReclassExplanationField(uid) {
-    const exempt = isReclassExplanationExempt();
-    return '<label class="argos-reclass-row-field argos-reclass-row-field--wide" style="display:block;margin:12px 0"><strong>' + (exempt ? 'Reclass Explanation (Optional for Admin)' : 'Reclass Explanation * (Required)') + '</strong><textarea class="reclass-explanation-input argos-reclass-row-input" data-reclass-explanation-uid="' + escapeHtml(uid) + '" aria-label="Reclass Explanation" aria-required="' + !exempt + '" rows="3" maxlength="4000" style="display:block;width:100%;background:#052e24;color:#ecfdf5;border:1px solid #34d399;border-radius:10px;padding:12px" oninput="updateReclassExplanation(this)">' + escapeHtml(getReclassExplanation(uid)) + '</textarea></label>';
 }
 function collectReclassExplanations(draft) {
     const holds = new Set((draft.holdStopProposals || []).map(row => row.sourceUid));

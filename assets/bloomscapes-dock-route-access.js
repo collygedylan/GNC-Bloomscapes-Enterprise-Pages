@@ -1,4 +1,4 @@
-const bloomscapesDockRoutes = Object.freeze(['pull-tags','mistake-fix','traffic-office','borrowed-work']);
+const bloomscapesDockRoutes = Object.freeze(['pull-tags','mistake-fix','traffic-office','borrowed-work','time-cards']);
 const bloomscapesBorrowedRoutes = {scope:'',routes:[],flight:null};
 
 function isBloomscapesDockRoute(view) {
@@ -14,7 +14,7 @@ function canOpenBloomscapesDocksWorkspace(view,userOverride='') {
     if (!isBloomscapesDockRoute(view) || !nativeAuthSessionActive || !nativeAuthProfile?.id) return false;
     if (userOverride && normalizeNavigationVisibilityUsername(userOverride)!==normalizeNavigationVisibilityUsername(currentUser)) return false;
     const granted=bloomscapesBorrowedRoutes.scope===currentBorrowedRouteScope() && bloomscapesBorrowedRoutes.routes.includes(view);
-    if (view==='borrowed-work') return granted;
+    if (['borrowed-work','time-cards'].includes(view)) return granted;
     const flag=resolveUserAccessMatrix(currentUser)?.view_permissions?.['view_'+view.replaceAll('-','_')];
     if (flag==='Y' || isFullAppAdministrator()) return true;
     if (flag!=='N' && canAccessView('docks')) return true;

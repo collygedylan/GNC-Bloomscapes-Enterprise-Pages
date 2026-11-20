@@ -17,6 +17,38 @@ function resolveDetailKeypadInsertion(type, { value, start, end }, key) {
     return { nextValue: value.slice(0, start) + inserted + value.slice(end), nextCursor: start + inserted.length };
 }
 
+function updateDetailMeasurementKeyboardTargetValue(nextValue = '', nextCursor = null) {
+    const input = detailMeasurementKeyboardTarget;
+    if (!input) return false;
+    markDetailMeasurementKeyboardInteraction(1300);
+    const rawValue = String(nextValue || '');
+    input.value = normalizeDetailMeasurementKeyboardValueForInput(input,rawValue);
+    const cursor = Math.min(input.value.length,Math.max(0,getNormalizedDetailMeasurementCursor(input,rawValue,nextCursor)));
+    if (input.dataset) {
+        input.dataset.detailKeypadCursorStart = String(cursor);
+        input.dataset.detailKeypadCursorEnd = String(cursor);
+    }
+    const preview = document.getElementById('detail-measurement-keyboard-value-preview');
+    if (preview) preview.textContent = input.value || 'Type value...';
+    clearTimeout(input.__measurementDispatchTimer);
+    const owner = getSupabaseReadIdentityScope(), rowUid = getCompletedRowUnlockKey(activeItem);
+    input.__measurementDispatchTimer = setTimeout(() => {
+        if (!input.isConnected || owner !== getSupabaseReadIdentityScope() || rowUid !== getCompletedRowUnlockKey(activeItem)) return;
+        if (document.activeElement === input && detailMeasurementKeyboardTarget === input) input.setSelectionRange?.(cursor,cursor);
+        dispatchDetailMeasurementKeyboardInput(input);
+    },0);
+    return false;
+}
+
+function triggerDetailKeyboardHaptic(duration = 8) {
+    const now = Date.now();
+    if (now - detailMeasurementKeyboardLastHapticAt < 14 || typeof navigator.vibrate !== 'function') return;
+    detailMeasurementKeyboardLastHapticAt = now;
+    requestAnimationFrame(() => {
+        if (!document.hidden) triggerHaptic(duration >= 15 ? 'medium' : 'light');
+    });
+}
+
 function pinActiveDetailField(input) {
     if (!input?.closest('#view-detail') || !input.isConnected) return;
     const viewport = window.visualViewport;

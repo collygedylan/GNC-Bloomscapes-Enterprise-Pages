@@ -60,6 +60,7 @@ function openBloomscapesDepartmentModule(view,tab) {
     if (tab==='bloomscapes-radio' || tab==='radio') bloomscapesCommState.mode='voice';
     if (tab==='smart-moves') return switchView('smart-moves');
     const module = tab.startsWith('bloomscapes-') ? tab : 'bloomscapes-'+tab;
+    if (module==='bloomscapes-studio' && !canUseBloomscapesWorkStudio()) return false;
     if (view==='managers') return openBloomscapesHomeModule(module);
     bloomscapesDepartmentTabs.set(bloomscapesDepartmentKey(view),module);
     markViewDirty(view);
@@ -107,7 +108,7 @@ function renderBloomscapesDepartmentWorkspace(view) {
     const key = bloomscapesDepartmentKey(view);
     const tab = bloomscapesDepartmentTabs.get(key) || BLOOMSCAPES_DEPARTMENT_DEFAULTS[view] || '';
     const mounted = root.querySelector(':scope > [data-department-workspace]');
-    if (!tab) {
+    if (!tab || (tab==='bloomscapes-studio' && !canUseBloomscapesWorkStudio())) {
         mounted?.remove();restoreBloomscapesDepartmentChildren(root);
         return false;
     }
