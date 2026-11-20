@@ -67,6 +67,7 @@ function mountInventoryExcelFilters(scope) {
     }
     bar.dataset.signature=signature;
     bar.innerHTML=inventoryExcelBarHtml(scope);
+    if (scope==='studio') bindStudioAssignedFilter(bar,state);
     if (scope === 'docks') mountDocksPrimaryFilters(host.closest('#view-docks'),bar);
 }
 
@@ -137,4 +138,13 @@ function getInventoryExcelParityAudit() {
         if (!bar || missing) return {missing:true,scope};
     }
     return {missing:false};
+}
+
+function bindStudioAssignedFilter(bar,state) {
+    bindBloomscapesChoiceFields(bar,{'studio-assigned':()=>{
+        const options=getInventoryExcelOptions(state,'username');
+        return [['','All Assigned Users ('+state.optionTotals.get('username')+')'],
+            ...options.map(option=>[option.key,(option.label || 'Unassigned')+' ('+option.count+')'])];
+    }});
+    bar.querySelector('[data-inventory-select="username"]').onchange=event=>setBloomscapesCountedFilter('studio','username',event.target.value);
 }

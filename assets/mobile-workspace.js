@@ -1,6 +1,7 @@
 /* global canAccessView */
-(function(root){
- 'use strict';
+'use strict';
+{
+ const root=typeof window==='undefined'?globalThis:window;
  const activationFor=(view,action)=>{
   if(action==='return openSalesOfficeView()')return()=>root.openSalesOfficeView();
   if(action==='return openInventoryOfficeView()')return()=>root.openInventoryOfficeView();
@@ -75,8 +76,8 @@
   descriptorsByHub.set(hubView,new Map());
   [...grid.querySelectorAll(':scope > button, :scope > div')].forEach((tile,order)=>upgradeTile(tile,null,{hubView,order}));
  }
- function upgradeAllModuleTiles(){
-  for(const grid of document.querySelectorAll('#home-dashboard-grid, #home-rep-dashboard-grid, [id$="hub-grid"], .manager-module-grid'))upgradeGridTiles(grid);
+ function upgradeAllModuleTiles(scope=document){
+  for(const grid of scope.querySelectorAll('#home-dashboard-grid, #home-rep-dashboard-grid, [id$="hub-grid"], .manager-module-grid'))upgradeGridTiles(grid);
  }
  function syncHub(view){
   const parent=document.getElementById('view-'+view);if(!parent)return;
@@ -126,7 +127,8 @@
    footerResizeObserver=new root.ResizeObserver(scheduleFooterHeightMeasure);footerResizeObserver.observe(nav);
    scheduleFooterHeightMeasure();
   }
-  upgradeAllModuleTiles();
+  const view=document.getElementById('view-'+(document.body.dataset.currentView || 'home'));
+  if (view || !initialized) upgradeAllModuleTiles(view || document);
   if(!initialized){initialized=true;document.documentElement.classList.add('gnc-mobile-workspace');}
  }
  const moduleRegistry=Object.freeze(Object.assign({
@@ -134,4 +136,4 @@
   descriptorsForHub:view=>Object.freeze([...(descriptorsByHub.get(view)?.values()||[])].sort((a,b)=>a.displayOrder-b.displayOrder))
  },hubs));
  root.GncMobileWorkspace={syncHub,shell,hubs,registry:moduleRegistry,createTile,upgradeTile,upgradeAllModuleTiles};
-})(typeof window==='undefined'?globalThis:window);
+}

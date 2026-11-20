@@ -156,11 +156,19 @@ function showBloomscapesCommStatus(message) {
     document.querySelectorAll('[data-comm-status]').forEach(node=>{node.textContent=message;});
 }
 
+function getBloomscapesCommPerson(username) {
+    const people=bloomscapesCommState.people;
+    if (getBloomscapesCommPerson.source!==people) {
+        getBloomscapesCommPerson.source=people;
+        getBloomscapesCommPerson.index=new Map(people.map(user=>[user.username,user]));
+    }
+    return getBloomscapesCommPerson.index.get(username);
+}
+
 function commConversationName(row) {
-    const state=bloomscapesCommState;
     if (row.is_group) return row.title.replace(' All','');
     const person=row.participant_usernames?.find(name=>name!==currentUser);
-    return state.people.find(user=>user.username===person)?.name || person || row.title;
+    return getBloomscapesCommPerson(person)?.name || person || row.title;
 }
 
 function sortedBloomscapesConversations() {

@@ -162,17 +162,16 @@ function preparePrimaryNavigationOrigin(context) {
     const rememberCurrentView = !fromHistory && currentViewId !== nextViewId && currentViewId && currentViewId !== 'detail';
     // Capture after scroll repair, before teardown/body writes invalidate
     // layout and can change the outgoing view's scroll anchoring.
-    const historyScroll = rememberCurrentView
-        ? (currentViewId === 'managers' && activeHomeTab === MANAGER_ASSIGNED_ITEMS_EXPORT_VIEW
-            ? getManagerAssignedColumnState().scroll : getMainAreaScrollTop())
-        : null;
+    const leavingAssignedItems = currentViewId === 'managers' && activeHomeTab === MANAGER_ASSIGNED_ITEMS_EXPORT_VIEW;
+    const originScrollTop = rememberCurrentView && !leavingAssignedItems ? getMainAreaScrollTop() : null;
+    const historyScroll = rememberCurrentView && leavingAssignedItems ? getManagerAssignedColumnState().scroll : originScrollTop;
     if (currentViewId === 'managers' && nextViewId !== 'managers') { cancelManagerModuleReads(); destroyManagerAssignedItemsView(); }
     if (currentViewId === 'communication' && nextViewId !== 'communication') unmountAlphaCommandCenter('communications');
     if (currentViewId === 'managers' && nextViewId !== 'managers' && activeHomeTab === MANAGER_HR_COMMAND_VIEW) unmountAlphaCommandCenter('hr');
     if (currentViewId === 'managers' && nextViewId !== 'managers' && activeHomeTab === MANAGER_PRODUCTION_SCHEDULE_VIEW) {
         window.GncProductionSchedule?.unmount();
     }
-    Object.assign(context, { targetScrollTop, rememberCurrentView, historyScroll });
+    Object.assign(context, { targetScrollTop, rememberCurrentView, historyScroll, originScrollTop });
     return true;
 }
 
@@ -259,45 +258,51 @@ function reusePrimaryNavigation(context) {
 }
 
 function renderPrimaryNavigation(context) {
-    const { nextViewId, currentViewId, nextState, targetView } = context;
-    const needsTargetRender = !nextState.initialized || nextState.dirty;
+    const { nextViewId, nextState, targetView, switchOptions } = context;
+    const managerCommandOwnsRender = nextViewId==='managers' && !!switchOptions?.quickAccessTab;
+    const needsTargetRender = !managerCommandOwnsRender && (!nextState.initialized || nextState.dirty);
     const renderToken = needsTargetRender ? prepareLatestViewRender(nextViewId) : 0;
     if (!targetView) {
         if (needsTargetRender) queueViewRender(nextViewId);
         return;
     }
-    repairAppShellScrollState(`view-switch:${nextViewId}`, { resetGestureState: currentViewId !== nextViewId });
-    syncGlobalHeaderChrome({ reason: `view-switch:${nextViewId}`, force: true });
-    scheduleStickyRailOffsetSync(`view-switch:${nextViewId}`, true);
+    const synchronous = needsTargetRender && shouldRenderViewSynchronouslyOnSwitch(nextViewId, nextState);
+    if (synchronous) {
+        runPrimaryNavigationTargetRender(context,renderToken,true);
+        return;
+    }
+    syncGlobalHeaderChrome({reason:`view-switch:${nextViewId}`,force:true});
+    scheduleStickyRailOffsetSync(`view-switch:${nextViewId}`,true);
     if (needsTargetRender) {
-        const runTargetRender = () => runPrimaryNavigationTargetRender(context, renderToken);
-        if (shouldRenderViewSynchronouslyOnSwitch(nextViewId, nextState)) {
-            runTargetRender();
-        } else {
-            scheduleUiRender(`view-switch-render:${nextViewId}`, runTargetRender, isTouchConstrainedDevice() ? 12 : 4);
-        }
+        scheduleUiRender(`view-switch-render:${nextViewId}`,()=>runPrimaryNavigationTargetRender(context,renderToken),isTouchConstrainedDevice()?12:4);
     }
 }
 
-function runPrimaryNavigationTargetRender({ nextViewId, navigationSeq }, renderToken) {
+function runPrimaryNavigationTargetRender({ nextViewId, navigationSeq }, renderToken, syncHeader = false) {
     if (!isLatestViewRenderToken(nextViewId, renderToken)) {
         incrementInternalPerfCounter('staleViewRenderSkips');
         return;
     }
-    if (isCurrentNavigationTransition(navigationSeq, nextViewId)) renderViewContent(nextViewId, false, false);
+    if (isCurrentNavigationTransition(navigationSeq, nextViewId)) renderViewContent(nextViewId, false, false, syncHeader);
 }
 
 function restorePrimaryNavigationScroll(context) {
-    const { nextViewId, currentViewId, targetScrollTop, navigationSeq } = context;
-    if (targetScrollTop != null) {
-        scheduleUiRender(`view-restore:${nextViewId}:${targetScrollTop}`, () => {
-            if (!isCurrentNavigationTransition(navigationSeq, nextViewId)) return;
-            setMainAreaScrollTop(targetScrollTop);
-            requestAnimationFrame(() => confirmPrimaryNavigationScroll(context));
-        });
-    } else if (currentViewId !== nextViewId) {
-        queueScrollMainAreaToTop(`view:${nextViewId}`);
-    }
+    const { nextViewId, currentViewId, targetScrollTop, navigationSeq, originScrollTop } = context;
+    if (targetScrollTop != null) return queueExplicitPrimaryNavigationScroll(context);
+    if (currentViewId === nextViewId) return;
+    if (originScrollTop != null) return queueScrollMainAreaToTop(`view:${nextViewId}`, originScrollTop);
+    scheduleUiRender('view-scroll-reset', () => {
+        if (isCurrentNavigationTransition(navigationSeq, nextViewId)) queueScrollMainAreaToTop(`view:${nextViewId}`);
+    });
+}
+
+function queueExplicitPrimaryNavigationScroll(context) {
+    const { nextViewId, targetScrollTop, navigationSeq } = context;
+    scheduleUiRender(`view-restore:${nextViewId}:${targetScrollTop}`, () => {
+        if (!isCurrentNavigationTransition(navigationSeq, nextViewId)) return;
+        setMainAreaScrollTop(targetScrollTop);
+        requestAnimationFrame(() => confirmPrimaryNavigationScroll(context));
+    });
 }
 
 function confirmPrimaryNavigationScroll({ nextViewId, targetScrollTop, navigationSeq }) {
@@ -346,6 +351,7 @@ function shouldRenderViewSynchronouslyOnSwitch(viewId = '', state = null) {
     const targetViewId = String(viewId || '').trim();
     if (!targetViewId) return false;
     if (targetViewId === 'av' && canRenderWarmAvInventory()) return true;
+    if (typeof canRenderNavigationSnapshot === 'function' && canRenderNavigationSnapshot(targetViewId)) return true;
     if (targetViewId === 'request') {
         const requestState = (state && typeof state === 'object') ? state : ensureViewRenderState(targetViewId);
         return !requestState.initialized || !!requestState.dirty;

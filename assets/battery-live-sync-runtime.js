@@ -24,8 +24,7 @@ function pauseBatteryMedia() {
     for (const capture of [...bloomscapesRadioCaptures]) endBloomscapesTransmission(capture);
     void stopChatVoiceRecorderStream().catch(batteryRuntimeError);
     stopGrowerScoutRecorderStream();
-    clearInterval(inventoryGalleryDeepLinkFocusTimer);
-    inventoryGalleryDeepLinkFocusTimer = null;
+    cancelInventoryGalleryFocus();
     clearTimeout(appSessionHousekeepingTimer);
     appSessionHousekeepingTimer = null;
     releaseBloomscapesCommAudio();

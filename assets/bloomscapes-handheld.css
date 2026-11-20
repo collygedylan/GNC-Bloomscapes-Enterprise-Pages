@@ -20,3 +20,7 @@
  #view-push-to-talk .comm-inbox {max-height:36dvh;height:auto;}
  #view-push-to-talk .comm-thread {height:auto;}
 }
+
+:where(a,button,input,textarea,select,summary,label,[role="button"],[role="tab"],[onclick]) {
+    touch-action: manipulation;
+}

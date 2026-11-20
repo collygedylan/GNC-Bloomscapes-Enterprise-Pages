@@ -401,6 +401,10 @@ html[data-theme=dark] .user-directory-dialog { background:#112d22; }
 [data-bloomscapes-studio]:has([data-module-back]) > h2{display:none;}
 .inventory-reports{min-width:0;color:var(--bloom-ink);}
 .report-tabs{padding:6px 0;}.report-actions{margin-top:5px;}
+body[data-current-view="managers"] #toast-notification {
+    top: auto;
+    bottom: calc(max(var(--gnc-footer-height, var(--footer-nav-reserve, 64px)), var(--gnc-personal-footer-height, 0px)) + 8px + env(safe-area-inset-bottom, 0px));
+}
 
 .dock-dispatch-pill {
   width:auto;height:36px;white-space:nowrap;color:var(--bloom-pill-ink);background:var(--bloom-pill);

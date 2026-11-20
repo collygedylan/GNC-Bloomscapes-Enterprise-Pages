@@ -1,4 +1,5 @@
 const BLOOMSCAPES_BROWSE_VIEWS={sales:'sales',qc:'qc',production:'production','sales-inventory':'inventory','sales-office':'salesoffice'};
+const BLOOMSCAPES_REP_VAULT_PAGE_SIZE=12;
 
 function getBloomscapesBrowseFilterHost(scope) {
     const view=Object.keys(BLOOMSCAPES_BROWSE_VIEWS).find(view=>BLOOMSCAPES_BROWSE_VIEWS[view]===scope);
@@ -130,31 +131,31 @@ function mountSalesRepRecords(host) {
     previous.type='button';previous.className='sales-studio-navigation';previous.textContent='Previous';
     const more=host.appendChild(document.createElement('button'));
     more.type='button';more.className='sales-studio-navigation';more.textContent='Load more';
-    const state={kind,rep,list,more,previous,page:0,revision:0,owner:getSupabaseReadIdentityScope(),farm:getBloomscapesFarm()};
+    const state={kind,rep,list,more,previous,page:0,segment:0,rows:[],revision:0,owner:getSupabaseReadIdentityScope(),farm:getBloomscapesFarm()};
     rep.addEventListener('change',()=>loadSalesRepRecords(state,0));
     kind.addEventListener('change',()=>loadSalesRepRecords(state,0));
-    previous.addEventListener('click',()=>loadSalesRepRecords(state,state.page-1));
-    more.addEventListener('click',()=>loadSalesRepRecords(state,state.retryPage ?? state.page+1));
+    previous.addEventListener('click',()=>turnSalesRepPage(state,-1));
+    more.addEventListener('click',()=>turnSalesRepPage(state,1));
     void loadSalesRepRecords(state,0);
 }
 
-async function loadSalesRepRecords(state, page) {
+async function loadSalesRepRecords(state, page, segment=0) {
     const {kind,rep,more}=state;
     const current=++state.revision;
     state.previous.disabled=true;
-    state.retryPage=page;
+    state.retryPage={page,segment};
     more.disabled=true;
     more.textContent='Next';
     try {
         const rows=await readBloomscapesPanel('sales-studio-records',{kind:kind.value,page,rep:rep.value.trim()});
-        if (ownsSalesRepPage(state,current)) showSalesRepPage(state,rows,page);
+        if (ownsSalesRepPage(state,current)) showSalesRepPage(state,rows,page,segment);
     } catch (error) {
         if (ownsSalesRepPage(state,current)) {
             more.hidden=false;
             more.textContent='Retry · '+error.message;
         }
     } finally {
-        if (state.revision===current) { more.disabled=false; state.previous.disabled=state.page===0; }
+        if (state.revision===current) { more.disabled=false; state.previous.disabled=state.page===0 && state.segment===0; }
     }
 }
 
@@ -163,14 +164,26 @@ function ownsSalesRepPage(state, revision) {
         && state.owner===getSupabaseReadIdentityScope() && state.farm===getBloomscapesFarm();
 }
 
-function showSalesRepPage(state, rows, page) {
+function turnSalesRepPage(state,direction) {
+    if (state.retryPage && direction>0) return loadSalesRepRecords(state,state.retryPage.page,state.retryPage.segment);
+    const window=bloomscapesListWindow(state.rows,state.segment,BLOOMSCAPES_REP_VAULT_PAGE_SIZE);
+    const segment=window.index+direction;
+    if (segment>=0 && segment<window.pages) return showSalesRepPage(state,state.rows,state.page,segment);
+    return loadSalesRepRecords(state,state.page+direction,direction<0 ? Infinity : 0);
+}
+
+function showSalesRepPage(state, rows, page, segment) {
     const lookup=createSalesStudioTargetLookup();
     state.retryPage=null;
     if (page && !rows.length) { state.more.hidden=true; return; }
+    const window=bloomscapesListWindow(rows,segment,BLOOMSCAPES_REP_VAULT_PAGE_SIZE);
     state.page=page;
-    state.list.replaceChildren(...rows.slice(0,50).map(row=>buildSalesRepRecordCard(row,lookup(row))));
+    state.rows=rows;
+    state.segment=window.index;
+    state.list.replaceChildren(...window.rows.map(row=>buildSalesRepRecordCard(row,lookup(row))));
     if (!state.page && !rows.length) state.list.textContent='No matching records.';
-    state.more.hidden=rows.length<50;
+    state.more.hidden=rows.length<50 && window.index+1===window.pages;
+    state.previous.disabled=page===0 && window.index===0;
 }
 
 function buildSalesRepRecordCard(record, row) {

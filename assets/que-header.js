@@ -77,6 +77,19 @@ function clearRequestHeaderSearch() {
     return handleRequestHeaderSearch();
 }
 
+function buildRequestPagedRenderPlan(mode, crumbText, items) {
+    if (typeof rememberOperationalExport === 'function') rememberOperationalExport('request',items);
+    const membershipKey = buildRequestBrowseMembershipKey(mode, items);
+    const browsePage = getClientBrowsePage('request', membershipKey, items, 8);
+    const renderKey = buildRequestChunkRenderKey(mode, crumbText, browsePage.rows);
+    return {
+        empty: !items.length, crumbText, items, rows: browsePage.rows,
+        pageIndex: Number(browsePage.pageIndex), renderKey,
+        renderSignature: `${renderKey}:page:${Number(browsePage.pageIndex)}:source:${browsePage.key}`,
+        footerMarkup: renderClientBrowsePageFooter('request', browsePage.key, items.length, browsePage)
+    };
+}
+
 function buildPendingRequestRenderPlan(items) {
     const crumbText = 'All Request Que';
     const eligible = items.filter(isRequestPendingVisible).filter(isRegularRequestQueueItem);

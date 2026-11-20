@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.21';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.22';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -318,7 +318,8 @@
             auraPendingRequests.add(controller);
             try {
                 options.onStage?.('authentication');
-                const nativeHeaders = await awaitAuraRead(() => getNativeAuthRequestHeaders(), controller.signal);
+                if (controller.signal.aborted) throw controller.signal.reason;
+                const nativeHeaders = getPassiveNativeAuthRequestHeaders();
                 if (!nativeHeaders?.Authorization || !isAuraWidgetAuthorized() || identity !== getSupabaseReadIdentityScope()) throw Object.assign(new Error('AURA session expired. Sign in again.'), { status: 401 });
                 options.onStage?.('request');
                 const payload = await awaitAuraRead(() => postAppFunctionJson(APP_API_FUNCTION_URL, body, {
@@ -376,7 +377,8 @@
             const timer = setTimeout(() => controller.abort(Object.assign(new Error('Legacy AURA request timed out.'), { name: 'TimeoutError', code: 'AURA_DEADLINE_EXCEEDED' })), remaining());
             auraPendingRequests.add(controller);
             try {
-                const nativeHeaders = await awaitAuraRead(() => getNativeAuthRequestHeaders(), controller.signal);
+                if (controller.signal.aborted) throw controller.signal.reason;
+                const nativeHeaders = getPassiveNativeAuthRequestHeaders();
                 if (!nativeHeaders?.Authorization || !isAuraWidgetAuthorized() || identity !== getSupabaseReadIdentityScope()) throw Object.assign(new Error('AURA session expired. Sign in again.'), { status: 401 });
                 const payload = await awaitAuraRead(() => postAppFunctionJson(AURA_QUERY_URL, body, {
                     includeSession: false, nativeHeaders, timeoutMs: remaining(), requestId: options.requestId,
@@ -831,7 +833,8 @@
             if (supabaseClient && supabaseClient.storage) return supabaseClient;
             if (!SUPABASE_KEY || !window.supabase || typeof window.supabase.createClient !== 'function') return null;
             try {
-                supabaseClient = createSupabaseTransportClient(window.supabase, SUPABASE_URL, SUPABASE_KEY);
+                supabaseClient = createSupabaseTransportClient(window.supabase, SUPABASE_URL, SUPABASE_KEY,
+                    () => readCachedNativeAuthSession()?.access_token || null);
                 return supabaseClient;
             } catch (error) {
                 console.warn('Supabase browser client initialization failed.', error);
@@ -854,6 +857,7 @@
         }
 
         let nativeAuthSessionRead = null;
+        let nativeAuthSessionSnapshot = null;
         let nativeAuthHeaderRead = null;
         let nativeAuthRecoveryEpoch = 0;
         let nativeAuthReadRequired = false;
@@ -863,6 +867,7 @@
         function invalidateNativeAuthRecovery() {
             nativeAuthRecoveryEpoch++;
             nativeAuthSessionRead = nativeAuthHeaderRead = null;
+            nativeAuthSessionSnapshot = null;
         }
 
         function isTransientNativeAuthReadFailure(error = null) {
@@ -902,8 +907,18 @@
             return Object.assign(new Error('Your session could not be restored. Retry, or sign in again to load data.'), { code: 'NATIVE_SESSION_RECOVERY_REQUIRED' });
         }
 
+        function readCachedNativeAuthSession() {
+            const session = nativeAuthSessionSnapshot;
+            if (!nativeAuthSessionActive || !nativeAuthAccessToken || session?.access_token !== nativeAuthAccessToken
+                || session.user?.id !== nativeAuthSessionUserId || nativeAuthProfile?.disabled_at || nativeAuthProfile?.active === false
+                || (nativeAuthProfile && nativeAuthProfile.id !== nativeAuthSessionUserId)) return null;
+            return session;
+        }
+
         async function getNativeAuthSession() {
             if (!NATIVE_AUTH_ENABLED) return null;
+            const saved = readCachedNativeAuthSession();
+            if (saved) return saved;
             if (nativeAuthSessionRead) return nativeAuthSessionRead;
             const epoch = nativeAuthRecoveryEpoch;
             const task = (async () => {
@@ -929,6 +944,7 @@
                 nativeAuthSessionActive = true;
                 nativeAuthAccessToken = String(data.session.access_token || '').trim();
                 nativeAuthSessionUserId = String(data.session.user && data.session.user.id || '').trim();
+                nativeAuthSessionSnapshot = data.session;
                 return data.session;
             })();
             nativeAuthSessionRead = task;
@@ -948,7 +964,7 @@
             }
         }
 
-        async function getNativeAuthRequestHeaders(refresh = false) {
+        function getPassiveNativeAuthRequestHeaders() {
             if (mutationBlockedAccessCanaryAuthEnabled && hasMutationBlockedCanaryQuery('access')) {
                 return {
                     apikey: 'mutation-blocked-canary',
@@ -956,10 +972,24 @@
                     'Content-Type': 'application/json'
                 };
             }
+            const owner = String(currentUser || '').trim().toLowerCase();
+            const session = readCachedNativeAuthSession();
+            if (!session || (owner && String(nativeAuthProfile?.username || '').trim().toLowerCase() !== owner)) return null;
+            return { apikey: SUPABASE_KEY, Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' };
+        }
+
+        async function getNativeAuthRequestHeaders(refresh = false) {
+            const passive = getPassiveNativeAuthRequestHeaders();
+            const expiresAt = readCachedNativeAuthSession()?.expires_at;
+            if (passive && ((!refresh && (!expiresAt || expiresAt * 1000 > Date.now() + 15000))
+                || mutationBlockedAccessCanaryAuthEnabled && hasMutationBlockedCanaryQuery('access'))) return passive;
             const epoch = nativeAuthRecoveryEpoch;
             const owner = String(currentUser || '').trim().toLowerCase();
-            if (nativeAuthHeaderRead && !refresh) return nativeAuthHeaderRead;
-            if (nativeAuthHeaderRead) await nativeAuthHeaderRead.catch(() => null);
+            if (nativeAuthHeaderRead && (!refresh || nativeAuthHeaderRead.refresh)) return nativeAuthHeaderRead;
+            if (nativeAuthHeaderRead) {
+                await nativeAuthHeaderRead.catch(() => null);
+                return epoch === nativeAuthRecoveryEpoch ? getNativeAuthRequestHeaders(true) : null;
+            }
             if (epoch !== nativeAuthRecoveryEpoch) return null;
             const profileId = nativeAuthProfile?.id || '';
             const task = (async () => {
@@ -980,8 +1010,10 @@
                 nativeAuthReadRequired = true;
                 nativeAuthSessionActive = true;
                 nativeAuthAccessToken = String(session.access_token).trim();
+                nativeAuthSessionSnapshot = session;
                 return { apikey: SUPABASE_KEY, Authorization: `Bearer ${nativeAuthAccessToken}`, 'Content-Type': 'application/json' };
             })();
+            task.refresh = refresh;
             nativeAuthHeaderRead = task;
             try { return await task; }
             finally { if (nativeAuthHeaderRead === task) nativeAuthHeaderRead = null; }
@@ -1099,6 +1131,7 @@
         let nativeRoleRefreshPromise = null;
 
         function clearRoleScopedClientCaches(username = currentUser) {
+            if (typeof restoreBloomscapesStaticBodiesForScopeReset === 'function') restoreBloomscapesStaticBodiesForScopeReset();
             window.GncUserAccessControl?.reset();
             canonicalUserAccessAccount = "";
             destroyHistoricalRequestsIsland();
@@ -1115,21 +1148,7 @@
             if (typeof resetPoManagementInventoryState === 'function') resetPoManagementInventoryState();
             closeBloomscapesPendingOrders();
             const userKey = String(username || '').trim().toLowerCase();
-            [localStorage, sessionStorage].forEach((storage) => {
-                try {
-                    const removeKeys = [];
-                    for (let index = 0; index < storage.length; index += 1) {
-                        const key = String(storage.key(index) || '');
-                        if (key.startsWith('gnc_request_capabilities_v2:')
-                            || key.startsWith('gnc_app_access_v1:')
-                            || key.startsWith('gnc_access_control_')
-                            || (userKey && key.includes(`:${userKey}`) && /capabilit|access/i.test(key))) {
-                            removeKeys.push(key);
-                        }
-                    }
-                    removeKeys.forEach((key) => storage.removeItem(key));
-                } catch (error) { window.GncRuntimeWatchdog?.capture?.(error, 'clearRoleScopedClientCaches');}
-            });
+            for (const storage of [localStorage,sessionStorage]) clearRoleScopedBrowserStorage(storage,userKey);
             requestCapabilityState = { status: 'idle', capabilities: null, stale: false, errorCode: '', loadedAt: 0, username: '' };
             requestCapabilityLoadPromise = null;
             appAccessSnapshotState = { status: 'idle', snapshot: null, stale: false, errorCode: '', loadedAt: 0, username: '' };
@@ -1138,6 +1157,23 @@
             stopCodexOpsPoll();
             codexOpsState = { capabilities:null, capabilitiesLoading:false, capabilitiesLoaded:false, tasks:[], tasksLoading:false, tasksLoaded:false, activeTaskId:'', activeTask:null, taskLoading:false, error:'', composeOpen:false, draft:'', attachments:[], sending:false, messageDraft:'', pollTimer:null, requestToken:0 };
             resetAssignableUserDirectory();
+            if (typeof detachInactiveBloomscapesStaticBodies === 'function') detachInactiveBloomscapesStaticBodies();
+        }
+
+        function clearRoleScopedBrowserStorage(storage,userKey) {
+            try {
+                const removeKeys = [];
+                for (let index = 0; index < storage.length; index += 1) {
+                    const key = String(storage.key(index) || '');
+                    if (key.startsWith('gnc_request_capabilities_v2:')
+                        || key.startsWith('gnc_app_access_v1:')
+                        || key.startsWith('gnc_access_control_')
+                        || (userKey && key.includes(`:${userKey}`) && /capabilit|access/i.test(key))) removeKeys.push(key);
+                }
+                for (const key of removeKeys) storage.removeItem(key);
+            } catch (error) {
+                window.GncRuntimeWatchdog?.capture?.(error,'clearRoleScopedClientCaches');
+            }
         }
 
         let productionPermissionCheckElements = [];
@@ -1300,66 +1336,68 @@
         }
 
         function installNativeRoleRefreshWatchers() {
-            const client = getSupabaseBrowserClient();
-            if (client && client.auth && typeof client.auth.onAuthStateChange === 'function' && !window.__gncNativeRoleAuthWatcher) {
-                const subscription = client.auth.onAuthStateChange((event, session) => {
-                    const knownSessionUserId = String(nativeAuthProfile?.id || nativeAuthSessionUserId || '').trim();
-                    const accountChanged = !!(knownSessionUserId && session?.user?.id && session.user.id !== knownSessionUserId);
-                    // The first restored session arrives before its profile exists.
-                    // Invalidate only a known account switch, or any sign-out.
-                    if (event === 'SIGNED_OUT' && !hasExplicitLogoutMarker() && currentUser) {
-                        // SDK refresh-token loss is not a confirmed profile revocation.
-                        nativeAuthAccessToken = '';
-                        nativeAuthProfileRestorePending = true;
-                        invalidateNativeAuthRecovery();
-                        return;
-                    }
-                    if (event === 'SIGNED_OUT' || accountChanged) {
-                        disposeAuraWidget();
-                        invalidateNativeAuthRecovery();
-                        if (typeof resetProductionLiveSync === 'function') resetProductionLiveSync();
-                        if (typeof clearInMemorySessionIdentity === 'function') clearInMemorySessionIdentity({ confirmedBoundary: true });
-                        if (typeof destroyHistoricalRequestsIsland === 'function') destroyHistoricalRequestsIsland();
-                        nativeAuthProfile = null;
-                        if (typeof clearCachedNativeAuthProfile === 'function') clearCachedNativeAuthProfile();
-                        if (typeof clearPersistedLoginSession === 'function') clearPersistedLoginSession();
-                        if (typeof persistAppSessionRecord === 'function') persistAppSessionRecord(null);
-                        // During explicit logout, keep the authenticated shell
-                        // in place until cleanup finishes and the page reloads.
-                        // Revealing the empty login form mid-gesture can turn the
-                        // drawer tap into an empty-login validation toast.
-                        if (typeof resetLoginUiState === 'function' && !hasExplicitLogoutMarker()) resetLoginUiState();
-                        if (typeof closeBloomscapesPendingOrders === 'function') closeBloomscapesPendingOrders();
-                    }
-                    if (event === 'SIGNED_OUT') {
-                        nativeAuthSessionActive = false;
-                        nativeAuthAccessToken = '';
-                        nativeAuthSessionUserId = '';
-                        nativeAuthProfileRestorePending = false;
-                        closeBloomscapesPendingOrders();
-                    } else if (accountChanged) {
-                        nativeAuthReadRequired = true;
-                        nativeAuthSessionActive = !!session?.access_token;
-                        nativeAuthAccessToken = String(session?.access_token || '').trim();
-                        nativeAuthSessionUserId = String(session?.user?.id || '').trim();
-                        nativeAuthProfileRestorePending = nativeAuthSessionActive;
-                    } else if (session?.user?.id) {
-                        nativeAuthSessionUserId = String(session.user.id).trim();
-                    } else if (session?.user?.id !== nativeAuthProfile?.id || session?.user?.id !== '54c87ebf-d76d-452b-96b4-beaaeb1742d9') {
-                        closeBloomscapesPendingOrders();
-                    }
-                    if (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN' || event === 'USER_UPDATED') {
-                        setTimeout(async () => {
-                            if (nativeAuthProfileRestorePending && typeof retryNativeAuthRestoreOnForeground === 'function') await retryNativeAuthRestoreOnForeground();
-                            else await refreshNativeRoleAndCapabilities(`auth:${String(event || '').toLowerCase()}`);
-                            if (typeof signalProductionLiveSync === 'function') signalProductionLiveSync('auth-refresh', 0);
-                        }, 0);
-                    }
-                });
-                window.__gncNativeRoleAuthWatcher = subscription && subscription.data && subscription.data.subscription
-                    ? subscription.data.subscription
-                    : subscription;
+            const auth = getSupabaseBrowserClient()?.auth;
+            if (typeof auth?.onAuthStateChange !== 'function' || window.__gncNativeRoleAuthWatcher) return;
+            const subscription = auth.onAuthStateChange(applyNativeRoleAuthEvent);
+            window.__gncNativeRoleAuthWatcher = subscription?.data?.subscription || subscription;
+        }
+
+        function applyNativeRoleAuthEvent(event, session) {
+            const knownSessionUserId = String(nativeAuthProfile?.id || nativeAuthSessionUserId || '').trim();
+            const accountChanged = Boolean(knownSessionUserId && session?.user?.id && session.user.id !== knownSessionUserId);
+            if (event === 'SIGNED_OUT' && !hasExplicitLogoutMarker() && currentUser) {
+                // SDK refresh-token loss is not a confirmed profile revocation.
+                nativeAuthAccessToken = '';
+                nativeAuthProfileRestorePending = true;
+                invalidateNativeAuthRecovery();
+                return;
             }
+            if (event === 'SIGNED_OUT' || accountChanged) clearNativeRoleAuthOwner();
+            if (event === 'SIGNED_OUT') {
+                nativeAuthSessionActive = false;
+                nativeAuthAccessToken = '';
+                nativeAuthSessionUserId = '';
+                nativeAuthProfileRestorePending = false;
+                return;
+            }
+            if (accountChanged) {
+                nativeAuthReadRequired = true;
+                nativeAuthSessionActive = Boolean(session.access_token);
+                nativeAuthAccessToken = String(session.access_token || '').trim();
+                nativeAuthProfileRestorePending = nativeAuthSessionActive;
+            }
+            if (session?.user?.id) {
+                nativeAuthSessionUserId = String(session.user.id).trim();
+                if (session.access_token) {
+                    nativeAuthSessionSnapshot = session;
+                    nativeAuthReadRequired = true;
+                    nativeAuthSessionActive = true;
+                    nativeAuthAccessToken = String(session.access_token).trim();
+                }
+            } else closeBloomscapesPendingOrders();
+            if (['TOKEN_REFRESHED', 'SIGNED_IN', 'USER_UPDATED'].includes(event)) {
+                setTimeout(() => refreshNativeRoleAfterAuthEvent(event), 0);
+            }
+        }
+
+        function clearNativeRoleAuthOwner() {
+            disposeAuraWidget();
+            invalidateNativeAuthRecovery();
+            if (typeof resetProductionLiveSync === 'function') resetProductionLiveSync();
+            if (typeof clearInMemorySessionIdentity === 'function') clearInMemorySessionIdentity({ confirmedBoundary: true });
+            if (typeof destroyHistoricalRequestsIsland === 'function') destroyHistoricalRequestsIsland();
+            nativeAuthProfile = null;
+            if (typeof clearCachedNativeAuthProfile === 'function') clearCachedNativeAuthProfile();
+            if (typeof clearPersistedLoginSession === 'function') clearPersistedLoginSession();
+            if (typeof persistAppSessionRecord === 'function') persistAppSessionRecord(null);
+            if (typeof resetLoginUiState === 'function' && !hasExplicitLogoutMarker()) resetLoginUiState();
+            closeBloomscapesPendingOrders();
+        }
+
+        async function refreshNativeRoleAfterAuthEvent(event) {
+            if (nativeAuthProfileRestorePending && typeof retryNativeAuthRestoreOnForeground === 'function') await retryNativeAuthRestoreOnForeground();
+            else await refreshNativeRoleAndCapabilities(`auth:${String(event || '').toLowerCase()}`);
+            if (typeof signalProductionLiveSync === 'function') signalProductionLiveSync('auth-refresh', 0);
         }
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') {
@@ -1391,6 +1429,8 @@
             invalidateNativeAuthRecovery();
             nativeAuthSessionActive = true;
             nativeAuthAccessToken = String(data.session.access_token || '').trim();
+            nativeAuthSessionUserId = String(data.session.user?.id || '').trim();
+            nativeAuthSessionSnapshot = data.session;
             inventoryFieldCountingMode = false;
             destroyFieldCountingIsland();
             destroyHistoricalRequestsIsland();
@@ -4757,58 +4797,6 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
             return node?.nodeType === 1 && !!(node.classList?.contains("excel-filter-panel") || node.querySelector?.(".excel-filter-panel"));
         }
 
-        function initializeMobileExcelFilterViewportSafety() {
-            if (mobileExcelFilterViewportObserver) return;
-            const isFilterInteractionTarget = (target = null) => !!(target && target.closest && target.closest('.excel-filter-panel, .task-top-control-shell, .drive-filter-shell, .av-filter-shell'));
-            const schedule = (reason = 'filter-viewport') => scheduleMobileExcelFilterViewportSync(reason);
-            const scheduleForEvent = (reason = 'filter-event', event = null) => {
-                if (document.body && document.body.classList.contains('mobile-excel-filter-panel-open')) return schedule(reason);
-                if (event && isFilterInteractionTarget(event.target)) return schedule(reason);
-                return false;
-            };
-            if (typeof MutationObserver !== 'undefined') {
-                mobileExcelFilterViewportObserver = new MutationObserver((records) => {
-                    if (isMobileExcelFilterMutationRelevant(records)) schedule('mutation');
-                });
-                mobileExcelFilterViewportObserver.observe(document.body || document.documentElement, {
-                    subtree: true,
-                    childList: true,
-                    attributes: true,
-                    attributeFilter: ['class']
-                });
-            } else {
-                mobileExcelFilterViewportObserver = { legacy: true };
-            }
-            window.addEventListener('resize', () => {
-                if (document.body && document.body.classList.contains('mobile-excel-filter-panel-open')) schedule('window-resize');
-            }, { passive: true });
-            window.addEventListener('orientationchange', () => {
-                if (document.body && document.body.classList.contains('mobile-excel-filter-panel-open')) schedule('orientation');
-            }, { passive: true });
-            document.addEventListener('scroll', () => {
-                if (document.body && document.body.classList.contains('mobile-excel-filter-panel-open')) schedule('scroll');
-            }, true);
-            document.addEventListener('focusin', (event) => {
-                if (event && event.target && isMobileFilterEntryTarget(event.target)) schedule('filter-focus');
-            }, true);
-            document.addEventListener('pointerdown', (event) => {
-                if (document.body && document.body.classList.contains('mobile-excel-filter-panel-open')) setTimeout(() => scheduleForEvent('pointerdown', event), 0);
-                else scheduleForEvent('pointerdown', event);
-            }, true);
-            document.addEventListener('click', (event) => {
-                if (document.body && document.body.classList.contains('mobile-excel-filter-panel-open')) setTimeout(() => scheduleForEvent('click', event), 0);
-                else scheduleForEvent('click', event);
-            }, true);
-            if (window.visualViewport) {
-                window.visualViewport.addEventListener('resize', () => {
-                    if (document.body && document.body.classList.contains('mobile-excel-filter-panel-open')) schedule('visual-resize');
-                }, { passive: true });
-                window.visualViewport.addEventListener('scroll', () => {
-                    if (document.body && document.body.classList.contains('mobile-excel-filter-panel-open')) schedule('visual-scroll');
-                }, { passive: true });
-            }
-        }
-
         let stickyRailOffsetSyncInitialized = false;
         let stickyRailOffsetFrameQueued = false;
 
@@ -5778,31 +5766,6 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
             getFixedFilterRailSpecs()
                 .filter((spec) => spec.viewId === currentViewId)
                 .forEach((spec) => syncFixedFilterRail(spec, globalSearchRow));
-        }
-
-        function scheduleStickyRailOffsetSync(reason = 'default', force = false) {
-            const syncReason = normalizeUiSyncReason(reason);
-            if (!force) {
-                const nextSignature = buildStickyRailOffsetSignature();
-                if (nextSignature === lastStickyRailOffsetSignature) return;
-            }
-            if (!force && isIOSDevice() && isUserInLiveTouchScrollGesture()) {
-                scheduleDeferredChromeSyncTask('sticky-rail-offset', () => scheduleStickyRailOffsetSync(`settled:${syncReason || 'sticky-rail-offset'}`, true), ACTIVE_SCROLL_GRACE_MS + 120);
-                return;
-            }
-            if (!force && shouldDeferChromeSyncWork(syncReason)) {
-                scheduleDeferredChromeSyncTask('sticky-rail-offset', () => scheduleStickyRailOffsetSync(`deferred:${syncReason || 'sticky-rail-offset'}`, true));
-                return;
-            }
-            if (stickyRailOffsetFrameQueued) return;
-            stickyRailOffsetFrameQueued = true;
-            requestAnimationFrame(() => {
-                stickyRailOffsetFrameQueued = false;
-                const nextSignature = buildStickyRailOffsetSignature();
-                if (!force && nextSignature === lastStickyRailOffsetSignature) return;
-                syncStickyRailOffsets();
-                lastStickyRailOffsetSignature = nextSignature;
-            });
         }
 
         function initializeStickyRailOffsetSync() {
@@ -8618,7 +8581,7 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
             if (!forceInteractive && isRetainedAppShellSession()) return false;
             document.documentElement.classList.remove('agdata-retained-prepaint', 'agdata-authenticated-boot');
             disposeAuraWidget();
-            try { window.GncLoginTrace?.finish('failed'); } catch (_) { globalThis.reportHandledRuntimeIssue?.("resetLoginUiState", 'HANDLED_OPERATION_FAILURE'); }
+            try { window.GncLoginTrace?.finish('failed'); } catch { globalThis.reportHandledRuntimeIssue?.("resetLoginUiState", 'HANDLED_OPERATION_FAILURE'); }
             const loginView = document.getElementById('view-login');
             const changePasswordView = document.getElementById('view-change-password');
             const loginInputs = document.getElementById('login-inputs');
@@ -8628,15 +8591,12 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
             const progressBar = document.getElementById('login-progress-bar');
             const progressLabel = document.getElementById('login-progress-label');
             const savedLoginHint = document.getElementById('saved-login-hint');
-            const loginButton = document.getElementById('login-button');
             const appWrapper = document.getElementById('app-wrapper');
 
             closeLoginBlockingLayers();
             clearLoginStartupWatchdog();
             hardenLoginCredentialInputs();
             setBootingSession(false);
-            clearInterval(fetchProgressInterval);
-            fetchProgressInterval = null;
             activeFetches = 0;
             currentProgress = 0;
             initialAppLoadActive = false;
@@ -10524,14 +10484,6 @@ function formatPhotoDateLabel_(value = '') {
 
 
 
-        function initializePhotoTakenDateBadgeObserver() {
-            ensurePhotoTakenDateBadges(document);
-            if (!document.body || typeof MutationObserver !== 'function') return;
-            const observer = new MutationObserver((records) => records.forEach((record) => record.addedNodes.forEach((node) => {
-                if (node && node.nodeType === 1 && !node.closest?.('[data-manager-assigned-desktop-table], [data-manager-assigned-mobile-list]')) ensurePhotoTakenDateBadges(node);
-            })));
-            observer.observe(document.body, { childList: true, subtree: true });
-        }
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initializePhotoTakenDateBadgeObserver, { once: true });
         else initializePhotoTakenDateBadgeObserver();
         const PHOTO_RETENTION_MAX_AGE_DAYS = 10;
@@ -13430,8 +13382,8 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
             return isTouchConstrainedDevice() ? TOUCH_ACTION_PAINT_YIELD_MS : USER_ACTION_PAINT_YIELD_MS;
         }
 
-        function queueScrollMainAreaToTop(key = 'global') {
-            if (Math.abs(getMainAreaScrollTop()) <= 2) return;
+        function queueScrollMainAreaToTop(key = 'global', knownScrollTop = null) {
+            if (Math.abs(knownScrollTop ?? getMainAreaScrollTop()) <= 2) return;
             if (hasActiveTextEntryFocus() || isUserActivelyTyping() || isMobileTextEntryPositionLocked(document.activeElement)) {
                 deferredMainAreaScrollTarget = 0;
                 if (deferredMainAreaScrollTimer) clearTimeout(deferredMainAreaScrollTimer);
@@ -13940,19 +13892,8 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
             if (leavingDetail && typeof teardownDetailPresentation === 'function') {
                 teardownDetailPresentation('primary-view-change', { preserveDraft: true });
             }
-            let targetView = null;
-            getPrimaryViewIds().forEach((candidateViewId) => {
-                const el = getViewElementById(candidateViewId);
-                if (!el) return;
-                if (candidateViewId === safeViewId) {
-                    targetView = el;
-                    if (el.classList.contains('hidden')) el.classList.remove('hidden');
-                    el.hidden = false;
-                    if (el.style.display === 'none') el.style.removeProperty('display');
-                } else {
-                    if (!el.classList.contains('hidden')) el.classList.add('hidden');
-                }
-            });
+            if (typeof mountBloomscapesStaticBody === 'function') mountBloomscapesStaticBody('view-' + safeViewId);
+            const targetView = mountBloomscapesPrimaryView(safeViewId, previousViewId);
             if (targetView) {
                 const wrapper = document.getElementById('view-wrapper');
                 if (wrapper) {
@@ -13965,6 +13906,7 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
                 syncCurrentViewBodyClass(safeViewId);
                 window.AgMetricLifecycle.enterView(safeViewId);
                 updateGlobalBackButton();
+                if (typeof detachInactiveBloomscapesStaticBodies === 'function') detachInactiveBloomscapesStaticBodies();
             }
             if (typeof syncRequestDetailScrollMode === 'function') syncRequestDetailScrollMode();
             repairAppShellScrollState(`show-view:${safeViewId}`);
@@ -16006,7 +15948,7 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
 
         document.addEventListener('click', handleGlobalGhostClickCapture, true);
 
-        let activeFetches=0; let fetchProgressInterval; let currentProgress=0; let initialAppLoadLabel='Loading data...';
+        let activeFetches=0; let currentProgress=0; let initialAppLoadLabel='Loading data...';
         let initialAppLoadActive=false;
         let initialAppLoadComplete=false;
 
@@ -16045,7 +15987,6 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
             if (!initialAppLoadActive) return;
             initialAppLoadActive = false;
             initialAppLoadComplete = true;
-            clearGlobalProgressTimer();
             currentProgress = 100;
             setLoginProgress(100, 'Ready');
             setTimeout(() => {
@@ -16066,32 +16007,14 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
                 currentProgress=Math.max(currentProgress,18);
                 initialAppLoadLabel = 'Downloading data...';
                 setLoginProgress(currentProgress, initialAppLoadLabel);
-                startGlobalProgressTimer();
             }
         }
 
-        function clearGlobalProgressTimer() {
-            clearInterval(fetchProgressInterval);
-            fetchProgressInterval = null;
-        }
-
-        function startGlobalProgressTimer() {
-            if (document.hidden || !initialAppLoadActive || initialAppLoadComplete || activeFetches < 1 || fetchProgressInterval) return false;
-            fetchProgressInterval = setInterval(() => {
-                if (document.hidden) { clearGlobalProgressTimer(); return; }
-                if(currentProgress<90){
-                    currentProgress+=Math.random()*4;
-                    setLoginProgress(currentProgress, initialAppLoadLabel);
-                }
-            }, 1000);
-            return true;
-        }
-
         function syncGlobalProgressTimerVisibility() {
-            if (document.hidden) { clearGlobalProgressTimer(); return false; }
+            if (document.hidden) return false;
             if (initialAppLoadActive) {
                 setLoginProgress(currentProgress, activeFetches > 0 ? 'Downloading data...' : initialAppLoadLabel);
-                return activeFetches > 0 ? startGlobalProgressTimer() : false;
+                return activeFetches > 0;
             }
             if (initialAppLoadComplete) {
                 setLoginProgress(100, 'Ready');
@@ -16111,7 +16034,6 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
             activeFetches--;
             if(activeFetches<=0){
                 activeFetches=0;
-                clearGlobalProgressTimer();
                 currentProgress=Math.max(currentProgress,92);
                 initialAppLoadLabel = 'Finalizing app...';
                 setLoginProgress(currentProgress, initialAppLoadLabel);
@@ -17413,151 +17335,55 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
             if (table === 'ph_master_inventory' && safeMethod === 'GET') throw new Error('Raw browser inventory reads are disabled; use inventory_read operations.');
             if (safeMethod === 'GET' && [REQUEST_HISTORY_TABLE, SALES_CREDIT_REQUESTS_TABLE].includes(table)) return readSalesCompatibilityRows(table, query, requestOptions);
             if (isRetiredSupabaseRuntimeTable(table)) return safeMethod === 'GET' ? [] : {};
-            const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
-            if (safeMethod === 'GET') {
-                if (!nativeHeaders && nativeReadRequiresRls()) throw nativeSessionRecoveryError();
-                const readKey = `legacy:${String(table || '').trim()}:${String(query || '').trim()}`;
-                try {
-                    return await runDedupeSupabaseRead(readKey, async ({ signal } = {}) => {
-                        startGlobalProgress();
-                        try {
-                            const readTimeoutMs = Math.max(1000, Number(requestOptions && requestOptions.timeoutMs) || SUPABASE_READ_TIMEOUT_MS);
-                            if (signal?.aborted) throw Object.assign(new Error(`${table} read cancelled.`), { code: 'REQUEST_ABORTED' });
-                            if (nativeHeaders && table === 'ph_app_users') {
-                                return await fetchNativeAppUserDirectory(nativeHeaders, query, readTimeoutMs, signal || null);
-                            }
-                            const limit = 1000;
-                            let allData = [];
-                            let offset = 0;
-                            let hasMore = true;
-                            while (hasMore) {
-                                const queryString = query ? `${query}&limit=${limit}&offset=${offset}` : `limit=${limit}&offset=${offset}`;
-                                let data = null;
-                                if (nativeHeaders) {
-                                    data = await runWithFullJitter(async (attempt) => {
-                                        const response = await window.GncDatabase.fetchTable(SUPABASE_URL, table, queryString, {
-                                            method: 'GET',
-                                            headers: { ...nativeHeaders, 'x-retry-count': String(attempt) },
-                                            signal
-                                        }, readTimeoutMs, `${table} read`);
-                                        if (!response.ok) throw await createSupabaseReadResponseError(response, 'Supabase read failed');
-                                        const text = await response.text();
-                                        return text ? JSON.parse(text) : [];
-                                    }, 0, 500, 8000);
-                                } else {
-                                    data = await runAppApiSupabaseWrite(table, 'GET', null, queryString, { timeoutMs: readTimeoutMs, signal });
-                                }
-                                if (Array.isArray(data) && data.length > 0) {
-                                    allData = allData.concat(data);
-                                    offset += data.length;
-                                    if (data.length < limit) hasMore = false;
-                                } else {
-                                    hasMore = false;
-                                }
-                            }
-                            return allData;
-                        } finally {
-                            stopGlobalProgress();
-                        }
-                    }, { signal: requestOptions?.signal || null });
-                } catch (error) {
-                    console.warn(`Supabase read failed for ${table}.`, error);
-                    throw error;
-                }
-            }
+            if (safeMethod === 'GET') return readLegacySupabaseRows(table,query,requestOptions);
+            return submitLegacySupabaseWrite(table,safeMethod,body,query,requestOptions);
+        }
 
+        function legacySupabaseWritePayload(table,method,body) {
+            if (body === null || body === undefined) return body;
+            if (['ph_master_inventory',ACTIVE_REQUEST_TABLE].includes(table)) {
+                body = Array.isArray(body) ? body.map(stripLegacySupabaseDerivedFields) : stripLegacySupabaseDerivedFields(body);
+            }
+            return normalizeSupabaseWriteBodyForTable(table,method,body);
+        }
+
+        function stripLegacySupabaseDerivedFields(row) {
+            if (!row || typeof row !== 'object' || Array.isArray(row)) return row;
+            return Object.fromEntries(Object.entries(row).filter(([key]) => !/^loc_on_hand(?:_|$)/i.test(key)));
+        }
+
+        async function submitLegacySupabaseWrite(table,method,body,query,options) {
             startGlobalProgress();
-            const writeStartedAt = Date.now();
-            let writeStage = 'rest';
-            let writeRequestId = '';
+            const startedAt = Date.now();
+            let stage = 'rest';
             try {
-                const writeTimeoutMs = Math.max(1000, Number(requestOptions && requestOptions.timeoutMs) || SUPABASE_WRITE_TIMEOUT_MS);
-                let liveEventBody = body;
-                let normalizedBody = body;
-                const hasWriteBody = body !== null && body !== undefined;
-                if (hasWriteBody) {
-                    if (['ph_master_inventory',ACTIVE_REQUEST_TABLE].includes(table)) {
-                        const stripDerived = (row) => {
-                            if (!row || typeof row !== 'object' || Array.isArray(row)) return row;
-                            return Object.fromEntries(Object.entries(row).filter(([key]) => !/^loc_on_hand(?:_|$)/i.test(String(key))));
-                        };
-                        body = Array.isArray(body) ? body.map(stripDerived) : stripDerived(body);
-                        liveEventBody = body;
-                    }
-                    normalizedBody = normalizeSupabaseWriteBodyForTable(table, safeMethod, body);
-                    liveEventBody = normalizedBody;
-                }
-                if (isSupabaseWriteMethod(safeMethod)) {
-                    try {
-                        writeStage = 'app_api';
-                        const result = await runAppApiSupabaseWrite(table, safeMethod, normalizedBody, query, { timeoutMs: writeTimeoutMs });
-                        queueAppLiveEventForWrite(table, safeMethod, liveEventBody, query);
-                        return result;
-                    } catch (proxyError) {
-                        if (isPasswordChangeRequiredError(proxyError)) throw proxyError;
-                        markAppApiWriteProxyUnavailable(proxyError);
-                        throw proxyError;
-                    }
-                }
-                throw new Error('Direct Supabase writes are disabled; use authenticated app-api.');
+                const timeoutMs = Math.max(1000,Number(options?.timeoutMs) || SUPABASE_WRITE_TIMEOUT_MS);
+                const payload = legacySupabaseWritePayload(table,method,body);
+                if (!isSupabaseWriteMethod(method)) throw new Error('Direct Supabase writes are disabled; use authenticated app-api.');
+                stage = 'app_api';
+                const result = await runAppApiSupabaseWrite(table,method,payload,query,{timeoutMs});
+                queueAppLiveEventForWrite(table,method,payload,query);
+                return result;
             } catch (error) {
-                if (table === 'ph_soc_master') {
-                    // Never include the query, row, user, or error message in write diagnostics.
-                    const diagnostic = buildSocWriteFailureDiagnostic(error, {
-                        method: safeMethod, stage: writeStage, startedAt: writeStartedAt, requestId: writeRequestId
-                    });
-                    console.warn('SOC write failed', diagnostic);
-                    void reportSemanticHealthEvent('soc_write_failed', 'docks', diagnostic.sqlState || 'SOC_WRITE_FAILED', {
-                        status_code: diagnostic.status, duration_bucket: Math.ceil(diagnostic.durationMs / 1000), reason: `soc_write_${diagnostic.stage}`
-                    });
-                }
+                if (stage==='app_api' && !isPasswordChangeRequiredError(error)) markAppApiWriteProxyUnavailable(error);
+                if (table==='ph_soc_master') reportLegacySocWriteFailure(method,stage,startedAt,error);
                 throw error;
             } finally {
                 stopGlobalProgress();
             }
         }
 
-        let navigationRevisionCache = null;
-        async function readNavigationRevisionWindow(datasetKeys, requestOptions) {
-            if (document.visibilityState !== 'visible') throw Object.assign(new Error('Hidden revision check'),{name:'AbortError'});
-            const owner=getSupabaseReadIdentityScope();
-            const scope=owner+'|'+(appAccessSnapshotState.snapshot?.dataPermissionVersion || '');
-            if (!navigationRevisionCache || navigationRevisionCache.scope !== scope || Date.now()-navigationRevisionCache.started >= 300000) {
-                const keys=[...new Set([...datasetKeys,...window.AgMetricLiveSyncRegistry.sourceKeys])].sort();
-                navigationRevisionCache={scope,started:Date.now(),promise:supabaseRpc('get_my_dataset_revisions_v1',{p_dataset_keys:keys},{navigationBatch:true,timeoutMs:15000})};
-            }
-            const batch=navigationRevisionCache;
-            const metadata=await batch.promise;
-            if (requestOptions.signal?.aborted || navigationRevisionCache!==batch || owner!==getSupabaseReadIdentityScope()) throw staleSupabaseReadScopeError();
-            const wanted=new Set(datasetKeys);
-            return {...metadata,sources:metadata.sources.filter(source=>wanted.has(source.key))};
+        function reportLegacySocWriteFailure(method,stage,startedAt,error) {
+            const diagnostic = buildSocWriteFailureDiagnostic(error,{ method,stage,startedAt,requestId:'' });
+            console.warn('SOC write failed',diagnostic);
+            void reportSemanticHealthEvent('soc_write_failed','docks',diagnostic.sqlState + ' HTTP ' + diagnostic.status,{
+                status_code:diagnostic.status,duration_bucket:Math.ceil(diagnostic.durationMs / 1000),reason:'soc_write_' + diagnostic.stage
+            });
         }
+
 /* @runtime-fragment assets/operational-rpc-retry.js */
 /* @runtime-fragment assets/rpc-recovery-domain.js */
 /* @runtime-fragment assets/watchdog-review-transport.js */
-
-        async function readDatasetRevisionRpc(body, requestOptions) {
-            if (requestOptions.signal?.aborted) throw Object.assign(new Error('Dataset revision read cancelled.'), { code: 'REQUEST_ABORTED' });
-            const datasetKeys = Array.from(new Set((Array.isArray(body.p_dataset_keys) ? body.p_dataset_keys : [])
-                .map(key => String(key || '').trim()).filter(Boolean))).sort();
-            if (!datasetKeys.length) throw new Error('At least one dataset key is required.');
-            if (window.AgMetricLiveSyncRegistry?.sourceKeys && !requestOptions.navigationBatch) return readNavigationRevisionWindow(datasetKeys,requestOptions);
-            const identityScope = getSupabaseReadIdentityScope();
-            const result = await runDedupeSupabaseRead(`dataset-revisions:${JSON.stringify(datasetKeys)}`,
-                async ({ signal }) => {
-                    const headers = await getNativeAuthRequestHeaders();
-                    const response = await window.GncDatabase.fetchRpc(SUPABASE_URL, 'get_my_dataset_revisions_v1', {
-                        method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ p_dataset_keys: datasetKeys }), signal
-                    }, Math.max(1000, Number(requestOptions.timeoutMs) || 15000), 'Dataset revisions');
-                    if (!response.ok) throw await createSupabaseReadResponseError(response, 'Dataset revisions unavailable');
-                    return { ok: true, data: await response.json() };
-                },
-                { signal: null, retainOnGenerationChange: true });
-            if (identityScope !== getSupabaseReadIdentityScope()) throw staleSupabaseReadScopeError();
-            if (!result || result.ok !== true || !result.data) throw new Error(String(result && result.code || 'DATASET_REVISIONS_UNAVAILABLE'));
-            return result.data;
-        }
 
 
 
@@ -19330,6 +19156,7 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
         function clearInMemorySessionIdentity(options = {}) {
             globalThis.closeAvPhotoViewer?.({ restoreFocus: false });
             if (options.confirmedBoundary === true) {
+                if (typeof restoreBloomscapesStaticBodiesForScopeReset === 'function') restoreBloomscapesStaticBodiesForScopeReset();
                 window.__agdataSessionBoundary = true;
                 appBootViewState = { owner: '', initialViewMounted: false, userHasNavigated: false };
             }
@@ -19379,6 +19206,7 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
             appAccessSnapshotState = { status: 'idle', snapshot: null, stale: false, errorCode: '', loadedAt: 0, username: '' };
             appAccessSnapshotLoadPromise = null;
             accessControlAdminState = { data:null, loading:false, loaded:false, saving:false, publishing:false, error:'', selectedModule:'all', selectedRole:'all', viewMode:'users', editor:null, publishReason:'', requestToken:0, columnOffset:0, columnPageSize:8, subjectOffset:0, subjectPageSize:100, capabilities:null };
+            if (typeof detachInactiveBloomscapesStaticBodies === 'function') detachInactiveBloomscapesStaticBodies();
         }
 
         const APP_SESSION_RECORD_STORAGE_KEY = 'gnc_app_session_v1';
@@ -23706,7 +23534,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.21';
+        const APP_VERSION = '3.1.22';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -23958,7 +23786,8 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
 
         async function callManagerSeasonSettings(payload) {
             const identity = getSupabaseReadIdentityScope();
-            const nativeHeaders = await getNativeAuthRequestHeaders();
+            const nativeHeaders = getPassiveNativeAuthRequestHeaders()
+                || (payload?.operation === 'read' ? null : await getNativeAuthRequestHeaders());
             if (!nativeHeaders?.Authorization || identity !== getSupabaseReadIdentityScope()) throw new Error('Sign in again to manage the current season.');
             const result = await postAppFunctionJson(APP_API_FUNCTION_URL, { action: 'manager_season_settings', ...payload }, {
                 includeSession: false, nativeHeaders, timeoutMs: 15000, label: 'Current season settings'
@@ -24598,77 +24427,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             return shell;
         }
 
-        function ensureGlobalHeaderSearchPlaceholders() {
-            Object.values(GLOBAL_HEADER_SEARCH_CONFIG).forEach((containerId) => {
-                const container = document.getElementById(containerId);
-                if (!container) return;
-                container.classList.add('amazon-search-host');
-                let placeholder = document.querySelector(`[data-header-search-placeholder="${containerId}"]`);
-                if (!placeholder) {
-                    placeholder = document.createElement('div');
-                    placeholder.className = 'hidden';
-                    placeholder.setAttribute('data-header-search-placeholder', containerId);
-                    container.parentNode.insertBefore(placeholder, container);
-                }
-            });
-        }
-
-        function restoreGlobalHeaderSearchContainers() {
-            Object.values(GLOBAL_HEADER_SEARCH_CONFIG).forEach((containerId) => {
-                const container = document.getElementById(containerId);
-                const placeholder = document.querySelector(`[data-header-search-placeholder="${containerId}"]`);
-                if (!container || !placeholder || !placeholder.parentNode) return;
-                container.classList.remove('global-header-search-mounted');
-                container.removeAttribute('data-global-header-mounted');
-                if (container.parentNode !== placeholder.parentNode || container.previousSibling !== placeholder) {
-                    placeholder.parentNode.insertBefore(container, placeholder.nextSibling);
-                }
-            });
-        }
-
-        function syncGlobalHeaderSearchOwnership(activeContainer = null) {
-            const searchSlot = document.getElementById('global-header-search-slot');
-            const activeId = activeContainer && activeContainer.id ? activeContainer.id : '';
-            if (document.body) {
-                document.body.classList.toggle('global-header-search-active', !!activeId);
-                if (activeId) document.body.setAttribute('data-global-header-search-owner', activeId);
-                else document.body.removeAttribute('data-global-header-search-owner');
-            }
-            Object.values(GLOBAL_HEADER_SEARCH_CONFIG).forEach((containerId) => {
-                const container = document.getElementById(containerId);
-                if (!container) return;
-                const mounted = !!(searchSlot && searchSlot.contains(container) && container.id === activeId);
-                container.classList.toggle('global-header-search-mounted', mounted);
-                if (mounted) {
-                    container.setAttribute('data-global-header-mounted', 'true');
-                    container.removeAttribute('aria-hidden');
-                    container.style.removeProperty('display');
-                    container.style.removeProperty('visibility');
-                    container.style.removeProperty('height');
-                    container.style.removeProperty('min-height');
-                    container.style.removeProperty('max-height');
-                } else {
-                    container.removeAttribute('data-global-header-mounted');
-                }
-            });
-        }
-
-        function clearNodeChildren(node) {
-            if (!node) return;
-            while (node.firstChild) node.removeChild(node.firstChild);
-        }
-
-        function formatGlobalHeaderTitle(viewId) {
-            if (viewId === 'sales-credit') return 'Credit';
-            if (viewId === 'historical-requests') return 'Historical Requests';
-            if (viewId === 'request-history') return 'Request History';
-            if (viewId === 'credit-request') return 'Credit Request';
-            return String(viewId || 'home').replace(/-/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
-        }
-
-        function isDylanCollygeUser() {
-            return isPrivilegedManagerUser();
-        }
 
         const SHARED_TASK_COLLABORATOR_KEYS = new Set(['dylan_collyge', 'morgan_anderson', 'kayla_knepp', 'nelly_aguilar', 'jd_jones', 'megan_kelly']);
         function normalizeSharedTaskCollaboratorKey(value = '') {
@@ -26132,19 +25890,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
 
         function buildRequestBrowseMembershipKey(mode, items) {
             return JSON.stringify([mode, items.map(getItemUniqueId)]);
-        }
-
-        function buildRequestPagedRenderPlan(mode, crumbText, items) {
-            if (typeof rememberOperationalExport === 'function') rememberOperationalExport('request',items);
-            const membershipKey = buildRequestBrowseMembershipKey(mode, items);
-            const browsePage = getClientBrowsePage('request', membershipKey, items);
-            const renderKey = buildRequestChunkRenderKey(mode, crumbText, browsePage.rows);
-            return {
-                empty: !items.length, crumbText, items, rows: browsePage.rows,
-                pageIndex: Number(browsePage.pageIndex), renderKey,
-                renderSignature: `${renderKey}:page:${Number(browsePage.pageIndex)}:source:${browsePage.key}`,
-                footerMarkup: renderClientBrowsePageFooter('request', browsePage.key, items.length, browsePage)
-            };
         }
 
         
@@ -30000,21 +29745,28 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             return item;
         }
 
-        function formatFetchedRows(items, sourceTable) {
+        function formatFetchedRows(items, sourceTable, sourceOffset = 0) {
             if (!Array.isArray(items)) return [];
             items = redactEvalSensitiveData(items);
             const normalizedSourceTable = normalizeAppTableName(sourceTable) || String(sourceTable || '').trim();
+            const fields = new Map();
+            const fieldFor = (key) => {
+                if (!fields.has(key)) fields.set(key, {
+                    name:key.toUpperCase(), text:/^(?:(?:req_|dock_)?spec|av_note|sales_?note|pick_?note|pic_note|dock_note|comments?|(?:holdstop)?reason)$/i.test(key),
+                    nullable:/^loc_on_hand(?:_|$)|^(?:(?:req_|flyer_|dock_)?photo_link|(?:req_|flyer_|dock_)?photo_name)$/i.test(key)
+                        || normalizedSourceTable==='ph_master_inventory' && /^(?:av_rule_|last_updated$)/i.test(key)
+                        || normalizedSourceTable==='ph_sales_office' && /^av_note$/i.test(key)
+                });
+                return fields.get(key);
+            };
             return items.map((item, idx) => {
                 let obj = { SOURCE_TABLE: normalizedSourceTable, source_table: normalizedSourceTable };
                 const isSeasonSalesOfficeRow = normalizedSourceTable === 'ph_sales_office'
                     && String(firstNonEmptyValue(item.so_source, item.SO_SOURCE, 'season')).trim().toLowerCase() === 'season';
                 for (let k in item) {
-                    const preserveSalesOfficeField = isSeasonSalesOfficeRow || (normalizedSourceTable === 'ph_sales_office' && /^av_note$/i.test(k));
-                    const preserveMasterEvidence = normalizedSourceTable === 'ph_master_inventory'
-                        && /^(?:av_rule_|last_updated$)/i.test(k);
-                    const preserveLocOnHandAggregate = /^loc_on_hand(?:_|$)/i.test(k);
-                    if (item[k] !== null || preserveSalesOfficeField || preserveMasterEvidence || preserveLocOnHandAggregate || /^(?:(?:req_|flyer_|dock_)?photo_link|(?:req_|flyer_|dock_)?photo_name)$/i.test(k)) obj[k.toUpperCase()] =
-                        /^(?:(?:req_|dock_)?spec|av_note|sales_?note|pick_?note|pic_note|dock_note|comments?|(?:holdstop)?reason)$/i.test(k) ? normalizeEscapedDisplayText(item[k]) : item[k];
+                    const field = fieldFor(k);
+                    if (item[k] === null && !isSeasonSalesOfficeRow && !field.nullable) continue;
+                    obj[field.name] = field.text ? normalizeEscapedDisplayText(item[k]) : item[k];
                 }
                 obj.SOURCE_TABLE = normalizeAppTableName(firstNonEmptyValue(obj.SOURCE_TABLE, obj.source_table, normalizedSourceTable)) || normalizedSourceTable;
                 obj.source_table = obj.SOURCE_TABLE;
@@ -30022,7 +29774,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
                     const { HL_SOC_SOURCE: savedSource, ...socSource } = obj;
                     obj.HL_SOC_SOURCE = savedSource || socSource;
                 }
-                if (!obj.UNIQUE_ID) obj.UNIQUE_ID = obj.ID || `${normalizedSourceTable}_${idx}`;
+                if (!obj.UNIQUE_ID) obj.UNIQUE_ID = obj.ID || `${normalizedSourceTable}_${sourceOffset+idx}`;
                 obj.COMMONNAME = obj.COMMONNAME || obj.DESCRIPTION || obj.PLANT_NAME || 'Unknown';
                 obj.CONTSIZE = item.contsize || obj.CONTSIZE || item.itemspec || obj.ITEMSPEC || item.size || '-';
                 obj.LOCATIONCODE = obj.LOCATIONCODE || obj.LOCATION || 'No Loc';
@@ -42494,153 +42246,7 @@ let avTopControlsRenderToken = 0;
             </div>`;
         }
 
-        function closeInventoryEditRequestModal() {
-            const modal = document.getElementById('inventory-edit-request-modal');
-            if (modal) modal.classList.add('hidden');
-        }
-
-        function openInventoryEditRequestModal(uid = '', options = {}) {
-            const safeOptions = options && typeof options === 'object' ? options : {};
-            const editRecordId = String(safeOptions.existingRecordId || '').trim();
-            const compactEditItem = !editRecordId && uid && !safeOptions.__masterDetailRow
-                ? findInventoryEditMockItemByUid(uid) : null;
-            if (!editRecordId && uid && !safeOptions.__masterDetailRow && !safeOptions.__displayMasterDetailFallback
-                && needsMasterDetailHydration(compactEditItem)) {
-                const owner = getSupabaseReadIdentityScope();
-                const sourceView = getCurrentVisibleViewId();
-                const sourceTable = String(firstNonEmptyValue(compactEditItem?.SOURCE_TABLE, compactEditItem?.source_table, '') || '').trim().toLowerCase();
-                const itemUid = String(firstNonEmptyValue(compactEditItem?.UNIQUE_ID, compactEditItem?.unique_id, '') || '').trim();
-                const canOpenCurrentCard = !!owner && itemUid === String(uid || '').trim()
-                    && (sourceTable === 'ph_master_inventory' || compactEditItem?.__managerReportListRow === true)
-                    && canUseInventoryEditMock(compactEditItem)
-                    && (typeof isMasterInventoryRowVisibleToCurrentUser !== 'function'
-                        || isMasterInventoryRowVisibleToCurrentUser(compactEditItem));
-                if (canOpenCurrentCard) {
-                    const openingSnapshot = { ...compactEditItem };
-                    const liveContextAtOpen = typeof getProductionLiveSyncContext === 'function' ? getProductionLiveSyncContext() : null;
-                    const permissionFence = JSON.stringify([
-                        String(liveContextAtOpen?.scope || owner), String(liveContextAtOpen?.dataPermissionVersion || ''),
-                        String(currentRole || '').trim().toLowerCase(), String(currentUserDivision || '').trim()
-                    ]);
-                    const opened = openInventoryEditRequestModal(uid, { ...safeOptions, __displayMasterDetailFallback: true });
-                    const editor = document.getElementById('inventory-edit-request-modal');
-                    const liveContextMatches = () => {
-                        const currentContext = typeof getProductionLiveSyncContext === 'function' ? getProductionLiveSyncContext() : null;
-                        return owner === getSupabaseReadIdentityScope()
-                            && JSON.stringify([
-                                String(currentContext?.scope || owner), String(currentContext?.dataPermissionVersion || ''),
-                                String(currentRole || '').trim().toLowerCase(), String(currentUserDivision || '').trim()
-                            ]) === permissionFence;
-                    };
-                    const readExactWithSingleRevisionRaceRetry = async () => {
-                        try { return await loadExactMasterDetailRow(uid); }
-                        catch (error) {
-                            if (!/inventory changed while opening this row/i.test(String(error?.message || ''))) throw error;
-                            return loadExactMasterDetailRow(uid);
-                        }
-                    };
-                    void readExactWithSingleRevisionRaceRetry().then((row) => {
-                        if (!row || !liveContextMatches() || !canUseInventoryEditMock(compactEditItem)) return;
-                        const exactUid = String(firstNonEmptyValue(row.UNIQUE_ID, row.unique_id, '') || '').trim();
-                        if (exactUid !== itemUid) return;
-                        const changed = mergeExactMasterDetailFieldsPreservingLocalChanges(compactEditItem, openingSnapshot, row);
-                        if (!changed || !editor || editor.classList.contains('hidden')
-                            || String(document.getElementById('inventory-edit-request-uid')?.value || '').trim() !== itemUid
-                            || !liveContextMatches()) return;
-                        const snapshot = getInventoryEditMockSnapshot(compactEditItem);
-                        const label = document.getElementById('inventory-edit-modal-label');
-                        const summary = document.getElementById('inventory-edit-current-summary');
-                        if (label) label.textContent = `New live request | ${snapshot.itemcode || '-'} | ${snapshot.locationcode || '-'} | Lot ${snapshot.lotcode || '-'}`;
-                        if (summary) {
-                            const requestType = normalizeInventoryEditMockRequestType(firstNonEmptyValue(safeOptions.requestType, 'inventory-edit'));
-                            summary.innerHTML = buildInventoryEditCurrentSummaryHtml(snapshot, {
-                                record: { snapshot, request_type: requestType, requested: {} }, requested: {}, requestType,
-                                uid: snapshot.sourceUniqueId || snapshot.masterUniqueId || itemUid
-                            });
-                        }
-                    }).catch((error) => {
-                        if (liveContextMatches() && !['REQUEST_ABORTED','DATASET_READ_SCOPE_CHANGED'].includes(String(error?.code || '').toUpperCase())) {
-                            console.warn('Background inventory edit row refresh did not finish; the authorized card remains available.', error);
-                        }
-                    });
-                    return opened;
-                }
-                showToast('Restricted', 'Inventory Edit is only available for assigned EVAL rows or supervisor users.', true);
-                return false;
-            }
-            const existingRecord = editRecordId
-                ? readInventoryEditMockRequests().find((record) => String(record && record.id || '').trim() === editRecordId)
-                : null;
-            let item = safeOptions.__masterDetailRow || (uid ? findInventoryEditMockItemByUid(uid) : activeItem);
-            if (!item && existingRecord && existingRecord.snapshot) {
-                item = findInventoryEditMockItemByUid(firstNonEmptyValue(existingRecord.snapshot.sourceUniqueId, existingRecord.snapshot.masterUniqueId, ''));
-            }
-            if (!item && !existingRecord) {
-                showToast('Row Not Found', 'This row could not be resolved for the inventory edit request.', true);
-                return false;
-            }
-            const isSupervisor = isInventoryEditMockSupervisorUser();
-            if (editRecordId && !canCurrentUserEditInventoryEditMockRecord(existingRecord)) {
-                showToast('Restricted', 'Only the assigned EVAL user or Dylan/JD/Megan can edit this inventory edit request.', true);
-                return false;
-            }
-            if (!editRecordId && !canUseInventoryEditMock(item)) {
-                showToast('Restricted', 'Inventory Edit is only available for assigned EVAL rows or supervisor users.', true);
-                return false;
-            }
-            const snapshot = existingRecord && existingRecord.snapshot ? existingRecord.snapshot : getInventoryEditMockSnapshot(item);
-            const requested = existingRecord && existingRecord.requested && typeof existingRecord.requested === 'object' ? existingRecord.requested : {};
-            const priorityChange = getInventoryEditMockChangeByKey(existingRecord || {}, 'priority') || {};
-            const locationNoteChange = getInventoryEditMockChangeByKey(existingRecord || {}, 'locationnote') || {};
-            const pulltagNotesChange = getInventoryEditMockChangeByKey(existingRecord || {}, 'pulltagnotes') || {};
-            const holdChange = getInventoryEditMockChangeByKey(existingRecord || {}, 'holdstopcode') || {};
-            const shearChange = getInventoryEditMockChangeByKey(existingRecord || {}, 'shear_list') || {};
-            const modal = document.getElementById('inventory-edit-request-modal');
-            const uidInput = document.getElementById('inventory-edit-request-uid');
-            const recordIdInput = document.getElementById('inventory-edit-request-record-id');
-            const label = document.getElementById('inventory-edit-modal-label');
-            const summary = document.getElementById('inventory-edit-current-summary');
-            const routeType = document.getElementById('inventory-edit-route-type');
-            const priority = document.getElementById('inventory-edit-priority');
-            const priorityFlag = document.getElementById('inventory-edit-priority-flag');
-            const holdAction = document.getElementById('inventory-edit-hold-action');
-            const locationNote = document.getElementById('inventory-edit-locationnote');
-            const pulltagNotes = document.getElementById('inventory-edit-pulltagnotes');
-            const reason = document.getElementById('inventory-edit-reason');
-            const shearRequested = document.getElementById('inventory-edit-shear-requested');
-            const shearPercent = document.getElementById('inventory-edit-shear-percent');
-            const shearInstructions = document.getElementById('inventory-edit-shear-instructions');
-            const supervisorNoteWrap = document.getElementById('inventory-edit-supervisor-note-wrap');
-            const supervisorNote = document.getElementById('inventory-edit-supervisor-note');
-            if (uidInput) uidInput.value = snapshot.sourceUniqueId || snapshot.masterUniqueId || uid;
-            if (recordIdInput) recordIdInput.value = editRecordId;
-            if (label) label.textContent = `${editRecordId ? 'Editing live request' : 'New live request'} | ${snapshot.itemcode || '-'} | ${snapshot.locationcode || '-'} | Lot ${snapshot.lotcode || '-'}`;
-            if (summary) summary.innerHTML = buildInventoryEditCurrentSummaryHtml(snapshot, {
-                record: existingRecord || { snapshot, request_type: firstNonEmptyValue(safeOptions.requestType, 'inventory-edit'), requested },
-                requested,
-                requestType: firstNonEmptyValue(safeOptions.requestType, existingRecord && existingRecord.request_type, 'inventory-edit'),
-                uid: snapshot.sourceUniqueId || snapshot.masterUniqueId || uid,
-                recordId: editRecordId
-            });
-            if (routeType) routeType.value = normalizeInventoryEditMockRequestType(firstNonEmptyValue(safeOptions.requestType, existingRecord && existingRecord.request_type, 'inventory-edit'));
-            if (priority) priority.value = String(firstNonEmptyValue(requested.priority, priorityChange.requested, '') || '').trim();
-            if (priorityFlag) priorityFlag.checked = !!(requested.priority_flag || existingRecord && existingRecord.priority_flag);
-            if (holdAction) holdAction.value = String(firstNonEmptyValue(requested.hold_action, holdChange.action, '') || '').trim();
-            if (locationNote) locationNote.value = toInventoryEditMockLowerText(firstNonEmptyValue(requested.locationnote, locationNoteChange.requested, ''));
-            if (pulltagNotes) pulltagNotes.value = String(firstNonEmptyValue(requested.pulltagnotes, pulltagNotesChange.requested, '') || '').trim();
-            if (reason) reason.value = toInventoryEditMockLowerText(firstNonEmptyValue(existingRecord && existingRecord.holdreason, existingRecord && existingRecord.reason, ''));
-            if (shearRequested) shearRequested.checked = !!(safeOptions.shearRequested || requested.shear_requested || shearChange.requested);
-            if (shearPercent) shearPercent.value = String(firstNonEmptyValue(requested.shear_percent, getInventoryEditMockChangeByKey(existingRecord || {}, 'shear_percent') && getInventoryEditMockChangeByKey(existingRecord || {}, 'shear_percent').requested, '') || '').trim();
-            if (shearInstructions) shearInstructions.value = String(firstNonEmptyValue(requested.shear_instructions, getInventoryEditMockChangeByKey(existingRecord || {}, 'shear_instructions') && getInventoryEditMockChangeByKey(existingRecord || {}, 'shear_instructions').requested, '') || '').trim();
-            if (supervisorNoteWrap) supervisorNoteWrap.classList.toggle('hidden', !isSupervisor);
-            if (supervisorNote) supervisorNote.value = isSupervisor ? String(firstNonEmptyValue(existingRecord && existingRecord.supervisor_note, '') || '').trim() : '';
-            if (modal) modal.classList.remove('hidden');
-            const focusField = normalizeInventoryEditMockFocusField(safeOptions.focusField || '') || 'priority';
-            setTimeout(() => {
-                focusInventoryEditMockModalField(focusField);
-            }, 60);
-            return false;
-        }
+        /* @runtime-fragment assets/inventory-edit-modal.js */
 
         async function submitInventoryEditMockRequest() {
             const uid = String(document.getElementById('inventory-edit-request-uid') ? document.getElementById('inventory-edit-request-uid').value : '').trim();
@@ -44139,11 +43745,12 @@ function getDriveCurrentReturnedRows() {
 
 function getDriveReturnedSelectableRows(rows = null) {
     const sourceRows = Array.isArray(rows) ? rows : getDriveCurrentReturnedRows();
+    const eligibility = prepareBloomPickerEligibility('drive');
     const seen = new Set();
     const selectedRows = [];
     sourceRows.forEach((item) => {
         const domId = String(item && item.DOM_ID || '').trim();
-        if (!domId || seen.has(domId) || !canAddItemToBloomPicker(item, 'drive')) return;
+        if (!domId || seen.has(domId) || !canAddItemToBloomPicker(item,'drive',eligibility)) return;
         seen.add(domId);
         selectedRows.push(item);
     });
@@ -44640,6 +44247,7 @@ function toggleDriveQuickRequestItem(domId) {
             const modal = document.getElementById('flyer-assignee-modal');
             if (!modal) return Promise.resolve(getFlyerAssigneeList(safeOptions.defaultAssignees));
             if (flyerAssigneePickerResolver) closeFlyerAssigneePicker('cancel');
+            if (typeof mountBloomscapesStaticBody === 'function') mountBloomscapesStaticBody('flyer-assignee-modal');
             flyerAssigneePickerDefaultNames = getFlyerAssigneeList(safeOptions.defaultAssignees);
             const title = document.getElementById('flyer-assignee-modal-title');
             const folderLabel = document.getElementById('flyer-assignee-folder-label');
@@ -44668,6 +44276,7 @@ function toggleDriveQuickRequestItem(domId) {
             const resolver = flyerAssigneePickerResolver;
             flyerAssigneePickerResolver = null;
             if (resolver) resolver(result === 'confirm' ? getSelectedFlyerAssigneesFromModal() : null);
+            if (typeof detachBloomscapesStaticBody === 'function') detachBloomscapesStaticBody('flyer-assignee-modal');
             return false;
         }
 
@@ -47060,6 +46669,7 @@ function toggleDriveQuickRequestItem(domId) {
                     && !['review-required', 'mapping-review'].includes(entry.status) && entry.formSnapshot);
                 if (pending) { restoreRequestSubmissionForm(pending); return false; }
             }
+            if (typeof mountBloomscapesStaticBody === 'function') mountBloomscapesStaticBody('request-rep-modal');
             requestModalAsyncGeneration += 1;
             resetRequestModalVisibleOptionLimits();
             const repPickerLocked = isRequestRepPickerLockedForCurrentUser();
@@ -47108,6 +46718,7 @@ function toggleDriveQuickRequestItem(domId) {
         }
 
         function closeRequestModal() {
+            if (typeof mountBloomscapesStaticBody === 'function') mountBloomscapesStaticBody('request-rep-modal');
             requestModalAsyncGeneration += 1;
             setRequestSubmissionFormLocked(false);
             activeRequestSubmissionBatchId = '';
@@ -47152,6 +46763,7 @@ function toggleDriveQuickRequestItem(domId) {
             resetQuickDriveRequestState();
             configureRequestCustomerStep();
             renderDriveQuickRequestBar();
+            if (typeof detachBloomscapesStaticBody === 'function') detachBloomscapesStaticBody('request-rep-modal');
         }
         function encodeBloomPickerOrderMeta(meta = null) {
             if (!meta || typeof meta !== 'object') return '';
@@ -48000,7 +47612,10 @@ function toggleDriveQuickRequestItem(domId) {
         function closeBloomPickerModal(clearFields = true) {
             const modal = document.getElementById('bloom-picker-modal');
             if (modal) modal.classList.add('hidden');
-            if (!clearFields) return false;
+            if (!clearFields) {
+                if (typeof detachBloomscapesStaticBody === 'function') detachBloomscapesStaticBody('bloom-picker-modal');
+                return false;
+            }
             const customerInput = document.getElementById('bloom-order-customer');
             const consigneeInput = document.getElementById('bloom-order-consignee');
             const quickInput = document.getElementById('bloom-order-party-quick-filter');
@@ -48035,6 +47650,7 @@ function toggleDriveQuickRequestItem(domId) {
                 draftsContainer.classList.add('hidden');
             }
             if (modal) modal.scrollTop = 0;
+            if (typeof detachBloomscapesStaticBody === 'function') detachBloomscapesStaticBody('bloom-picker-modal');
             return false;
         }
         function getBloomPickerOrderItemPhotoEntries(item = null) {
@@ -48175,6 +47791,7 @@ function toggleDriveQuickRequestItem(domId) {
                 showToast('Restricted', 'Bloom Picker Order submission is available only to Dylan.', true);
                 return false;
             }
+            if (typeof mountBloomscapesStaticBody === 'function') mountBloomscapesStaticBody('bloom-picker-modal');
             toggleCartPanel(false);
             bloomPickerFolderManuallyEdited = false;
             const freshDraft = options.freshDraft === true;
@@ -48208,7 +47825,7 @@ function toggleDriveQuickRequestItem(domId) {
             }
             if (listContainer) listContainer.scrollTop = 0;
             const preferredInput = bloomPickerReservePartyOptions.length ? document.getElementById('bloom-order-party-quick-filter') : document.getElementById('bloom-order-customer');
-            if (preferredInput) setTimeout(() => { try { preferredInput.focus(); } catch (e) { globalThis.safeIgnoreProbeError?.("openBloomPickerModal"); } }, 0);
+            if (preferredInput) setTimeout(() => { try { preferredInput.focus(); } catch { globalThis.safeIgnoreProbeError?.("openBloomPickerModal"); } }, 0);
             return false;
         }
         async function submitBloomPickerOrder() {
@@ -49451,49 +49068,6 @@ function toggleDriveQuickRequestItem(domId) {
             if (modal) modal.classList.add('hidden');
             return false;
         }
-        let inventoryGalleryDeepLinkFocusTimer = null;
-        function readInventoryGalleryDeepLink() {
-            const params = new URLSearchParams(window.location.search || '');
-            if (!params.get('gallery')) return null;
-            const photos = String(params.get('p') || '').split(',').map((value) => value.trim()).filter(Boolean);
-            if (!photos.length) return null;
-            return {
-                itemCode: String(params.get('item') || '').trim().toUpperCase(),
-                locationCode: String(params.get('loc') || '').trim().toUpperCase(),
-                lotCode: String(params.get('lot') || '').trim().toUpperCase(),
-                title: String(params.get('title') || 'Photo Gallery').trim() || 'Photo Gallery',
-                photos
-            };
-        }
-
-        function focusInventoryGalleryDeepLinkRow(link) {
-            if (!link || !currentUser || !Array.isArray(fullInventory) || !fullInventory.length) return false;
-            const row = (masterInventoryByItemCode.get(link.itemCode) || []).find(item => String(firstNonEmptyValue(item && item.LOCATIONCODE, item && item.locationcode, '') || '').trim().toUpperCase() === link.locationCode
-                && String(firstNonEmptyValue(item && item.LOTCODE, item && item.lotcode, '') || '').trim().toUpperCase() === link.lotCode);
-            if (!row) return false;
-            const uid = String(firstNonEmptyValue(row.UNIQUE_ID, row.unique_id, row.DOM_ID, '') || '').trim();
-            if (uid && typeof openDetail === 'function') openDetail(uid, 'drive');
-            else switchView('drive');
-            openPhotoModal(link.photos.join(','), link.title);
-            return true;
-        }
-
-        function openInventoryGalleryDeepLink() {
-            const link = readInventoryGalleryDeepLink();
-            if (!link) return false;
-            openPhotoModal(link.photos.join(','), link.title);
-            if (inventoryGalleryDeepLinkFocusTimer) clearInterval(inventoryGalleryDeepLinkFocusTimer);
-            let attempts = 0;
-            inventoryGalleryDeepLinkFocusTimer = setInterval(() => {
-                attempts += 1;
-                if (focusInventoryGalleryDeepLinkRow(link) || attempts >= 60) {
-                    clearInterval(inventoryGalleryDeepLinkFocusTimer);
-                    inventoryGalleryDeepLinkFocusTimer = null;
-                }
-            }, 1000);
-            return true;
-        }
-
         function isAuthenticatedAppShellVisible() {
             const wrapper = document.getElementById('app-wrapper');
             return !!wrapper && !wrapper.classList.contains('hidden') && wrapper.style.display !== 'none';
@@ -50774,29 +50348,7 @@ function toggleDriveQuickRequestItem(domId) {
             return freshness;
         }
 
-        function getLatestSocImportFileWatermark(rows = socRawSourceRows, sourceFreshness = null) {
-            if (sourceFreshness && sourceFreshness.loaded === true) {
-                const filename = String(firstNonEmptyValue(sourceFreshness.filename, sourceFreshness.FILENAME, '') || '').trim();
-                const timestamp = getValidIsoTimestamp(firstNonEmptyValue(sourceFreshness.lastUpdated, sourceFreshness.last_updated, sourceFreshness.LAST_UPDATED, ''));
-                const timestampMs = timestamp ? Date.parse(timestamp) : -1;
-                return timestampMs >= 0 && filename ? { filename, lastUpdated: timestamp, timestampMs } : { filename: '', lastUpdated: '', timestampMs: -1 };
-            }
-            let latest = { filename: '', lastUpdated: '', timestampMs: -1, filenameToken: '' };
-            (Array.isArray(rows) ? rows : []).forEach((row) => {
-                const filename = String(firstNonEmptyValue(row && row.FILENAME, row && row.filename, row && row.FILE_NAME, row && row.file_name, '') || '').trim();
-                if (!filename) return;
-                const timestamp = getValidIsoTimestamp(firstNonEmptyValue(row && row.LAST_UPDATED, row && row.last_updated, ''));
-                const timestampMs = timestamp ? Date.parse(timestamp) : -1;
-                if (timestampMs < 0) return;
-                const filenameToken = dashboardFilenameTimestamp(filename, timestamp);
-                if (filenameToken > latest.filenameToken || (filenameToken === latest.filenameToken && timestampMs > latest.timestampMs)) {
-                    latest = { filename, lastUpdated: timestamp, timestampMs, filenameToken };
-                }
-            });
-            return { filename: latest.filename, lastUpdated: latest.lastUpdated, timestampMs: latest.timestampMs };
-        }
-
-        function getLatestSocSuspendTagSourceRows(sourceRows = [], freshnessRows = socRawSourceRows, sourceFreshness = null) {
+        function getLatestSocSuspendTagSourceRows(sourceRows = []) {
             // The authorized current SOC snapshot is authoritative. Delta imports
             // retain the filename/timestamp of unchanged physical rows; comparing
             // those values to the newest file incorrectly hides active tags.
@@ -53955,6 +53507,7 @@ function toggleDriveQuickRequestItem(domId) {
             return queueStage === 'inspector' && isDockRowQueuedForCurrentUser(item);
         }
         function updateDockAssignableTeamOptions(preservedValues = null) {
+            if (preservedValues) mountDockStatusChoices(document.getElementById('dock-status'));
             const selectIds = ['dock-checker', 'dock-inspector', 'dock-mistake'];
             const resolvedValues = preservedValues && typeof preservedValues === 'object' ? {
                 checker: String(preservedValues.checker || ''),
@@ -54656,6 +54209,9 @@ function toggleDriveQuickRequestItem(domId) {
             const currentlyOpen = drawer.classList.contains('open') || overlay.classList.contains('open');
             if (!shouldOpen && !currentlyOpen) return false;
             if (shouldOpen) {
+                if (typeof mountBloomscapesStaticBody === 'function') mountBloomscapesStaticBody('side-drawer');
+                if (typeof mountBloomscapesDockDrawerLinks === 'function') mountBloomscapesDockDrawerLinks(drawer);
+                if (typeof syncRoleAccessUi === 'function') syncRoleAccessUi();
                 void refreshBloomscapesBorrowedRoutes();
                 drawer.classList.remove('hidden');
                 overlay.classList.remove('hidden');
@@ -54664,6 +54220,7 @@ function toggleDriveQuickRequestItem(domId) {
             drawer.classList.toggle('open', shouldOpen);
             overlay.classList.toggle('open', shouldOpen);
             updateFooterNavState();
+            if (!shouldOpen && typeof detachBloomscapesStaticBody === 'function') detachBloomscapesStaticBody('side-drawer');
             return false;
         }
 
@@ -54673,152 +54230,7 @@ function toggleDriveQuickRequestItem(domId) {
             return setMenuOpenState(shouldOpen);
         }
 
-        let toastHideTimer = null;
-        let toastClearTimer = null;
-        let toastToken = 0;
-        let toastLastFingerprint = '';
-        let toastLastShownAt = 0;
-        let toastPointerState = null;
-
-        function clearToastTimers() {
-            if (toastHideTimer) clearTimeout(toastHideTimer);
-            if (toastClearTimer) clearTimeout(toastClearTimer);
-            toastHideTimer = null;
-            toastClearTimer = null;
-        }
-
-        function clearToastContent(token = toastToken) {
-            const toast = document.getElementById('toast-notification');
-            if (!toast || token !== toastToken) return;
-            toast.innerHTML = '';
-            toast.style.background = '';
-            toast.style.removeProperty('--toast-drag-y');
-            toast.classList.remove('toast-dismissing', 'toast-dragging');
-            toast.removeAttribute('data-kind');
-            toastClearTimer = null;
-        }
-
-        function dismissToast(reason = 'dismiss') {
-            const toast = document.getElementById('toast-notification');
-            if (!toast || !toast.classList.contains('show')) return false;
-            const token = toastToken;
-            clearToastTimers();
-            toastPointerState = null;
-            toast.classList.remove('toast-dragging');
-            toast.classList.add('toast-dismissing');
-            toast.setAttribute('data-dismiss-reason', String(reason || 'dismiss').slice(0, 32));
-            requestAnimationFrame(() => {
-                if (token !== toastToken) return;
-                toast.classList.remove('show');
-            });
-            toastClearTimer = setTimeout(() => clearToastContent(token), 320);
-            return true;
-        }
-
-        function bindToastDismissInteractions(toast) {
-            if (!toast || toast.dataset.dismissBound === 'true') return;
-            toast.dataset.dismissBound = 'true';
-            toast.addEventListener('click', (event) => {
-                if (event.target && event.target.closest && event.target.closest('[data-toast-dismiss]')) dismissToast('close-button');
-            });
-            toast.addEventListener('pointerdown', (event) => {
-                if (!toast.classList.contains('show') || (event.target && event.target.closest && event.target.closest('[data-toast-dismiss]'))) return;
-                toastPointerState = {
-                    pointerId: event.pointerId,
-                    startY: event.clientY,
-                    lastY: event.clientY,
-                    startedAt: performance.now()
-                };
-                toast.classList.add('toast-dragging');
-                try { toast.setPointerCapture(event.pointerId); } catch (error) { globalThis.reportHandledRuntimeIssue?.("bindToastDismissInteractions", 'HANDLED_OPERATION_FAILURE'); }
-            });
-            toast.addEventListener('pointermove', (event) => {
-                if (!toastPointerState || toastPointerState.pointerId !== event.pointerId) return;
-                toastPointerState.lastY = event.clientY;
-                const deltaY = Math.min(0, event.clientY - toastPointerState.startY);
-                toast.style.setProperty('--toast-drag-y', `${Math.max(-160, deltaY)}px`);
-            });
-            const finishSwipe = (event) => {
-                if (!toastPointerState || toastPointerState.pointerId !== event.pointerId) return;
-                const state = toastPointerState;
-                toastPointerState = null;
-                toast.classList.remove('toast-dragging');
-                const deltaY = Math.min(0, Number(event.clientY || state.lastY) - state.startY);
-                const elapsed = Math.max(1, performance.now() - state.startedAt);
-                const velocity = deltaY / elapsed;
-                if (deltaY <= -46 || velocity <= -0.42) {
-                    dismissToast('swipe-up');
-                    return;
-                }
-                toast.style.setProperty('--toast-drag-y', '0px');
-            };
-            toast.addEventListener('pointerup', finishSwipe);
-            toast.addEventListener('pointercancel', finishSwipe);
-        }
-
-        function escapeToastHtml(value) {
-            return String(value ?? '').replace(/[&<>"']/g, (char) => ({
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                '"': '&quot;',
-                "'": '&#39;'
-            }[char]));
-        }
-
-        function showToast(title, message = '', isAlert = false, options = {}) {
-            if (window.__gncOpsPilot && typeof window.__gncOpsPilot.observeToast === 'function') {
-                window.__gncOpsPilot.observeToast(title, message, isAlert);
-            }
-            const toast = document.getElementById('toast-notification');
-            if (!toast) return;
-            bindToastDismissInteractions(toast);
-            clearToastTimers();
-
-            const toastTitle = String(title ?? '').trim();
-            const toastMessage = String(message ?? '').trim();
-            const errorPattern = /(error|failed|fail|timeout|missing|required|invalid|not found|unable|denied|blocked|network|dropped|try again)/i;
-            const isErrorToast = isAlert === true || errorPattern.test(toastTitle);
-            if (isErrorToast && !options.requestInputGuidance) window.GncRuntimeWatchdog?.observeError?.(toastTitle,toastMessage,true,'UI_ERROR_BANNER_SHOWN',options.driveCommand);
-            const fingerprint = String(options.fingerprint || `${isErrorToast ? 'error' : 'notice'}|${toastTitle}|${toastMessage}`)
-                .trim().toLowerCase().replace(/\s+/g, ' ').slice(0, 420);
-            const now = Date.now();
-            const dedupeWindowMs = Math.max(1000, Number(options.dedupeWindowMs) || 15000);
-            if (fingerprint && fingerprint === toastLastFingerprint && now - toastLastShownAt < dedupeWindowMs) {
-                return false;
-            }
-            toastLastFingerprint = fingerprint;
-            toastLastShownAt = now;
-            const token = ++toastToken;
-            const requestedDuration = Number(options.duration || options.timeout || 0);
-            const compact = !isErrorToast && toastTitle === 'Tag Complete';
-            toast.classList.toggle('tag-complete-pill',compact);
-            const duration = compact ? 1600 : Math.max(isErrorToast ? 9000 : 3600, requestedDuration || 0);
-
-            toast.classList.remove('toast-dismissing', 'toast-dragging');
-            toast.style.setProperty('--toast-drag-y', '0px');
-            toast.dataset.kind = options.requestInputGuidance ? 'input-guidance' : isErrorToast ? 'error' : 'success';
-            toast.dataset.driveCommand = /^drive-[a-z0-9_-]{8,175}$/i.test(options.driveCommand || '') ? options.driveCommand : '';
-            toast.setAttribute('role', isErrorToast ? 'alert' : 'status');
-            toast.setAttribute('aria-live', isErrorToast ? 'assertive' : 'polite');
-            toast.removeAttribute('data-dismiss-reason');
-            toast.innerHTML = `
-                <div class="toast-content">
-                    <div class="toast-title">${escapeToastHtml(toastTitle || (isErrorToast ? 'Error' : 'Notice'))}</div>
-                    ${toastMessage ? `<div class="toast-message">${escapeToastHtml(toastMessage)}</div>` : ''}
-                </div>
-                <button type="button" class="toast-dismiss" data-toast-dismiss aria-label="Dismiss notification"><i class="ph-bold ph-x" aria-hidden="true"></i></button>
-            `;
-            toast.classList.add('show');
-
-            toastHideTimer = setTimeout(() => {
-                if (token !== toastToken) return;
-                toast.classList.remove('show');
-                toastHideTimer = null;
-                toastClearTimer = setTimeout(() => clearToastContent(token), 360);
-            }, duration);
-            return true;
-        }
+        /* @runtime-fragment assets/toast-notification.js */
 
         let appPromptDialogResolver = null;
         function ensureAppPromptDialogElement() {
@@ -56594,7 +56006,7 @@ function toggleDriveQuickRequestItem(domId) {
             pushSchemaProbePromise = (async () => {
                 if (navigator.onLine === false) return false;
                 const readProbe = async (selectQuery) => {
-const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
+                    const nativeHeaders = getPassiveNativeAuthRequestHeaders();
                     return window.GncDatabase.fetchTable(SUPABASE_URL, PUSH_SUBSCRIPTIONS_TABLE, `${selectQuery}&limit=1`, {
                         method: 'GET',
                         headers: nativeHeaders || { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' }
@@ -56616,7 +56028,7 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
                     pushSchemaReady = false;
                     maybeWarnPushSchemaMissing();
                     return false;
-                } catch (error) {
+                } catch {
                     pushSchemaReady = false;
                     maybeWarnPushSchemaMissing();
                     return false;
@@ -57616,6 +57028,7 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
             setPromptStepVisibility('ncr-email', false);
             const resolver = ncrEmailPromptResolver;
             ncrEmailPromptResolver = null;
+            if (typeof detachBloomscapesStaticBody === 'function') detachBloomscapesStaticBody('ncr-email-modal');
             if (resolver) resolver({
                 choice: String(choice || 'cancel').trim().toLowerCase() || 'cancel',
                 message
@@ -57623,7 +57036,7 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
         }
 
         function openNcrEmailModal(item = activeItem, type = '', options = {}) {
-            const modal = document.getElementById('ncr-email-modal');
+            const modal = mountBloomscapesStaticBody('ncr-email-modal');
             if (!modal) return Promise.resolve('cancel');
             const safeOptions = options || {};
             const safeType = normalizeNcrApprovalType(type || getNcrApprovalTypeForItem(item));
@@ -59809,6 +59222,7 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
             const resolver = holdReleasePromptResolver;
             holdReleasePromptResolver = null;
             holdReleasePromptItem = null;
+            if (typeof detachBloomscapesStaticBody === 'function') detachBloomscapesStaticBody('hold-release-modal');
             if (resolver) resolver({
                 choice: String(choice || 'no').trim().toLowerCase() || 'no',
                 message,
@@ -59841,6 +59255,7 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
         }
 
         function openHoldReleaseModal(item = activeItem, options = {}) {
+            if (typeof mountBloomscapesStaticBody === 'function') mountBloomscapesStaticBody('hold-release-modal');
             const modal = document.getElementById('hold-release-modal');
             if (!modal) return Promise.resolve('no');
             const safeOptions = options || {};
@@ -59871,13 +59286,13 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
                 previousResolver({ choice: 'no', message: '', avNote: '' });
             }
             modal.classList.remove('hidden');
-            return new Promise((resolve) => {
-                holdReleasePromptResolver = resolve;
-                const yesBtn = document.getElementById('hold-release-yes-btn');
-                const directYes = safeOptions.directYes === true || String(firstNonEmptyValue(safeOptions.directYesChoice, safeOptions.yesChoice, '') || '').trim().toLowerCase() === 'yes';
-                if (yesBtn) yesBtn.onclick = () => directYes ? closeHoldReleaseModal('yes') : beginHoldReleaseMessageStep();
-                if (yesBtn) setTimeout(() => yesBtn.focus(), 0);
-            });
+            const yesBtn = document.getElementById('hold-release-yes-btn');
+            const directYes = safeOptions.directYes === true || String(firstNonEmptyValue(safeOptions.directYesChoice, safeOptions.yesChoice, '') || '').trim().toLowerCase() === 'yes';
+            if (yesBtn) {
+                yesBtn.onclick = () => directYes ? closeHoldReleaseModal('yes') : beginHoldReleaseMessageStep();
+                setTimeout(() => yesBtn.focus(), 0);
+            }
+            return new Promise(resolve => { holdReleasePromptResolver = resolve; });
         }
 
         function getNcrRepOutreachModalRowLabel(item = null, type = 'new-crop', approvedQty = '') {
@@ -59891,34 +59306,8 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
             return [getNcrApprovalTypeLabel(type), rowLabel, qtyLabel].filter(Boolean).join(' | ');
         }
 
-        function closeNcrRepOutreachModal(choice = 'no') {
-            const modal = document.getElementById('ncr-rep-outreach-modal');
-            if (modal) modal.classList.add('hidden');
-            const resolver = ncrRepOutreachPromptResolver;
-            ncrRepOutreachPromptResolver = null;
-            if (resolver) resolver(String(choice || 'no').trim().toLowerCase() || 'no');
-        }
+        /* @runtime-fragment assets/request-prompt-dialogs.js */
 
-        function openNcrRepOutreachModal(item = null, type = 'new-crop', approvedQty = '') {
-            const modal = document.getElementById('ncr-rep-outreach-modal');
-            if (!modal) return Promise.resolve('no');
-            const labelText = getNcrRepOutreachModalRowLabel(item, type, approvedQty);
-            const title = document.getElementById('ncr-rep-outreach-title');
-            const label = document.getElementById('ncr-rep-outreach-label');
-            if (title) title.textContent = `Send ${getNcrApprovalTypeLabel(type)} to reps?`;
-            if (label) label.textContent = labelText;
-            if (ncrRepOutreachPromptResolver) {
-                const previousResolver = ncrRepOutreachPromptResolver;
-                ncrRepOutreachPromptResolver = null;
-                previousResolver('no');
-            }
-            modal.classList.remove('hidden');
-            return new Promise((resolve) => {
-                ncrRepOutreachPromptResolver = resolve;
-                const yesBtn = document.getElementById('ncr-rep-outreach-yes-btn');
-                if (yesBtn) setTimeout(() => yesBtn.focus(), 0);
-            });
-        }
 
         function getHoldReleaseCompletionSourceLabel(prefix = '') {
             const safePrefix = String(prefix || '').trim().toLowerCase();
@@ -72178,33 +71567,13 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
             const bottomNav = document.getElementById('bottom-nav');
             const personal = typeof window.GncNavigationPreferences?.applyFooter === 'function';
             if (personal) window.GncNavigationPreferences.applyFooter(bottomNav);
-            const navButtons = Array.from(document.querySelectorAll('#bottom-nav .footer-nav-btn'));
-            document.querySelectorAll('#bottom-nav button, #bottom-nav .nav-item, #bottom-nav [data-footer-view]').forEach((button) => {
-                button.classList.remove('active');
-                button.removeAttribute('aria-current');
-                button.style.touchAction = 'manipulation';
-            });
-            let selectedButton = null;
-            let parentButton = null;
-            document.querySelectorAll('#bottom-nav [data-footer-view]').forEach((button) => {
-                const viewId = String(button.getAttribute('data-footer-view') || '').trim();
-                const isAllowed = canShowFooterViewButton(viewId, access);
-                const isCommunicationChildView = viewId === 'communication' && (currentView === 'communication' || currentView === 'chat' || currentView === 'department-calendar');
-                const isSalesShellChildView = viewId === 'sales' && isSalesShellAccess(access) && currentView !== 'home';
-                if (!personal) button.classList.toggle('hidden', !isAllowed);
-                if (!(personal || isAllowed) || button.classList.contains('hidden')) return;
-                if (!selectedButton && viewId === currentView) selectedButton = button;
-                if (isCommunicationChildView || (!parentButton && isSalesShellChildView)) parentButton = button;
-            });
-            const activeButton = selectedButton || parentButton;
-            if (activeButton) {
-                activeButton.classList.add('active');
-                activeButton.setAttribute('aria-current', 'page');
-            }
-            if (bottomNav) bottomNav.style.touchAction = 'manipulation';
+            const navButtons = Array.from(bottomNav?.querySelectorAll('.footer-nav-btn') || []);
+            syncFooterNavigationButtons(bottomNav, currentView, access, personal);
+            if (bottomNav && bottomNav.style.touchAction !== 'manipulation') bottomNav.style.touchAction = 'manipulation';
             if (bottomNav && navButtons.length) {
                 const visibleCount = navButtons.filter((button) => !button.classList.contains('hidden')).length || 1;
-                bottomNav.style.gridTemplateColumns = `repeat(${visibleCount}, minmax(0, 1fr))`;
+                const columns = `repeat(${visibleCount}, minmax(0, 1fr))`;
+                if (bottomNav.style.gridTemplateColumns !== columns) bottomNav.style.gridTemplateColumns = columns;
             }
             const menuBtn = document.getElementById('footer-menu-btn');
             const drawer = document.getElementById('side-drawer');
@@ -80198,105 +79567,10 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
             }, { delay: 0, typingDelay: 180 });
         }
 
-        function closeDockInfoModal() {
-            const modal = document.getElementById('dock-info-modal');
-            const focused = document.activeElement;
-            modal?.classList.add('hidden');
-            if (modal?.contains(focused)) focused.blur();
-            // Capture the post-close dependency context, after the editor and
-            // its focus no longer protect the discarded draft from refresh.
-            if (canUseProductionLiveSync()) {
-                signalProductionLiveSync('dock-editor-closed', 0);
-                scheduleProductionLiveSyncRender(true);
-            }
-        }
+        /* @runtime-fragment assets/dock-dialog-lifecycle.js */
 
-        function openDockInfoModal(dockNum, tripNumber) {
-            if (!canEditDockWorkflow()) {
-                showToast('Restricted', 'Only Admin or QC Supervisor can update dock team and status.', true);
-                return;
-            }
-            const tripKey = normalizeDockTeamTripKey(tripNumber);
-            if (!tripKey) {
-                showToast('Trip Number Required', 'This dock row does not have a TRIPNUMBER, so a shared team cannot be assigned.', true);
-                return;
-            }
-            pendingDockNum = normalizeDockViewDockKey(dockNum);
-            pendingDockTrip = String(tripNumber || '').trim();
-            document.getElementById('modal-dock-num').innerText = pendingDockNum;
-            document.getElementById('modal-dock-trip').innerText = pendingDockTrip;
-            let savedInfo = getDockTeamInfo(pendingDockTrip);
-            updateDockAssignableTeamOptions(savedInfo);
-            document.getElementById('dock-status').value = savedInfo.status || "Loading";
-            document.getElementById('dock-info-modal').classList.remove('hidden');
-            ensureDockAssignableUsers().then(() => updateDockAssignableTeamOptions()).catch(() => {});
-            ensureDockTeamStatusLoaded().then(() => {
-                const refreshedInfo = getDockTeamInfo(pendingDockTrip);
-                updateDockAssignableTeamOptions(refreshedInfo);
-                document.getElementById('dock-status').value = refreshedInfo.status || 'Loading';
-            }).catch(() => {});
-        }
 
-        async function saveDockInfoModal(button = null) {
-            if (!requireCurrentDocksWriteProof()) return false;
-            if (!canEditDockWorkflow()) {
-                showToast('Restricted', 'Only Admin or QC Supervisor can update dock team and status.', true);
-                return;
-            }
-            if (!pendingDockNum || !pendingDockTrip) return;
-            const dockNum = normalizeDockViewDockKey(pendingDockNum);
-            const tripNumber = String(pendingDockTrip || '').trim();
-            const currentInfo = getDockTeamInfo(tripNumber);
-            const info = normalizeDockTeamInfo({
-                tripnumber: tripNumber,
-                dock_num: dockNum,
-                checker: document.getElementById('dock-checker').value,
-                inspector: document.getElementById('dock-inspector').value,
-                mistake: document.getElementById('dock-mistake').value,
-                status: document.getElementById('dock-status').value,
-                revision: currentInfo.revision
-            });
-            if (navigator.onLine === false) {
-                showToast('Not Saved', 'Reconnect before saving. Dock teams are shared and are never stored only on this device.', true);
-                return;
-            }
-            const saveButton = button || document.getElementById('dock-info-save-button');
-            const originalLabel = saveButton ? saveButton.innerHTML : '';
-            if (saveButton) {
-                saveButton.disabled = true;
-                saveButton.classList.add('opacity-60', 'pointer-events-none');
-                saveButton.innerHTML = 'SAVING';
-            }
-            try {
-                const result = await runDockTripStatusRequest('upsert', {
-                    tripnumber: tripNumber,
-                    dockNum,
-                    checker: info.checker,
-                    inspector: info.inspector,
-                    mistake: info.mistake,
-                    status: info.status || 'Loading',
-                    expectedRevision: Number(currentInfo.revision || 0)
-                });
-                const canonicalRow = getDockTripStatusResponseRow(result.data);
-                const savedInfo = cacheDockTeamInfo(tripNumber, canonicalRow || info);
-                dockTeamStatusLoaded = true;
-                dockTeamSchemaReady = true;
-                document.getElementById('dock-info-modal').classList.add('hidden');
-                queueAppLiveEventForWrite('ph_dock_trip_status', 'POST', [{ unique_id: tripNumber, tripnumber: tripNumber }], '');
-                showToast('Saved for Everyone', `Trip ${savedInfo.tripnumber || tripNumber} team and status are now shared with every Docks user.`);
-                markViewDirty('docks');
-                scheduleDocksRender(0, 0, true);
-            } catch (error) {
-                const message = String(error && error.message || '').trim();
-                showToast('Not Saved', message.includes('changed') ? message : 'The shared Trip assignment was not saved. Refresh Docks and retry.', true);
-            } finally {
-                if (saveButton) {
-                    saveButton.disabled = false;
-                    saveButton.classList.remove('opacity-60', 'pointer-events-none');
-                    saveButton.innerHTML = originalLabel || 'SAVE & CONTINUE';
-                }
-            }
-        }
+
 
         function clearDockMistakeIssuePhotoPreviewUrl() {
             if (dockMistakeIssuePhotoPreviewUrl && /^blob:/i.test(dockMistakeIssuePhotoPreviewUrl)) {
@@ -80635,66 +79909,7 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
             return setDockMistakeModalStep('details');
         }
 
-        function openDockItemMistakeModal(uid) {
-            if (getRoleAccessState().isRep) {
-                showToast('View Only', 'Docks is view only for sales reps.', true);
-                return false;
-            }
-            const normalizedUid = normalizeDockIssueSourceUniqueId(uid);
-            const issue = getDockIssueStatus(normalizedUid);
-            const item = findDockMistakeSourceRowByUniqueId(normalizedUid, issue);
-            const issueSourceUid = normalizeDockIssueSourceUniqueId(firstNonEmptyValue(item && item.DOCK_ISSUE_SOURCE_UID, issue && issue.issueSourceUniqueId, normalizedUid));
-            document.getElementById('dock-mistake-uid').value = issueSourceUid;
-            document.getElementById('dock-mistake-text').value = String(firstNonEmptyValue(issue && issue.issueNote, item && item.DOCK_ISSUE_NOTE, item && item.DOCK_NOTE, '')).trim();
-            const qtyInput = document.getElementById('dock-mistake-qty');
-            if (qtyInput) qtyInput.value = issue ? formatDockDisplayQty(issue.sourceQty) : '';
-            dockMistakeModalSourceUid = issueSourceUid;
-            clearDockMistakeIssuePhotoPreviewUrl();
-            dockMistakeIssuePhotoLink = String(firstNonEmptyValue(issue && issue.issuePhotoLink, '') || '').trim();
-            dockMistakeIssuePhotoName = String(firstNonEmptyValue(issue && issue.issuePhotoName, '') || '').trim();
-            dockMistakeIssuePhotoPromise = null;
-            dockMistakeIssuePhotoUploading = false;
-            dockMistakeSelectionUids = new Set(getDockIssueAllocations(issueSourceUid).map((allocation) => String(allocation && allocation.altMasterUniqueId || '').trim()).filter(Boolean));
-            const label = document.getElementById('dock-mistake-modal-label');
-            if (label) label.innerText = item ? `${item.COMMONNAME || 'Dock Item'} - ${item.CONTSIZE || '-'} - ${item.LOCATIONCODE || 'No Loc'}` : '';
-            syncDockMistakeMeasurementFields(item, issue);
-            renderDockMistakeIssuePhotoPreview();
-            renderDockMistakeModalOptions();
-            setDockMistakeModalStep('details');
-            document.getElementById('dock-mistake-modal').classList.remove('hidden');
-            enhanceDetailMeasurementNaOptions(document.getElementById('dock-mistake-modal'));
-            prepareIosNativeDetailMeasurementInputs(document.getElementById('dock-mistake-modal'));
-        }
 
-        function closeDockMistakeModal() {
-            const modal = document.getElementById('dock-mistake-modal');
-            if (detailMeasurementKeyboardTarget && detailMeasurementKeyboardTarget.closest && detailMeasurementKeyboardTarget.closest('#dock-mistake-modal')) {
-                closeDetailMeasurementKeyboard(true, { blur: true });
-            }
-            if (modal) modal.classList.add('hidden');
-            const uidInput = document.getElementById('dock-mistake-uid');
-            const textInput = document.getElementById('dock-mistake-text');
-            const qtyInput = document.getElementById('dock-mistake-qty');
-            const specInput = document.getElementById('dock-mistake-spec');
-            const caliperInput = document.getElementById('dock-mistake-caliper');
-            const caliperWrap = document.getElementById('dock-mistake-container-caliper');
-            const optionsEl = document.getElementById('dock-mistake-av-options');
-            const summaryEl = document.getElementById('dock-mistake-selection-summary');
-            if (uidInput) uidInput.value = '';
-            if (textInput) textInput.value = '';
-            if (qtyInput) qtyInput.value = '';
-            if (specInput) specInput.value = '';
-            if (caliperInput) caliperInput.value = '';
-            if (caliperWrap) caliperWrap.classList.add('hidden');
-            if (optionsEl) optionsEl.innerHTML = '';
-            if (summaryEl) summaryEl.textContent = '0 selected';
-            dockMistakeSelectionUids = new Set();
-            dockMistakeCandidateRows = [];
-            dockMistakeModalSourceUid = '';
-            setDockMistakeModalStep('details');
-            resetDockMistakeIssuePhotoState();
-            return false;
-        }
 
         function getDockMistakeModalSource() {
             const uid = normalizeDockIssueSourceUniqueId(firstNonEmptyValue(dockMistakeModalSourceUid, document.getElementById('dock-mistake-uid') && document.getElementById('dock-mistake-uid').value, ''));
@@ -83607,20 +82822,6 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
             });
         }
 
-        function canAddItemToBloomPicker(item = null, sourceView = '') {
-            if (!item || !canUseCartInventoryActions([item])) return false;
-            const access = getRoleAccessState();
-            const safeSourceView = String(sourceView || '').trim().toLowerCase();
-            const isDriveBloomPickerSource = safeSourceView === 'drive-bloom';
-            const isDriveContext = isDriveBloomPickerSource || isCurrentDriveCardOptionsContext(safeSourceView);
-            if (isDriveContext && !canCurrentUserSelectDriveWorkflowRow(item, 'drive')) {
-                const canRepAddBloomPickerRow = !!(access && access.isRep && !access.isCsr && isBloomPickerEligibleItem(item));
-                if (!canRepAddBloomPickerRow) return false;
-            }
-            if (access.isForeman) return canAccessView('drive') && hasPriorityColumnData(item);
-            return true;
-        }
-
         function maybeWarnTakeBackSchemaMissing() {
             if (takeBackSchemaWarningShown || !currentUser) return;
             takeBackSchemaWarningShown = true;
@@ -86269,7 +85470,7 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
             evalAssignableUsersLastAttemptAt = Date.now();
             evalAssignableUsersPromise = (async () => {
                 await ensureDatasetLoaded('warehouseAssignedItems', 'full', { preserveRequestedMode: true }).catch(() => {});
-                const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
+                const nativeHeaders = getPassiveNativeAuthRequestHeaders();
                 if (!nativeHeaders) throw new Error('Authenticated Eval directory session unavailable.');
                 const rows = await fetchNativeAppUserDirectory(nativeHeaders, '', SUPABASE_READ_TIMEOUT_MS);
                 const assignedUserSet = new Set(getWarehouseAssignmentSourceUsers());
@@ -86387,6 +85588,7 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
                 const el = document.getElementById(id);
                 if (el) el.classList.remove('hidden');
             });
+            if (typeof detachBloomscapesStaticBody === 'function') detachBloomscapesStaticBody('eval-task-modal');
             return false;
         }
 
@@ -86400,6 +85602,7 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
                 showToast('No Inventory Rows', 'Select one or more inventory rows first.', true);
                 return false;
             }
+            if (typeof mountBloomscapesStaticBody === 'function') mountBloomscapesStaticBody('eval-task-modal');
             toggleCartPanel(false);
             const modal = document.getElementById('eval-task-modal');
             const rowCount = document.getElementById('eval-task-row-count');
@@ -88554,6 +87757,7 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
         const BLOOM_ACTION_ROW_FORM_PURPOSES = new Set(['hold', 'take_off_hold', 'stop_ship', 'off_stop_ship', 'ncr', 'move_up', 'move_down', 'recount', 'note']);
 
         /* @runtime-fragment assets/bloom-runtime-functions.js */
+        /* @runtime-fragment assets/bloom-email-dialogs.js */
 
         document.addEventListener('pointerdown', function(event) {
             if (!bloomShareMenuOpen) return;
@@ -88981,6 +88185,7 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
             if (wrap) wrap.classList.toggle('hidden', !isDriveDetail);
             if (expandSection) expandSection.classList.toggle('hidden', isDriveDetail);
             syncDetailOverviewSearchUi();
+            if (document.getElementById('det-overview-content')?.classList.contains('hidden')) return;
 
             if (!isDriveDetail || !activeItem || !listEl || !emptyEl) {
                 if (countEl) countEl.innerText = '0 Fields';
@@ -90645,7 +89850,9 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
             const requestTabLabel = document.getElementById('dtab-request');
             const suspend = isDockSuspendDcRequestMirrorRow(item);
             if (requestTabLabel) requestTabLabel.textContent = suspend ? 'Suspend Tag' : 'Request';
-            const cameraTitle = document.querySelector('#camera-btn-req .detail-camera-upload-title');
+            const cameraTitle = typeof queryBloomscapesStaticBody === 'function'
+                ? queryBloomscapesStaticBody('det-request-content','#camera-btn-req .detail-camera-upload-title')
+                : document.querySelector('#camera-btn-req .detail-camera-upload-title');
             if (cameraTitle) cameraTitle.textContent = suspend ? 'Take Suspend Photo' : 'Take Request Photo';
             const safeSourceView = String(detailSourceView || activeDetailSourceView || lastView || '').trim().toLowerCase();
             const detTabsContainer = document.getElementById('det-tabs-container');
@@ -91772,11 +90979,12 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
                 Number(state.rowsRevision) || 0,
                 Array.isArray(requestsInventory) ? requestsInventory.length : 0
             ].join('|');
-            if (state.cachedSignature === cacheSignature && Array.isArray(state.cachedRows)) return state.cachedRows;
+            const avSource = suspendPicker ? null : avOpenInventory;
+            if (state.cachedSignature === cacheSignature && state.cachedAvSource === avSource && Array.isArray(state.cachedRows)) return state.cachedRows;
             const existingKeys = suspendPicker ? null : getExistingRequestItemCodeOptionKeys(item);
             const sourceRows = [
                 ...getRequestSharedInventoryOptionRows(item),
-                ...(!suspendPicker && Array.isArray(avOpenInventory) ? avOpenInventory : []),
+                ...getAvInventoryOptionRowsForItem(item, avSource, inventoryDomIdLookupCacheVersion),
                 ...(Array.isArray(state.rows) ? state.rows : [])
             ];
             const seen = new Set();
@@ -91804,6 +91012,7 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
                 });
             state.cachedRows = resolvedRows;
             state.cachedSignature = cacheSignature;
+            state.cachedAvSource = avSource;
             return resolvedRows;
         }
 
@@ -92335,25 +91544,9 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
 
         /* @runtime-fragment assets/request-detail-av-options.js */
 
-        function syncSuspendAvOptionSelectionControls(input = null) {
-            const panel = input?.closest?.('#detail-av-options-panel') || document.getElementById('detail-av-options-panel');
-            if (!panel) return false;
-            const selectedCount = panel.querySelectorAll('[data-request-itemcode-option="true"]:checked').length;
-            const headerAction = panel.querySelector('[data-suspend-av-header-action="true"]');
-            const sticky = panel.querySelector('[data-suspend-av-sticky]');
-            const stickyAction = sticky?.querySelector('[data-suspend-av-add]');
-            const countLabel = sticky?.querySelector('[data-suspend-av-selection-count]');
-            if (headerAction) headerAction.disabled = selectedCount === 0;
-            if (sticky) sticky.classList.toggle('hidden', selectedCount === 0);
-            if (stickyAction) stickyAction.disabled = selectedCount === 0;
-            if (countLabel) countLabel.textContent = `${selectedCount} selected`;
-            return false;
-        }
-
         function collectSelectedRequestItemCodeOptionRows(item = activeItem) {
-            const selectedIds = new Set(Array.from(document.querySelectorAll('[data-request-itemcode-option="true"]:checked'))
-                .map((input) => String(input.value || '').trim())
-                .filter(Boolean));
+            const panel = document.getElementById('detail-av-options-panel') || document.getElementById('req-matching-inventory-container');
+            const selectedIds = rememberRequestAvOptionSelection(panel, ensureRequestItemCodeOptionState(item));
             if (!selectedIds.size) return [];
             return filterDriveNegativeSltsAvOptionRows(getRequestItemCodeOptionRows(item), activeDetailSourceView || lastView || '')
                 .filter((row) => selectedIds.has(getRequestItemCodeOptionMasterId(row)));
@@ -92497,9 +91690,6 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
             const detLocation = document.getElementById('det-location');
             if (detLocation) detLocation.innerText = item.LOCATIONCODE || '--';
             scheduleDetailTitleRowFit(0);
-            const detailSalesNote = String(firstNonEmptyValue(getItemDisplayValue(item, 'SALES_NOTE', safeDetailSourceView), item.SALES_DESC, item.SALESDESC, '') || '').trim();
-            const linkedMasterItem = findLinkedMasterRow(item) || null;
-            const detailLocationNote = getLocationNoteDisplayValue(item, linkedMasterItem);
             const isRequestDetail = isRequestDetailItem(item, safeDetailSourceView);
             const useRequestStyleDetailShell = isRequestDetail;
             const detailRoot = document.getElementById('view-detail');
@@ -92508,21 +91698,7 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
             if (typeof syncDetailPhotoUpdateMode === 'function') syncDetailPhotoUpdateMode();
             if (typeof syncRequestDetailScrollMode === 'function') syncRequestDetailScrollMode();
             renderAvDetailHero(item, safeDetailSourceView);
-            const detailMetaParts = [
-                `PRIORITY: ${firstNonEmptyValue(item.PRIORITY, item.priority, '--') || '--'}`,
-                `On hand: ${getCardPtrOnHandValue(item)}`,
-                `Review: ${getCardPtrReviewedValue(item)}`,
-                `Available: ${getCardPtrAvailableValue(item)}`,
-                `Open Stock: ${getCardOpenStockValue(item)}`
-            ];
-            if (detailLocationNote) detailMetaParts.push(`LOCATIONNOTE: ${detailLocationNote}`);
-            const detailMetaLineHtml = isRequestDetail ? '' : `<div class="detail-meta-line">${detailMetaParts.map((part) => escapeShareHtml(part)).join(' &bull; ')}</div>`;
-            const extraInfo = document.getElementById('det-extra-info');
-            if (extraInfo) {
-                const showExtraInfo = safeDetailSourceView === 'av';
-                extraInfo.innerHTML = showExtraInfo ? `${detailMetaLineHtml}${detailSalesNote ? `<div class="detail-sales-note"><span class="detail-sales-note-label">Sales Note</span>${escapeShareHtml(detailSalesNote)}</div>` : ''}` : '';
-                extraInfo.classList.toggle('hidden', !showExtraInfo);
-            }
+            paintAvDetailExtraInfo(item, safeDetailSourceView, isRequestDetail);
             renderRequestDesiredPanel(item, safeDetailSourceView);
             renderManagerApprovalDetailWorkspace(item, safeDetailSourceView);
 
@@ -93809,12 +92985,13 @@ const nativeHeaders = await getNativeAuthRequestHeaders().catch(() => null);
         function renderDetailShellView() {
             if (window.BunchQueueShell?.isDetailOpen()) return 'request';
             if (!activeItem) return 'overview';
+            if (typeof mountBloomscapesStaticBody === 'function') mountBloomscapesStaticBody('view-detail');
             const detailShellStartedAt = beginInternalPerfMeasure();
             const detailSourceView = String(activeDetailSourceView || lastView || '').trim();
             const primaryDetailTab = runDetailPanelRender(() => configureDetailTabsForItem(activeItem, detailSourceView), ['drive','av'].includes(detailSourceView) ? 'location' : 'overview');
-            const editPrefix = getDetailTabPrefix(primaryDetailTab);
-            if (editPrefix) runDetailPanelRender(() => populateDetailInputsForPrefix(editPrefix,activeItem));
             const targetDetailTab = resolveVisibleDetailTab(primaryDetailTab, 'overview');
+            const editPrefix = getDetailTabPrefix(targetDetailTab);
+            if (typeof mountBloomscapesStaticBody === 'function') mountBloomscapesStaticBody('det-' + targetDetailTab + '-content');
             runDetailPanelRender(() => { populateDetailSummaryValues(activeItem, detailSourceView); });
             if (detailSourceView.toLowerCase() === 'request') runDetailPanelRender(() => { renderSavedPhotos(); });
             else runDetailPanelRender(() => { resetDetailDeferredMediaShell(); });
@@ -94692,13 +93869,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
 
             const detailContentIds = ['det-overview-content','det-season-content','det-item-inquiry-content','det-location-content','det-alt-loc-content','det-request-content','det-inventory-edit-content','det-this-location-content','det-not-on-inventory-content','det-customer-content','det-open-orders-content','det-ncr-content','det-notes-content','det-docks-content','det-flyer-content','det-gallery-content'];
             const targetContentId = 'det-' + safeTab + '-content';
-            const contentEl = document.getElementById(targetContentId);
-            if(contentEl) contentEl.classList.remove('hidden');
-            detailContentIds.forEach((contentId) => {
-                if (contentId === targetContentId) return;
-                const panel = document.getElementById(contentId);
-                if (panel) panel.classList.add('hidden');
-            });
+            mountBloomscapesDetailTabBody(targetContentId,detailContentIds);
             if (!nextOptions.skipHydrate && activeItem) {
                 if (pendingDetailHydrationToken && pendingDetailHydrationToken === detailHydrationToken) {
                     scheduleDeferredDetailHydration(detailHydrationToken, 0);
@@ -94973,22 +94144,16 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             bloomscapesPendingState.loading = true; bloomscapesPendingState.error = ''; renderBloomscapesPendingOrders();
             try {
                 if (navigator.onLine === false) throw new Error('Connect to the internet to view private pending orders.');
+                const headers = getPassiveNativeAuthRequestHeaders();
+                if (!headers?.Authorization) throw new Error('Sign in with your native AgMetric account.');
                 const profile = await loadNativeAuthProfile(true);
                 if (!canViewBloomscapesPendingOrders(profile)) throw new Error('Only an active native dylan_collyge session may view these requests.');
-                const headers = await getNativeAuthRequestHeaders();
-                if (!headers || !headers.Authorization) throw new Error('Sign in with your native AgMetric account.');
                 if (sequence !== bloomscapesPendingState.sequence || !canViewBloomscapesPendingOrders()) return false;
-                const last = older ? bloomscapesPendingState.orders[bloomscapesPendingState.orders.length-1] : null;
-                const response = await window.GncDatabase.fetchRpc(SUPABASE_URL, 'bloomscapes_pending_command', {
-                    method:'POST',cache:'no-store',credentials:'omit',redirect:'error',headers:{...headers,'Content-Type':'application/json'},
-                    body:JSON.stringify({p_action:'state',p_payload:last ? {beforeTime:last.created_at,beforeId:last.id} : {},p_request_id:null})
-                },20000,'BloomScapes pending orders');
-                const data = await response.json();
-                if (!response.ok) { const error = new Error(data.message || `Pending orders could not be loaded (${response.status}).`); error.status = response.status; throw error; }
+                const received = await readBloomscapesPendingOrdersPage(headers, older ? bloomscapesPendingState.orders.at(-1) : null);
                 if (sequence !== bloomscapesPendingState.sequence || !canViewBloomscapesPendingOrders()) return false;
-                if (data.mode !== 'pending-unpaid' || data.paymentEnabled !== false || data.stockReserved !== false || !Array.isArray(data.orders)) throw new Error('Unexpected pending-order response.');
-                bloomscapesPendingState.orders = older ? [...bloomscapesPendingState.orders,...data.orders.filter((o)=>!bloomscapesPendingState.orders.some((p)=>p.id===o.id))] : data.orders;
-                bloomscapesPendingState.more = data.orders.length === 25;
+                const previousIds = new Set(bloomscapesPendingState.orders.map(order => order.id));
+                bloomscapesPendingState.orders = older ? [...bloomscapesPendingState.orders, ...received.filter(order => !previousIds.has(order.id))] : received;
+                bloomscapesPendingState.more = received.length === 25;
             } catch (error) {
                 if (sequence !== bloomscapesPendingState.sequence) return false;
                 if ([401, 403].includes(Number(error && error.status)) || /unexpected pending-order response|only an active native|sign in with your native/i.test(String(error && error.message || '')) || !canViewBloomscapesPendingOrders()) {
@@ -101312,30 +100477,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
                 return right.localeCompare(left, undefined, { numeric: true, sensitivity: 'base' });
             });
             return clean[0] || '';
-        }
-
-        function collectDashboardSyncSource(rows = [], label = '') {
-            let latestIso = '';
-            let latestMs = -1;
-            let latestFileName = '';
-            let latestFileMs = -1;
-            (Array.isArray(rows) ? rows : []).forEach((item) => {
-                const iso = getValidIsoTimestamp(firstNonEmptyValue(item && item.LAST_UPDATED, item && item.last_updated, ''));
-                if (!iso) return;
-                const stamp = Date.parse(iso);
-                const fileName = String(firstNonEmptyValue(item && item.FILENAME, item && item.filename, '')).trim();
-                if (stamp > latestMs) {
-                    latestIso = iso;
-                    latestMs = stamp;
-                }
-                if (fileName && stamp > latestFileMs) {
-                    latestFileMs = stamp;
-                    latestFileName = fileName;
-                } else if (stamp === latestFileMs && fileName) {
-                    latestFileName = selectDashboardSyncFilename([latestFileName, fileName]);
-                }
-            });
-            return { label, iso: latestIso, ms: latestMs, files: latestFileName ? [latestFileName] : [] };
         }
 
         function getDashboardSyncMetadataSources() {
@@ -112117,7 +111258,8 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
         }
 
         async function invokeCodexOpsApi(action = '', payload = {}, timeoutMs = 45000) {
-            const headers = await getNativeAuthRequestHeaders().catch(() => null);
+            const headers = getPassiveNativeAuthRequestHeaders()
+                || (['capabilities','list','get'].includes(action) ? null : await getNativeAuthRequestHeaders().catch(() => null));
             if (!headers || !headers.Authorization) throw new Error('Authenticated Supabase session required.');
             const response = await fetchWithTimeout(CODEX_OPS_FUNCTION_URL, {
                 method: 'POST',
@@ -117376,47 +116518,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return false;
         }
 
-        function openSalesOfficeAvNoteModal(uniqueId) {
-            const uid = String(uniqueId || '').trim();
-            if (!uid) return;
-            const item = salesOfficeInventory.find((row) => String((row && row.UNIQUE_ID) || '').trim() === uid) || findItemByUniqueId(uid);
-            if (!item) {
-                showToast('Not Found', 'That Sales Office row could not be found.', true);
-                return;
-            }
-            const source = String(firstNonEmptyValue(item.SO_SOURCE, item.so_source, '') || '').trim().toLowerCase();
-            if (source === 'season' && !isAvBlanksPhotoBypassUserAllowed()) {
-                ensureSeasonSalesNoteAccessFresh(0);
-                showToast('Read Only', 'You are not assigned to enter Season Sales Notes.', true);
-                return;
-            }
-            const modal = document.getElementById('sales-office-av-modal');
-            const uidField = document.getElementById('sales-office-av-uid');
-            const textField = document.getElementById('sales-office-av-text');
-            const label = document.getElementById('sales-office-av-modal-label');
-            if (!modal || !uidField || !textField) return;
-            uidField.value = uid;
-            textField.value = getSalesOfficeDisplayAvNote(item, '');
-            if (label) label.innerText = `${item.COMMONNAME || 'Unknown'} - ${item.CONTSIZE || '-'} - ${item.LOCATIONCODE || 'No Loc'} / ${item.LOTCODE || '-'}`;
-            modal.classList.remove('hidden');
-            setTimeout(() => {
-                try {
-                    textField.focus();
-                    textField.setSelectionRange(textField.value.length, textField.value.length);
-                } catch (e) { globalThis.safeIgnoreProbeError?.("openSalesOfficeAvNoteModal"); }
-            }, 60);
-        }
 
-        function closeSalesOfficeAvNoteModal() {
-            const modal = document.getElementById('sales-office-av-modal');
-            const uidField = document.getElementById('sales-office-av-uid');
-            const textField = document.getElementById('sales-office-av-text');
-            const saveBtn = document.getElementById('sales-office-av-save-btn');
-            if (modal) modal.classList.add('hidden');
-            if (uidField) uidField.value = '';
-            if (textField) textField.value = '';
-            if (saveBtn) saveBtn.innerText = 'Save AV Note';
-        }
 
         let requestPublishPromptResolver = null;
 
@@ -119451,6 +118553,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             shearListModalReserveRowsByBaseUid = new Map();
             shearListModalReserveLoadingByBaseUid = new Set();
             shearListModalReserveErrorByBaseUid = new Map();
+            if (typeof detachBloomscapesStaticBody === 'function') detachBloomscapesStaticBody('shear-list-modal');
             return false;
         }
 
@@ -119465,6 +118568,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
                 showToast('Bloom Picker Empty', 'Select one or more inventory rows first.', true);
                 return false;
             }
+            if (typeof mountBloomscapesStaticBody === 'function') mountBloomscapesStaticBody('shear-list-modal');
             toggleCartPanel(false);
             const modal = document.getElementById('shear-list-modal');
             const rowsEl = document.getElementById('shear-list-modal-rows');
@@ -122584,6 +121688,7 @@ ${folderNote ? `Folder Note: ${folderNote}
             const resolver = pullClownTapeSideResolver;
             pullClownTapeSideResolver = null;
             if (resolver) resolver(normalizePullClownTapeSide(side));
+            if (typeof detachBloomscapesStaticBody === 'function') detachBloomscapesStaticBody('pull-clown-tape-side-modal');
             return false;
         }
 
@@ -122591,6 +121696,7 @@ ${folderNote ? `Folder Note: ${folderNote}
             const modal = document.getElementById('pull-clown-tape-side-modal');
             if (!modal) return Promise.resolve(promptPullClownTapeSide());
             if (pullClownTapeSideResolver) closePullClownTapeSideModal('');
+            if (typeof mountBloomscapesStaticBody === 'function') mountBloomscapesStaticBody('pull-clown-tape-side-modal');
             modal.classList.remove('hidden');
             return new Promise((resolve) => {
                 pullClownTapeSideResolver = resolve;
@@ -123255,6 +122361,7 @@ ${folderNote ? `Folder Note: ${folderNote}
                 return false;
             }
             assignUserSearchTerm = '';
+            if (typeof mountBloomscapesStaticBody === 'function') mountBloomscapesStaticBody('assign-modal');
             toggleCartPanel(false);
             renderAssignUserOptions();
             const modal = document.getElementById('assign-modal');
@@ -123266,6 +122373,7 @@ ${folderNote ? `Folder Note: ${folderNote}
             driveQuickAssignFlow = false;
             const modal = document.getElementById('assign-modal');
             if (modal) modal.classList.add('hidden');
+            if (typeof detachBloomscapesStaticBody === 'function') detachBloomscapesStaticBody('assign-modal');
             return false;
         }
 
@@ -127365,34 +126473,6 @@ ${folderNote ? `Folder Note: ${folderNote}
             return 2;
         }
 
-        function getDriveCardPtrSortValue(item = null) {
-            const ptrValue = parseAppNumber(firstNonEmptyValue(item && item.PTRAVAILABLE, item && item.ptravailable, item && item.PRTAVAILABLE, item && item.prtavailable, '0'));
-            return Number.isFinite(ptrValue) ? ptrValue : -1;
-        }
-
-        function sortDriveCardItems(items) {
-            return [...items].sort((a, b) => {
-                let priA = parseFloat(a.PRIORITY);
-                let priB = parseFloat(b.PRIORITY);
-                if (isNaN(priA)) priA = Infinity;
-                if (isNaN(priB)) priB = Infinity;
-                if (priA !== priB) return priA - priB;
-                const nameCompare = String(a.COMMONNAME || '').localeCompare(String(b.COMMONNAME || ''));
-                if (nameCompare !== 0) return nameCompare;
-                const sizeCompare = String(a.CONTSIZE || '').localeCompare(String(b.CONTSIZE || ''), undefined, { numeric: true });
-                if (sizeCompare !== 0) return sizeCompare;
-                const itemCodeCompare = String(a.ITEMCODE || '').localeCompare(String(b.ITEMCODE || ''), undefined, { numeric: true });
-                if (itemCodeCompare !== 0) return itemCodeCompare;
-                const assignmentCompare = getDriveCardAssignmentRank(a) - getDriveCardAssignmentRank(b);
-                if (assignmentCompare !== 0) return assignmentCompare;
-                const ptrCompare = getDriveCardPtrSortValue(b) - getDriveCardPtrSortValue(a);
-                if (ptrCompare !== 0) return ptrCompare;
-                const lotCompare = String(a.LOTCODE || '').localeCompare(String(b.LOTCODE || ''), undefined, { numeric: true });
-                if (lotCompare !== 0) return lotCompare;
-                return compareLocationCodeValues(a.LOCATIONCODE, b.LOCATIONCODE);
-            });
-        }
-
         function getDriveCardStatusClass(item = null, fallbackClass = 'status-blue') {
             return isDriveSeasonSalesNotesRow(item) ? 'status-orange' : fallbackClass;
         }
@@ -127657,75 +126737,6 @@ ${folderNote ? `Folder Note: ${folderNote}
             </div>`;
         }
 
-        const CLIENT_BROWSE_PAGE_SIZE = 50;
-        const clientBrowsePageCounts = new Map();
-        const CLIENT_BROWSE_PAGE_KEY_CACHE_LIMIT = 12;
-        const clientBrowsePageKeyCache = new Map();
-        const clientBrowsePageKeyCacheOrder = [];
-        let clientBrowsePageKeyCacheEntryCount = 0;
-        let clientBrowsePageKeyCacheIdentityKey = null;
-        function clearClientBrowsePageKeyCache(identityKey = '') {
-            clientBrowsePageKeyCache.clear();
-            clientBrowsePageKeyCacheOrder.length = 0;
-            clientBrowsePageKeyCacheEntryCount = 0;
-            clientBrowsePageKeyCacheIdentityKey = String(identityKey);
-        }
-        function getClientBrowsePageKey(view = '', key = '') {
-            const safeView = String(view || '').trim();
-            const identityKey = String(typeof getSupabaseReadIdentityScope === 'function' ? getSupabaseReadIdentityScope() : '');
-            if (clientBrowsePageKeyCacheIdentityKey !== identityKey) clearClientBrowsePageKeyCache(identityKey);
-            const sourceKey = String(key || '').trim();
-            let viewCache = clientBrowsePageKeyCache.get(safeView);
-            if (viewCache?.has(sourceKey)) return viewCache.get(sourceKey);
-            const pageKey = `${safeView}:${buildRowsRenderSignature(`browse:${safeView}`, [{ UNIQUE_ID: `${identityKey}:${sourceKey}` }])}`;
-            while (clientBrowsePageKeyCacheEntryCount >= CLIENT_BROWSE_PAGE_KEY_CACHE_LIMIT) {
-                const oldest = clientBrowsePageKeyCacheOrder.shift();
-                if (!oldest) break;
-                const oldestViewCache = clientBrowsePageKeyCache.get(oldest.view);
-                if (oldestViewCache?.delete(oldest.sourceKey)) clientBrowsePageKeyCacheEntryCount--;
-                if (oldestViewCache && !oldestViewCache.size) clientBrowsePageKeyCache.delete(oldest.view);
-            }
-            viewCache = clientBrowsePageKeyCache.get(safeView);
-            if (!viewCache) {
-                viewCache = new Map();
-                clientBrowsePageKeyCache.set(safeView, viewCache);
-            }
-            viewCache.set(sourceKey, pageKey);
-            clientBrowsePageKeyCacheOrder.push({ view: safeView, sourceKey });
-            clientBrowsePageKeyCacheEntryCount++;
-            return pageKey;
-        }
-        function getClientBrowsePage(view = '', key = '', rows = []) {
-            const safeView = String(view || '').trim();
-            const safeKey = getClientBrowsePageKey(safeView, key);
-            const safeRows = Array.isArray(rows) ? rows : [];
-            const pageCount = Math.max(1, Math.ceil(safeRows.length / CLIENT_BROWSE_PAGE_SIZE));
-            const pageIndex = Math.min(pageCount - 1, Math.max(0, Math.floor(Number(clientBrowsePageCounts.get(safeKey)) || 0)));
-            const start = pageIndex * CLIENT_BROWSE_PAGE_SIZE;
-            const end = Math.min(safeRows.length, start + CLIENT_BROWSE_PAGE_SIZE);
-            return { key: safeKey, pageIndex, pageCount, start, end, visibleCount: end - start, rows: safeRows.slice(start, end) };
-        }
-        function renderClientBrowsePageFooter(view = '', key = '', total = 0, page = {}) {
-            const start = Math.max(0, Number(page.start) || 0), end = Math.max(start, Number(page.end) || 0);
-            const pageIndex = Math.max(0, Number(page.pageIndex) || 0), pageCount = Math.max(1, Number(page.pageCount) || 1);
-            if (pageCount <= 1) return '';
-            const buttonClass = 'min-h-[44px] rounded-xl border border-[var(--color-border-subtle)] bg-[var(--bg-surface)] px-3 text-[11px] font-black uppercase tracking-[0.1em] text-[var(--text-main)] disabled:opacity-40';
-            const previous = pageIndex <= 0 ? 'disabled aria-disabled="true"' : '';
-            const next = pageIndex >= pageCount - 1 ? 'disabled aria-disabled="true"' : '';
-            return `<div class="browse-page-footer mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--color-border-subtle)] p-3 text-xs font-bold text-[var(--text-meta)]" style="background:var(--bg-surface);color:var(--text-main)"><span>Rows ${Number(start + 1).toLocaleString()}–${Number(end).toLocaleString()} of ${Number(total).toLocaleString()}</span><div class="flex gap-2"><button type="button" class="${buttonClass}" ${previous} ${buildFastInvokeAttrs('loadMoreClientBrowseRows', [view, key, -1], 'Previous 50 rows')}>Previous</button><button type="button" class="${buttonClass}" ${next} ${buildFastInvokeAttrs('loadMoreClientBrowseRows', [view, key, 1], 'Next 50 rows')}>Next</button></div></div>`;
-        }
-        function loadMoreClientBrowseRows(view = '', key = '', direction = 1) {
-            const safeView = String(view || '').trim();
-            const safeKey = String(key || '').trim();
-            const pageIndex = Math.floor(Number(clientBrowsePageCounts.get(safeKey)) || 0);
-            clientBrowsePageCounts.set(safeKey, Math.max(0, pageIndex + (Number(direction) < 0 ? -1 : 1)));
-            while (clientBrowsePageCounts.size > 24) clientBrowsePageCounts.delete(clientBrowsePageCounts.keys().next().value);
-            if (safeView === 'av') scheduleAVRender(0);
-            else if (safeView === 'drive') scheduleDriveFilterRender(0, 32, true);
-            else if (safeView === 'request') scheduleRequestRender(0, 44, true);
-            return false;
-        }
-
         function renderDriveRecordResults(tokenKey, container, crumb, rows, crumbText, renderKey = '', options = {}) {
             const safeRows = Array.isArray(rows) ? rows : [];
             const nextOptions = options && typeof options === 'object' ? options : {};
@@ -127738,7 +126749,8 @@ ${folderNote ? `Folder Note: ${folderNote}
                 container.dataset.driveDetailedRecords = 'true';
                 container.dataset.driveDisplay = useSpreadsheet ? 'grid' : 'cards';
             }
-            const displayRenderKey = `${String(renderKey || tokenKey)}::page:${browsePage.pageIndex}::${useSpreadsheet ? 'spreadsheet-v2' : 'cards-v1'}`;
+            const evidenceKey = buildDriveRenderKey('drive:visible-card-evidence','',renderedRows);
+            const displayRenderKey = `${String(renderKey || tokenKey)}::page:${browsePage.pageIndex}::${useSpreadsheet ? 'spreadsheet-v2' : 'cards-v1'}::${evidenceKey}`;
             if (useSpreadsheet) {
                 cancelChunkRenderWorkForContainer(container, String(tokenKey || 'drive-grid'));
                 applyDriveRenderMarkup(container, crumb, crumbText, `${prefixHtml}${buildDriveSpreadsheetTableHtml(renderedRows)}${pageFooter}`, displayRenderKey);
@@ -127875,7 +126887,7 @@ ${folderNote ? `Folder Note: ${folderNote}
             }
             const finalItems = sortDriveCardItems(drillScope.items);
             const crumbText = drillScope.crumbText || `${resolvedDriveModeLabel} (${finalItems.length} items)`;
-            const renderKey = buildDriveRenderKey('drive:cards:resolved', crumbText, finalItems);
+            const renderKey = buildAVBrowsePageKey(`drive:cards:resolved|${crumbText}`,finalItems);
             driveResolvedCardStateKey = cardStateKey;
             driveResolvedCardStateCache = {
                 finalItems,
@@ -136715,7 +135727,7 @@ ${folderNote ? `Folder Note: ${folderNote}
             if (ensureViewDataForRender('advertisement')) return;
             updateAdvertisementTitle(advertisementLastTitle);
             renderAdvertisementFlyerFolders();
-            renderAdvertisementRecipientList();
+            renderAdvertisementRecipientList({ force: true, preserveSelection: true });
             initializeAdvertisementEditor().catch((error) => {
                 const message = error && error.message ? error.message : 'Could not load the advertisement editor.';
                 setAdvertisementLoading(false);

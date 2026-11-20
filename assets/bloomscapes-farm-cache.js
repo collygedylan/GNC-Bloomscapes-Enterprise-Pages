@@ -1,4 +1,12 @@
-let bloomscapesFarmCache = {owner:'',snapshots:new Map(),pending:new Map(),prewarming:false};
+const BLOOMSCAPES_FARM_PREWARM_IDLE_MS = 12000;
+const BLOOMSCAPES_FARM_PREWARM_RECHECK_LIMIT = 15;
+const BLOOMSCAPES_FARM_PREWARM_RETRY_MS = 45000;
+
+function createBloomscapesFarmCache(owner='') {
+    return {owner,snapshots:new Map(),pending:new Map(),prewarmFailures:new Map(),cancelPrewarm:null};
+}
+
+let bloomscapesFarmCache = createBloomscapesFarmCache();
 
 function bloomscapesFarmCacheOwner() {
     return JSON.stringify([nativeAuthProfile?.id || '',currentUser,currentRole,productionLiveSyncReadAuthEpoch,
@@ -7,7 +15,12 @@ function bloomscapesFarmCacheOwner() {
 
 function getBloomscapesFarmCache() {
     const owner = bloomscapesFarmCacheOwner();
-    if (bloomscapesFarmCache.owner!==owner) bloomscapesFarmCache = {owner,snapshots:new Map(),pending:new Map(),prewarming:false};
+    if (bloomscapesFarmCache.owner!==owner) {
+        const retired = bloomscapesFarmCache;
+        bloomscapesFarmCache = createBloomscapesFarmCache(owner);
+        retired.cancelPrewarm?.();
+        for (const flight of retired.pending.values()) flight.resume?.();
+    }
     return bloomscapesFarmCache;
 }
 
@@ -35,43 +48,59 @@ function getBloomscapesWarmFarm(farm) {
     return snapshot?.indexes?.byItemCode && snapshot.indexes.byId ? snapshot : null;
 }
 
-async function ensureBloomscapesWarmFarm(farm,refresh=false,attempt=0) {
+async function ensureBloomscapesWarmFarm(farm,refresh=false,attempt=0,speculative=false) {
     const cache = getBloomscapesFarmCache();
     assertBloomscapesFarmCache(cache,farm);
-    if (cache.pending.has(farm)) return cache.pending.get(farm);
+    const pending = cache.pending.get(farm);
+    if (pending) {
+        if (!speculative) {
+            pending.speculative = false;
+            pending.resume?.();
+        }
+        return pending.promise;
+    }
     if (!refresh && cache.snapshots.has(farm)) {
         const snapshot = cache.snapshots.get(farm);
         scheduleBloomscapesWarmAssignments(snapshot);
         return snapshot;
     }
-    const task = loadBloomscapesWarmFarm(cache,farm,refresh).catch(error=>{
+    const flight = {speculative,resume:null,promise:null};
+    flight.promise = loadBloomscapesWarmFarm(cache,farm,refresh,flight).catch(error=>{
         const sameAccount = JSON.stringify(JSON.parse(cache.owner).slice(0,2))===JSON.stringify(JSON.parse(bloomscapesFarmCacheOwner()).slice(0,2));
-        if (!attempt && sameAccount && ['FARM_SNAPSHOT_SCOPE_CHANGED','FARM_SNAPSHOT_REVISION_CHANGED'].includes(error.code)) {
+        if (!attempt && sameAccount && !flight.speculative && ['FARM_SNAPSHOT_SCOPE_CHANGED','FARM_SNAPSHOT_REVISION_CHANGED'].includes(error.code)) {
             cache.pending.delete(farm);
             return ensureBloomscapesWarmFarm(farm,refresh,1);
         }
         throw error;
-    }).finally(()=>cache.pending.delete(farm));
-    cache.pending.set(farm,task);
-    return task;
+    }).finally(()=>{
+        if (cache.pending.get(farm)===flight) cache.pending.delete(farm);
+    });
+    cache.pending.set(farm,flight);
+    return flight.promise;
 }
 
-async function loadBloomscapesWarmFarm(cache,farm,refresh) {
-    const assertCurrent = ()=>{
-        assertBloomscapesFarmCache(cache,farm);
-        if (cache.prewarming && farm !== getBloomscapesFarm() && !window.BloomscapesBatteryGovernor.canPrewarm()) throw Object.assign(new Error('Farm prewarming paused.'),{code:'FARM_PREPARATION_PAUSED'});
-        if (cache.prewarming && (document.hidden || navigator.onLine===false)) throw Object.assign(new Error('Farm prewarming paused.'),{code:'FARM_PREPARATION_PAUSED'});
-    };
+async function loadBloomscapesWarmFarm(cache,farm,refresh,flight) {
+    const assertCurrent = ()=>assertBloomscapesFarmCache(cache,farm);
+    const background = flight.speculative ? bloomscapesFarmPrewarmContext(flight,assertCurrent) : null;
     const scope = JSON.stringify(JSON.parse(cache.owner).filter((_value,index)=>index !== 3));
     const key = 'bloomscapes-farm-v3111:'+scope+':'+farm;
     const existing = cache.snapshots.get(farm);
-    if (refresh && existing?.lastSyncRevisionAt && await readBloomscapesFarmRevision(farm)===existing.revision) return existing;
+    if (refresh && existing?.lastSyncRevisionAt) {
+        if (Date.now()-existing.verifiedAt < 45000) return existing;
+        if (await readBloomscapesFarmRevision(farm)===existing.revision) {
+            assertCurrent();
+            existing.verifiedAt=Date.now();
+            return existing;
+        }
+    }
     const saved = refresh ? null : await loadCacheValue(key);
     assertCurrent();
     const raw = isReusableBloomscapesFarmSnapshot(saved,scope,farm)
-        ? saved : await readBloomscapesFarmSnapshot(farm,assertCurrent);
-    const snapshot = await prepareBloomscapesFarmPublication(raw,cache.owner,assertCurrent);
+        ? saved : await readBloomscapesFarmSnapshot(farm,assertCurrent,background);
+    if (background) await background.checkpoint();
+    const snapshot = await prepareBloomscapesFarmPublication(raw,cache.owner,assertCurrent,background?.checkpoint);
     assertCurrent();
+    if (raw !== saved) snapshot.verifiedAt = Date.now();
     cache.snapshots.set(farm,snapshot);
     void saveCacheValue(key,{...raw,cacheScope:scope,inventoryRowCount:raw.inventory.length,loadedAt:raw === saved ? raw.loadedAt : snapshot.loadedAt});
     return snapshot;
@@ -119,20 +148,70 @@ async function refreshBloomscapesWarmFarm(farm) {
     }
 }
 
-async function prewarmBloomscapesFarms() {
+function prewarmBloomscapesFarms() {
     const cache = getBloomscapesFarmCache();
-    if (cache.prewarming || !bloomscapesFarmState.loaded || !window.BloomscapesBatteryGovernor.canPrewarm()) return;
-    cache.prewarming = true;
+    const governor = window.BloomscapesBatteryGovernor;
+    if (cache.cancelPrewarm || !bloomscapesFarmState.loaded || getBloomscapesAllowedFarms().length < 2 || !governor) return;
+    cache.cancelPrewarm = governor.schedule('farm-prewarm',()=>runBloomscapesFarmPrewarm(cache),BLOOMSCAPES_FARM_PREWARM_RETRY_MS);
+}
+
+async function runBloomscapesFarmPrewarm(cache) {
+    if (cache!==getBloomscapesFarmCache() || !nativeAuthSessionActive) return;
+    const activeFarm = getBloomscapesFarm();
+    const farms = getBloomscapesAllowedFarms().filter(farm=>farm!==activeFarm && !cache.snapshots.has(farm)
+        && (cache.prewarmFailures.get(farm)?.count || 0)<3);
+    if (!farms.length) { cache.cancelPrewarm?.(); cache.cancelPrewarm=null; return; }
+    if (!window.BloomscapesBatteryGovernor.canPrewarm() || bloomscapesFarmPrewarmDelay()>0) return;
+    const farm = farms.find(candidate=>Date.now()>=(cache.prewarmFailures.get(candidate)?.retryAt || 0));
+    if (!farm) return;
     try {
-        for (const farm of getBloomscapesAllowedFarms()) {
-            assertBloomscapesFarmCache(cache,farm);
-            if (!window.BloomscapesBatteryGovernor.canPrewarm()) return;
-            await ensureBloomscapesWarmFarm(farm);
-        }
+        await ensureBloomscapesWarmFarm(farm,false,0,true);
+        cache.prewarmFailures.delete(farm);
     } catch(error) {
-        if (!isObsoleteBloomscapesPreparation(cache,error)) globalThis.reportHandledRuntimeIssue?.('farm_prewarm',error.code || 'FARM_PREWARM_FAILED');
+        if (isObsoleteBloomscapesPreparation(cache,error) || error.name==='AbortError' || error.code==='REQUEST_ABORTED') return;
+        const count = (cache.prewarmFailures.get(farm)?.count || 0)+1;
+        cache.prewarmFailures.set(farm,{count,retryAt:Date.now()+BLOOMSCAPES_FARM_PREWARM_RETRY_MS*2**(count-1)});
+        globalThis.reportHandledRuntimeIssue?.('farm_prewarm',error.code || 'FARM_PREWARM_FAILED');
     }
-    finally { cache.prewarming = false; }
+}
+
+function bloomscapesFarmPrewarmDelay() {
+    const quietMs = Date.now()-lastUserInteractionAt;
+    if (quietMs<BLOOMSCAPES_FARM_PREWARM_IDLE_MS) return BLOOMSCAPES_FARM_PREWARM_IDLE_MS-quietMs;
+    return bloomscapesFarmState.busy || shouldDeferInteractiveBackgroundWork() ? BLOOMSCAPES_FARM_PREWARM_IDLE_MS : 0;
+}
+
+function bloomscapesFarmPrewarmPaused() {
+    return Object.assign(new Error('Farm prewarming paused.'),{code:'FARM_PREPARATION_PAUSED'});
+}
+
+function waitForBloomscapesFarmPrewarm(flight,delay) {
+    return new Promise(resolve=>{
+        const wake = ()=>{ clearTimeout(timer); flight.resume=null; resolve(); };
+        const timer = setTimeout(wake,delay);
+        flight.resume = wake;
+    });
+}
+
+function bloomscapesFarmPrewarmContext(flight,assertCurrent) {
+    const governor = window.BloomscapesBatteryGovernor;
+    const signal = governor.signal();
+    return {
+        isSpeculative:()=>flight.speculative,
+        signal:()=>flight.speculative ? signal : governor.viewSignal(),
+        checkpoint:async()=>{
+            for (let check=0;check<BLOOMSCAPES_FARM_PREWARM_RECHECK_LIMIT;check++) {
+                assertCurrent();
+                if (!flight.speculative) return;
+                if (signal.aborted || !governor.canPrewarm()) throw bloomscapesFarmPrewarmPaused();
+                const delay = bloomscapesFarmPrewarmDelay();
+                if (delay<=0) return;
+                await waitForBloomscapesFarmPrewarm(flight,delay);
+            }
+            assertCurrent();
+            if (flight.speculative) throw bloomscapesFarmPrewarmPaused();
+        }
+    };
 }
 
 function isObsoleteBloomscapesPreparation(cache,error) {

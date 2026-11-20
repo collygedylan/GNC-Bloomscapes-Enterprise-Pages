@@ -82,10 +82,10 @@ async function runActiveExcelExport(command) {
     }
 }
 
-function rememberOperationalExport(view, rows) {
+function rememberOperationalExport(view, rows, compare = null) {
     const root = document.getElementById('view-' + view);
     if (!root) return;
-    root.agdataExport = { owner:getSupabaseReadIdentityScope(), tab:view === 'request' ? activeReqTab : dockViewMode, rows };
+    root.agdataExport = { owner:getSupabaseReadIdentityScope(), tab:view === 'request' ? activeReqTab : dockViewMode, rows, compare };
 }
 
 function exportOperationalRows(view) {
@@ -105,7 +105,8 @@ function exportOperationalRows(view) {
         { label: 'Status', value: row => row.ORDER_STATUS || row.REQ_STATUS || row.status || '' }
     );
     if (view === 'request') columns.push(...buildQueueMetricExportColumns(activeReqTab === 'suspend-tag'));
-    downloadExcelWorkbook(columns, current.rows, view === 'docks' ? 'Docks' : 'Que', '', 'operational-' + view, null, { exactColumns: true });
+    const rows=current.compare ? current.rows.slice().sort(current.compare) : current.rows;
+    downloadExcelWorkbook(columns, rows, view === 'docks' ? 'Docks' : 'Que', '', 'operational-' + view, null, { exactColumns: true });
     return false;
 }
 
@@ -128,14 +129,16 @@ function buildQueueMetricExportColumns(suspend) {
 function mountGlobalHeaderChrome(chromeState, { searchRow, title, searchSlot, inlineTitle, homeIdentityOnly, keepSearchMounted }) {
     const headerUser = document.getElementById('header-user');
     const headerVersion = document.getElementById('header-version');
-    if (headerUser) headerUser.innerText = currentUserDisplay || currentUser || 'User';
-    if (headerVersion) headerVersion.innerText = `AgData v${APP_VERSION}`;
-    syncGoogleScriptButton();
-    if (title) title.innerText = chromeState.resolvedTitle;
+    const userLabel = currentUserDisplay || currentUser || 'User';
+    const versionLabel = `AgData v${APP_VERSION}`;
+    if (headerUser && headerUser.textContent !== userLabel) headerUser.textContent = userLabel;
+    if (headerVersion && headerVersion.textContent !== versionLabel) headerVersion.textContent = versionLabel;
+    if (chromeState.currentView === 'home') syncGoogleScriptButton();
+    if (title && title.textContent !== chromeState.resolvedTitle) title.textContent = chromeState.resolvedTitle;
     lastGlobalHeaderChromeSignature = chromeState.signature;
     if (!keepSearchMounted) {
         restoreGlobalHeaderSearchContainers();
-        if (searchSlot) clearNodeChildren(searchSlot);
+        if (searchSlot?.firstChild) searchSlot.replaceChildren();
     }
     if (homeIdentityOnly) {
         syncGlobalHeaderSearchOwnership(null);

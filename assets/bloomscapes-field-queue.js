@@ -37,18 +37,28 @@ function bloomscapesWorkQueueCount(tab) {
 
 function applyBloomscapesFieldQueueSnapshot(data) {
     if (data.ownerScope!==getSupabaseReadIdentityScope() || data.farm_code!==getBloomscapesFarm()) return false;
-    Object.assign(bloomscapesFieldQueueState,{owner:data.ownerScope,rows:data.rows,views:data.views,roster:data.roster || [],
-        canCreate:data.can_create || {},counts:data.counts,revision:data.revision,recovery:data.recovery || [],lifecycle:data.block_lifecycle || [],loaded:true});
+    const state=bloomscapesFieldQueueState;
+    const metadata=JSON.stringify([data.views,data.roster,data.can_create,data.recovery,data.block_lifecycle]);
+    const unchanged=state.loaded && state.owner===data.ownerScope && state.farm===data.farm_code
+        && data.revision && state.revision===data.revision && state.metadata===metadata;
+    state.loadedAt=Date.now();
+    if (unchanged) return true;
+    Object.assign(state,{owner:data.ownerScope,farm:data.farm_code,rows:data.rows,views:data.views,roster:data.roster || [],
+        canCreate:data.can_create || {},counts:data.counts,revision:data.revision,recovery:data.recovery || [],lifecycle:data.block_lifecycle || [],
+        metadata,loaded:true});
     renderRequestCategoryToolbar();
     return true;
 }
 
 async function ensureBloomscapesFieldQueue(force=false) {
     const owner = getSupabaseReadIdentityScope();
-    if (bloomscapesFieldQueueState.owner!==owner) bloomscapesFieldQueueState = {owner,rows:[],views:[],roster:[],pending:null};
+    const farm=getBloomscapesFarm();
+    if (bloomscapesFieldQueueState.owner!==owner || bloomscapesFieldQueueState.farm!==farm) {
+        bloomscapesFieldQueueState = {owner,farm,rows:[],views:[],roster:[],pending:null};
+    }
     const state = bloomscapesFieldQueueState;
     if (state.pending) return state.pending;
-    if (state.loaded && !force) return state;
+    if (state.loaded && !force && Date.now()-state.loadedAt<45000) return state;
     state.pending = readBloomscapesFieldWork().then(data=>{
         if (state!==bloomscapesFieldQueueState || owner!==getSupabaseReadIdentityScope()) return state;
         applyBloomscapesFieldQueueSnapshot(data);
@@ -59,8 +69,8 @@ async function ensureBloomscapesFieldQueue(force=false) {
 }
 
 async function openBloomscapesWorkQueue(kind) {
-    await ensureBloomscapesFieldQueue(true);
     const tab = bloomscapesWorkTab(kind);
+    if (!bloomscapesWorkQueueCategories().includes(tab)) await ensureBloomscapesFieldQueue();
     if (!bloomscapesWorkQueueCategories().includes(tab)) throw new Error('Work View access is unavailable.');
     switchView('request');
     setReqTab(tab);
@@ -77,16 +87,26 @@ async function renderBloomscapesFieldQueue(container,crumb,notice='') {
     if (crumb) crumb.textContent = `${getBloomscapesFarm()} · ${BLOOMSCAPES_WORK_VIEWS[kind]}`;
     const status = host.appendChild(document.createElement('p'));
     status.setAttribute('role','status');
+    const cached=bloomscapesFieldQueueState;
+    const projected=cached.loaded && cached.owner===owner && cached.farm===getBloomscapesFarm() ? cached.rows : null;
+    if (projected) paintBloomscapesFieldQueue(host,status,projected,kind,notice);
     try {
         const state = await ensureBloomscapesFieldQueue();
         if (!host.isConnected || owner!==getSupabaseReadIdentityScope() || tab!==activeReqTab) return;
-        const rows = state.rows.filter(row=>row.work_view===kind);
-        prepareBloomscapesJobFacets(rows);
-        const matches = rows.filter(matchesBloomscapesJobBoardFilters);
-        status.textContent = `${matches.length} work cards · ${getBloomscapesFarm()}${notice ? ' · '+notice : ''}`;
-        const list = host.appendChild(document.createElement('div'));
-        renderBloomscapesWorkGroups(list,matches,status,kind);
+        if (projected!==state.rows && !host.contains(document.activeElement)) {
+            paintBloomscapesFieldQueue(host,status,state.rows,kind,notice);
+        }
     } catch (error) { if (host.isConnected) status.textContent = error.message; }
+}
+
+function paintBloomscapesFieldQueue(host,status,queue,kind,notice) {
+    const rows = queue.filter(row=>row.work_view===kind);
+    prepareBloomscapesJobFacets(rows);
+    const matches = rows.filter(matchesBloomscapesJobBoardFilters);
+    status.textContent = `${matches.length} work cards · ${getBloomscapesFarm()}${notice ? ' · '+notice : ''}`;
+    host.replaceChildren(status);
+    const list = host.appendChild(document.createElement('div'));
+    renderBloomscapesWorkGroups(list,matches,status,kind);
 }
 
 function renderBloomscapesFieldWorkCard(job,status) {
@@ -203,13 +223,13 @@ function configureBloomscapesCompletionForm(form,job) {
 }
 
 function renderBloomscapesWorkGroups(list,rows,status,kind) {
-    const paint=offset=>{
+    const paint=pageIndex=>{
         list.replaceChildren();
-        const page=rows.slice(offset,offset+50);
-        if (kind==='CAN_FILLING') renderBloomscapesCanGroups(list,page,status);
-        else list.append(...page.map(row=>renderBloomscapesFieldWorkCard(row,status)));
-        for (const [label,start] of [['Previous 50',offset-50],['Next 50',offset+50]]) {
-            if (start<0 || start>=rows.length) continue;
+        const page=bloomscapesListWindow(rows,pageIndex);
+        if (kind==='CAN_FILLING') renderBloomscapesCanGroups(list,page.rows,status);
+        else list.append(...page.rows.map(row=>renderBloomscapesFieldWorkCard(row,status)));
+        for (const [label,start] of [['Previous',page.index-1],['Next',page.index+1]]) {
+            if (start<0 || start>=page.pages) continue;
             const button=list.appendChild(document.createElement('button'));
             button.type='button';button.textContent=label;button.onclick=()=>paint(start);
         }
@@ -260,7 +280,7 @@ function getScopedRequestItems(items = requestsInventory, options = {}) {
         return requestScopedItemsCache.slice();
     }
     let nextItems = capabilities && capabilities.canViewQueue ? sourceItems.filter(bloomscapesFarmRowIsVisible) : [];
-    if (options.strictQueueVisibility === true) nextItems = nextItems.filter(row => isQueueOwnerVisible(row));
+    if (options.strictQueueVisibility === true) nextItems = nextItems.filter(createQueueOwnerVisibilityPredicate());
     else if (!hasGlobalRequestAccess) {
         nextItems = nextItems.filter(item => (queuePending && item.REQUEST_ACTIVE === true)
             || doesCurrentUserOwnCreatedRequestItem(item)

@@ -31,6 +31,24 @@ function confirmBloomCartClearAfterEmail(owner, rows) {
     }
 }
 
+function prepareBloomPickerEligibility(sourceView='') {
+    const access=getRoleAccessState();
+    const view=String(sourceView || '').trim().toLowerCase();
+    const isDriveContext=view==='drive-bloom' || isCurrentDriveCardOptionsContext(view);
+    return {access,isDriveContext,fullDrive:isDriveContext && canUseFullDriveBloomPickerWorkflow()};
+}
+
+function canAddItemToBloomPicker(item=null,sourceView='',eligibility=null) {
+    if (!item || !canUseCartInventoryActions([item])) return false;
+    const {access,isDriveContext,fullDrive}=eligibility || prepareBloomPickerEligibility(sourceView);
+    if (isDriveContext && !fullDrive && !canCurrentUserSelectDriveWorkflowRow(item,'drive')) {
+        const canRepAddBloomPickerRow=!!(access && access.isRep && !access.isCsr && isBloomPickerEligibleItem(item));
+        if (!canRepAddBloomPickerRow) return false;
+    }
+    if (access.isForeman) return canAccessView('drive') && hasPriorityColumnData(item);
+    return true;
+}
+
 function canToggleBloomSelectionOn(domId, sourceView) {
     const item = findItemByDomId(domId);
     const fromBloom = sourceView === 'drive-bloom';

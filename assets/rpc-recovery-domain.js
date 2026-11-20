@@ -52,15 +52,21 @@ function isRecoverableRequestRead(url, options = {}) {
     try { return isRecoverableOperationalRead(JSON.parse(options.body)); } catch { return false; }
 }
 
+async function recoverMutationRpcHeaders(headerOptions,inScope) {
+    const initial = await waitForOperationalPrerequisite(() => getNativeAuthRequestHeaders().catch(() => null),headerOptions);
+    if (initial?.Authorization || !inScope()) return initial;
+    return waitForOperationalPrerequisite(() => getNativeAuthRequestHeaders(true).catch(() => null),headerOptions);
+}
+
 async function prepareRpcAuthorization(rpcName, body, requestOptions) {
             const rpcScope = getSupabaseReadIdentityScope();
             const rpcEpoch = nativeAuthRecoveryEpoch;
             const inScope = () => rpcEpoch === nativeAuthRecoveryEpoch && rpcScope === getSupabaseReadIdentityScope() && !requestOptions.signal?.aborted;
             const headerOptions = {current:inScope, signal:requestOptions.signal,
                 timeoutMs:Math.max(15000, Number(requestOptions.timeoutMs) || SUPABASE_WRITE_TIMEOUT_MS)};
-            let nativeHeaders = await waitForOperationalPrerequisite(() => getNativeAuthRequestHeaders().catch(() => null), headerOptions);
-            if (!nativeHeaders?.Authorization && inScope() && nativeReadRequiresRls()) {
-                nativeHeaders = await waitForOperationalPrerequisite(() => getNativeAuthRequestHeaders(true).catch(() => null), headerOptions);
+            let nativeHeaders = getPassiveNativeAuthRequestHeaders();
+            if (!/^(get_|read_|list_)/.test(rpcName) && !nativeHeaders?.Authorization && inScope() && nativeReadRequiresRls()) {
+                nativeHeaders = await recoverMutationRpcHeaders(headerOptions,inScope);
             }
             if (!inScope()) throw staleSupabaseReadScopeError();
             if (requestOptions.requestSubmissionOwnerKey && (requestOptions.requestSubmissionOwnerKey !== getRequestSubmissionOwnerKey()
@@ -81,7 +87,9 @@ async function finishSupabaseRpc(response, rpcName, body, request, timeoutMs, in
             if (response.status === 401 && inScope()) {
                 const failure = await response.clone().json().catch(() => null);
                 if (['PGRST301','PGRST303','AUTH_REQUIRED'].includes(failure?.code)) {
-                    const fresh = await getNativeAuthRequestHeaders(true);
+                    const passive = getPassiveNativeAuthRequestHeaders();
+                    const fresh = passive?.Authorization && passive.Authorization !== request.headers.Authorization
+                        ? passive : await getNativeAuthRequestHeaders(true);
                     if (!inScope()) throw staleSupabaseReadScopeError();
                     if (fresh?.Authorization) response = await window.GncDatabase.fetchRpc(SUPABASE_URL, rpcName,
                         { ...request, headers:{ ...request.headers, ...fresh }, cache:'no-store', referrerPolicy:'no-referrer' }, timeoutMs, 'Authenticated RPC retry');

@@ -1,5 +1,5 @@
 
-        .manager-eval2-selection-tray{position:sticky;bottom:calc(var(--footer-nav-reserve) + env(safe-area-inset-bottom) + .35rem);z-index:54;max-width:100%;overflow:hidden;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+        .manager-eval2-selection-tray{position:sticky;bottom:calc(var(--footer-nav-reserve) + env(safe-area-inset-bottom) + .35rem);z-index:54;max-width:100%;overflow:hidden}
         [data-manager-eval2-detail]>div:first-child>button:first-child{display:none!important}
         @media (min-width:641px){.manager-eval2-selection-tray{position:relative;bottom:auto;z-index:1;backdrop-filter:none;-webkit-backdrop-filter:none}}
         @media (max-width:640px){.manager-eval2-selection-tray{margin-left:0;margin-right:0}.manager-eval2-selection-tray button{min-width:0;white-space:normal;line-height:1.05}}

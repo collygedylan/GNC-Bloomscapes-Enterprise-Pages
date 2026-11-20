@@ -1,4 +1,8 @@
 
+const bloomscapesDockBrowseMetadata={owner:'',checkedAt:0};
+const bloomscapesDockLabelCollator=new Intl.Collator(undefined,{numeric:true});
+const bloomscapesDockNameCollator=new Intl.Collator(undefined,{sensitivity:'base'});
+
 function renderBloomscapesDocksBrowse() {
     if (ensureViewDataForRender('docks')) return;
     const container = document.getElementById('docks-content');
@@ -8,7 +12,7 @@ function renderBloomscapesDocksBrowse() {
     mountBloomscapesDockDropEvents();
     const access = getRoleAccessState();
     const awaitingProgress = access.isQc && !access.isAdmin && !access.isQcSupervisor;
-    requestBloomscapesDockBrowseMetadata(awaitingProgress);
+    requestBloomscapesDockBrowseMetadata();
     const term = document.getElementById('docks-search').value.toLowerCase().trim();
     if (dockViewMode === 'mistakes' || dockViewMode === 'dropoff') {
         renderBloomscapesLegacyDockExceptions(container,crumb,term);
@@ -24,16 +28,33 @@ function renderBloomscapesDocksBrowse() {
     renderBloomscapesSelectedDock(container,crumb,items);
 }
 
-function requestBloomscapesDockBrowseMetadata(awaitingProgress) {
-    const waitingForDockAssignments = (!dockTeamStatusLoaded && dockTeamSchemaReady !== false)
-        || (awaitingProgress && !dockItemProgressLoaded && dockItemSchemaReady !== false);
-    const waitingForDockIssues = !dockIssueDataLoaded && dockIssueStatusSchemaReady !== false && dockIssueAllocationSchemaReady !== false;
-    if (!waitingForDockAssignments && !waitingForDockIssues) return;
-    // Team and progress reads enrich the last verified order snapshot.
-    const redraw = () => scheduleDocksRender(0);
-    if (!dockTeamStatusPromise) void ensureDockTeamStatusLoaded().then(redraw,redraw);
-    if (!dockItemProgressPromise) void ensureDockItemStatusLoaded().then(redraw,redraw);
-    if (!dockIssueDataPromise) void ensureDockIssueDataLoaded().then(redraw,redraw);
+function bloomscapesDockBrowseMetadataOwner() {
+    return JSON.stringify([getSupabaseReadIdentityScope(),getBloomscapesFarm()]);
+}
+
+function bloomscapesDockBrowseMetadataRevision() {
+    return [dockWorkflowStateEpoch,dockTeamStatusRenderVersion,dockTeamStatusLoaded,dockItemProgressLoaded,
+        dockIssueDataLoaded,dockTeamSchemaReady,dockItemSchemaReady,dockIssueStatusSchemaReady,dockIssueAllocationSchemaReady].join('|');
+}
+
+function requestBloomscapesDockBrowseMetadata() {
+    const owner=bloomscapesDockBrowseMetadataOwner();
+    const state=bloomscapesDockBrowseMetadata;
+    if (state.owner===owner && Date.now()-state.checkedAt<45000) return;
+    const jobs=[];
+    if (!dockTeamStatusLoaded && !dockTeamStatusPromise && dockTeamSchemaReady!==false) jobs.push(ensureDockTeamStatusLoaded);
+    if (!dockItemProgressLoaded && !dockItemProgressPromise && dockItemSchemaReady!==false) jobs.push(ensureDockItemStatusLoaded);
+    if (!dockIssueDataLoaded && !dockIssueDataPromise && dockIssueStatusSchemaReady!==false && dockIssueAllocationSchemaReady!==false) {
+        jobs.push(ensureDockIssueDataLoaded);
+    }
+    if (!jobs.length) return;
+    state.owner=owner;
+    state.checkedAt=Date.now();
+    const revision=bloomscapesDockBrowseMetadataRevision();
+    void Promise.allSettled(jobs.map(read=>Promise.resolve().then(read))).then(()=>{
+        if (getCurrentVisibleViewId()!=='docks' || owner!==bloomscapesDockBrowseMetadataOwner()) return;
+        if (revision!==bloomscapesDockBrowseMetadataRevision()) scheduleDocksRender(0);
+    });
 }
 
 function renderBloomscapesLegacyDockExceptions(container, crumb, term) {
@@ -78,7 +99,7 @@ function sortBloomscapesDockLabels(a, b) {
     const left = parseFloat(String(a).replace(/[^0-9.]/g,''));
     const right = parseFloat(String(b).replace(/[^0-9.]/g,''));
     if (Number.isFinite(left) && Number.isFinite(right) && left !== right) return left - right;
-    return String(a).localeCompare(String(b),undefined,{numeric:true});
+    return bloomscapesDockLabelCollator.compare(String(a),String(b));
 }
 
 function sortBloomscapesDockRows(a, b) {
@@ -89,7 +110,7 @@ function sortBloomscapesDockRows(a, b) {
     return (stop(b) || 0) - (stop(a) || 0)
         || compareLocationCodeValues(location(a),location(b))
         || pullRouteByLocation(line(a),line(b))
-        || String(a.COMMONNAME || '').localeCompare(String(b.COMMONNAME || ''),undefined,{sensitivity:'base'})
+        || bloomscapesDockNameCollator.compare(a.COMMONNAME || '',b.COMMONNAME || '')
         || pullRouteByLocation(a.CONTSIZE,b.CONTSIZE);
 }
 
@@ -130,13 +151,12 @@ function isBloomscapesDockMountainState(row) {
 }
 
 function renderBloomscapesDockList(container, crumb, items) {
-    const list = items.slice().sort((a,b) => sortBloomscapesDockLabels(a.DOCK_NUM,b.DOCK_NUM) || sortBloomscapesDockRows(a,b));
-    rememberOperationalExport('docks',list);
+    rememberOperationalExport('docks',items.slice(),(a,b)=>sortBloomscapesDockLabels(a.DOCK_NUM,b.DOCK_NUM) || sortBloomscapesDockRows(a,b));
     const cards = Array.from(collectBloomscapesDocks(items),([dock,rows]) => summarizeBloomscapesDockCard(dock,rows));
     cards.sort((a,b) => sortBloomscapesDockLabels(a.dockNum,b.dockNum));
     const tripIndex = new Map((currentBloomscapesDockBoard()?.trips || []).map(trip => [pullTripIdentity(trip.dock,trip.trip),trip]));
     const canEdit = canEditDockWorkflow();
-    renderMarkupChunkedByKey('docks-main',container,crumb,cards,'Select a Dock',
+    renderBloomscapesDockPage('docks-main',container,crumb,cards,'Select a Dock',
         card => renderBloomscapesCompactDockCard(card,canEdit,tripIndex),{
             approxCardHeight:130,
             emptyHtml:'<div class="p-8 text-center text-gray-400">No dock items found.</div>',
@@ -188,7 +208,7 @@ function renderBloomscapesDockDrops(container, crumb, label, rows) {
         stop,items,summary:buildDockBrowseSummary(items),done:countBloomscapesCompletedDockRows(items),
         identity:getBloomscapesDockDropIdentity(items[0]),planStarts:[...new Set(items.map(getDockCardPlanStartValue).filter(Boolean))]
     })).sort((a,b) => sortBloomscapesDockLabels(b.stop,a.stop));
-    renderMarkupChunkedByKey('docks-stops',container,crumb,cards,label,
+    renderBloomscapesDockPage('docks-stops',container,crumb,cards,label,
         card => renderBloomscapesDockDropCard(card,label),{
             approxCardHeight:140, emptyHtml:'<div class="p-8 text-center text-gray-400">No stops remain in this Dock.</div>'
         });
@@ -245,11 +265,21 @@ function renderBloomscapesDockDropRows(container, crumb, label, dockRows) {
         + renderBloomscapesDockDropTools(selectedDockNum,selectedDockStop);
     const signature = buildDocksStopItemsRenderSignature(label,selectedDockStop,rows)
         + getBloomscapesDockRowEvidenceSignature(rows) + ':' + bloomscapesDockBoardRevision();
-    renderMarkupChunkedByKey('docks-stop-items',container,crumb,rows,crumbText,
+    renderBloomscapesDockPage('docks-stop-items',container,crumb,rows,crumbText,
         item => generateCard(getDockCardLiveInventoryDisplayRow(item),'docks','status-orange'),{
             prefixHtml,approxCardHeight:265,
             emptyHtml:'<div class="p-8 text-center text-gray-400">No rows remain in this Drop.</div>',
             renderSignature:signature,verifyRowSelector:'[data-docks-stop-card]',reserveSpace:true
         });
     restoreBloomscapesDockDrafts(container);
+}
+
+function renderBloomscapesDockPage(key,container,crumb,rows,label,render,options) {
+    const search = document.getElementById('docks-search').value.trim().toLowerCase();
+    const limit = {'docks-main':4,'docks-stops':16,'docks-stop-items':8}[key];
+    const page = getClientBrowsePage('docks',[key,label,getBloomscapesFarm(),search].join('|'),rows,limit);
+    const pager = renderClientBrowsePageFooter('docks',page.key,rows.length,page);
+    const prefixHtml = (options.prefixHtml || '')+pager;
+    const renderSignature = (options.renderSignature || buildRowsRenderSignature(key,rows))+':'+page.pageIndex;
+    return renderMarkupChunkedByKey(key,container,crumb,page.rows,label,render,{...options,prefixHtml,renderSignature});
 }

@@ -18,7 +18,7 @@ window.addEventListener('pagehide',()=>{
 });
 async function resumeSuspendTagApproval() {
     if (!suspendTagApprovalOpenPending) return;
-    const headers = typeof getNativeAuthRequestHeaders === 'function' ? await getNativeAuthRequestHeaders().catch(() => null) : null;
+    const headers = typeof getPassiveNativeAuthRequestHeaders === 'function' ? getPassiveNativeAuthRequestHeaders() : null;
     if (!headers) { scheduleNotificationResume(resumeSuspendTagApproval); return; }
     const approvalId = suspendTagApprovalOpenPending;
     suspendTagApprovalOpenPending = '';

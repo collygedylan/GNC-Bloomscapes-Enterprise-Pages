@@ -24,7 +24,7 @@ a,button,[role="button"],input,select,textarea,label,.task-tab,.detail-tab,.draw
     background:rgba(255,255,255,.96);
     padding:12px;
     box-shadow:0 12px 28px rgba(15,23,42,.08);
-    backdrop-filter:saturate(120%) blur(8px);
+    backdrop-filter:saturate(120%);
 }
 
 .advertisement-editor-eyebrow{

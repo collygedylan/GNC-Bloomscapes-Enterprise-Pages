@@ -21,12 +21,15 @@ function indexSalesStudioTarget(index, key, row) {
 }
 
 function createSalesStudioTargetLookup() {
+    const rows = bloomscapesWorkBrowserRows();
+    const prior = createSalesStudioTargetLookup.cached;
+    if (prior?.rows === rows) return prior.lookup;
     const byId = new Map(), byLot = new Map();
-    for (const row of bloomscapesWorkBrowserRows()) {
+    for (const row of rows) {
         indexSalesStudioTarget(byId,JSON.stringify([bloomscapesRowFarm(row),canonicalInventoryRowUid(row)]),row);
         indexSalesStudioTarget(byLot,salesStudioIdentityKey(row),row);
     }
-    return record => {
+    const lookup = record => {
         const farm = record.warehouse_id || record.farm_code;
         if (!farm) return null;
         const lot = salesStudioIdentityKey(record);
@@ -34,6 +37,8 @@ function createSalesStudioTargetLookup() {
         const row = byId.get(JSON.stringify([farm,String(record.master_id)]));
         return row && (!lot || salesStudioIdentityKey(row) === lot) ? row : null;
     };
+    createSalesStudioTargetLookup.cached = {rows,lookup};
+    return lookup;
 }
 
 function buildBloomscapesSalesInventoryCard(row, kind) {

@@ -50,7 +50,7 @@
     .argos-reclass-confirm-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;font-size:11px;font-weight:700}
     .argos-reclass-confirm-metrics span{background:#f1f5f9;padding:4px;border-radius:5px;white-space:nowrap}
     .argos-reclass-confirmation{position:fixed!important;inset:0!important;margin:auto!important;width:min(92vw,400px)!important;max-width:400px!important;max-height:calc(100vh - 40px)!important;padding:22px 20px!important;border:1.5px solid rgba(52,211,153,.48)!important;border-radius:18px!important;background:linear-gradient(180deg,#123523 0%,#091e13 100%)!important;color:#f0fdf4!important;box-shadow:0 24px 56px rgba(0,0,0,.72)!important}
-    .argos-reclass-confirmation::backdrop{background:rgba(3,12,8,.8);backdrop-filter:blur(6px)}
+    .argos-reclass-confirmation::backdrop{background:rgba(3,12,8,.8)}
     .argos-reclass-confirmation-summary{max-height:55dvh;color:#ecfdf5}
     .argos-reclass-confirmation-summary strong{color:#fff}
     .argos-reclass-confirmation-summary .argos-reclass-confirm-metrics,.argos-reclass-confirm-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
@@ -59,7 +59,7 @@
     .argos-reclass-confirmation-buttons button{min-width:0;height:46px;padding:0 14px;border:1px solid rgba(52,211,153,.35);border-radius:12px;background:rgba(255,255,255,.08);color:#ecfdf5;font-size:.96rem;font-weight:700}
     .argos-reclass-confirmation-buttons [data-reclass-confirm-ok]{color:#052e16;background:linear-gradient(180deg,#22c55e 0%,#16a34a 100%);border-color:#4ade80;font-weight:800}
     #bloom-inventory-project-modal[open]{position:fixed;inset:0;margin:auto;width:min(94vw,720px);max-width:720px;max-height:88dvh;padding:0;border:1.5px solid rgba(52,211,153,.42);border-radius:18px;background:linear-gradient(180deg,#103220 0%,#081c12 100%);color:#f0fdf4;box-shadow:0 24px 56px rgba(0,0,0,.72);overflow:hidden;display:flex;flex-direction:column}
-    #bloom-inventory-project-modal::backdrop{background:rgba(3,12,8,.8);backdrop-filter:blur(6px)}
+    #bloom-inventory-project-modal::backdrop{background:rgba(3,12,8,.8)}
     #bloom-inventory-project-modal .bloom-project-field{color:#ecfdf5}
     #bloom-inventory-project-modal input{min-height:46px;border:1.5px solid rgba(52,211,153,.36);border-radius:12px;background:#091e13;color:#f0fdf4;font-size:1rem;font-weight:700}
     #argos-inventory-transaction-modal .argos-reclass-row-card[data-reclass-row-expanded="false"]{min-height:78px;margin-bottom:10px;border:1.5px solid rgba(52,211,153,.36);border-radius:14px;background:linear-gradient(180deg,#113221 0%,#0a2015 100%);box-shadow:0 8px 22px rgba(0,0,0,.34)}

@@ -25,7 +25,8 @@ async function callAuraLlmRouter(body, options = {}) {
     auraPendingRequests.add(controller);
     try {
         options.onStage?.('authentication');
-        const nativeHeaders = await awaitAuraRead(() => getNativeAuthRequestHeaders(), controller.signal);
+        if (controller.signal.aborted) throw controller.signal.reason;
+        const nativeHeaders = getPassiveNativeAuthRequestHeaders();
         if (!nativeHeaders?.Authorization || !authorized() || identity !== getSupabaseReadIdentityScope()) throw Object.assign(new Error('AURA session expired. Sign in again.'), { status: 401 });
         options.onStage?.('request');
         const payload = await awaitAuraRead(() => postAppFunctionJson(AURA_LLM_ROUTER_URL, body, {

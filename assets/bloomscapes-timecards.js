@@ -35,27 +35,16 @@ function bloomTimeCodeLabel(code) {
 }
 
 function bloomTimeMatches(state) {
-    const terms=state.search.trim().toLowerCase().split(/\s+/).filter(Boolean);
     const department=bloomTimeContext(state)?.department;
     const score=code=>Number(code.department===department)*2+Number(code.pinned);
-    return (state.board?.codes || []).filter(code=>terms.every(term=>bloomTimeCodeLabel(code).toLowerCase().includes(term)))
-        .sort((a,b)=>score(b)-score(a));
+    return (state.board?.codes || []).slice().sort((a,b)=>score(b)-score(a));
 }
 
-function bloomTimeCodeOptions(codes,selected) {
-    return '<option value="">Select a job code</option>'+codes.map(code=>
-        '<option value="'+bloomTimeHtml(code.id)+'"'+(String(code.id)===String(selected) ? ' selected' : '')+'>'
-        +bloomTimeHtml(bloomTimeCodeLabel(code))+'</option>').join('');
-}
-
-function bloomTimePicker(state) {
-    const codes=bloomTimeMatches(state);
+function bloomTimeQuickSwitch(state) {
     const active=state.board?.rows.find(row=>row.username===state.board.username && row.allowed.includes('clock_out'));
-    const select=state.host.querySelector('[data-timecard-job]');
-    if (select) select.innerHTML=bloomTimeCodeOptions(codes,state.jobCodeId);
     const quick=state.host.querySelector('[data-timecard-quick]');
     if (quick && active && bloomTimeContext(state)) {
-        quick.innerHTML=codes.slice(0,8).filter(code=>String(code.id)!==String(active.job_code_id)).map(code=>
+        quick.innerHTML=bloomTimeMatches(state).slice(0,8).filter(code=>String(code.id)!==String(active.job_code_id)).map(code=>
             '<button type="button" data-timecard-switch="'+bloomTimeHtml(code.id)+'">'+bloomTimeHtml(bloomTimeCodeLabel(code))+'</button>').join('');
     }
 }
@@ -79,10 +68,12 @@ function bloomTimeEntry(state,active) {
         +bloomTimeHtml(active.id)+'">Clock Out</button></div>' : '';
     const today=bloomTimeHtml(state.board.today);
     if (!context) return clock;
+    const code=state.board.codes.find(row=>String(row.id)===state.jobCodeId);
+    const job=renderBloomscapesChoiceField('entry_job','Job code','time-job',state.jobCodeId,code && bloomTimeCodeLabel(code),
+        {required:true,attributes:'data-timecard-job'});
     return '<section class="timecard-panel">'+clock+'<form data-timecard-entry><div class="timecard-controls">'
         +'<label>Department<select data-timecard-context>'+options.join('')+'</select></label>'
-        +'<label>Search job codes<input type="search" data-timecard-search value="'+bloomTimeHtml(state.search)+'"></label>'
-        +'<label>Job code<select data-timecard-job required></select></label></div>'
+        +job+'</div>'
         +(active ? '<div class="timecard-quick" data-timecard-quick></div><button type="submit" name="time-action" value="switch_code">Switch Job</button>'
             : '<button type="submit" name="time-action" value="clock_in">Clock In</button>')
         +'</form><form class="timecard-controls" data-timecard-hours><label>Work date<input type="date" name="work_date" required max="'
@@ -97,7 +88,7 @@ function bloomTimeEditForm(state,row) {
     if (state.editId!==row.id || !row.allowed.includes('edit')) return '';
     return '<form class="timecard-controls" data-timecard-edit="'+bloomTimeHtml(row.id)+'"><label>Hours<input name="hours" type="number"'
         +' min="0" max="24" step="0.0001" required value="'+bloomTimeHtml(row.hours)+'"></label>'
-        +'<label>Job code<select name="job_code_id" required>'+bloomTimeCodeOptions(state.board.codes,row.job_code_id)+'</select></label>'
+        +renderBloomscapesChoiceField('job_code_id','Job code','time-job',row.job_code_id,bloomTimeCodeLabel(row),{required:true})
         +'<label>Notes<input name="notes" maxlength="500" value="'+bloomTimeHtml(row.notes)+'"></label>'
         +'<button type="submit">Save Edit</button><button type="button" data-timecard-cancel>Cancel</button></form>';
 }
@@ -124,10 +115,18 @@ function bloomTimeRender(state) {
             +bloomTimeHtml(state.from)+'"></label><label>Through<input type="date" name="to" required value="'
             +bloomTimeHtml(state.to)+'"></label><button type="submit">Show Cards</button>'
             +(board.can_export ? '<button type="button" data-timecard-export>Export CSV</button>' : '')+'</form>'
-            +'<div class="timecard-list">'+(board.rows.length ? board.rows.map(row=>bloomTimeRow(state,row)).join('') : '<p>No time cards for these dates.</p>')
-            +'</div>'+(board.has_more ? '<button type="button" data-timecard-more>Load More</button>' : '') : '');
-    if (board) bloomTimePicker(state);
+            + bloomTimeRenderList(state) : '');
+    if (board) bloomTimeQuickSwitch(state);
     bloomTimeBusy(state,state.busy);
+}
+
+function bloomTimeRenderList(state) {
+    const {board,page}=state;
+    const window=bloomscapesListWindow(board.rows,page);
+    const cards=window.rows.map(row=>bloomTimeRow(state,row)).join('') || '<p>No time cards for these dates.</p>';
+    const previous=page>0 ? '<button type="button" data-timecard-turn="-1">Previous</button>' : '';
+    const next=board.has_more || page+1<window.pages ? '<button type="button" data-timecard-turn="1">Next</button>' : '';
+    return '<div class="timecard-list">'+cards+'</div><nav aria-label="Time card pages">'+previous+next+'</nav>';
 }
 
 function bloomTimeBusy(state,busy) {
@@ -148,9 +147,22 @@ async function bloomTimeLoad(state,append=false) {
     if (!isBloomTimeCurrent(state) || generation!==state.generation) return;
     const rows=append ? [...state.board.rows,...response.rows] : response.rows;
     state.offset=next;
+    const changed=JSON.stringify(state.board)!==JSON.stringify({...response,rows});
     state.board={...response,rows};
+    state.readyAt=Date.now();
+    state.page=append ? state.page+1 : Math.min(state.page,Math.max(0,Math.ceil(rows.length/BLOOMSCAPES_LIST_PAGE_SIZE)-1));
     if (!state.context) state.context=bloomTimeContextKey(state.board.contexts[0] || {});
-    bloomTimeRender(state);
+    if (changed || append) bloomTimeRender(state);
+}
+
+function bloomTimeTurnPage(state,direction) {
+    const page=state.page+direction;
+    const end=(page+1)*BLOOMSCAPES_LIST_PAGE_SIZE;
+    if (direction>0 && end>state.board.rows.length && state.board.has_more) {
+        return bloomTimeRun(state,()=>bloomTimeLoad(state,true));
+    }
+    state.page=page;
+    return bloomTimeRender(state);
 }
 
 function bloomTimeCardInput(state,jobId=state.jobCodeId) {
@@ -171,6 +183,7 @@ async function bloomTimeSave(state,action,input) {
         state.editId=null;
         if (action==='log_hours') Object.assign(state,{logHours:'',logNotes:''});
         bloomTimeMessage(state,'Time card saved.');
+        state.readyAt=0;
         await bloomTimeLoad(state);
     });
 }
@@ -208,13 +221,9 @@ async function bloomTimeExport(state) {
 
 function bloomTimeInputs(state,event) {
     const input=event.target;
-    if (input.matches('[data-timecard-search]')) {
-        state.search=input.value;
-        bloomTimePicker(state);
-    }
     if (input.matches('[data-timecard-context]')) {
         state.context=input.value;
-        bloomTimePicker(state);
+        bloomTimeQuickSwitch(state);
     }
     if (input.matches('[data-timecard-job]')) state.jobCodeId=input.value;
     if (input.closest('[data-timecard-hours]')) {
@@ -230,7 +239,7 @@ function bloomTimeSubmit(state,event) {
     const active=state.board?.rows.find(row=>row.username===state.board.username && row.allowed.includes('clock_out'));
     try {
         if (form.matches('[data-timecard-range]')) {
-            Object.assign(state,{from:values.from,to:values.to});
+            Object.assign(state,{from:values.from,to:values.to,page:0});
             return bloomTimeRun(state,()=>bloomTimeLoad(state));
         }
         if (form.matches('[data-timecard-hours]')) return bloomTimeSave(state,'log_hours',{...bloomTimeCardInput(state),...values});
@@ -249,7 +258,7 @@ function bloomTimeClick(state,event) {
     const action=button.dataset.timecardAction;
     const row=state.board?.rows.find(card=>card.id===button.dataset.cardId);
     if (button.hasAttribute('data-timecard-export')) return bloomTimeRun(state,()=>bloomTimeExport(state));
-    if (button.hasAttribute('data-timecard-more')) return bloomTimeRun(state,()=>bloomTimeLoad(state,true));
+    if (button.dataset.timecardTurn) return bloomTimeTurnPage(state,Number(button.dataset.timecardTurn));
     if (button.hasAttribute('data-timecard-cancel') || (action==='edit' && row)) {
         state.editId=action==='edit' ? row.id : null;
         return bloomTimeRender(state);
@@ -271,14 +280,16 @@ function renderBloomscapesTimeCards() {
     }
     const scope=bloomTimeCurrentScope();
     if (bloomTimeCardsState?.host!==host || bloomTimeCardsState.farm!==scope.farm || bloomTimeCardsState.identity!==scope.identity) {
-        bloomTimeCardsState={...scope,host,from:bloomTimeDate(-13),to:bloomTimeDate(),search:'',generation:0,busy:false,notice:'Loading Time Cards…'};
+        bloomTimeCardsState={...scope,host,from:bloomTimeDate(-13),to:bloomTimeDate(),page:0,generation:0,busy:false,notice:'Loading Time Cards…'};
     }
     const state=bloomTimeCardsState;
     host.oninput=event=>bloomTimeInputs(state,event);
     host.onchange=event=>bloomTimeInputs(state,event);
     host.onclick=event=>bloomTimeClick(state,event);
+    bindBloomscapesChoiceFields(host,{'time-job':()=>bloomTimeMatches(state).map(code=>[code.id,bloomTimeCodeLabel(code)])});
     host.onsubmit=event=>bloomTimeSubmit(state,event);
     bloomTimeRender(state);
+    if (state.board && Date.now()-(state.readyAt || 0)<45000) return;
     return bloomTimeRun(state,async()=>{
         await bloomTimeLoad(state);
         if (isBloomTimeCurrent(state)) bloomTimeMessage(state,'');

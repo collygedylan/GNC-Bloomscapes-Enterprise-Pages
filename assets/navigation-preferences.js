@@ -267,18 +267,22 @@
         if (button.id === FOOTER_IDS.bloom) return 'bloom';
         return '';
     }
-    function applyFooter(container) {
-        if (!container || !root.document) return;
-        container.classList.add('gnc-personal-footer');
-        let pool = root.document.getElementById('gnc-footer-button-pool');
-        if (!pool) { pool = root.document.createElement('div'); pool.id = 'gnc-footer-button-pool'; pool.hidden = true; container.after(pool); }
-        // Bloom is a header action; AURA owns its former footer slot without rewriting saved preferences.
+    function getFooterChoices() {
         const custom = shortcuts();
         const canCommunicate = fullVisibility() || (typeof hooks.canDisplay === 'function' ? hooks.canDisplay('communication') : !hooks.canAccess || hooks.canAccess('communication'));
-        const choices = ['menu','home',custom[0],custom[1],canCommunicate ? 'communication' : null,custom[2],custom[3],'aura']
+        return ['menu','home',custom[0],custom[1],canCommunicate ? 'communication' : null,custom[2],custom[3],'aura']
             .map((view, index) => view || `unavailable-${index + 1}`);
-        // Keep unchanged buttons attached during touch/keyboard activation.
-        // Only removed shortcuts move into the pool; badges and handlers survive.
+    }
+    function footerChoicesAlreadyMounted(container, choices) {
+        if (container.children.length !== choices.length) return false;
+        return choices.every((view, index) => {
+            const button = container.children[index];
+            const slot = String(index + 1);
+            return footerButtonView(button) === view && button.dataset.footerSlot === slot && button.style.gridColumn === slot
+                && !button.hidden && !button.classList.contains('hidden') && (!view.startsWith('unavailable-') || button.disabled);
+        });
+    }
+    function mountFooterChoices(container, pool, choices) {
         const chosenViews = new Set(choices);
         Array.from(container.querySelectorAll('.footer-nav-btn')).forEach(button => {
             const view = footerButtonView(button);
@@ -291,17 +295,38 @@
             button.style.gridColumn = String(index + 1);
             button.dataset.footerSlot = String(index + 1);
             button.classList.remove('hidden'); button.hidden = false;
-            const position = choices.slice(0,index).filter(Boolean).length;
-            if (container.children[position] !== button) container.insertBefore(button, container.children[position] || null);
+            if (container.children[index] !== button) container.insertBefore(button, container.children[index] || null);
         });
-        container.style.setProperty('--gnc-footer-count', String(choices.length));
+    }
+    function observeFooterHeight(container) {
         const measure = () => {
             const height = Math.ceil(container.getBoundingClientRect().height);
             if (height > 0) root.document.documentElement.style.setProperty('--gnc-personal-footer-height', `${height}px`);
             if (typeof hooks.onFooterResize === 'function') hooks.onFooterResize(height);
         };
-        if (lastFooter !== container && root.ResizeObserver) { footerObserver?.disconnect(); footerObserver = new root.ResizeObserver(measure); footerObserver.observe(container); lastFooter = container; }
-        measure();
+        if (!root.ResizeObserver) return measure();
+        if (lastFooter === container) return;
+        footerObserver?.disconnect();
+        footerObserver = new root.ResizeObserver(measure);
+        footerObserver.observe(container);
+        lastFooter = container;
+    }
+    function applyFooter(container) {
+        if (!container || !root.document) return;
+        if (!container.classList.contains('gnc-personal-footer')) container.classList.add('gnc-personal-footer');
+        let pool = root.document.getElementById('gnc-footer-button-pool');
+        if (!pool) {
+            pool = root.document.createElement('div');
+            pool.id = 'gnc-footer-button-pool';
+            pool.hidden = true;
+            container.after(pool);
+        }
+        const choices = getFooterChoices();
+        // The current grants choose the slots. Keep matching nodes wired in place.
+        if (!footerChoicesAlreadyMounted(container, choices)) mountFooterChoices(container, pool, choices);
+        const count = String(choices.length);
+        if (container.style.getPropertyValue('--gnc-footer-count') !== count) container.style.setProperty('--gnc-footer-count', count);
+        observeFooterHeight(container);
     }
     const api = { configure, refresh, reset, allowed, shortcuts, applyFooter, renderShortcutEditor, renderAccessEditor,
         get snapshot() { return currentState(); }, normalizedShortcuts, DEFAULT_SHORTCUTS };

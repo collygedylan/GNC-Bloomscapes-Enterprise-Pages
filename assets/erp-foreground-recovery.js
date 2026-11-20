@@ -174,6 +174,37 @@ function saveDashboardSyncFilenames(summaries) {
     } catch { globalThis.safeIgnoreProbeError?.("updateDashboardSyncSummary"); }
 }
 
+const dashboardRowSummaries = new WeakMap();
+
+function collectDashboardSyncSource(rows = [], label = '') {
+    let latestMs = -1, fileMs = -1, filename = '', lastValue, lastMs;
+    for (const row of Array.isArray(rows) ? rows : []) {
+        const value = firstNonEmptyValue(row?.LAST_UPDATED, row?.last_updated, '');
+        if (value !== lastValue) {
+            lastValue = value;
+            lastMs = Date.parse(normalizeRuleText(value));
+        }
+        if (!Number.isFinite(lastMs)) continue;
+        latestMs = Math.max(latestMs, lastMs);
+        const candidate = String(firstNonEmptyValue(row?.FILENAME, row?.filename, '')).trim();
+        if (!candidate || lastMs < fileMs) continue;
+        if (lastMs > fileMs) filename = candidate;
+        else if (candidate !== filename) filename = selectDashboardSyncFilename([filename, candidate]);
+        fileMs = lastMs;
+    }
+    return {label, iso:latestMs >= 0 ? new Date(latestMs).toISOString() : '', ms:latestMs, files:filename ? [filename] : []};
+}
+
+function summarizePublishedDashboardRows(rows, label, dataset, owner) {
+    const revision = getDatasetLoadSignature(dataset);
+    const cached = dashboardRowSummaries.get(rows);
+    if (cached?.owner===owner && cached.revision===revision && cached.epoch===resolvedViewStateEpoch
+        && cached.count===rows.length && cached.summary.label===label) return cached.summary;
+    const summary = collectDashboardSyncSource(rows,label);
+    dashboardRowSummaries.set(rows,{owner,revision,epoch:resolvedViewStateEpoch,count:rows.length,summary});
+    return summary;
+}
+
 function updateDashboardSyncSummary() {
     const accordionEl = document.getElementById('dashboard-sync-accordion');
     const stampEl = document.getElementById('dashboard-sync-stamp');
@@ -186,10 +217,10 @@ function updateDashboardSyncSummary() {
     const owner = getSupabaseReadIdentityScope();
     restoreDashboardSyncFilenames(owner);
     const sourceSummaries = [
-        collectDashboardSyncSource(fullInventory, 'Drive'),
-        collectDashboardSyncSource(socInventory, 'SOC'),
-        collectDashboardSyncSource(reservesInventory, 'Reserves'),
-        collectDashboardSyncSource(cavInventory, 'CAV')
+        summarizePublishedDashboardRows(fullInventory, 'Drive', 'master', owner),
+        summarizePublishedDashboardRows(socInventory, 'SOC', 'soc', owner),
+        summarizePublishedDashboardRows(reservesInventory, 'Reserves', 'reserves', owner),
+        summarizePublishedDashboardRows(cavInventory, 'CAV', 'cav', owner)
     ].filter((entry) => entry.iso || entry.files.length);
     if ((!dashboardSyncMetadataInFlight || dashboardSyncMetadataRequestOwner !== owner) && (!dashboardSyncMetadataFetchedAt || (Date.now() - dashboardSyncMetadataFetchedAt) > DASHBOARD_SYNC_METADATA_TTL_MS)) {
         refreshDashboardSyncMetadata(false).catch(() => {});

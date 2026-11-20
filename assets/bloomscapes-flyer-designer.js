@@ -187,7 +187,7 @@ function dispatchBloomscapesFlyerClick(state,event) {
 
 function executeBloomscapesFlyerAction(state,action,value) {
     if (action==='assets' || action==='more-assets') {
-        state.assetLimit=action==='more-assets'?Number(value):40;
+        state.assetPage=action==='more-assets'?Number(value):0;
         return paintBloomscapesFlyerRail(state,action==='assets'?value:'plants');
     }
     if (action==='template') {

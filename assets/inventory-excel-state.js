@@ -16,48 +16,123 @@ function getInventoryExcelState(scope) {
     return states.get(scope);
 }
 function inventoryExcelKey(value) { return String(value ?? '').trim().toLowerCase(); }
-function getInventoryExcelFacts(row,state) {
+function inventoryExcelProjection(filters,field='') {
+    const fields=[field,...Object.keys(filters).filter(key=>key!==field && filters[key]!==null)];
+    if (fields.some(key=>key==='customer' || key==='salesrep')) return 'demand';
+    return fields.every(key=>!key || key==='username') ? 'owner' : 'base';
+}
+
+function inventoryExcelOwnerIndex(filters,field='') {
+    if (field !== 'username' && !filters.username) return undefined;
+    return typeof nativeAuthSessionActive !== 'undefined' && nativeAuthSessionActive && typeof getBloomscapesAssignmentIndex === 'function'
+        ? getBloomscapesAssignmentIndex() : null;
+}
+
+function getInventoryExcelFacts(row,state,projection,ownerIndex) {
     if (!row || typeof row!=='object') return [];
-    if (!state.facts.has(row)) state.facts.set(row,buildInventoryExcelFacts(row,state));
-    return state.facts.get(row);
+    let cached=state.facts.get(row);
+    if (!cached) {
+        cached={};
+        state.facts.set(row,cached);
+    }
+    if (ownerIndex === undefined) return cached[projection] ||= buildInventoryExcelFacts(row,state,projection);
+    if (!cached.owners || cached.owners.index !== ownerIndex) {
+        cached.owners = {index:ownerIndex,values:[],facts:{}};
+    }
+    const owners = cached.owners;
+    return owners.facts[projection] ||= buildInventoryExcelFacts(row,state,projection,
+        (index,item)=>owners.values[index] ||= getInventoryExcelFacetOwners(item,ownerIndex));
 }
 function inventoryExcelFactMatches(fact, filters, ignore = '') {
     return Object.entries(filters).every(([key,values])=>key===ignore || values===null || fact[key]?.some(value=>values.has(inventoryExcelKey(value))));
 }
 function inventoryExcelRowMatches(row, state, ignore = '') {
-    return getInventoryExcelFacts(row,state).some(fact=>inventoryExcelFactMatches(fact,state.filters,ignore));
+    const filters=state.filters;
+    if (!Object.keys(filters).some(key=>key!==ignore && filters[key]!==null)) return true;
+    const ownerIndex=inventoryExcelOwnerIndex(filters);
+    return getInventoryExcelFacts(row,state,inventoryExcelProjection(filters),ownerIndex)
+        .some(fact=>inventoryExcelFactMatches(fact,filters,ignore));
 }
-function getInventoryExcelOptions(state, field) {
-    const driveKey = state.scope === 'drive' ? getDriveQuickFilterStateKey(getDrivePlantFilterScopeKey(state.rows)) : '';
-    const photoMode = state.scope === 'av' ? getAvPhotoMode() : '';
-    const filtersKey = Object.entries(state.filters).map(([key, values])=>[key, values ? [...values].sort() : null]);
-    const key = JSON.stringify([state.revision, driveKey, photoMode, filtersKey]);
-    if (state.optionsKey !== key) {
-        state.optionsKey = key;
-        state.options = new Map();
-        state.optionTotals = new Map();
+
+function inventoryExcelSelectionKey(filters) {
+    return Object.entries(filters).map(([key,values])=>[key,values ? [...values].sort() : null]);
+}
+
+function inventoryExcelOptionsContext(state,field) {
+    const driveKey=state.scope==='drive' ? getDriveQuickFilterStateKey(getDrivePlantFilterScopeKey(state.rows)) : '';
+    const photoMode=state.scope==='av' ? getAvPhotoMode() : '';
+    const filters={...state.filters};
+    if (photoMode==='valid_photos') delete filters.season;
+    const ownerIndex=inventoryExcelOwnerIndex(filters,field);
+    const key=JSON.stringify([state.revision,driveKey,photoMode,inventoryExcelSelectionKey(filters)]);
+    if (state.optionsKey!==key || (ownerIndex!==undefined && state.optionsOwnerIndex!==ownerIndex)) {
+        state.optionsKey=key;
+        if (ownerIndex!==undefined) state.optionsOwnerIndex=ownerIndex;
+        state.options=new Map();
+        state.optionTotals=new Map();
     }
+    return {filters,ownerIndex};
+}
+
+function getInventoryExcelOptions(state, field) {
+    const {filters,ownerIndex}=inventoryExcelOptionsContext(state,field);
     if (state.options.has(field)) return state.options.get(field);
     const counts = new Map();
     const candidates = state.scope === 'drive' ? getDriveExcelFacetRows(state.rows, field) : state.rows;
     let matchingRows = 0;
-    const filters = { ...state.filters };
-    if (state.scope === 'av' && getAvPhotoMode() === 'valid_photos') delete filters.season;
+    const projection=inventoryExcelProjection(filters,field);
+    const otherSelections=inventoryExcelActiveSelections(filters,field);
+    const values = new Map();
     for (const row of candidates) {
-        const facts = getInventoryExcelFacts(row, state).filter(fact => inventoryExcelFactMatches(fact, filters, field));
-        if (facts.length) matchingRows++;
-        const values = new Map(facts.flatMap(fact => (fact[field] || []).map(value => [inventoryExcelKey(value), value])));
+        values.clear();
+        const facts=getInventoryExcelFacts(row,state,projection,ownerIndex);
+        if (collectInventoryExcelOptionValues(facts,otherSelections,field,values)) matchingRows++;
         for (const [key, label] of values) {
             const entry = counts.get(key) || { key, label, count: 0 };
             entry.count++;
             counts.set(key, entry);
         }
     }
-    const options = [...counts.values()].sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' }));
+    const compare=new Intl.Collator(undefined,{numeric:true,sensitivity:'base'}).compare;
+    const options = [...counts.values()].sort((a,b)=>compare(a.label,b.label));
     state.options.set(field, options);
     state.optionTotals.set(field,matchingRows);
     return options;
 }
+
+function inventoryExcelActiveSelections(filters,ignore) {
+    return Object.entries(filters).filter(([key,selection])=>key!==ignore && selection!==null);
+}
+
+function matchesInventoryExcelSelections(fact,selections) {
+    return selections.every(([key,selection])=>fact[key]?.some(value=>selection.has(inventoryExcelKey(value))));
+}
+
+function collectInventoryExcelOptionValues(facts,selections,field,values) {
+    let matched=false;
+    for (const fact of facts) {
+        if (!matchesInventoryExcelSelections(fact,selections)) continue;
+        matched=true;
+        for (const value of fact[field] || []) values.set(inventoryExcelKey(value),value);
+    }
+    return matched;
+}
+
+function getFilteredInventoryExcelRows(state,ignore) {
+    const filters = state.filters;
+    const selections=inventoryExcelActiveSelections(filters,ignore);
+    if (!selections.length) return state.rows;
+    const ownerIndex = inventoryExcelOwnerIndex(filters);
+    const projection = inventoryExcelProjection(filters);
+    const key = JSON.stringify([state.revision,ignore,inventoryExcelSelectionKey(filters)]);
+    const previous = state.filtered;
+    if (projection!=='demand' && previous?.key===key && previous.ownerIndex===ownerIndex) return previous.rows;
+    const rows = state.rows.filter(row=>getInventoryExcelFacts(row,state,projection,ownerIndex)
+        .some(fact=>matchesInventoryExcelSelections(fact,selections)));
+    if (projection!=='demand') state.filtered={key,ownerIndex,rows};
+    return rows;
+}
+
 function applyInventoryExcelFilters(scope, rows) {
     if (scope==='reclass') return Array.isArray(rows)?rows:[];
     const state = getInventoryExcelState(scope);
@@ -76,5 +151,5 @@ function applyInventoryExcelFilters(scope, rows) {
         state.paintPending=true;
         setTimeout(()=>{state.paintPending=false;mountInventoryExcelFilters(scope);},0);
     }
-    return Object.keys(state.filters).length ? state.rows.filter(row=>inventoryExcelRowMatches(row,state,scope === 'av' && getAvPhotoMode() === 'valid_photos' ? 'season' : '')) : state.rows;
+    return getFilteredInventoryExcelRows(state,scope === 'av' && getAvPhotoMode() === 'valid_photos' ? 'season' : '');
 }

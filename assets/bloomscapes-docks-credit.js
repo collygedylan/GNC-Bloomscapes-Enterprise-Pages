@@ -1,21 +1,30 @@
-async function readBloomscapesDockCreditVault(scope,frame) {
+
+async function readBloomscapesDockCreditVault(scope,frame,refresh=false) {
     const {mode,customer,consignee,offset,search} = frame;
-    const receipt = await runDockCreditVaultRpc(scope,'gnc_rep_dock_vault',{
-        p_farm:scope.farm,p_mode:mode,p_customer:customer?.id || null,p_consignee:consignee?.id || null,
-        p_offset:offset,p_search:search
-    });
-    if (receipt.mode !== mode || receipt.customer !== (customer?.id || null)
-        || receipt.consignee !== (consignee?.id || null) || !Array.isArray(receipt.rows)
+    const args = { p_farm:scope.farm,p_mode:mode,p_customer:customer?.id || null,
+        p_consignee:consignee?.id || null,p_offset:offset,p_search:search };
+    assertDockCreditVaultScope(scope);
+    return readScopedSecondarySnapshot('dock-vault:'+JSON.stringify(args),
+        ()=>readDockCreditVaultPage(scope,args),refresh);
+}
+
+async function readDockCreditVaultPage(scope,args) {
+    const receipt = await runDockCreditVaultRpc(scope,'gnc_rep_dock_vault',args);
+    if (receipt.mode !== args.p_mode || receipt.customer !== args.p_customer
+        || receipt.consignee !== args.p_consignee || !Array.isArray(receipt.rows)
         || receipt.rows.length>30 || typeof receipt.has_more!=='boolean' || typeof receipt.can_review_credit!=='boolean') {
         throw new Error('Dock Vault returned a mismatched folder receipt.');
     }
     return receipt;
 }
 
-async function readBloomscapesDockCreditHotspots(scope) {
-    const result = await runDockCreditVaultRpc(scope,'gnc_dock_credit_hotspots',{p_farm:scope.farm});
-    if (!Array.isArray(result.items) || !Array.isArray(result.parties)) throw new Error('Credit hotspots are unavailable.');
-    return result;
+async function readBloomscapesDockCreditHotspots(scope,refresh=false) {
+    assertDockCreditVaultScope(scope);
+    return readScopedSecondarySnapshot('dock-vault:hotspots',async()=>{
+        const result = await runDockCreditVaultRpc(scope,'gnc_dock_credit_hotspots',{p_farm:scope.farm});
+        if (!Array.isArray(result.items) || !Array.isArray(result.parties)) throw new Error('Credit hotspots are unavailable.');
+        return result;
+    },refresh);
 }
 
 async function submitBloomscapesDockCreditFeedback(scope,id,verdict) {
@@ -23,6 +32,7 @@ async function submitBloomscapesDockCreditFeedback(scope,id,verdict) {
         p_farm:scope.farm,p_claim:id,p_verdict:verdict
     });
     if (receipt.claim_id !== id || receipt.verdict !== verdict) throw new Error('Credit feedback receipt did not match.');
+    invalidateScopedSecondarySnapshots('dock-vault:');
     return receipt;
 }
 

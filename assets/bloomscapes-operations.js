@@ -131,6 +131,7 @@ function mountBloomscapesWorkflowPanel(container, tab) {
     const status = host.querySelector('[role="status"]');
     let generation = 0;
     let busy = false;
+    let displayedRows;
     const load = async (inputs = {}) => {
         const epoch = ++generation;
         status.textContent = 'Loading…';
@@ -138,8 +139,10 @@ function mountBloomscapesWorkflowPanel(container, tab) {
         try {
             const rows = await readBloomscapesPanel(tab, inputs);
             if (!host.isConnected || epoch !== generation) return;
-            if (tab !== 'bloomscapes-vault') showWorkflowRows(host, tab, rows, decide);
             commit(rows.length + ' records shown');
+            if (rows===displayedRows) return;
+            displayedRows = rows;
+            if (tab !== 'bloomscapes-vault') showWorkflowRows(host, tab, rows, decide);
             bindBloomscapesPanelFilters(host,tab,rows,decide);
         } catch (error) {
             commit(error.message);

@@ -63,13 +63,15 @@ function renderBloomscapesCommList() {
     if (!host) return;
     const state=bloomscapesCommState,rows=sortedBloomscapesConversations().filter(matchesBloomscapesComm);
     host.querySelectorAll('[data-comm-filter]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.commFilter===state.filter)));
-    host.querySelector('[data-comm-list]').innerHTML=rows.map(row=>commInboxRow(row)).join('') || '<p class="comm-empty">No conversations yet. Choose a person to get started.</p>';
+    const list=host.querySelector('[data-comm-list]');
+    renderBloomscapesListWindow(list,rows,row=>bloomscapesListNode(commInboxRow(row)),
+        'No conversations yet. Choose a person to get started.',Number(list.dataset.page),page=>{list.dataset.page=page;},12);
 }
 
 function commInboxRow(row) {
     const name=commConversationName(row),last=row.last;
     const preview=last?(last.type==='voice'?'🎙 Voice Walkie ('+commDuration(last.duration_ms)+')':'💬 Text')+' · '+(last.body || 'Tap to listen'):'Start a voice or text conversation';
-    const username=row.participant_usernames?.find(user=>user!==currentUser),person=bloomscapesCommState.people.find(user=>user.username===username);
+    const username=row.participant_usernames?.find(user=>user!==currentUser),person=getBloomscapesCommPerson(username);
     const farm=person?.farms?.join(' / ') || bloomscapesCommState.farm;
     return '<button type="button" class="comm-person" data-comm-conversation="'+row.id+'" aria-current="'+(row.id===bloomscapesCommState.selected)+'">'
         +'<span class="comm-avatar">'+commEscape(name.slice(0,2).toUpperCase())+commActivityDot(person)+'</span><span class="comm-person-copy"><strong>'+commEscape(name)+'</strong>'
@@ -83,18 +85,48 @@ function renderBloomscapesCommPeople() {
     const state=bloomscapesCommState,query=state.search.toLowerCase();
     const people=state.people.filter(user=>user.username!==currentUser && [user.name,user.username,user.role,...user.farms].join(' ').toLowerCase().includes(query));
     const root=host.querySelector('[data-comm-people]');
-    if (state.creating) {
-        root.innerHTML='<form class="comm-create"><h3>New Walkie / Text</h3><input name="title" maxlength="100" placeholder="Group name (optional)" aria-label="Group name">'
-            +'<div class="comm-picker">'+people.map(person=>'<label><input type="checkbox" name="people" value="'+commEscape(person.username)+'">'
-            +commEscape(person.name)+' <small>'+commEscape(person.role+' · '+person.farms.join(' / '))+'</small></label>').join('')
-            +'</div><button type="submit">Open conversation</button><button type="button" data-comm-cancel-new>Cancel</button></form>';
-        return;
-    }
+    if (state.creating) return renderCommRecipientForm(root,people);
     const show=state.filter==='all' || state.filter==='direct';
-    root.innerHTML=show?'<details class="comm-directory"'+(!state.conversations.some(row=>row.last)?' open':'')+'><summary>People directory · '+people.length+'</summary>'
-        +people.map(person=>'<button type="button" data-comm-person="'+commEscape(person.username)+'"><span class="comm-avatar">'
+    const wasOpen=root.querySelector('details')?.open;
+    root.innerHTML=show?'<details class="comm-directory"><summary>People directory · '+people.length+'</summary><div></div></details>':'';
+    const directory=root.firstElementChild;
+    if (!directory) return;
+    directory.open=wasOpen ?? !state.conversations.some(row=>row.last);
+    const populate=()=>renderBloomscapesListWindow(directory.lastChild,people,person=>bloomscapesListNode(commDirectoryPerson(person)),
+        '',Number(root.dataset.page),page=>{root.dataset.page=page;},12);
+    directory.ontoggle=()=>{if (directory.open && !directory.lastChild.childElementCount) populate();};
+    if (directory.open) populate();
+}
+
+function commDirectoryPerson(person) {
+    return '<button type="button" data-comm-person="'+commEscape(person.username)+'"><span class="comm-avatar">'
         +commEscape(person.name.slice(0,2).toUpperCase())+commActivityDot(person)+'</span><span><strong>'+commEscape(person.name)+'</strong><small>'
-        +commEscape(person.role+' · '+person.farms.join(' / '))+'</small><small>'+(person.active?'Active in the last 5 minutes':'Activity unknown')+'</small></span></button>').join('')+'</details>':'';
+        +commEscape(person.role+' · '+person.farms.join(' / '))+'</small><small>'+(person.active?'Active in the last 5 minutes':'Activity unknown')+'</small></span></button>';
+}
+
+function renderCommRecipientForm(root,people) {
+    let form=root.querySelector('.comm-create');
+    if (!form) {
+        root.innerHTML='<form class="comm-create"><h3>New Walkie / Text</h3><input name="title" maxlength="100" placeholder="Group name (optional)" aria-label="Group name">'
+            +'<div class="comm-picker"></div><button type="submit">Open conversation</button><button type="button" data-comm-cancel-new>Cancel</button></form>';
+        form=root.firstElementChild;
+        const selected=new Set();
+        form.addEventListener('change',event=>{
+            if (event.target.name!=='people') return;
+            if (event.target.checked) selected.add(event.target.value);
+            else selected.delete(event.target.value);
+        });
+        form.addEventListener('formdata',event=>{
+            event.formData.delete('people');
+            for (const name of selected) event.formData.append('people',name);
+        });
+        form.selectedPeople=selected;
+    }
+    const build=person=>bloomscapesListNode('<label><input type="checkbox" name="people" value="'+commEscape(person.username)+'"'
+        +(form.selectedPeople.has(person.username)?' checked':'')+'>'+commEscape(person.name)+' <small>'
+        +commEscape(person.role+' · '+person.farms.join(' / '))+'</small></label>');
+    renderBloomscapesListWindow(form.querySelector('.comm-picker'),people,build,'',Number(form.dataset.page),page=>{form.dataset.page=page;},12);
+
 }
 
 function commActivityDot(person) {

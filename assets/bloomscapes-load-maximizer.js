@@ -1,5 +1,6 @@
 
 let bloomscapesLoadState;
+let bloomscapesLoadFitBound = false;
 const bloomscapesLoadUnits=new Intl.NumberFormat('en-US',{maximumFractionDigits:4});
 
 function bloomscapesLoadText(value) {
@@ -34,10 +35,21 @@ function bloomscapesReserveFit(summary) {
         return fit && !fit.matching_candidates ? '<small>No matching SOC Reserves for '+bloomscapesLoadText(summary.cohort)+'.</small>' : '';
     }
     const extra=fit.total_lines-fit.items.length;
-    return '<details><summary>SOC Reserves · +'+bloomscapesLoadMeasure(fit.total_lbs,'lbs')
-        +' · '+bloomscapesLoadText(summary.cohort)+'</summary><small>Weight fit. Verify cube before loading.</small><ul>'
-        +fit.items.map(bloomscapesReserveItem).join('')+'</ul>'
+    return '<details data-bloom-load-reserve-fit><summary>SOC Reserves · +'+bloomscapesLoadMeasure(fit.total_lbs,'lbs')
+        +' · '+bloomscapesLoadText(summary.cohort)+'</summary><small>Weight fit. Verify cube before loading.</small><div data-bloom-load-reserve-items></div>'
         +(extra>0 ? '<small>'+extra+' more matching lines in this weight fit.</small>' : '')+'</details>';
+}
+
+function handleBloomscapesLoadFitToggle(event) {
+    const details = event.target;
+    if (!details.matches?.('[data-bloom-load-reserve-fit]')) return;
+    const list = details.querySelector('[data-bloom-load-reserve-items]');
+    if (!details.open) return list.replaceChildren();
+    const summary = details.closest('[data-bloom-load]');
+    const state = bloomscapesLoadState;
+    if (!state || state.context.key!==summary.dataset.bloomLoadOwner || state.context.key!==currentBloomscapesLoadContext().key) return;
+    const fit = state.entries.get(summary.dataset.bloomLoad)?.summary?.fit;
+    if (fit?.items?.length) renderBloomscapesListWindow(list,fit.items,item=>bloomscapesListNode(bloomscapesReserveItem(item)));
 }
 
 function bloomscapesLoadSummary(summary) {
@@ -123,6 +135,10 @@ function bloomscapesLoadRequest(scope) {
 function renderBloomscapesLoadMaximizer(scope) {
     const entry=bloomscapesLoadRequest(scope);
     if (!entry) return '';
+    if (!bloomscapesLoadFitBound) {
+        bloomscapesLoadFitBound = true;
+        document.addEventListener('toggle',handleBloomscapesLoadFitToggle,true);
+    }
     return '<aside class="bloom-load-summary" data-bloom-load="'+bloomscapesLoadText(entry.key)
         +'" data-bloom-load-owner="'+bloomscapesLoadText(entry.owner)+'">'
         +(entry.summary ? bloomscapesLoadSummary(entry.summary) : '<small>Checking load capacity…</small>')+'</aside>';

@@ -73,12 +73,7 @@ if (!window.GncRuntimeWatchdog) {
     if (corrected === '99+') reportField('QUEUE_BADGE_MISMATCH','queue','BADGE_CAPPED');
     else if (Number(corrected) > audit?.total) reportField('QUEUE_BADGE_MISMATCH','queue','BADGE_EXCESS');
   }
-  function inspectBanner(node) {
-    if (!node || !isVisibleParityNode(node) || node.closest?.('#runtime-watchdog-events, #runtime-watchdog-header-badge')) return;
-    const value = String(node.textContent || '').trim().slice(0,1024);
-    if (['success','input-guidance'].includes(node.dataset?.kind) || !node.matches?.(bannerSelector)) return;
-    if (value && (!node.getClientRects || node.getClientRects().length)) observeError('', value, true, 'UI_ERROR_BANNER_SHOWN', node.dataset?.driveCommand);
-  }
+  const inspectBanner=createWatchdogBannerInspector(bannerSelector,isVisibleParityNode,observeError,()=>state.username);
   function safeIgnoreProbeError() { /* Intentional capability/storage probe; no telemetry. */ }
   function reportHandledRuntimeIssue(scope, errorCode, _meta) {
     try {
@@ -118,7 +113,7 @@ if (!window.GncRuntimeWatchdog) {
     state.hadAuthenticatedSession = true;
     const initial = state.preAuthErrors.splice(0);
     if (!state.durableRuntimeErrors) return;
-    for (const event of initial) send({...event, username:state.username, normalized_role:normalizedRole(state.role)});
+    for (const event of initial) sendWatchdogEvent({...event, username:state.username, normalized_role:normalizedRole(state.role)});
   }
   function rememberReportKey(key) {
     state.seen.add(key);
@@ -248,25 +243,30 @@ if (!window.GncRuntimeWatchdog) {
       if (state.reportQueue.length && state.reportQueueOwner === state.username && state.reportFlushGeneration === null) scheduleReportRetry();
     }
   }
-  function send(event) {
+  function retainPreAuthRuntimeError(event) {
+    if (state.hadAuthenticatedSession || global.__agdataSessionBoundary || !RUNTIME_ERROR_TYPES.has(event.event_type)) return;
+    const initial = {...event, username:'', normalized_role:'unknown', sub_module:'pre-auth-boot', dataset_revisions_snapshot:{}};
+    initial.fingerprint = fingerprint(initial);
+    if (!state.preAuthErrors.some(row => row.fingerprint === initial.fingerprint)) state.preAuthErrors.push(initial);
+    if (state.preAuthErrors.length > 20) state.preAuthErrors.shift();
+  }
+
+  function durableWatchdogEvent(event) {
+    if (!state.memoryOnly || FIELD_TYPES.has(event.event_type)) return event;
+    state.diagnostics.push({event_type:event.event_type, view_id:event.view_id, timestamp:Date.now()});
+    if (state.diagnostics.length > 100) state.diagnostics.shift();
+    if (isDurableRuntimeEvent(event)) return event;
+    if (state.remoteReportAttempted || state.reportQueue.length || !RUNTIME_ERROR_TYPES.has(event.event_type)) return null;
+    return {...event, error_message:event.event_type, suspected_functions:[]};
+  }
+
+  function sendWatchdogEvent(input) {
     if (!state.configured || !state.username || state.reportQueueOwner !== state.username) {
-      if (!state.hadAuthenticatedSession && !global.__agdataSessionBoundary && RUNTIME_ERROR_TYPES.has(event.event_type)) {
-        const initial = {...event, username:'', normalized_role:'unknown', sub_module:'pre-auth-boot', dataset_revisions_snapshot:{}};
-        initial.fingerprint = fingerprint(initial);
-        if (!state.preAuthErrors.some(row => row.fingerprint === initial.fingerprint)) state.preAuthErrors.push(initial);
-        if (state.preAuthErrors.length > 20) state.preAuthErrors.shift();
-      }
+      retainPreAuthRuntimeError(input);
       return;
     }
-    if (state.memoryOnly && !FIELD_TYPES.has(event.event_type)) {
-      const diagnostic = { event_type: event.event_type, view_id: event.view_id, timestamp: Date.now() };
-      state.diagnostics.push(diagnostic);
-      if (state.diagnostics.length > 100) state.diagnostics.shift();
-      if (!isDurableRuntimeEvent(event)) {
-        if (state.remoteReportAttempted || state.reportQueue.length || !RUNTIME_ERROR_TYPES.has(event.event_type)) return;
-        event = { ...event, error_message: event.event_type, suspected_functions: [] };
-      }
-    }
+    const event=durableWatchdogEvent(input);
+    if (!event) return;
     const key = reportKey(event);
     if (state.seen.has(key) || state.reportQueue.some(row => reportKey(row) === key)) return;
     rememberReportKey(key);
@@ -292,20 +292,20 @@ if (!window.GncRuntimeWatchdog) {
     if (event.dataset_revisions_snapshot?.drive_command?.revision) {
       event.fingerprint += '|' + state.username + '|' + event.dataset_revisions_snapshot.drive_command.revision;
     }
-    send(event); return event;
+    sendWatchdogEvent(event); return event;
   }
   function capture(error, operation = 'unknown') {
     return captureWatchdogOperation({document,state,isIgnorableRuntimeNoise,FIELD_CODES,reportField,record},error,operation);
   }
   function isVisibleParityNode(node) { return !!node && !node.hidden && !node.closest?.('.hidden, [hidden], [aria-hidden="true"]'); }
   function hasEvalLoadingText(root) {
-    return [...root.querySelectorAll('*')].some(node => node.children.length === 0 && isVisibleParityNode(node)
-      && /^Loading(?:\.{3}|\u2026)$/i.test(String(node.textContent || '').trim()));
+    return [...root.querySelectorAll('*')].some(node => node.children.length === 0
+      && /^Loading(?:\.{3}|\u2026)$/i.test(String(node.textContent || '').trim()) && isVisibleParityNode(node));
   }
   function findVisibleLoadingIndicator(root) {
     return [...root.querySelectorAll('.skeleton, .skeleton-bar, [aria-busy="true"], .loading, [data-loading="true"]')]
-      .find(isVisibleParityNode) || [...root.querySelectorAll('*')].find(node => node.children.length === 0 && isVisibleParityNode(node)
-        && /LOADING DATA\.\.\./i.test(node.textContent || ''));
+      .find(isVisibleParityNode) || [...root.querySelectorAll('*')].find(node => node.children.length === 0
+        && /LOADING DATA\.\.\./i.test(node.textContent || '') && isVisibleParityNode(node));
   }
   function inspectDataParity(root, current, currentSubModule) {
     const eval2 = current === 'managers' && currentSubModule === 'eval-reports-2';
@@ -451,17 +451,7 @@ if (!window.GncRuntimeWatchdog) {
     inspect();
     for (const node of document.querySelectorAll?.(bannerSelector) || []) inspectBanner(node);
   },safeIgnoreProbeError);
-  const observer = new MutationObserver(records => {
-    if (!state.username || document.hidden) return;
-    for (const entry of records || []) {
-      const target = entry.target?.nodeType === 3 ? entry.target.parentElement : entry.target;
-      const banner = target?.closest?.(bannerSelector);
-      if (banner) inspectBanner(banner);
-      for (const node of entry.addedNodes || []) if (node.nodeType === 1 && node.matches?.(bannerSelector)) inspectBanner(node);
-    }
-    scheduleInspection();
-  });
-  if (document.documentElement) observer.observe(document.documentElement, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['class', 'aria-busy', 'data-loading', 'data-eval-report-counts-ready', 'data-eval-report-count'] });
+  installWatchdogSurfaceObserver(document,MutationObserver,view,()=>!!state.username && !document.hidden,bannerSelector,inspectBanner,scheduleInspection);
   document.addEventListener?.('error', event => { if (state.username && event.target?.matches?.('.photo-thumb img, .saved-photo-tile img')) thumbnail_broken_image_auto_heal(event.target.parentElement); }, true);
   global.addEventListener('online', () => { state.reportRetryMs = 1000; if (state.reportTimer !== null) { global.clearTimeout(state.reportTimer); state.reportTimer = null; } void flushPendingReports(); });
   document.addEventListener?.('visibilitychange', () => {

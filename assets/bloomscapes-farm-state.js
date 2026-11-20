@@ -43,6 +43,7 @@ async function hydrateBloomscapesChosenFarm(state,farm,previous) {
         persistBloomscapesSessionFarm(state);
         globalThis.dispatchEvent?.(new CustomEvent('bloomscapes-farm-ready'));
         renderBloomscapesFarmNavigation();
+        globalThis.prepareBloomscapesFarmAvBrowse?.(farm);
         scheduleBloomscapesFarmRevalidation(state,farm);
         return farm;
     } catch (error) {
@@ -156,10 +157,6 @@ function getScopedDocksItems(items = socInventory, cacheScopeKey = '') {
     const { isAdmin, isRep, isQcSupervisor, isQc } = getRoleAccessState();
     // Docks is an operational snapshot, not a date report. A missing or
     // old PLANSTART value must never hide a currently imported dock row.
-    let nextItems = getActiveSuspendDockRows(Array.isArray(items) ? items : []).filter((row) => {
-        const dock = normalizeDockViewDockKey(firstNonEmptyValue(row && row.DOCK, row && row.dock, row && row.DOCK_NUM, row && row.dock_num, ''));
-        return dock !== 'Unassigned' && bloomscapesFarmRowIsVisible(row);
-    });
     const scopeKey = String(firstNonEmptyValue(cacheScopeKey, items === socInventory ? getDatasetLoadSignature('soc') : '', '')).trim();
     const canUseCache = !!scopeKey;
     const cacheKey = canUseCache ? [
@@ -178,6 +175,10 @@ function getScopedDocksItems(items = socInventory, cacheScopeKey = '') {
         incrementInternalPerfCounter('viewStateCacheHits');
         return docksScopedItemsCache.slice();
     }
+    let nextItems = getActiveSuspendDockRows(Array.isArray(items) ? items : []).filter((row) => {
+        const dock = normalizeDockViewDockKey(firstNonEmptyValue(row && row.DOCK, row && row.dock, row && row.DOCK_NUM, row && row.dock_num, ''));
+        return dock !== 'Unassigned' && bloomscapesFarmRowIsVisible(row);
+    });
     if (isRep) {
         nextItems = nextItems.filter(item => isMyRep(firstNonEmptyValue(item && item.SALESREPNAME, item && item.SALESREP, item && item.SALES_REP, item && item.SALESREPID, '')));
     }

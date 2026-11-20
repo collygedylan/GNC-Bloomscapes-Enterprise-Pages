@@ -35,23 +35,36 @@ function buildInventoryExcelFact(item) {
     const activeYear=Number(current.salesYear)<100?2000+Number(current.salesYear):Number(current.salesYear);
     const season=field('season') || lot.split('.')[1] || '';
     const stock=fullYear===activeYear?'Current Season':fullYear===activeYear+1?'Next Season':fullYear>activeYear+1?'Future Seasons':'Historical Stock';
-    return {username:Array.isArray(item.assigned_usernames)?item.assigned_usernames:resolveSuspendOwner(item),
-        stock,view:typeof hasValidRowPhoto==='function' && hasValidRowPhoto(item)?['All Rows','Photos']:['All Rows'],
+    return {stock,view:typeof hasValidRowPhoto==='function' && hasValidRowPhoto(item)?['All Rows','Photos']:['All Rows'],
         genus:field('genusname','genus'),plantgroupcode:field('plantgroupcode','plt_grp','plant_group_code'),
         commonname:field('commonname','common_name'),contsize:field('contsize','container_size'),
         blockalpha:field('blockalpha','block_alpha') || location.match(/^[A-Za-z]+/)?.[0] || '',
         locationcode:location,season,lotcode:lot,salesyear:String(fullYear || ''),holdstopcode:field('holdstopcode','hold_stop_code')};
 }
 
-function buildInventoryExcelFacts(row,state) {
+function inventoryFacetOwners(item,ownerIndex) {
+    if (Array.isArray(item.assigned_usernames)) return item.assigned_usernames;
+    if (ownerIndex) return resolveBloomscapesAssignedOwner(item,ownerIndex) || bloomscapesOwnerValue(item) || 'Unassigned';
+    return resolveSuspendOwner(item);
+}
+
+function getInventoryExcelFacetOwners(item,ownerIndex) {
+    return normalizeInventoryExcelValues('username',inventoryFacetOwners(item,ownerIndex));
+}
+
+function buildInventoryExcelFacts(row,state,projection='demand',getOwners) {
     const input=row.sourceRow?{...row.values,...row.sourceRow}:row.row?{...row,...row.row}:row;
     const parts=Array.isArray(input.lines)&&input.lines.length?input.lines:[input];
-    return parts.flatMap(part=>{
+    return parts.flatMap((part,index)=>{
         const item=part===input?input:{...input,...part};
-        const fact=buildInventoryExcelFact(item);
+        if (projection==='owner') return [{username:getOwners(index,item)}];
+        const fact=normalizeInventoryExcelFact(buildInventoryExcelFact(item));
+        if (getOwners) fact.username=getOwners(index,item);
+        if (projection==='base') return [fact];
         const code=inventoryFacetValue(item,'itemcode','item_code','item').toUpperCase();
-        const demand=inventoryExcelDemandIndex(state).get(code) || [{salesrep:'',customer:[]}];
-        return demand.map(link=>normalizeInventoryExcelFact({...fact,...link}));
+        const links=inventoryExcelDemandIndex(state).get(code) || [{salesrep:'',customer:[]}];
+        return links.map(link=>({...fact,salesrep:normalizeInventoryExcelValues('salesrep',link.salesrep),
+            customer:normalizeInventoryExcelValues('customer',link.customer)}));
     });
 }
 

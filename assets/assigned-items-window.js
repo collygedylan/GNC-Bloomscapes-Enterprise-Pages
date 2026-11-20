@@ -1,29 +1,34 @@
 function renderManagerAssignedFallbackRows(rows = [], preview = false) {
-    const state = getManagerAssignedColumnState(), limit = 50;
+    const state = getManagerAssignedColumnState(), limit = BLOOMSCAPES_LIST_PAGE_SIZE;
     const columns = getManagerAssignedColumnDefinitions().slice(0, 9), editable = canManageEvalItemcodeAssignments();
-    const roster = editable && !preview ? getManagerAssignableOwnerUsers() : [];
-    const options = new Map();
-    const ownerOptions = value => {
-        if (!options.has(value)) options.set(value, getManagerEvalAssigneeOptionsHtml(value, roster));
-        return options.get(value);
-    };
-    return '<div data-assigned-fallback style="max-height:65vh;overflow:auto"' + (preview ? '' : ' onscroll="appendManagerAssignedFallbackPage(this)"') + '><table class="ai-primary-columns"><colgroup>' + (editable ? '<col class="ai-select-col">' : '')
+    return '<div data-assigned-fallback style="max-height:65vh;overflow:auto"' + (preview ? '' : ' onscroll="appendManagerAssignedFallbackPage(this)" onclick="handleManagerAssignedFallbackPicker(event)"') + '><table class="ai-primary-columns"><colgroup>' + (editable ? '<col class="ai-select-col">' : '')
         + columns.map(([field]) => '<col data-field="' + field + '">').join('') + '</colgroup><thead><tr>' + (editable ? '<th>Select</th>' : '')
         + columns.map(([field,label]) => '<th>' + (preview ? escapeHtml(label) : renderManagerAssignedColumnTrigger(field,label)) + '</th>').join('') + '</tr></thead><tbody>'
         + assignedFallbackSpacer(state.fallbackStart || 0, columns.length + Number(editable))
         + rows.slice(state.fallbackStart || 0, (state.fallbackStart || 0) + limit)
-            .map(row => assignedFallbackRowHtml(row, { state, columns, editable, preview, ownerOptions })).join('') + assignedFallbackSpacer(Math.max(0, rows.length - (state.fallbackStart || 0) - limit), columns.length + Number(editable)) + '</tbody></table>' + (!preview && rows.length > limit ? '<button type="button" data-assigned-more onclick="appendManagerAssignedFallbackPage(this.parentElement,true)">Show more items</button>' : '') + '</div>';
+            .map(row => assignedFallbackRowHtml(row, { state, columns, editable, preview })).join('') + assignedFallbackSpacer(Math.max(0, rows.length - (state.fallbackStart || 0) - limit), columns.length + Number(editable)) + '</tbody></table>' + (!preview && rows.length > limit ? '<button type="button" data-assigned-more onclick="appendManagerAssignedFallbackPage(this.parentElement,true)">Show more items</button>' : '') + '</div>';
+}
+
+function handleManagerAssignedFallbackPicker(event) {
+    const button = event.target.closest('[data-default-owner]');
+    if (!button || !canManageEvalItemcodeAssignments() || !isManagerAssignedSnapshotCurrent()) return;
+    const code = button.dataset.defaultOwner;
+    const choices = [['','Unassigned'],...getManagerAssignableOwnerUsers().map(user =>
+        [normalizeEvalAssignableUser(user),getEvalAssignableUserLabel(user)])];
+    openBloomscapesChoicePicker(button,{label:'Itemcode Default Owner '+code,choices,value:button.dataset.ownerValue,
+        current:()=>canManageEvalItemcodeAssignments() && isManagerAssignedSnapshotCurrent(),
+        select:value=>assignManagerCheckedItemcodes(code,value)});
 }
 
 function appendManagerAssignedFallbackPage(scroller, force = false) {
     const state = getManagerAssignedColumnState();
     const rows = getManagerAssignedSelectionSnapshot().rows;
-    const start = force ? (state.fallbackStart || 0) + 50 : Math.max(0, Math.floor(scroller.scrollTop / 48) - 10);
+    const start = force ? (state.fallbackStart || 0) + BLOOMSCAPES_LIST_PAGE_SIZE : Math.max(0, Math.floor(scroller.scrollTop / 48) - 10);
     if (state.fallbackStart === start || state.fallbackFrame) return;
     state.fallbackFrame = requestAnimationFrame(() => {
         state.fallbackFrame = 0;
         if (!scroller.isConnected || state !== getManagerAssignedColumnState()) return;
-        state.fallbackStart = Math.min(start, Math.max(0, rows.length - 50));
+        state.fallbackStart = Math.min(start, Math.max(0, rows.length - BLOOMSCAPES_LIST_PAGE_SIZE));
         const template = document.createElement('template');
         template.innerHTML = renderManagerAssignedFallbackRows(rows);
         scroller.querySelector('tbody').replaceChildren(...template.content.querySelector('tbody').childNodes);
@@ -103,7 +108,7 @@ function openAssignedItemsFirstFrame(state) {
         return renderManagers();
     }
     const ticket = state.opening = {};
-    const rows = getManagerAssignedItemsDisplayRows(input.slice(0, 50), { useMaster: input === fullInventory });
+    const rows = getManagerAssignedItemsDisplayRows(input.slice(0, BLOOMSCAPES_LIST_PAGE_SIZE), { useMaster: input === fullInventory });
     host.innerHTML = renderManagerTableManagementWorkspace(renderManagerAssignedFallbackRows(rows, true), 'assigned-items');
     requestAnimationFrame(() => setTimeout(() => finishAssignedItemsFirstFrame(state, ticket), 0));
 }
@@ -116,18 +121,19 @@ function finishAssignedItemsFirstFrame(state, ticket) {
     renderManagers();
 }
 
-function assignedFallbackRowHtml(row, { state, columns, editable, preview, ownerOptions }) {
+function assignedFallbackRowHtml(row, { state, columns, editable, preview }) {
             const code = buildManagerEvalAssignmentKey(row.ITEMCODE), attr = escapeHtml(JSON.stringify(code));
             return '<tr style="height:48px;white-space:nowrap" data-manager-assigned-item-row="' + escapeHtml(code) + '">'
                 + (editable ? '<td><input type="checkbox" aria-label="Select ' + escapeHtml(code) + ' for bulk assignment" data-itemcode="' + escapeHtml(code) + '"' + (preview ? ' disabled' : '') + (managerEvalAssignmentSelection.has(code) ? ' checked' : '') + ' onchange="toggleManagerEvalAssignmentItem(' + attr + ',&quot;&quot;,this.checked);updateManagerAssignedItemsView()"></td>' : '')
-                + columns.map(([field]) => assignedFallbackCellHtml(row, field, code, attr, { state, editable, preview, ownerOptions })).join('') + '</tr>';
+                + columns.map(([field]) => assignedFallbackCellHtml(row, field, code, { state, editable, preview })).join('') + '</tr>';
 }
 
-function assignedFallbackCellHtml(row, field, code, attr, { state, editable, preview, ownerOptions }) {
+function assignedFallbackCellHtml(row, field, code, { state, editable, preview }) {
     if (field === 'DEFAULT_ASSIGNEDTO' && editable && !preview) {
-        return '<td><select aria-label="Itemcode Default Owner ' + escapeHtml(code) + '" data-default-owner="' + escapeHtml(code)
-            + '" onchange="assignManagerCheckedItemcodes(' + attr + ',this.value)">'
-            + ownerOptions(state.defaultDrafts?.[code]?.assignedto ?? row[field]) + '</select></td>';
+        const value = String(state.defaultDrafts?.[code]?.assignedto ?? row[field] ?? '');
+        return '<td><button type="button" aria-haspopup="dialog" aria-label="Itemcode Default Owner ' + escapeHtml(code)
+            + '" data-default-owner="' + escapeHtml(code) + '" data-owner-value="' + escapeHtml(value) + '">'
+            + escapeHtml(value || 'Unassigned') + ' ▾</button></td>';
     }
     return '<td>' + escapeHtml(row[field] || (field === 'LOCATIONCODE' ? '—' : row[field] ?? '')) + '</td>';
 }

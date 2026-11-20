@@ -47,3 +47,10 @@ async function runBloomscapesDockCandidate(section,input,refresh) {
     } catch (error) { progress(error.message); }
     finally { button.disabled = false; }
 }
+
+function mountDockStatusChoices(select) {
+    if (!select || select.options.length > 1) return;
+    for (const [value,label] of [['Missing > 10','Missing more than 10'],['Missing < 5','Missing less than 5'],['Palletize','Palletize']]) {
+        select.add(new Option(label,value));
+    }
+}

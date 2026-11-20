@@ -39,20 +39,19 @@ function pullCheckerCopyButton(drop, archive = false) {
     return `<button type="button" class="${pullWorkspacePill}" data-pull-click="print" data-archive="${archive}" data-dock="${pullHtml(drop.dock)}" data-trip="${pullHtml(drop.trip)}" data-drop="${pullHtml(drop.drop)}">Checker Copy</button>`;
 }
 
-function renderPullMistakeCard(row, board) {
+function renderPullMistakeCard(row, board, open=false) {
+    const actions=pullAllowed(row,'fix_mistake') || (board.can_borrow && board.people.length);
+    return `<article class="${pullWorkspaceCard}">${pullTagHeader(row)}${pullTagLocationList(row)}
+        <p>${pullHtml(row.mistake_remaining)} to replace · ${pullHtml(row.mistake_reason)}</p>
+        ${actions ? renderPullDisclosure('mistake',row.id,'Mistake Fix actions',open) : ''}</article>`;
+}
+
+function renderPullMistakeActions(row,board) {
     const max = pullHtml(row.mistake_remaining);
     const fields = `<label>Replacement location <input name="locationcode" required maxlength="40"></label>
         <label>Qty <input name="quantity" required type="number" min="1" step="1" max="${max}" value="${max}"></label>`;
-    return `<article class="${pullWorkspaceCard}">${pullTagHeader(row)}${pullTagLocationList(row)}
-        <p>${max} to replace · ${pullHtml(row.mistake_reason)}</p>
-        ${pullAllowed(row,'fix_mistake') ? pullForm('fix_mistake',{id:row.id},fields) : ''}
-        ${renderPullBorrowPicker(board,row,['fix_mistake'],true)}</article>`;
-}
-
-function renderBloomscapesMistakeFix(board) {
-    const rows = board.tags.filter(row => Number(row.mistake_remaining) > 0).sort(compareBloomscapesPullTags);
-    return `<button type="button" class="${pullWorkspacePill}" data-pull-click="refresh">Refresh</button>${renderPullBorrows(board)}
-        ${rows.map(row => renderPullMistakeCard(row,board)).join('') || '<p>No open mistakes or tagging shortages.</p>'}`;
+    return (pullAllowed(row,'fix_mistake') ? pullForm('fix_mistake',{id:row.id},fields) : '')
+        + renderPullBorrowPicker(board,row,['fix_mistake'],true);
 }
 
 function renderPullTrafficDrop(drop) {
@@ -71,14 +70,19 @@ function pullTagsByDrop(tags) {
     return index;
 }
 
-function renderBloomscapesTrafficOffice(board) {
-    const cards = board.traffic.map(receipt => {
-        const drops = trafficReceiptDrops(receipt);
-        return `<article class="${pullWorkspaceCard}"><h3 class="font-bold">Dock ${pullHtml(receipt.dock)} · Loaded / Done</h3>
-            <p class="text-xs">${pullHtml(receipt.completed_at ? new Date(receipt.completed_at).toLocaleString() : '')}</p>
-            ${drops.map(renderPullTrafficDrop).join('')}</article>`;
-    }).join('');
-    return `<button type="button" class="${pullWorkspacePill}" data-pull-click="refresh">Refresh</button>${cards || '<p>No completed Docks have reached Traffic Office.</p>'}`;
+function pullTrafficKey(receipt) {
+    return String(receipt.id ?? JSON.stringify([receipt.dock,receipt.completed_at]));
+}
+
+function renderPullTrafficReceipt(receipt,open=false) {
+    return `<article class="${pullWorkspaceCard}"><h3 class="font-bold">Dock ${pullHtml(receipt.dock)} · Loaded / Done</h3>
+        <p class="text-xs">${pullHtml(receipt.completed_at ? new Date(receipt.completed_at).toLocaleString() : '')}</p>
+        ${renderPullDisclosure('traffic',pullTrafficKey(receipt),'Completed drops',open)}</article>`;
+}
+
+function mountPullTrafficReceipt(content,receipt) {
+    const drops=trafficReceiptDrops(receipt);
+    renderBloomscapesListWindow(content,drops,drop=>bloomscapesListNode(renderPullTrafficDrop(drop)),'No completed drops.',0,undefined,3);
 }
 
 function trafficReceiptDrops(receipt) {
@@ -108,7 +112,7 @@ function renderPullReportMistake(tag) {
         ${pullForm('report_mistake',{id:tag.id},fields,'Send to Mistake Fix')}</details>`;
 }
 
-function renderPullDropWork(drop, board, tags) {
+function renderPullDropWork(drop, board) {
     const input = {dock:drop.dock,trip:drop.trip,drop:drop.drop};
     const tasks = ['checked','inspected','tagged','loaded'];
     const instruction = dockDropInstruction(drop);
@@ -116,8 +120,14 @@ function renderPullDropWork(drop, board, tags) {
         <h3 class="font-bold">${pullHtml(drop.trip)} · Drop ${pullHtml(drop.drop)} · ${pullHtml(drop.status)}</h3>
         ${instruction ? `<p class="rounded bg-emerald-950 px-2 py-1 font-bold text-white">${pullHtml(instruction)}</p>` : ''}
         <div class="flex flex-wrap gap-2">${tasks.filter(task => pullAllowed(drop,task)).map(task => pullForm(task,input)).join('')}${pullCheckerCopyButton(drop)}</div>
-        <details open><summary class="cursor-pointer">Location and quantity</summary>${renderBloomscapesDockDocumentRows(tags)}</details>
-        ${tags.map(renderPullReportMistake).join('')}${renderPullBorrowPicker(board,drop,tasks,false)}</article>`;
+        ${renderPullDisclosure('drop',pullKey(drop),'Location, quantity and mistake reports')}
+        ${renderPullBorrowPicker(board,drop,tasks,false)}</article>`;
+}
+
+function mountPullDropEvidence(content,tags) {
+    renderBloomscapesListWindow(content,tags,tag=>bloomscapesListNode(`<article class="${pullWorkspaceCard}">
+        ${pullTagHeader(tag)}${pullTagLocationList(tag)}${renderPullReportMistake(tag)}</article>`),
+        'No matching Pull Tags.',0,()=>restoreBloomscapesDockDrafts(content),8);
 }
 
 function renderBloomscapesDockDropTools(dock, drop) {
@@ -128,6 +138,5 @@ function renderBloomscapesDockDropTools(dock, drop) {
     const selected = board.drops.filter(entry => normalizeDockViewDockKey(entry.dock) === normalizedDock
         && normalizeDockViewStopKey(entry.drop) === normalizedDrop);
     if (!selected.length) return '';
-    const tagsByDrop = pullTagsByDrop(board.tags);
-    return `<section class="mb-3 space-y-2">${selected.map(entry => renderPullDropWork(entry,board,tagsByDrop.get(pullKey(entry)) || [])).join('')}</section>`;
+    return `<section class="mb-3 space-y-2">${selected.map(entry => renderPullDropWork(entry,board)).join('')}</section>`;
 }

@@ -62,19 +62,58 @@ function bloomscapesWorkBrowseProjection(host,state) {
     const search=state.searchInput.value;
     const filters=Object.fromEntries([...host.querySelectorAll('[data-work-filter]')].map(select=>[select.dataset.workFilter,select.value]));
     const all=applyInventoryExcelFilters(state.options.scope || 'studio',bloomscapesWorkBrowserRows(search,filters));
-    const rows=all.filter(row=>{
-        const parts=bloomscapesWorkBrowseParts(row,state.mode,state.options);
-        return state.path.every((part,index)=>part===parts[index]);
-    });
     const leaf=state.mode==='all' || (!state.options.studioScopes && search.trim()!=='') || state.path.length>=(state.mode==='block'?2:3);
-    if (leaf) return {rows,leaf,groups:[]};
-    const groups=new Map();
-    for (const row of rows) {
-        const parts=bloomscapesWorkBrowseParts(row,state.mode,state.options);
-        const key=parts[state.path.length] || 'No common name recorded';
-        groups.set(key,(groups.get(key) || 0)+1);
+    if (state.options.locationDrill && state.mode==='block' && (state.options.studioScopes || !search.trim())) {
+        return bloomscapesStudioLocationProjection(state,all);
     }
-    return {rows,leaf,groups:[...groups].sort(([a],[b])=>a.localeCompare(b,undefined,{numeric:true}))};
+    const rows=[], groups=new Map();
+    for (const row of all) {
+        const parts=bloomscapesWorkBrowseParts(row,state.mode,state.options);
+        if (!state.path.every((part,index)=>part===parts[index])) continue;
+        rows.push(row);
+        if (leaf) continue;
+        const key=parts[state.path.length] || 'No common name recorded';
+        const entry=groups.get(key) || {key,count:0,beds:new Set(),first:row};
+        entry.count++;
+        entry.beds.add(row.LOCATIONCODE || row.locationcode);
+        groups.set(key,entry);
+    }
+    return {rows,leaf,groups:[...groups.values()].sort((a,b)=>a.key.localeCompare(b.key,undefined,{numeric:true}))};
+}
+
+function bloomscapesStudioLocationProjection(state,rows) {
+    if (state.locationIndex?.rows!==rows) {
+        const blocks=new Map();
+        for (const row of rows) {
+            const block=getDriveBlockAlphaLabel(getDriveBlockAlphaValue(row)) || 'No common name recorded';
+            const location=row.LOCATIONCODE || row.locationcode || 'No location';
+            const parent=bloomscapesWorkIndexGroup(blocks,block,row);
+            parent.beds.add(row.LOCATIONCODE || row.locationcode);
+            const child=bloomscapesWorkIndexGroup(parent.children,location,row);
+            child.beds.add(row.LOCATIONCODE || row.locationcode);
+        }
+        state.locationIndex={rows,blocks};
+    }
+    const {blocks}=state.locationIndex;
+    const [block,location]=state.path;
+    const parent=blocks.get(block);
+    if (state.path.length>1) return {leaf:true,rows:parent?.children.get(location)?.rows || [],groups:[]};
+    const compare=bloomscapesWorkGroupCollator.compare;
+    const groups=[...(block ? parent?.children.values() || [] : blocks.values())].sort((a,b)=>compare(a.key,b.key));
+    return {leaf:false,rows:block ? parent?.rows || [] : rows,groups};
+}
+
+const bloomscapesWorkGroupCollator=new Intl.Collator(undefined,{numeric:true});
+
+function bloomscapesWorkIndexGroup(groups,key,row) {
+    let group=groups.get(key);
+    if (!group) {
+        group={key,first:row,count:0,beds:new Set(),children:new Map(),rows:[]};
+        groups.set(key,group);
+    }
+    group.count++;
+    group.rows.push(row);
+    return group;
 }
 
 function bloomscapesWorkBrowseParts(row,mode,options) {
@@ -96,7 +135,7 @@ function renderBloomscapesWorkBrowser(host,state) {
     if (typeof parkBloomscapesWorkRowEditor==='function') parkBloomscapesWorkRowEditor(host);
     if (projection.leaf && state.options.studioScopes) return renderBloomscapesStudioScopes(host,list,projection.rows,state);
     if (projection.leaf) renderBloomscapesListWindow(list,projection.rows,row=>bloomscapesWorkSourceCard(row,state.onSelect,state.options));
-    else renderBloomscapesListWindow(list,projection.groups,([key,count])=>bloomscapesWorkBrowseGroup(host,state,key,count,projection.rows));
+    else renderBloomscapesListWindow(list,projection.groups,entry=>bloomscapesWorkBrowseGroup(host,state,entry));
 }
 
 function renderBloomscapesWorkGroupSelection(host,state,rows) {
@@ -115,19 +154,17 @@ function renderBloomscapesWorkGroupSelection(host,state,rows) {
     }
 }
 
-function bloomscapesWorkBrowseGroup(host,state,key,count,rows) {
+function bloomscapesWorkBrowseGroup(host,state,{key,count,beds,first}) {
     const group=document.createElement('section');
     const button=group.appendChild(document.createElement('button'));
     button.type='button';button.dataset.workBrowseGroup=key;
-    const cohort=rows.filter(row=>bloomscapesWorkBrowseParts(row,state.mode,state.options)[state.path.length]===key);
-    const beds=new Set(cohort.map(row=>row.LOCATIONCODE || row.locationcode)).size;
-    button.className='bloomscapes-work-group';button.textContent=key+' · '+count+' rows · '+beds+' beds';
+    button.className='bloomscapes-work-group';button.textContent=key+' · '+count+' rows · '+beds.size+' beds';
     if (!state.options.locationDrill && state.mode==='block' && state.path.length===1) button.textContent+=' · '+bloomscapesBlockLifecycleStage(state.path[0],key);
     button.addEventListener('click',()=>{state.path.push(key);renderBloomscapesWorkBrowser(host,state);});
     if (!state.options.browseOnly && !state.options.locationDrill && state.mode==='block' && state.path.length===1) {
         const quick=group.appendChild(document.createElement('button'));quick.type='button';quick.dataset.queueWorkBlock=key;
         quick.textContent='⚡ Queue Whole Block '+state.path[0]+'.'+key+' ('+count+' rows)';
-        quick.addEventListener('click',()=>state.onSelect(cohort[0],'BLOCK'));
+        quick.addEventListener('click',()=>state.onSelect(first,'BLOCK'));
     }
     return group;
 }
@@ -142,17 +179,15 @@ function renderBloomscapesWorkLocations(tools,host,state,rows) {
 
 function mountBloomscapesWorkFilters(host,state) {
     const filters=host.querySelector('[data-work-filters]');
-    for (const [key,title] of [['common','Common name'],['year','Year'],['season','Season'],['lot','Lot'],['size','Size'],['hold','Hold']]) {
-        const label=filters.appendChild(document.createElement('label'));label.textContent=title;
-        const select=label.appendChild(document.createElement('select'));select.dataset.workFilter=key;
-        const all=document.createElement('option');all.textContent='All';all.value='';select.appendChild(all);
-        const values=bloomscapesWorkBrowserDataset().options[key];
-        values.forEach(value=>{const option=document.createElement('option');option.textContent=value;option.value=value;select.appendChild(option);});
-        select.addEventListener('change',()=>{state.path=[];renderBloomscapesWorkBrowser(host,state);});
-    }
+    const fields=[['common','Common name'],['year','Year'],['season','Season'],['lot','Lot'],['size','Size'],['hold','Hold']];
+    filters.innerHTML=fields.map(([key,title])=>renderBloomscapesChoiceField(key,title,key,'','All',
+        {attributes:'data-work-filter="'+key+'"'})).join('');
+    const sources=Object.fromEntries(fields.map(([key])=>[key,()=>[['','All'],...bloomscapesWorkBrowserFilterOptions(key).map(value=>[value,value])]]));
+    bindBloomscapesChoiceFields(filters,sources);
+    filters.onchange=()=>{state.path=[];renderBloomscapesWorkBrowser(host,state);};
     const clear=filters.appendChild(document.createElement('button'));clear.type='button';clear.textContent='Clear Filters';
     clear.addEventListener('click',()=>{
-        for (const select of filters.querySelectorAll('select')) select.value='';
+        for (const select of filters.querySelectorAll('select')) setBloomscapesChoiceFieldValue(select,'','All');
         state.searchInput.value='';state.path=[];renderBloomscapesWorkBrowser(host,state);
     });
 }
@@ -223,17 +258,25 @@ function bloomscapesConsolidationDestinationLabel(row) {
 
 function bloomscapesWorkBrowserDataset() {
     const owner = getSupabaseReadIdentityScope();
+    const farm = getBloomscapesFarm();
     const epoch = typeof resolvedViewStateEpoch === 'number' ? resolvedViewStateEpoch : 0;
     const prior = bloomscapesWorkBrowserDataset.cached;
-    if (prior?.source===fullInventory && prior.owner===owner && prior.epoch===epoch) return prior;
+    if (prior?.source===fullInventory && prior.owner===owner && prior.farm===farm && prior.epoch===epoch) return prior;
     const rows = (fullInventory || []).filter(bloomscapesFarmRowIsVisible);
-    const options = Object.fromEntries(['common','year','season','lot','size','hold'].map(key=>[key,new Set()]));
-    for (const row of rows) {
-        const identity = bloomscapesWorkBrowserIdentity(row);
-        for (const key of Object.keys(options)) if (identity[key]) options[key].add(identity[key]);
+    return bloomscapesWorkBrowserDataset.cached = {source:fullInventory,owner,farm,epoch,rows,options:new Map()};
+}
+
+function bloomscapesWorkBrowserFilterOptions(key) {
+    const dataset=bloomscapesWorkBrowserDataset();
+    if (!dataset.options.has(key)) {
+        const values=new Set();
+        for (const row of dataset.rows) {
+            const value=bloomscapesWorkBrowserIdentity(row)[key];
+            if (value) values.add(value);
+        }
+        dataset.options.set(key,[...values].sort());
     }
-    const sorted = Object.fromEntries(Object.entries(options).map(([key,values])=>[key,[...values].sort()]));
-    return bloomscapesWorkBrowserDataset.cached = {source:fullInventory,owner,epoch,rows,options:sorted};
+    return dataset.options.get(key);
 }
 
 function getDriveBlockAlphaLabel(value = '') {

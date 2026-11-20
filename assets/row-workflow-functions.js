@@ -1178,7 +1178,7 @@ function openSuspendPullPicker(uniqueId) {
         if (!dialog.open) return;
         if (scope !== getSupabaseReadIdentityScope()) { dialog.close(); return; }
         const options = getRequestItemCodeOptionRows(source);
-        if (!dialog.querySelector('input')) dialog.querySelector('[data-manual]').innerHTML = buildSuspendManualPullSelector(source, options, true);
+        if (!dialog.querySelector('input')) dialog.querySelector('[data-manual]').innerHTML = buildSuspendManualPullSelector(options, true);
         dialog.querySelector('[data-locations]').innerHTML = options.map(row => {
             const loc = row.LOCATIONCODE || row.locationcode;
             const lot = row.LOTCODE || row.lotcode || '';
@@ -1210,18 +1210,7 @@ function buildSuspendLocationOptionActions(source, row) {
     return '<div class="suspend-location-actions"><label>Split quantity <input type="number" min="1" step="1" aria-label="Split pull quantity" id="suspend-split-' + escapeHtml(masterUid) + '"></label><button type="button" onclick="event.stopPropagation(); return changeSuspendPullLocation(\'' + uid + '\',\'' + masterUid + '\',\'replace_location\')">✓ Select Location (' + location + ')</button><button type="button" onclick="event.stopPropagation(); return changeSuspendPullLocation(\'' + uid + '\',\'' + masterUid + '\',\'split_location\', document.getElementById(\'suspend-split-' + masterUid + '\').value)">➕ Add ' + location + ' to Split Order</button></div>';
 }
 
-function showMoreSuspendPullLocations() {
-    const state = ensureRequestItemCodeOptionState(activeItem);
-    const selector = '[data-request-itemcode-option="true"]';
-    const selected = new Set(Array.from(document.querySelectorAll(selector + ':checked'), input => input.value));
-    state.visiblePullLimit = (state.visiblePullLimit || 12) + 24;
-    renderRequestMatchingInventoryOptions(activeItem, 'request', {skipLoad:true});
-    for (const input of document.querySelectorAll(selector)) if (!input.disabled && selected.has(input.value)) input.checked = true;
-    syncSuspendAvOptionSelectionControls();
-    return false;
-}
-
-function buildSuspendManualPullSelector(item, rows, modal = false) {
+function buildSuspendManualPullSelector(rows, modal = false) {
     const choices = rows.filter(row => !isFalseBlockLocation(row.LOCATIONCODE || row.locationcode));
     const options = choices.map(row => {
         const location = row.LOCATIONCODE || row.locationcode;

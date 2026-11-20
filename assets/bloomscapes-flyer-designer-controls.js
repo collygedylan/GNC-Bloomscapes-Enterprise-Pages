@@ -20,7 +20,19 @@ function setupBloomscapesFlyerRail(state) {
     }
     paintBloomscapesFlyerRail(state,'templates');
     const search=rail.querySelector('[data-flyer-search]');
-    search.addEventListener('input',()=>paintBloomscapesFlyerRail(state,'plants'));
+    search.addEventListener('input',()=>{
+        state.assetPage=0;
+        paintBloomscapesFlyerRail(state,'plants');
+    });
+    const assets=rail.querySelector('.flyer-asset-list');
+    assets.ondragstart=event=>{
+        const plant=event.target.closest('[data-flyer-action=plant]');
+        if (!plant) return;
+        state.dragSource=plant.dataset.flyerValue;
+        event.dataTransfer.setData('text/plain',state.dragSource);
+        event.dataTransfer.effectAllowed='copy';
+    };
+    assets.ondragend=()=>{state.dragSource=null;};
 }
 
 function setBloomscapesFlyerFolderChoices(state,choices) {
@@ -33,12 +45,12 @@ function setBloomscapesFlyerFolderChoices(state,choices) {
 
 function bloomscapesFlyerPlantButtons(state,host,search) {
     const terms=search.trim().toLowerCase().split(/\s+/).filter(Boolean);
-    const plants=(state.livePlants ||= bloomscapesFlyerLivePlants()).filter(row=>{
-        const label=[row.text,row.itemcode,row.detail,row.location].join(' ').toLowerCase();
-        return terms.every(term=>label.includes(term));
-    });
-    const count=40;
-    const visible=plants.slice(0,state.assetLimit || count);
+    const indexed=state.livePlantIndex ||= (state.livePlants ||= bloomscapesFlyerLivePlants()).map(row=>
+        ({row,label:[row.text,row.itemcode,row.detail,row.location].join(' ').toLowerCase()}));
+    const plants=terms.length ? indexed.filter(({label})=>terms.every(term=>label.includes(term))) : indexed;
+    const window=bloomscapesListWindow(plants,state.assetPage);
+    const visible=window.rows.map(({row})=>row);
+    state.assetPage=window.index;
     state.railPlants=new Map(visible.map(row=>[row.sourceId,row]));
     for (const row of visible) {
         const button=addBloomscapesFlyerControl(host,row.text+' · '+row.itemcode+(row.detail?' · '+row.detail:''),'plant',row.sourceId);
@@ -48,15 +60,10 @@ function bloomscapesFlyerPlantButtons(state,host,search) {
             button.prepend(image);
         }
         button.draggable=true;
-        button.addEventListener('dragstart',event=>{
-            state.dragSource=row.sourceId;
-            event.dataTransfer.setData('text/plain',row.sourceId);
-            event.dataTransfer.effectAllowed='copy';
-        });
-        button.addEventListener('dragend',()=>{state.dragSource=null;});
     }
     if (!visible.length) host.textContent='No eligible evaluated plants match this search.';
-    if (plants.length>visible.length) addBloomscapesFlyerControl(host,'Show more plants','more-assets',visible.length+count);
+    if (window.index>0) addBloomscapesFlyerControl(host,'Previous plants','more-assets',window.index-1);
+    if (window.index+1<window.pages) addBloomscapesFlyerControl(host,'Next plants','more-assets',window.index+1);
 }
 
 function paintBloomscapesFlyerRail(state,key) {

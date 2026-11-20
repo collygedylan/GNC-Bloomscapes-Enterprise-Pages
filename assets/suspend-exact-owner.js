@@ -115,11 +115,12 @@ function collectSuspendOwnerCandidates(entries, inventory, code, family) {
     return owners;
 }
 
-function getAssignedQueueOwner(row, index = getCardEvalOwnerIndex(getManagerAssignedColumnState(), true)) {
+function getAssignedQueueOwner(row,index) {
     if (nativeAuthSessionActive) return resolveSuspendOwner(row);
     if (isDockSuspendDcRequestMirrorRow(row) || isDockSuspendDcRequestSource(row)) return resolveSuspendOwner(row);
     const code = buildManagerEvalAssignmentKey(row?.ITEMCODE || row?.itemcode || row?.ITEM || row?.item);
-    const mapped=index.exact.get(code) || index.family.get(code.slice(0,6));
+    const lookup=index ?? getCardEvalOwnerIndex(getManagerAssignedColumnState(),true);
+    const mapped=lookup.exact.get(code) || lookup.family.get(code.slice(0,6));
     if(mapped) return mapped;
     return '';
 }

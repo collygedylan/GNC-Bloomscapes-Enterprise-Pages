@@ -2,6 +2,32 @@ function isAvDetailSource(source) {
     return ['av', 'av-photo'].includes(String(source || '').trim().toLowerCase());
 }
 
+function renderAvDetailMetrics(item) {
+    const metadata = [
+        `PRIORITY: ${firstNonEmptyValue(item.PRIORITY, item.priority, '--') || '--'}`,
+        `On hand: ${getCardPtrOnHandValue(item)}`,
+        `Review: ${getCardPtrReviewedValue(item)}`,
+        `Available: ${getCardPtrAvailableValue(item)}`,
+        `Open Stock: ${getCardOpenStockValue(item)}`
+    ];
+    const locationNote = getLocationNoteDisplayValue(item, findLinkedMasterRow(item) || null);
+    if (locationNote) metadata.push(`LOCATIONNOTE: ${locationNote}`);
+    return `<div class="detail-meta-line">${metadata.map(part => escapeShareHtml(part)).join(' &bull; ')}</div>`;
+}
+
+function paintAvDetailExtraInfo(item, sourceView, isRequestDetail) {
+    const panel = document.getElementById('det-extra-info');
+    if (!panel) return;
+    panel.classList.toggle('hidden', sourceView !== 'av');
+    if (sourceView !== 'av') {
+        if (panel.firstChild) panel.replaceChildren();
+        return;
+    }
+    const note = String(firstNonEmptyValue(getItemDisplayValue(item, 'SALES_NOTE', sourceView), item.SALES_DESC, item.SALESDESC, '') || '').trim();
+    const noteHtml = note ? `<div class="detail-sales-note"><span class="detail-sales-note-label">Sales Note</span>${escapeShareHtml(note)}</div>` : '';
+    panel.innerHTML = (isRequestDetail ? '' : renderAvDetailMetrics(item)) + noteHtml;
+}
+
 function buildAvCardPhotoActivationAttrs(hasPhotos) {
     if (!hasPhotos) return '';
     return 'role="button" tabindex="0" aria-label="Open card photos" onclick="return activateAvCardPhotos(event)" onkeydown="return activateAvCardPhotos(event)"';

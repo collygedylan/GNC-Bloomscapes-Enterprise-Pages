@@ -35,7 +35,7 @@ html body #app-wrapper #drive-toolbar-rail .bloomscapes-farm-selector {
 }
 html body #app-wrapper [data-docks-primary-filters] {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;padding:4px 6px;}
 html body #app-wrapper [data-docks-primary-filters] :is(label,.inventory-excel-field) {min-width:0;margin:0;padding:0;border:0;}
-html body #app-wrapper [data-docks-primary-filters] select {width:100%;min-width:0;height:36px;min-height:36px;font-size:11px;padding:0 4px;margin:0;}
+html body #app-wrapper [data-docks-primary-filters] :is(select,button) {width:100%;min-width:0;height:36px;min-height:36px;font-size:11px;padding:0 4px;margin:0;}
 html body #app-wrapper [data-docks-primary-filters] .inventory-excel-field > span {display:none;}
 html body #app-wrapper #dashboard-sync-accordion > summary {flex-wrap:nowrap!important;align-items:center!important;gap:4px!important;padding:6px!important;}
 html body #app-wrapper #dashboard-sync-accordion .home-sync-target-toolbar {flex-wrap:nowrap!important;gap:4px!important;}

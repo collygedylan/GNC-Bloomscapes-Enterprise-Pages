@@ -18,7 +18,6 @@ const GLOBAL_HEADER_SEARCH_CONFIG = {
 function getGlobalHeaderChromeState(backState = getGlobalBackState()) {
     const currentView = backState.currentView;
     mountBloomscapesViewSearch(currentView);
-    ensureGlobalHeaderSearchPlaceholders();
     const baseMeta = AMAZON_HEADER_META[currentView] || { title: formatGlobalHeaderTitle(currentView) };
     const meta = currentView === 'moves' && activeMovesTab === 'office'
         ? { eyebrow: 'Location Move', title: 'Inventory Office' }
@@ -32,6 +31,7 @@ function getGlobalHeaderChromeState(backState = getGlobalBackState()) {
         ? (shouldShowTaskHeaderSearch() ? GLOBAL_HEADER_SEARCH_CONFIG.tasks : '')
         : GLOBAL_HEADER_SEARCH_CONFIG[currentView];
     const searchContainer = searchContainerId ? document.getElementById(searchContainerId) : null;
+    if (searchContainer) ensureHeaderSearchPlaceholder(searchContainer);
     const searchVisible = !!(searchContainer && !searchContainer.classList.contains('hidden'));
     return {
         currentView,
@@ -153,4 +153,128 @@ function secondaryBackHasVisibleParents(control) {
         if (getComputedStyle(parent).display==='none') return false;
     }
     return true;
+}
+
+const headerSearchOrigins = new WeakMap();
+
+function ensureHeaderSearchPlaceholder(container) {
+    const existing = headerSearchOrigins.get(container);
+    if (existing?.parentNode) return existing;
+    container.classList.add('amazon-search-host');
+    let placeholder = document.querySelector('[data-header-search-placeholder="' + container.id + '"]');
+    if (!placeholder) {
+        placeholder = document.createElement('div');
+        placeholder.className = 'hidden';
+        placeholder.dataset.headerSearchPlaceholder = container.id;
+        container.parentNode.insertBefore(placeholder, container);
+    }
+    headerSearchOrigins.set(container, placeholder);
+    return placeholder;
+}
+
+function ensureGlobalHeaderSearchPlaceholders() {
+    for (const id of Object.values(GLOBAL_HEADER_SEARCH_CONFIG)) {
+        const container = document.getElementById(id);
+        if (container) ensureHeaderSearchPlaceholder(container);
+    }
+}
+
+function restoreGlobalHeaderSearchContainers() {
+    const slot = document.getElementById('global-header-search-slot');
+    for (const container of Array.from(slot?.children || [])) {
+        const origin = headerSearchOrigins.get(container);
+        if (!origin?.parentNode) continue;
+        container.classList.remove('global-header-search-mounted');
+        container.removeAttribute('data-global-header-mounted');
+        origin.after(container);
+    }
+}
+
+function syncGlobalHeaderSearchOwnership(activeContainer = null) {
+    const body = document.body;
+    const id = activeContainer?.id || '';
+    const previous = body?.dataset.globalHeaderSearchOwner || '';
+    if (previous && previous !== id) {
+        const old = document.getElementById(previous);
+        old?.classList.remove('global-header-search-mounted');
+        old?.removeAttribute('data-global-header-mounted');
+    }
+    if (body && previous !== id) {
+        body.classList.toggle('global-header-search-active', Boolean(id));
+        if (id) body.dataset.globalHeaderSearchOwner = id;
+        else delete body.dataset.globalHeaderSearchOwner;
+    }
+    const slot = document.getElementById('global-header-search-slot');
+    if (!activeContainer || !slot?.contains(activeContainer)) return;
+    if (activeContainer.dataset.globalHeaderMounted !== 'true') {
+        activeContainer.classList.add('global-header-search-mounted');
+        activeContainer.dataset.globalHeaderMounted = 'true';
+    }
+    activeContainer.removeAttribute('aria-hidden');
+    for (const key of ['display','visibility','height','min-height','max-height']) {
+        if (activeContainer.style.getPropertyValue(key)) activeContainer.style.removeProperty(key);
+    }
+}
+
+function formatGlobalHeaderTitle(viewId) {
+    if (viewId === 'sales-credit') return 'Credit';
+    if (viewId === 'historical-requests') return 'Historical Requests';
+    if (viewId === 'request-history') return 'Request History';
+    if (viewId === 'credit-request') return 'Credit Request';
+    return String(viewId || 'home').replace(/-/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function resolveFooterNavigationSelection(buttons, currentView, access, personal) {
+    let selected = null;
+    let parent = null;
+    for (const button of buttons) {
+        const view = String(button.dataset.footerView || '').trim();
+        const allowed = personal || canShowFooterViewButton(view, access);
+        if (!personal) button.classList.toggle('hidden', !allowed);
+        if (!allowed || button.classList.contains('hidden')) continue;
+        if (!selected && view === currentView) selected = button;
+        if (view === 'communication' && ['communication','chat','department-calendar'].includes(currentView)) parent = button;
+        if (!parent && view === 'sales' && currentView !== 'home' && isSalesShellAccess(access)) parent = button;
+    }
+    return selected || parent;
+}
+
+function syncFooterNavigationButtons(footer, currentView, access, personal) {
+    const active = resolveFooterNavigationSelection(footer?.querySelectorAll('[data-footer-view]') || [], currentView, access, personal);
+    const controls = footer?.querySelectorAll('button, .nav-item, [data-footer-view]') || [];
+    for (const button of controls) {
+        const selected = button === active;
+        if (button.classList.contains('active') !== selected) button.classList.toggle('active', selected);
+        if (selected && button.getAttribute('aria-current') !== 'page') button.setAttribute('aria-current', 'page');
+        if (!selected && button.hasAttribute('aria-current')) button.removeAttribute('aria-current');
+        if (button.style.touchAction !== 'manipulation') button.style.touchAction = 'manipulation';
+    }
+}
+
+let stickyRailForceRequested = false;
+
+function scheduleStickyRailOffsetSync(reason = 'default', force = false) {
+    const syncReason = normalizeUiSyncReason(reason);
+    if (!force && isIOSDevice() && isUserInLiveTouchScrollGesture()) {
+        scheduleDeferredChromeSyncTask('sticky-rail-offset', () => scheduleStickyRailOffsetSync('settled:'+syncReason,true), ACTIVE_SCROLL_GRACE_MS + 120);
+        return;
+    }
+    if (!force && shouldDeferChromeSyncWork(syncReason)) {
+        scheduleDeferredChromeSyncTask('sticky-rail-offset', () => scheduleStickyRailOffsetSync('deferred:'+syncReason,true));
+        return;
+    }
+    stickyRailForceRequested ||= force;
+    if (stickyRailOffsetFrameQueued) return;
+    stickyRailOffsetFrameQueued = true;
+    requestAnimationFrame(flushStickyRailOffsetSync);
+}
+
+function flushStickyRailOffsetSync() {
+    stickyRailOffsetFrameQueued = false;
+    const forced = stickyRailForceRequested;
+    stickyRailForceRequested = false;
+    const signature = forced ? '' : buildStickyRailOffsetSignature();
+    if (!forced && signature === lastStickyRailOffsetSignature) return;
+    syncStickyRailOffsets();
+    lastStickyRailOffsetSignature = signature;
 }

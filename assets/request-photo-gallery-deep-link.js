@@ -123,3 +123,53 @@ function openRequestPhotoGalleryNotification(event) {
 }
 
 navigator.serviceWorker?.addEventListener('message', openRequestPhotoGalleryNotification);
+
+function readInventoryGalleryDeepLink() {
+    const params = new URLSearchParams(window.location.search || '');
+    if (!params.get('gallery')) return null;
+    const photos = String(params.get('p') || '').split(',').map((value) => value.trim()).filter(Boolean);
+    if (!photos.length) return null;
+    return {
+        itemCode: String(params.get('item') || '').trim().toUpperCase(),
+        locationCode: String(params.get('loc') || '').trim().toUpperCase(),
+        lotCode: String(params.get('lot') || '').trim().toUpperCase(),
+        title: String(params.get('title') || 'Photo Gallery').trim() || 'Photo Gallery',
+        photos
+    };
+}
+
+function focusInventoryGalleryDeepLinkRow(link) {
+    if (!link || !currentUser || !Array.isArray(fullInventory) || !fullInventory.length) return false;
+    const row = (masterInventoryByItemCode.get(link.itemCode) || []).find(item => String(firstNonEmptyValue(item && item.LOCATIONCODE, item && item.locationcode, '') || '').trim().toUpperCase() === link.locationCode
+        && String(firstNonEmptyValue(item && item.LOTCODE, item && item.lotcode, '') || '').trim().toUpperCase() === link.lotCode);
+    if (!row) return false;
+    const uid = String(firstNonEmptyValue(row.UNIQUE_ID, row.unique_id, row.DOM_ID, '') || '').trim();
+    if (uid && typeof openDetail === 'function') openDetail(uid, 'drive');
+    else switchView('drive');
+    openPhotoModal(link.photos.join(','), link.title);
+    return true;
+}
+
+var pendingInventoryGallery;
+
+function cancelInventoryGalleryFocus() {
+    if (pendingInventoryGallery) clearTimeout(pendingInventoryGallery.expiry);
+    pendingInventoryGallery=null;
+}
+
+function resumeInventoryGalleryFocus() {
+    const pending=pendingInventoryGallery;
+    if (!pending || !currentUser || document.hidden) return;
+    if (pending.owner && pending.owner!==currentUser) return cancelInventoryGalleryFocus();
+    if (focusInventoryGalleryDeepLinkRow(pending.link)) cancelInventoryGalleryFocus();
+}
+
+function openInventoryGalleryDeepLink() {
+    const link=readInventoryGalleryDeepLink();
+    if (!link) return false;
+    cancelInventoryGalleryFocus();
+    openPhotoModal(link.photos.join(','),link.title);
+    pendingInventoryGallery={link,owner:currentUser,expiry:setTimeout(cancelInventoryGalleryFocus,60000)};
+    resumeInventoryGalleryFocus();
+    return true;
+}

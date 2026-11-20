@@ -29,7 +29,11 @@ function bloomscapesData(result) {
 
 async function readBloomscapesPanel(panel, inputs = {}) {
     const {client, owner} = await requireBloomscapesSession();
-    const result = await bloomscapesPanelQuery(client, panel, {...inputs,farm:getBloomscapesFarm()});
+    const input = {...inputs,farm:getBloomscapesFarm()};
+    if (['sales-studio-records','bloomscapes-sales-vault','bloomscapes-vault'].includes(panel)) {
+        return readBloomscapesSecondaryPanel(client,panel,input,owner);
+    }
+    const result = await bloomscapesPanelQuery(client, panel, input);
     const current = await getNativeAuthSession();
     if (current?.user?.id !== owner) throw new Error('Signed-in account changed.');
     const data = bloomscapesData(result);
@@ -43,6 +47,16 @@ async function readBloomscapesPanel(panel, inputs = {}) {
     const rows = await addPrivateDockPhotoLinks(client, data);
     if ((await getNativeAuthSession())?.user?.id !== owner) throw new Error('Signed-in account changed.');
     return rows;
+}
+
+function readBloomscapesSecondaryPanel(client,panel,input,owner) {
+    const key = 'panel:'+panel+':'+JSON.stringify([input.kind,input.page,input.rep]);
+    return readScopedSecondarySnapshot(key,async()=>{
+        const data = bloomscapesData(await bloomscapesPanelQuery(client,panel,input));
+        await requireBloomscapesOwner(owner);
+        if (!Array.isArray(data)) throw new Error('Panel returned an incomplete snapshot.');
+        return data;
+    },input.refresh===true);
 }
 
 function bloomscapesPanelQuery(client, panel, input) {
@@ -116,6 +130,7 @@ async function submitBloomscapesCommand(command, input) {
     const current = await getNativeAuthSession();
     if (current?.user?.id !== owner) throw new Error('Signed-in account changed.');
     const receipt = bloomscapesData(result);
+    if (command==='pdf') invalidateScopedSecondarySnapshots('panel:bloomscapes-vault:');
     if (command==='queue-shuttle' && (receipt?.id!==input.requestId || receipt.farm_code!=='10-PH'
         || receipt.work_view!=='HAULING' || receipt.po_id!==input.poId || receipt.source_id!==input.rowId
         || receipt.origin_farm!==input.originFarm)) throw new Error('Queued shuttle receipt did not match.');
@@ -205,4 +220,20 @@ async function bloomscapesWorkPdfLink(client,id) {
     if(receipt.error || !receipt.data?.content_sha256) throw new Error('Verified PDF unavailable.');
     const {storage_bucket,storage_path}=receipt.data;
     return client.storage.from(storage_bucket).createSignedUrl(storage_path,120);
+}
+
+async function readBloomscapesPendingOrdersPage(headers, cursor) {
+    const p_payload = cursor ? { beforeTime: cursor.created_at, beforeId: cursor.id } : {};
+    const send = authorization => window.GncDatabase.fetchRpc(SUPABASE_URL, 'bloomscapes_pending_command', {
+        method: 'POST', cache: 'no-store', credentials: 'omit', redirect: 'error',
+        headers: { ...authorization, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ p_action: 'state', p_payload, p_request_id: null })
+    }, 20000, 'BloomScapes pending orders');
+    const response = await sendPassiveNativeRead(send, headers);
+    const data = await response.json();
+    if (!response.ok) throw Object.assign(new Error(data.message || `Pending orders could not be loaded (${response.status}).`), { status: response.status });
+    if (data.mode !== 'pending-unpaid' || data.paymentEnabled !== false || data.stockReserved !== false || !Array.isArray(data.orders)) {
+        throw new Error('Unexpected pending-order response.');
+    }
+    return data.orders;
 }

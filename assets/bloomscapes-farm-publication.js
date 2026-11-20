@@ -1,8 +1,9 @@
-async function prepareBloomscapesFarmPublication(raw,owner,assertCurrent) {
+async function prepareBloomscapesFarmPublication(raw,owner,assertCurrent,checkpoint) {
     const identity = JSON.parse(getSupabaseReadIdentityScope());
     identity[identity.length-1] = raw.farm;
-    const prepared = await prepareProductionMasterSnapshot(raw.inventory,{identity:JSON.stringify(identity),assertCurrent,includeRawRows:false});
+    const prepared = await prepareProductionMasterSnapshot(raw.inventory,{identity:JSON.stringify(identity),assertCurrent,checkpoint,includeRawRows:false});
     assertCurrent();
+    if (checkpoint) await checkpoint();
     const inventory = prepared.payload.data;
     const master = preparedMasterRows.get(inventory);
     const indexes = master?.indexMaps;
@@ -11,9 +12,10 @@ async function prepareBloomscapesFarmPublication(raw,owner,assertCurrent) {
     indexes.lookup = window.AgMetricQueueInventory.createIndex(inventory.flatMap(row=>row.__physicalInventoryRows || [row]));
     publishEarlyBloomscapesInventory(raw,prepared);
     const resolveMaster = row=>resolveCanonicalInventoryTarget(row,indexes.byId,indexes.byItemCode);
-    const socRaw = formatFetchedRows(raw.soc,'ph_soc_master');
-    const soc = await prepareBloomscapesSupportRows(socRaw,'soc',resolveMaster,assertCurrent);
-    const reserves = await prepareBloomscapesSupportRows(formatFetchedRows(raw.reserves,'ph_reserves'),'reserves',resolveMaster,assertCurrent);
+    const socRaw = [];
+    const soc = await prepareBloomscapesSupportRows(raw.soc,'soc',resolveMaster,assertCurrent,checkpoint,socRaw);
+    const reserves = await prepareBloomscapesSupportRows(raw.reserves,'reserves',resolveMaster,assertCurrent,checkpoint);
+    if (checkpoint) await checkpoint();
     const assigned = formatFetchedRows(raw.assigned,'ph_inventory_row_assignments').map((row,index)=>normalizeWarehouseAssignedItemRow(row,index)).filter(Boolean);
     const assignedMap = buildBloomscapesAssignmentIndex(raw.farm,raw.assigned,raw.defaults);
     const defaultOwnersByCode = new Map(raw.defaults.map(row=>[buildManagerEvalAssignmentKey(row.itemcode_normalized),row]));
@@ -24,16 +26,21 @@ async function prepareBloomscapesFarmPublication(raw,owner,assertCurrent) {
         purchaseOrders:raw.purchaseOrders || [],indexes,av:master.avOpenRows,socRaw,driveProjection,reportTabs,loadedAt:Date.now()};
 }
 
-async function prepareBloomscapesSupportRows(rows,kind,resolveMaster,assertCurrent) {
+async function prepareBloomscapesSupportRows(rows,kind,resolveMaster,assertCurrent,checkpoint,rawProjection) {
     const prepared = [], yieldIfNeeded = createMasterPreparationYieldController(assertCurrent);
+    const table=kind==='soc' ? 'ph_soc_master' : 'ph_reserves';
     for (let offset=0;offset<rows.length;offset+=128) {
         assertCurrent();
-        const batch = rows.slice(offset,offset+128);
+        const batch = formatFetchedRows(rows.slice(offset,offset+128),table,offset);
+        if (rawProjection) rawProjection.push(...batch);
         const next = kind==='soc' ? hydrateDockSourceRows(cloneDockSourceRows(batch),resolveMaster)
             : batch.map((row,index)=>hydrateReserveInventoryRow(row,offset+index,resolveMaster));
         prepared.push(...next);
         const pause = yieldIfNeeded(batch.length);
-        if (pause) await pause;
+        if (pause) {
+            await pause;
+            if (checkpoint) await checkpoint();
+        }
     }
     return prepared;
 }

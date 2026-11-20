@@ -1,12 +1,11 @@
-function renderAvTopControls(items = []) {
+function renderAvTopControls(items = [], preparedState = null) {
     const container = document.getElementById('av-top-filters');
-    if (!container) return buildAvSharedFilterState(items);
+    if (!container) return preparedState || buildAvSharedFilterState(items);
     ensureAvControlsVisible(container);
     avFilterItemsCache = Array.isArray(items) ? items : [];
-    const state = buildAvSharedFilterState(avFilterItemsCache);
+    const state = preparedState ? {...preparedState} : buildAvSharedFilterState(avFilterItemsCache);
     const filterState = resolveAvRailState(container, state);
     const { photoSummary, columnSummary, showSalesRepFilter, showRepCustomerFilter, salesRepSummary, repCustomerSummary } = filterState;
-    const markup = buildAvRailOptions(state, filterState);
     const didMountShell = ensureAvTopControlsShell(container);
     syncAvValidPhotosButton(container);
     syncAvToolbarKioskButton(container.querySelector('#av-kiosk-toggle'));
@@ -34,6 +33,7 @@ function renderAvTopControls(items = []) {
         renderAvColumnFilterWindow(state);
         return state;
     }
+    const markup = buildAvRailOptions(state, filterState);
     syncAvViewFilterPanels(container, state, filterState, markup);
     syncAvAccountFilterPanels(container, filterState, markup);
     lastAvTopControlsRenderSignature = renderSignature;
@@ -240,7 +240,7 @@ function setAvPhotoMode(mode = 'all') {
     avResolvedBaseStateKey = '';
     avResolvedBaseStateCache = null;
     const current = getCurrentAVBaseItems();
-    renderAvTopControls(current.filterBaseItems || []);
+    renderAvTopControls(current.filterBaseItems || [],current.avFilterState);
     updateAVExportButton(current.isPartial ? 0 : getAVVisibleExportCount(current.items));
     if (nextMode === 'valid_photos') renderAV();
     else scheduleAVRender(0);

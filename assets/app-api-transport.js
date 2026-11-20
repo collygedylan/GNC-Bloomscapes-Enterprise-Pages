@@ -147,7 +147,10 @@ async function postAppFunctionAttempt(url, body, options = {}) {
             const headerOptions = {signal:safeOptions.signal, timeoutMs:Math.max(15000, Number(safeOptions.timeoutMs) || 18000),
                 current};
             const readHeaders = () => waitForOperationalPrerequisite(() => getNativeAuthRequestHeaders().catch(() => null), headerOptions);
-            let nativeHeaders = safeOptions.nativeHeaders || await readHeaders();
+            const passiveRead = isRecoverableOperationalRead(body || {});
+            let nativeHeaders = safeOptions.nativeHeaders || getPassiveNativeAuthRequestHeaders();
+            if (!nativeHeaders?.Authorization && !passiveRead) nativeHeaders = await readHeaders();
+            if (!nativeHeaders?.Authorization && passiveRead && nativeReadRequiresRls()) throw nativeSessionRecoveryError();
             if (bridgeOwner && !nativeHeaders?.Authorization) nativeHeaders = await readHeaders();
             if (bridgeOwner && !nativeHeaders?.Authorization) throw nativeSessionRecoveryError();
             if (!current()) throw staleSupabaseReadScopeError();
@@ -267,8 +270,8 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = SUPABASE_WRITE_TI
     }
 }
 
-function createSupabaseTransportClient(sdk, url, key) {
-    return sdk.createClient(url, key, {
+function createSupabaseTransportClient(sdk, url, key, readAccessToken) {
+    const client = sdk.createClient(url, key, {
         global:{fetch:fetchObservedSupabaseRequest},
         auth:{
             persistSession:true,
@@ -278,6 +281,19 @@ function createSupabaseTransportClient(sdk, url, key) {
             experimental:{passkey:true}
         },
         realtime:{params:{eventsPerSecond:2}}
+    });
+    if (!readAccessToken) return client;
+    // The SDK's accessToken option bypasses GoTrue session reads for data traffic.
+    // Keep auth and Realtime on the original client and its existing event lifecycle.
+    const data = sdk.createClient(url, key, { accessToken: async () => readAccessToken(),
+        global: { fetch: fetchObservedSupabaseRequest } });
+    const dataMembers = new Set(['from', 'schema', 'rpc', 'storage', 'functions']);
+    return new Proxy(client, {
+        get(target, property) {
+            const owner = dataMembers.has(property) ? data : target;
+            const value = Reflect.get(owner, property, owner);
+            return typeof value === 'function' ? value.bind(owner) : value;
+        }
     });
 }
 

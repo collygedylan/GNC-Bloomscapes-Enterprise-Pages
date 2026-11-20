@@ -12,7 +12,7 @@ function getBloomscapesDockBoardState() {
     const farm = getBloomscapesFarm();
     if (bloomscapesDockBoardState?.identity !== identity || bloomscapesDockBoardState?.farm !== farm) {
         bloomscapesDockBoardState = {
-            identity,farm,board:null,read:null,write:null,error:'',filters:{},revision:0,urgent:new Map(),drafts:new Map()
+            identity,farm,board:null,read:null,write:null,error:'',filters:{},revision:0,urgent:new Map(),drafts:new Map(),openDisclosures:new Set()
         };
     }
     return bloomscapesDockBoardState;
@@ -22,25 +22,36 @@ function isBloomscapesDockStateCurrent(state) {
     return getBloomscapesDockBoardState() === state && nativeAuthSessionActive;
 }
 
-function refreshBloomscapesDockBoard() {
+function refreshBloomscapesDockBoard(force=false) {
     const state = getBloomscapesDockBoardState();
     if (!isBloomscapesDockStateCurrent(state)) return Promise.resolve();
+    if (!force && state.board && Date.now()-(state.readyAt || 0)<45000) return Promise.resolve(state.board);
     if (!state.read) state.read = loadBloomscapesDockBoard(state);
     return state.read;
 }
 
 async function loadBloomscapesDockBoard(state) {
+    let changed = false;
     try {
         const board = await readBloomscapesDockBoard(state.farm,state.identity);
         if (!isBloomscapesDockStateCurrent(state)) return;
+        changed = !!state.error;
         state.error = '';
+        state.readyAt = Date.now();
         if (JSON.stringify(state.board) !== JSON.stringify(board)) {
+            changed = true;
             state.board = board;
             state.revision += 1;
             state.urgent = new Map(board.suspend.filter(tag => tag.urgent === true).map(tag => [String(tag.id),tag]));
+            state.tagIndex = new Map(board.tags.map(tag=>[String(tag.id),tag]));
+            state.tagsByDrop = pullTagsByDrop(board.tags);
+            state.tripIndex = new Map(board.trips.map(trip=>[pullKey(trip),trip]));
+            state.trafficIndex = new Map(board.traffic.map(receipt=>[pullTrafficKey(receipt),receipt]));
+            state.hasPullers = board.people.some(person=>person.puller_eligible===true);
         }
     } catch (error) {
         if (!isBloomscapesDockStateCurrent(state)) return;
+        changed = state.error!==error.message || (error.code==='42501' && !!state.board);
         state.error = error.message;
         if (error.code === '42501' && state.board) {
             state.board = null;
@@ -49,7 +60,7 @@ async function loadBloomscapesDockBoard(state) {
         }
     } finally {
         state.read = null;
-        if (isBloomscapesDockStateCurrent(state)) publishBloomscapesDockBoard(state);
+        if (changed && isBloomscapesDockStateCurrent(state)) publishBloomscapesDockBoard(state);
     }
 }
 
@@ -87,6 +98,7 @@ function renderBloomscapesDocksWorkspace(viewId) {
     if (!host) return false;
     mountBloomscapesDockWorkspaceEvents(host);
     const state = getBloomscapesDockBoardState();
+    bindBloomscapesDockChoiceFields(host,state);
     paintBloomscapesDocksWorkspace(host,viewId,state);
     return true;
 }
@@ -104,6 +116,7 @@ function openBloomscapesDockTrip(dock,trip,edit = '') {
     const state = getBloomscapesDockBoardState();
     state.filters = {dock, trip};
     state.edit = edit;
+    state.pages = {};
     markViewDirty('pull-tags');
     switchView('pull-tags');
     return false;
@@ -116,44 +129,64 @@ function mountBloomscapesDockWorkspaceEvents(host) {
     host.addEventListener('click',handleBloomscapesDockClick);
     host.addEventListener('change',handleBloomscapesDockFilter);
     host.addEventListener('input',saveBloomscapesDockDraft);
+    host.addEventListener('toggle',handleBloomscapesDockDisclosure,true);
+}
+
+function handleBloomscapesDockDisclosure(event) {
+    const details = event.target;
+    if (!details.isConnected || !details.matches('[data-pull-disclosure],[data-pull-list-section]')) return;
+    const state = getBloomscapesDockBoardState();
+    if (details.matches('[data-pull-list-section]')) return paintBloomscapesDockListSection(details,state);
+    const key=details.dataset.pullDisclosure+':'+details.dataset.pullDisclosureKey;
+    if (details.open) state.openDisclosures.add(key);
+    else state.openDisclosures.delete(key);
+    paintBloomscapesDockDisclosure(details,state);
 }
 
 function mountBloomscapesDockDropEvents() {
     const host = document.getElementById('docks-content');
-    if (host) mountBloomscapesDockWorkspaceEvents(host);
+    if (!host) return;
+    mountBloomscapesDockWorkspaceEvents(host);
+    bindBloomscapesDockChoiceFields(host,getBloomscapesDockBoardState());
 }
 
 function handleBloomscapesDockClick(event) {
     const button = event.target.closest('[data-pull-click]');
     if (!button) return;
     const state = getBloomscapesDockBoardState();
-    if (button.dataset.pullClick === 'refresh') void refreshBloomscapesDockBoard();
+    if (button.dataset.pullClick === 'refresh') void refreshBloomscapesDockBoard(true);
     if (button.dataset.pullClick === 'reset') {
         state.filters = {};
         state.edit = '';
+        state.pages = {};
         paintBloomscapesDocksWorkspace(event.currentTarget,'pull-tags',state);
     }
     if (button.dataset.pullClick === 'borrow') {
         const details = event.currentTarget.querySelector('[data-pull-borrow]');
         if (details) details.open = true;
-        details?.querySelector('select')?.focus();
+        details?.querySelector('[data-bloom-choice-source]')?.focus();
     }
     if (button.dataset.pullClick === 'print') printBloomscapesCheckerCopy(button);
 }
 
 function handleBloomscapesDockFilter(event) {
     const filter = event.target.closest('[data-pull-filter]');
-    if (!filter || filter.name === 'route') return;
+    if (!filter) {
+        if (event.target.matches('[data-bloom-choice-value]')) saveBloomscapesDockDraft(event);
+        return;
+    }
+    if (filter.name === 'route') return;
     const state = getBloomscapesDockBoardState();
     state.filters[filter.name] = filter.value;
-    state.page = 0;
+    state.pages = {};
     if (filter.name === 'dockDay') {
         delete state.filters.dock;
         delete state.filters.trip;
         state.edit = '';
     }
     paintBloomscapesDocksWorkspace(event.currentTarget,'pull-tags',state);
-    event.currentTarget.querySelector('[data-pull-filter][name="'+filter.name+'"]')?.focus();
+    const current = event.currentTarget.querySelector('[data-pull-filter][name="'+filter.name+'"]');
+    (current?.matches('[data-bloom-choice-value]') ? current.previousElementSibling : current)?.focus();
 }
 
 function handleBloomscapesDockSubmit(event) {
@@ -166,7 +199,7 @@ function handleBloomscapesDockSubmit(event) {
     const action = form.dataset.pullCommand;
     const key = bloomscapesDockDraftKey(form);
     if (action === 'borrow' && input.id) {
-        const tag = state.board.tags.find(tag => tag.id === input.id);
+        const tag = state.tagIndex.get(String(input.id));
         if (!tag) return;
         Object.assign(input,{dock:tag.dock,trip:tag.trip,drop:tag.drop});
     }
@@ -207,7 +240,9 @@ function restoreBloomscapesDockDrafts(host) {
         if (details) details.open = true;
         for (const [name,value] of Object.entries(draft.values)) {
             const control = form.elements.namedItem(name);
-            if (control) control.value = value;
+            if (!control) continue;
+            if (control.matches('[data-bloom-choice-value]')) setBloomscapesChoiceFieldValue(control,value);
+            else control.value = value;
         }
     }
 }
@@ -224,7 +259,7 @@ async function applyBloomscapesDockCommand({state,form,input,action,key,host}) {
         if (state.drafts.get(key) === submittedDraft) state.drafts.delete(key);
         await state.read;
         if (!isBloomscapesDockStateCurrent(state)) return;
-        await refreshBloomscapesDockBoard();
+        await refreshBloomscapesDockBoard(true);
         if (action !== 'set_team' && action !== 'set_truck' && action !== 'auto_assign') void refreshBloomscapesBorrowedRoutes();
         if (isBloomscapesDockStateCurrent(state)) showToast('Docks','Saved.');
     } catch (error) {

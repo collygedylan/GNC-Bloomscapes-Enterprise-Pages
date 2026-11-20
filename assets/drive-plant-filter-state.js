@@ -1,15 +1,16 @@
+function drivePlantDimensionKey(mode, selection, search) {
+    return [mode, mode === 'all' ? null : [...selection].sort(), search];
+}
+
 function getDrivePlantFilterScopeKey(baseItems) {
-    return [
-    getInventoryExcelState('drive').revision,
-    String(driveBaseFilterCacheKey || ''),
-    baseItems === driveBaseFilterCacheItems || baseItems === drivePlantFilterItemsCache
-        ? String(driveBaseFilterCacheKey || `drive-base:${resolvedViewStateEpoch}:${baseItems.length}`)
-        : `drive-manual:${resolvedViewStateEpoch}:${activeDriveTab}:${baseItems.length}`,
-    driveGenusSelectionMode, [...selectedDriveGenusNames].sort().join(','), driveGenusSearchTerm,
-    driveContSizeSelectionMode, [...selectedDriveContSizes].sort().join(','), driveContSizeSearchTerm,
-    driveLocationSelectionMode, [...selectedDriveLocationCodes].sort().join(','), driveLocationSearchTerm,
-    driveLotSelectionMode, [...selectedDriveLotCodes].sort().join(','), driveLotSearchTerm
-].join('|');
+    const source = baseItems === driveBaseFilterCacheItems || baseItems === drivePlantFilterItemsCache
+        ? driveBaseFilterCacheKey : activeDriveTab;
+    return JSON.stringify([getInventoryExcelState('drive').revision, String(driveBaseFilterCacheKey || ''),
+        getInventoryExcelState('drive').owner,resolvedViewStateEpoch,source,baseItems.length,
+        drivePlantDimensionKey(driveGenusSelectionMode,selectedDriveGenusNames,driveGenusSearchTerm),
+        drivePlantDimensionKey(driveContSizeSelectionMode,selectedDriveContSizes,driveContSizeSearchTerm),
+        drivePlantDimensionKey(driveLocationSelectionMode,selectedDriveLocationCodes,driveLocationSearchTerm),
+        drivePlantDimensionKey(driveLotSelectionMode,selectedDriveLotCodes,driveLotSearchTerm)]);
 }
 
 function buildDriveModeRows(items) {
@@ -24,17 +25,28 @@ function getDriveModeItems() {
 }
 
 function buildDrivePlantOptionLists(items) {
+    const genus=new Set(), size=new Set(), location=new Set(), lot=new Set();
+    for (const item of items) {
+        genus.add(getDrivePlantGenusValue(item));
+        size.add(getDrivePlantContSize(item));
+        location.add(getDrivePlantLocationCode(item));
+        lot.add(getDrivePlantLotCode(item));
+    }
+    const compare = new Intl.Collator().compare;
+    const compareLots = new Intl.Collator(undefined,{numeric:true,sensitivity:'base'}).compare;
     return {
-        genus:[...new Set(items.map(item=>getDrivePlantGenusValue(item)))].sort((a,b)=>String(a).localeCompare(String(b))),
-        size:[...new Set(items.map(item=>getDrivePlantContSize(item)).filter(Boolean))].sort(compareDrivePlantContSize),
-        location:[...new Set(items.map(item=>getDrivePlantLocationCode(item)).filter(Boolean))].sort(compareLocationCodeValues),
-        lot:[...new Set(items.map(item=>getDrivePlantLotCode(item)).filter(Boolean))].sort((a,b)=>String(a || '').localeCompare(String(b || ''),undefined,{numeric:true,sensitivity:'base'}))
+        genus:[...genus].sort((a,b)=>compare(String(a),String(b))),
+        size:[...size].filter(Boolean).sort(compareDrivePlantContSize),
+        location:[...location].filter(Boolean).sort(compareLocationCodeValues),
+        lot:[...lot].filter(Boolean).sort(compareLots)
     };
 }
 
 function prepareBloomscapesDriveProjection(inventory) {
     const rows = buildDriveModeRows(inventory);
-    return {rows,names:buildDriveCommonNameGroups(rows),options:buildDrivePlantOptionLists(rows),fields:buildDriveColumnFilterFields(rows),assignedFields:buildDriveColumnFilterFields(rows,true)};
+    const assignedFields=buildDriveColumnFilterFields(rows,true);
+    const fields=assignedFields.filter(field=>field.key!=='ASSIGNEDTO');
+    return {rows,names:buildDriveCommonNameGroups(rows),options:buildDrivePlantOptionLists(rows),fields,assignedFields};
 }
 
 function getDrivePlantOptionLists(items) {
@@ -56,15 +68,25 @@ function getDrivePlantSelections(options) {
     };
 }
 
+function isCompleteDrivePlantSelection(selection) {
+    return selection.options.length > 0 && selection.selected.size === selection.options.length;
+}
+
 function filterDrivePlantRows(items,state) {
-    return items.filter(item=>state.genus.selected.has(getDrivePlantGenusValue(item))
-        && state.size.selected.has(getDrivePlantContSize(item)) && state.location.selected.has(getDrivePlantLocationCode(item))
-        && state.lot.selected.has(getDrivePlantLotCode(item)));
+    const genus = isCompleteDrivePlantSelection(state.genus) ? null : state.genus.selected;
+    const size = isCompleteDrivePlantSelection(state.size) ? null : state.size.selected;
+    const location = isCompleteDrivePlantSelection(state.location) ? null : state.location.selected;
+    const lot = isCompleteDrivePlantSelection(state.lot) ? null : state.lot.selected;
+    if (!genus && !size && !location && !lot) return items;
+    const filtered = items.filter(item=>(!genus || genus.has(getDrivePlantGenusValue(item)))
+        && (!size || size.has(getDrivePlantContSize(item))) && (!location || location.has(getDrivePlantLocationCode(item)))
+        && (!lot || lot.has(getDrivePlantLotCode(item))));
+    return filtered.length===items.length ? items : filtered;
 }
 
 function createDrivePlantFilterModel(baseItems,state) {
-    const all = selection=>!!selection.options.length && selection.selected.size===selection.options.length;
-    const genusAllSelected=all(state.genus),contSizeAllSelected=all(state.size),locationAllSelected=all(state.location),lotAllSelected=all(state.lot);
+    const genusAllSelected=isCompleteDrivePlantSelection(state.genus),contSizeAllSelected=isCompleteDrivePlantSelection(state.size);
+    const locationAllSelected=isCompleteDrivePlantSelection(state.location),lotAllSelected=isCompleteDrivePlantSelection(state.lot);
     return {
         baseItems,filteredItems:filterDrivePlantRows(baseItems,state),
         genusOptions:state.genus.options,filteredGenusOptions:filteredDrivePlantOptions(state.genus.options,driveGenusSearchTerm),
@@ -82,21 +104,24 @@ function createDrivePlantFilterModel(baseItems,state) {
 function buildDrivePlantFilterState(items = []) {
     const baseItems = Array.isArray(items) ? items : [];
     const stateScopeKey = getDrivePlantFilterScopeKey(baseItems);
-    if (drivePlantFilterStateCacheKey===stateScopeKey && drivePlantFilterStateCache) {
+    if (drivePlantFilterStateCacheKey===stateScopeKey && drivePlantFilterStateCache?.baseItems===baseItems) {
         incrementInternalPerfCounter('viewStateCacheHits');
         return drivePlantFilterStateCache;
     }
     const state = getDrivePlantSelections(getDrivePlantOptionLists(baseItems));
-    drivePlantFilterStateCacheKey = stateScopeKey;
+    drivePlantFilterStateCacheKey = getDrivePlantFilterScopeKey(baseItems);
     drivePlantFilterStateCache = createDrivePlantFilterModel(baseItems,state);
     return drivePlantFilterStateCache;
 }
 
 function buildDriveColumnFilterFields(items = [],exposeAssignedTo = false) {
     const fieldsByKey = new Map();
+    const seenRawKeys = new Set();
     (Array.isArray(items) ? items : []).forEach((item) => {
         if (!item || typeof item !== 'object') return;
         Object.keys(item).forEach((rawKey) => {
+            if (seenRawKeys.has(rawKey)) return;
+            seenRawKeys.add(rawKey);
             const key = normalizeDriveColumnFilterKey(rawKey);
             if (key === 'ASSIGNEDTO' && !exposeAssignedTo) return;
             if (!key || fieldsByKey.has(key) || !DRIVE_COLUMN_FILTER_ALLOWED_HEADER_KEYS.has(key)) return;
@@ -114,6 +139,24 @@ function buildDriveColumnFilterFields(items = [],exposeAssignedTo = false) {
         if (aPriority !== bPriority) return aPriority - bPriority;
         return String(a.label || a.key).localeCompare(String(b.label || b.key), undefined, { numeric: true, sensitivity: 'base' });
     });
+}
+
+function driveCardSortFields(item) {
+    const priority = parseFloat(item.PRIORITY);
+    const qty = parseAppNumber(firstNonEmptyValue(item.PTRAVAILABLE,item.ptravailable,item.PRTAVAILABLE,item.prtavailable,'0'));
+    return {item,priority:Number.isNaN(priority)?Infinity:priority,name:String(item.COMMONNAME || ''),
+        size:String(item.CONTSIZE || ''),code:String(item.ITEMCODE || ''),lot:String(item.LOTCODE || ''),
+        assignment:getDriveCardAssignmentRank(item),quantity:Number.isFinite(qty)?qty:-1};
+}
+
+function sortDriveCardItems(items) {
+    const text = new Intl.Collator().compare;
+    const numeric = new Intl.Collator(undefined,{numeric:true}).compare;
+    const sorted = items.map(driveCardSortFields).sort((a,b)=>
+        a.priority-b.priority || text(a.name,b.name) || numeric(a.size,b.size) || numeric(a.code,b.code)
+        || a.assignment-b.assignment || b.quantity-a.quantity || numeric(a.lot,b.lot)
+        || compareLocationCodeValues(a.item.LOCATIONCODE,b.item.LOCATIONCODE));
+    return sorted.map(entry=>entry.item);
 }
 
 

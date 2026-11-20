@@ -33,6 +33,7 @@
     }
     function openDetail({ title, onClose }) {
         closeDetail();
+        if (typeof mountBloomscapesStaticBody === 'function') mountBloomscapesStaticBody('view-detail');
         const root = document.getElementById('view-detail');
         if (!root) throw new Error('The opened-card view is unavailable. Reload and retry.');
         const detailHost = document.createElement('div');

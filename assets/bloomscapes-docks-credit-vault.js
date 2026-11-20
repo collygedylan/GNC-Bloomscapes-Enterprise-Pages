@@ -36,19 +36,21 @@ function dockCreditVaultStatus(state, message) {
     state.panel.querySelector('[role="status"]').textContent=message;
 }
 
-async function loadDockCreditVault(state) {
+async function loadDockCreditVault(state,refresh=false) {
     if (!dockCreditVaultCurrent(state)) return;
     const turn=++state.turn;
     dockCreditVaultStatus(state,'Loading…');
     paintDockCreditVaultBreadcrumb(state);
     try {
-        const receipt=state.mode==='hotspots' ? await readBloomscapesDockCreditHotspots(state.scope)
-            : await readBloomscapesDockCreditVault(state.scope,state);
+        const receipt=state.mode==='hotspots' ? await readBloomscapesDockCreditHotspots(state.scope,refresh)
+            : await readBloomscapesDockCreditVault(state.scope,state,refresh);
         if (!dockCreditVaultCurrent(state) || turn!==state.turn) return;
+        dockCreditVaultStatus(state,'');
+        if (state.receipt===receipt) return;
+        state.receipt=receipt;
         state.rows=receipt.rows || [];
         state.panel.querySelector('[data-vault-action="hotspots"]').hidden=receipt.can_review_credit===false;
         paintDockCreditVaultResults(state,receipt);
-        dockCreditVaultStatus(state,'');
     } catch (error) {
         if (dockCreditVaultCurrent(state) && turn===state.turn) dockCreditVaultStatus(state,error.message);
     }
@@ -156,7 +158,7 @@ function handleDockCreditVaultClick(state,event) {
         void loadDockCreditVault(state);
         return;
     }
-    if (action==='refresh') void loadDockCreditVault(state);
+    if (action==='refresh') void loadDockCreditVault(state,true);
     else if (action==='folder') selectDockCreditVaultFolder(state,id);
     else moveDockCreditVault(state,action);
 }
@@ -182,6 +184,7 @@ function moveDockCreditVault(state,mode) {
     state.mode=mode;
     state.offset=0;
     state.search='';
+    state.receipt=null;
     state.panel.querySelector('[data-vault-search] input').value='';
     state.panel.querySelector('[data-vault-results]').replaceChildren();
     void loadDockCreditVault(state);
@@ -193,7 +196,7 @@ async function sendDockCreditVaultFeedback(state,button,id,verdict) {
     button.disabled=true;
     try {
         await submitBloomscapesDockCreditFeedback(state.scope,id,verdict);
-        if (dockCreditVaultCurrent(state)) await loadDockCreditVault(state);
+        if (dockCreditVaultCurrent(state)) await loadDockCreditVault(state,true);
     } catch(error) {
         if (dockCreditVaultCurrent(state)) dockCreditVaultStatus(state,error.message);
     } finally {

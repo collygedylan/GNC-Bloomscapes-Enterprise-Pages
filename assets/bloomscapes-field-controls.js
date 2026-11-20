@@ -4,6 +4,7 @@ function renderBloomscapesFieldExtras(item,tab,row) {
 }
 
 function resetBloomscapesFarmNavigation() {
+    if (typeof restoreBloomscapesStaticBodiesForScopeReset === 'function') restoreBloomscapesStaticBodiesForScopeReset();
     globalThis.dispatchEvent?.(new CustomEvent('bloomscapes-farm-changing'));
     cancelDriveSearchRenderWork();
     resetDriveDrillSelectionState();
@@ -12,6 +13,7 @@ function resetBloomscapesFarmNavigation() {
         const host = document.getElementById(id);
         if (host) host.replaceChildren();
     }
+    if (typeof detachInactiveBloomscapesStaticBodies === 'function') detachInactiveBloomscapesStaticBodies();
 }
 
 function renderBloomscapesFarmNavigation() {

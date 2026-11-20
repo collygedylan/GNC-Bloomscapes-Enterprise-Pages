@@ -16,7 +16,7 @@ function renderBloomscapesCommTimeline() {
 }
 
 function renderBloomscapesCommBubble(message) {
-    const person=bloomscapesCommState.people.find(user=>user.username===message.sender);
+    const person=getBloomscapesCommPerson(message.sender);
     const own=message.sender===currentUser,voice=message.type==='voice';
     const active=bloomscapesCommPlayback?.id===message.id && !bloomscapesRadioInbox.audio?.paused;
     let body='<p>'+commEscape(message.body)+'</p>';

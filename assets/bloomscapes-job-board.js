@@ -170,10 +170,10 @@ function buildSuspendTagRenderPlan(items) {
     const latestSourceFreshness = typeof getCurrentSuspendTagSourceFreshness === 'function'
         ? getCurrentSuspendTagSourceFreshness() : null;
     const freshnessRows = typeof socRawSourceRows !== 'undefined' ? socRawSourceRows : sourceRows;
-    const latestSourceWatermark = typeof getLatestSocImportFileWatermark === 'function'
-        ? getLatestSocImportFileWatermark(freshnessRows, latestSourceFreshness) : { filename: '', lastUpdated: '' };
+    const latestSourceWatermark = typeof publishedSuspendSocWatermark === 'function'
+        ? publishedSuspendSocWatermark(freshnessRows, latestSourceFreshness) : { filename: '', lastUpdated: '' };
     const latestSourceRows = typeof getLatestSocSuspendTagSourceRows === 'function'
-        ? getLatestSocSuspendTagSourceRows(sourceRows, freshnessRows, latestSourceFreshness)
+        ? getLatestSocSuspendTagSourceRows(sourceRows)
         : (Array.isArray(sourceRows) ? sourceRows : []);
     const latestSourceIds = new Set(latestSourceRows.map((row) => getDockSuspendDcRequestSourceUid(row)).filter(Boolean));
     const sourceLookupRevision = getDockSuspendDcSourceRowLookupRevision(sourceRows);

@@ -117,6 +117,14 @@ function renderErpSyncProgressCard(card) {
     return `<article class="erp-sync-file" data-sync-file="${card.key}"><strong>${card.label}</strong><div class="erp-sync-name">${escape(card.fileName)}</div><progress max="100" value="${card.percent}" aria-label="${card.label} progress"></progress><div>${card.percent}% · ${escape(labels[card.stage] || card.stage)}</div><small>${counts}${updated}</small>${error}</article>`;
 }
 
+let erpHomeWideViewport;
+
+function erpHomeViewportBand() {
+    if (!window.matchMedia) return window.innerWidth >= 768 ? 'desktop' : 'mobile';
+    erpHomeWideViewport ||= window.matchMedia('(min-width: 768px)');
+    return erpHomeWideViewport.matches ? 'desktop' : 'mobile';
+}
+
 function bindErpHomeStatusPanel(panel) {
     const summary = panel.querySelector('summary');
     if (summary && summary.dataset.viewportChoiceBound !== 'true') {
@@ -127,10 +135,14 @@ function bindErpHomeStatusPanel(panel) {
         });
         summary.dataset.viewportChoiceBound = 'true';
     }
-    const band = window.innerWidth >= 768 ? 'desktop' : 'mobile';
-    if (panel.dataset.viewportUserControlled !== 'true' && panel.dataset.viewportDefaultBand !== band) panel.open = true;
-    panel.dataset.viewportDefaultBand = band;
-    panel.dataset.viewportDefaultApplied = 'true';
+    if (panel.dataset.viewportUserControlled !== 'true') {
+        const band = erpHomeViewportBand();
+        if (panel.dataset.viewportDefaultBand !== band) {
+            panel.open = true;
+            panel.dataset.viewportDefaultBand = band;
+        }
+    }
+    if (panel.dataset.viewportDefaultApplied !== 'true') panel.dataset.viewportDefaultApplied = 'true';
     panel.classList.toggle('hidden', !canViewDashboardSyncStatus());
 }
 

@@ -38,9 +38,26 @@ function getQueueScopeFilter(tab) {
 
 function isQueueOwnerVisible(row, tab = isDockSuspendDcRequestMirrorRow(row) ? 'suspend-tag' : 'pending') {
     if (!bloomscapesFarmRowIsVisible(row)) return false;
-    const selected = getQueueScopeFilter(tab);
+    return queueOwnerMatchesSelection(row,tab,getQueueScopeFilter(tab));
+}
+
+function queueOwnerMatchesSelection(row,tab,selected) {
+    if (selected==='ALL') return true;
+    if (!selected) return false;
     const owner = getAssignedQueueOwner(row) || 'Unassigned';
-    return selected === 'ALL' || !!selected && (tab === 'suspend-tag' ? normalizeSuspendQueueOwner(owner) : owner) === selected;
+    return (tab==='suspend-tag' ? normalizeSuspendQueueOwner(owner) : owner)===selected;
+}
+
+function createQueueOwnerVisibilityPredicate(tab='') {
+    if (tab) {
+        const selection=getQueueScopeFilter(tab);
+        return row=>bloomscapesFarmRowIsVisible(row) && queueOwnerMatchesSelection(row,tab,selection);
+    }
+    const pending=getQueueScopeFilter('pending'), suspend=getQueueScopeFilter('suspend-tag');
+    return row=>{
+        if (!bloomscapesFarmRowIsVisible(row)) return false;
+        return isDockSuspendDcRequestMirrorRow(row) ? queueOwnerMatchesSelection(row,'suspend-tag',suspend) : queueOwnerMatchesSelection(row,'pending',pending);
+    };
 }
 
 function normalizeSuspendQueueOwner(value) {
@@ -54,14 +71,14 @@ function useAllSuspendOwnersIfPersonalEmpty(activeRows) {
     const scope = queueAccessScope('suspend-tag');
     if (!scope.all || getQueueScopeFilter('suspend-tag') !== scope.user || !activeRows.length) return;
     const choice = getManagerAssignedColumnState().queueScopeFilters['suspend-tag'];
-    if (activeRows.some(row => isQueueOwnerVisible(row, 'suspend-tag'))) return;
+    if (activeRows.some(createQueueOwnerVisibilityPredicate('suspend-tag'))) return;
     choice.value = 'ALL';
     requestScopedItemsCacheKey = '';
 }
 
 function suspendQueueRowsForOwner(rows, activeRows) {
     useAllSuspendOwnersIfPersonalEmpty(activeRows);
-    return rows.filter(row => isQueueOwnerVisible(row, 'suspend-tag'));
+    return rows.filter(createQueueOwnerVisibilityPredicate('suspend-tag'));
 }
 
 function applySuspendEvalUserFilter(rows = []) {

@@ -141,6 +141,7 @@ function installMasterInventoryIndexMaps(indexes) {
     masterInventoryByItemLocationOnHand = indexes.byItemLocationOnHand;
     masterInventoryByNormalizedItemLocation = indexes.byNormalizedItemLocation;
     invalidateInventoryDomIdLookup();
+    if (typeof resumeInventoryGalleryFocus==='function' && pendingInventoryGallery) queueMicrotask(resumeInventoryGalleryFocus);
     if (typeof getInventoryLocationPhotos === 'function' && fullInventory.length) {
         const snapshot = fullInventory;
         setTimeout(() => { if (snapshot === fullInventory && snapshot.length) getInventoryLocationPhotos(snapshot[0]); },0);

@@ -19,26 +19,31 @@ function borrowedFieldStateCurrent(state) {
     return nativeAuthSessionActive && getBorrowedFieldState() === state;
 }
 
-function refreshBorrowedFieldBoard(state) {
+function refreshBorrowedFieldBoard(state,force=false) {
     if (!borrowedFieldStateCurrent(state)) return Promise.resolve();
+    if (!force && state.board && Date.now()-(state.readyAt || 0)<45000) return Promise.resolve(state.board);
     if (!state.read) state.read = loadBorrowedFieldBoard(state);
     return state.read;
 }
 
 async function loadBorrowedFieldBoard(state) {
+    let changed = false;
     try {
         const board = await readBloomscapesBorrowedCards(state.farm,state.scope);
         if (!borrowedFieldStateCurrent(state)) return;
-        state.board = board;
+        changed = !!state.error || JSON.stringify(state.board)!==JSON.stringify(board);
+        if (changed) state.board = board;
+        state.readyAt = Date.now();
         state.error = '';
     } catch (error) {
         if (borrowedFieldStateCurrent(state)) {
+            changed = state.error!==error.message || (error.code==='42501' && !!state.board);
             state.error = error.message;
             if (error.code === '42501') state.board = null;
         }
     } finally {
         state.read = null;
-        if (borrowedFieldStateCurrent(state) && getCurrentVisibleViewId() === borrowedFieldRoute) paintBorrowedFieldWorkspace(state);
+        if (changed && borrowedFieldStateCurrent(state) && getCurrentVisibleViewId() === borrowedFieldRoute) paintBorrowedFieldWorkspace(state);
     }
 }
 
@@ -72,7 +77,7 @@ function paintBorrowedFieldWorkspace(state) {
 }
 
 function handleBorrowedFieldWorkspaceClick(event) {
-    if (event.target.closest('[data-borrowed-field-refresh]')) void refreshBorrowedFieldBoard(getBorrowedFieldState());
+    if (event.target.closest('[data-borrowed-field-refresh]')) void refreshBorrowedFieldBoard(getBorrowedFieldState(),true);
 }
 
 function createBorrowedFieldCard(row) {
@@ -189,8 +194,8 @@ function borrowedFieldPickerMarkup(routes, exact) {
         '<label>Find card <input type="search" name="search" placeholder="Item, name, location or lot"></label><label>Exact card <select name="target" required></select></label>';
     return `<button type="button" data-borrowed-field-close>Close</button><h2>Borrow Help (All Departments)</h2>
         <form class="space-y-2"><label>Work <select name="route">${routeOptions}</select></label>${target}
-        <label>Borrowed worker <select name="username" required></select></label>
-        <label>Receiving supervisor <select name="supervisor" required></select></label>
+        ${renderBloomscapesChoiceField('username','Borrowed worker','borrowed-field-worker','','',{required:true,className:pullWorkspacePill})}
+        ${renderBloomscapesChoiceField('supervisor','Receiving supervisor','borrowed-field-supervisor','','',{required:true,className:pullWorkspacePill})}
         <button type="submit" class="${pullWorkspacePill}">Assign help</button><p role="status"></p></form>
         <section data-borrowed-field-existing><p role="status"></p><div data-borrowed-field-assignment-list></div></section>`;
 }
@@ -215,16 +220,23 @@ function bindBorrowedFieldPicker(state, dialog, exact) {
     const form = dialog.querySelector('form');
     const roster = borrowedFieldRoster(state.board.people);
     const route = form.elements.route;
-    borrowedFieldOptionSet(form.elements.username,roster,'Choose a worker');
+    const supervisors = () => roster.filter(person =>
+        person.supervisor_departments?.some(department=>String(department)===borrowedFieldDepartments[route.value]));
+    const choices = rows => rows.map(row=>[row.id,row.label]);
+    bindBloomscapesChoiceFields(dialog,{
+        'borrowed-field-worker':()=>choices(roster),
+        'borrowed-field-supervisor':()=>choices(supervisors())
+    });
     const paint = () => {
-        const department = borrowedFieldDepartments[route.value];
-        const managers = roster.filter(person => person.supervisor_departments?.map(String).includes(department));
-        borrowedFieldOptionSet(form.elements.supervisor,managers,'Choose a receiving supervisor');
+        const supervisor = form.elements.supervisor;
+        if (supervisor.value && !supervisors().some(person=>person.id===supervisor.value)) {
+            setBloomscapesChoiceFieldValue(supervisor,'');
+        }
         if (!exact) paintBorrowedFieldTargets(form);
         paintBorrowedFieldManagedAssignments(dialog,state,route.value);
     };
     route.addEventListener('change',paint);
-    form.elements.search?.addEventListener('input',paint);
+    form.elements.search?.addEventListener('input',()=>paintBorrowedFieldTargets(form));
     form.addEventListener('submit',event => {
         event.preventDefault();
         const target = exact || parseBorrowedFieldTarget(form.elements.target.value);
@@ -239,7 +251,7 @@ function bindBorrowedFieldPicker(state, dialog, exact) {
 function paintBorrowedFieldManagedAssignments(dialog, state, route) {
     const list = dialog.querySelector('[data-borrowed-field-assignment-list]');
     const assigned = state.board?.assignments.filter(row => row.route === route && row.allowed?.includes('release')) || [];
-    list.replaceChildren(...assigned.map(createBorrowedFieldCard));
+    renderBloomscapesListWindow(list,assigned,createBorrowedFieldCard);
 }
 
 function parseBorrowedFieldTarget(value) {
@@ -255,9 +267,9 @@ function paintBorrowedFieldTargets(form) {
     for (const [kind,records] of sources) {
         for (const row of records || []) {
             appendBorrowedFieldTarget(matches,row,kind,query);
-            if (matches.size >= 50) break;
+            if (matches.size >= BLOOMSCAPES_LIST_PAGE_SIZE) break;
         }
-        if (matches.size >= 50) break;
+        if (matches.size >= BLOOMSCAPES_LIST_PAGE_SIZE) break;
     }
     borrowedFieldOptionSet(form.elements.target,[...matches.values()],matches.size ? 'Choose an exact card' : 'No matching cards in this farm');
 }
@@ -283,7 +295,7 @@ async function applyBorrowedFieldCommand(state, form, action, input, status) {
         const receipt = await state.write;
         if (!borrowedFieldStateCurrent(state)) return;
         await state.read;
-        await refreshBorrowedFieldBoard(state);
+        await refreshBorrowedFieldBoard(state,true);
         if (!borrowedFieldStateCurrent(state)) return;
         void refreshBloomscapesBorrowedRoutes();
         const dialog = form.closest('dialog');

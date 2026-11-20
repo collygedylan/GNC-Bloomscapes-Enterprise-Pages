@@ -271,3 +271,120 @@ function syncNavigationVisibilityUi(access, userOverride, grid) {
 function canUseBloomscapesWorkStudio() {
     return nativeAuthSessionActive && nativeAuthProfile?.username==='dylan_collyge' && currentUser==='dylan_collyge';
 }
+const bloomscapesDormantBodies = new WeakMap();
+const bloomscapesDormantBodyIds = [
+    'view-detail', 'view-advertisement', 'view-sales-inventory',
+    'view-hours', 'view-reports', 'view-sales', 'view-smart-moves', 'view-qc', 'view-reserves',
+    'view-hl-order', 'view-take-back', 'view-low-stock', 'view-production', 'view-inventory-suggestion',
+    'view-inv-consolidation', 'view-weather-hold', 'view-shear-list', 'view-disease-pest',
+    'view-office', 'view-po-management', 'view-sales-office', 'view-moves', 'view-review', 'view-move-up',
+    'view-grower', 'view-pest-management', 'view-communication', 'view-push-to-talk', 'view-managers', 'view-tasks',
+    'view-docks', 'view-request',
+    'bloom-picker-modal', 'eval-task-modal', 'hold-release-modal', 'request-rep-modal',
+    'flyer-assignee-modal', 'pull-clown-tape-side-modal',
+    'assign-modal', 'shear-list-modal', 'side-drawer',
+    'inventory-edit-request-modal', 'bloom-email-purpose-modal', 'grouped-bloom-ncr-recipient-modal', 'bloom-action-row-form-modal',
+    'dock-info-modal', 'dock-mistake-modal', 'ncr-email-modal', 'ncr-rep-outreach-modal', 'sales-office-av-modal'
+];
+
+const bloomscapesScopedProjectionHosts = [
+    'reports-content','smart-moves-intelligence-panel','reserves-content','hl-order-content','take-back-content',
+    'low-stock-content','inv-consolidation-content','weather-hold-content','shear-list-content','po-management-content',
+    'sales-office-content','moves-content','review-content','move-up-content','grower-content','pest-management-content',
+    'managers-content','task-content','docks-content','request-content',
+    'production-inventory-counting-content','production-inventory-84rd-content',
+    'advertisement-flyer-folders','advertisement-flyer-rows','advertisement-recipient-list'
+];
+const bloomscapesScopedProjectionSelector = bloomscapesScopedProjectionHosts.map(id=>'#'+id).join(',');
+
+function bloomscapesStaticBodyScope() {
+    const identity = typeof getSupabaseReadIdentityScope === 'function' ? getSupabaseReadIdentityScope() : '';
+    const permission = typeof appAccessSnapshotState === 'undefined' ? '' : appAccessSnapshotState.snapshot?.dataPermissionVersion || '';
+    return JSON.stringify([identity,permission]);
+}
+
+function queryBloomscapesStaticBody(id,selector) {
+    const root = document.getElementById(id);
+    if (!root) return null;
+    return root.querySelector(selector) || bloomscapesDormantBodies.get(root)?.fragment.querySelector(selector) || null;
+}
+
+function resetBloomscapesStaticBodyScope(root) {
+    if (root.id==='view-push-to-talk') root.replaceChildren();
+    root.querySelectorAll(bloomscapesScopedProjectionSelector).forEach(host=>{
+        if (typeof setContainerHtml==='function') setContainerHtml(host,'');
+        else {delete host.dataset.renderSignature;host.replaceChildren();}
+    });
+    root.querySelectorAll('input, textarea, select').forEach(control=>{
+        if (control.tagName==='SELECT') control.selectedIndex = 0;
+        else control.value = control.type==='file' ? '' : control.defaultValue;
+        if (control.type==='checkbox' || control.type==='radio') control.checked = control.defaultChecked;
+    });
+    const viewId = root.id.startsWith('view-') ? root.id.slice(5) : '';
+    if (viewId && typeof markViewDirty === 'function') markViewDirty(viewId);
+}
+
+function mountBloomscapesStaticBody(id,reset=false) {
+    const root = document.getElementById(id);
+    const body = root && bloomscapesDormantBodies.get(root);
+    if (body) {
+        root.append(body.fragment);
+        bloomscapesDormantBodies.delete(root);
+        if (reset || body.scope!==bloomscapesStaticBodyScope()) resetBloomscapesStaticBodyScope(root);
+        if (id==='view-sales' && typeof syncRequestSalesImpactOwnership === 'function') syncRequestSalesImpactOwnership();
+    }
+    return root;
+}
+
+function detachBloomscapesStaticBody(id,scope=bloomscapesStaticBodyScope()) {
+    const root = document.getElementById(id);
+    if (!root?.firstChild || bloomscapesDormantBodies.has(root)) return;
+    const inactive = id==='side-drawer' ? !root.classList.contains('open') : root.classList.contains('hidden');
+    if (!inactive) return;
+    restoreBloomscapesDormantHeaderSearch(root);
+    if (root.contains(document.activeElement)) document.activeElement.blur();
+    const body = document.createDocumentFragment();
+    body.append(...root.childNodes);
+    bloomscapesDormantBodies.set(root,{fragment:body,scope});
+    if (['view-advertisement','view-sales-inventory'].includes(id) && typeof markViewDirty === 'function') markViewDirty(id.slice(5));
+}
+
+function restoreBloomscapesDormantHeaderSearch(root) {
+    const slot = document.getElementById('global-header-search-slot');
+    const container = slot?.querySelector('[data-global-header-mounted="true"]');
+    if (!container?.id || typeof restoreGlobalHeaderSearchContainers !== 'function') return;
+    const ownsSearch = Array.from(root.querySelectorAll('[data-header-search-placeholder]'))
+        .some(placeholder=>placeholder.dataset.headerSearchPlaceholder===container.id);
+    if (ownsSearch) restoreGlobalHeaderSearchContainers();
+}
+
+function detachInactiveBloomscapesStaticBodies() {
+    const scope = bloomscapesStaticBodyScope();
+    for (const id of bloomscapesDormantBodyIds) detachBloomscapesStaticBody(id,scope);
+}
+
+function restoreBloomscapesStaticBodiesForScopeReset() {
+    for (const id of bloomscapesDormantBodyIds) mountBloomscapesStaticBody(id,true);
+    document.querySelectorAll('#view-detail [id^="det-"][id$="-content"]').forEach(panel=>mountBloomscapesStaticBody(panel.id,true));
+}
+
+function mountBloomscapesDetailTabBody(activeId, panelIds) {
+    const target = mountBloomscapesStaticBody(activeId);
+    target?.classList.remove('hidden');
+    for (const id of panelIds) {
+        if (id===activeId) continue;
+        const panel = document.getElementById(id);
+        panel?.classList.add('hidden');
+        if (id==='det-overview-content') document.getElementById('detail-overview-fields-list')?.replaceChildren();
+        if (panel && canDetachInactiveBloomscapesDetailBody(panel)) {
+            detachBloomscapesStaticBody(id);
+        }
+    }
+}
+
+function canDetachInactiveBloomscapesDetailBody(panel) {
+    const tab = panel.id.replace(/^det-|-content$/g,'');
+    const button = document.getElementById('dtab-'+tab);
+    if (button?.classList.contains('hidden')) return true;
+    return !panel.querySelector('form,input,textarea,select,[contenteditable]:not([contenteditable="false"])');
+}

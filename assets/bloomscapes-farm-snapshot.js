@@ -1,32 +1,49 @@
 
-async function readBloomscapesFarmRevision(farm) {
-    const {data,error} = await getSupabaseBrowserClient().rpc('gnc_read_farm_snapshot_revision',{p_farm:farm}).abortSignal(window.BloomscapesBatteryGovernor.viewSignal());
+function bloomscapesFarmSnapshotSignal(background) {
+    return background ? background.signal() : window.BloomscapesBatteryGovernor.viewSignal();
+}
+
+async function readBloomscapesFarmRevision(farm,background) {
+    if (background) await background.checkpoint();
+    const {data,error} = await getSupabaseBrowserClient().rpc('gnc_read_farm_snapshot_revision',{p_farm:farm}).abortSignal(bloomscapesFarmSnapshotSignal(background));
     if (error) throw error;
     if (data?.farm_code!==farm || typeof data.revision!=='string') throw new Error('Farm revision scope was not confirmed.');
-    const status=await fetchDirectPostgrestReadPage('gnc_00_core_erp_sync_status',
-        'select=target_key,last_synced_at&farm_code=eq.'+farm+'&order=target_key.asc',{count:false,signal:window.BloomscapesBatteryGovernor.viewSignal()},false);
+    const status=await readBloomscapesFarmPage('gnc_00_core_erp_sync_status',
+        'select=target_key,last_synced_at&farm_code=eq.'+farm+'&order=target_key.asc',false,bloomscapesFarmSnapshotSignal(background),background);
     if (!status) throw new Error('ERP snapshot revision was not confirmed.');
     return JSON.stringify([data.revision,status.rows]);
 }
 
-async function readBloomscapesFarmSnapshot(farm,assertCurrent) {
-    const lastSyncRevisionAt = await readBatteryRevisionPulse(farm, window.BloomscapesBatteryGovernor.viewSignal());
-    const revision = await readBloomscapesFarmRevision(farm);
+async function readBloomscapesFarmSnapshot(farm,assertCurrent,background) {
+    if (background) await background.checkpoint();
+    const lastSyncRevisionAt = await readBatteryRevisionPulse(farm,bloomscapesFarmSnapshotSignal(background));
+    const revision = await readBloomscapesFarmRevision(farm,background);
     assertCurrent();
-    const entries = await Promise.all(getErpFarmReadContracts(farm).map(async ([key,table,column,order])=>
-        [key,await readBloomscapesFarmTable(table,column,order,farm,assertCurrent)]));
+    const entries = await readBloomscapesFarmSnapshotTables(farm,assertCurrent,background);
     assertCurrent();
-    if (await readBloomscapesFarmRevision(farm)!==revision) throw Object.assign(
+    if (await readBloomscapesFarmRevision(farm,background)!==revision) throw Object.assign(
         new Error('Farm changed during its snapshot read; previous inventory retained.'),{code:'FARM_SNAPSHOT_REVISION_CHANGED'});
     return {farm,revision,lastSyncRevisionAt,...Object.fromEntries(entries)};
 }
 
-async function readBloomscapesFarmTable(table,column,order,farm,assertCurrent,signal = window.BloomscapesBatteryGovernor.viewSignal()) {
+async function readBloomscapesFarmSnapshotTables(farm,assertCurrent,background) {
+    const contracts = getErpFarmReadContracts(farm);
+    const read = async ([key,table,column,order])=>[key,await readBloomscapesFarmTable(table,column,order,farm,assertCurrent,undefined,background)];
+    const completed = [];
+    for (let index=0;index<contracts.length;index++) {
+        if (!background?.isSpeculative()) return completed.concat(await Promise.all(contracts.slice(index).map(read)));
+        completed.push(await read(contracts[index]));
+    }
+    return completed;
+}
+
+async function readBloomscapesFarmTable(table,column,order,farm,assertCurrent,signal = window.BloomscapesBatteryGovernor.viewSignal(),background) {
     const rows = [];
     let total = null;
     for (let offset=0;offset<100000;offset+=1000) {
         assertCurrent();
-        const page = await fetchDirectPostgrestReadPage(table,erpFarmReadQuery(table,column,order,farm,offset),{count:offset===0,signal},false);
+        const query = erpFarmReadQuery(table,column,order,farm,offset);
+        const page = await readBloomscapesFarmPage(table,query,offset===0,signal,background);
         if (!page) throw new Error('Authenticated farm read unavailable.');
         const {rows:data,total:count}=page;
         assertCurrent();
@@ -37,4 +54,18 @@ async function readBloomscapesFarmTable(table,column,order,farm,assertCurrent,si
         if (!data.length || rows.length>total) break;
     }
     throw new Error('Complete farm snapshot could not be verified; previous inventory retained.');
+}
+
+async function readBloomscapesFarmPage(table,query,count,signal,background) {
+    const read = () => fetchDirectPostgrestReadPage(table,query,{count,signal:background ? background.signal() : signal},false);
+    if (!background) return read();
+    await background.checkpoint();
+    try { return await read(); }
+    catch (error) {
+        if (error.code!=='DATASET_READ_SCOPE_CHANGED') throw error;
+        // Switching the active farm changes the raw read fence. Retry only
+        // the rejected page after rechecking this snapshot's fixed owner.
+        await background.checkpoint();
+        return read();
+    }
 }

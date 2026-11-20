@@ -1,3 +1,99 @@
+let avInventoryOptionIndex = null;
+
+function indexAvInventoryOptions(rows) {
+    const byCode = new Map();
+    for (const row of rows) {
+        const code = getRequestItemCodeOptionItemCode(row);
+        if (!code) continue;
+        if (!byCode.has(code)) byCode.set(code, []);
+        byCode.get(code).push(row);
+    }
+    return byCode;
+}
+
+function getAvInventoryOptionRowsForItem(item, rows, revision) {
+    const code = getRequestItemCodeOptionItemCode(item);
+    if (!code || !Array.isArray(rows) || !rows.length) return [];
+    const owner = getSupabaseReadIdentityScope();
+    const index = avInventoryOptionIndex;
+    if (index?.rows !== rows || index.owner !== owner || index.revision !== revision || index.count !== rows.length) {
+        avInventoryOptionIndex = { rows, owner, revision, count: rows.length, byCode: indexAvInventoryOptions(rows) };
+    }
+    return avInventoryOptionIndex.byCode.get(code) || [];
+}
+
+const avOptionCheckboxSelector = '[data-request-itemcode-option="true"]';
+const avOptionDraftSelector = 'input[id^="suspend-split-"], [data-pull-code], [data-pull-lot]';
+
+function rememberRequestAvOptionSelection(panel, state) {
+    const selected = state.selectedOptionIds ||= new Set();
+    if (panel?.__requestAvSelectionOwner !== state) return selected;
+    for (const input of panel.querySelectorAll(avOptionCheckboxSelector)) {
+        if (!input.value) continue;
+        if (input.checked && !input.disabled) selected.add(input.value);
+        else selected.delete(input.value);
+    }
+    return selected;
+}
+
+function syncSuspendAvOptionSelectionControls(input = null) {
+    const panel = input?.closest?.('#detail-av-options-panel, #req-matching-inventory-container')
+        || document.getElementById('detail-av-options-panel') || document.getElementById('req-matching-inventory-container');
+    if (!panel) return false;
+    const state = panel.__requestAvSelectionOwner;
+    const selectedCount = state ? rememberRequestAvOptionSelection(panel, state).size
+        : panel.querySelectorAll('[data-request-itemcode-option="true"]:checked').length;
+    const headerAction = panel.querySelector('[data-suspend-av-header-action="true"]');
+    const sticky = panel.querySelector('[data-suspend-av-sticky]');
+    const stickyAction = sticky?.querySelector('[data-suspend-av-add]');
+    const countLabel = sticky?.querySelector('[data-suspend-av-selection-count]');
+    if (headerAction) headerAction.disabled = selectedCount === 0;
+    if (sticky) sticky.classList.toggle('hidden', selectedCount === 0);
+    if (stickyAction) stickyAction.disabled = selectedCount === 0;
+    if (countLabel) countLabel.textContent = `${selectedCount} selected`;
+    return false;
+}
+
+function syncRenderedAvOptionSelection(panel, state, rows) {
+    const allowed = new Set(rows.map(getRequestItemCodeOptionMasterId));
+    for (const id of state.selectedOptionIds) {
+        if (!allowed.has(id)) state.selectedOptionIds.delete(id);
+    }
+    panel.__requestAvSelectionOwner = state;
+    for (const input of panel.querySelectorAll(avOptionCheckboxSelector)) {
+        input.checked = !input.disabled && state.selectedOptionIds.has(input.value);
+    }
+    syncSuspendAvOptionSelectionControls(panel.querySelector(avOptionCheckboxSelector));
+}
+
+function keepRequestAvOptionDraftInputs(panel, state, restore = false) {
+    if (panel.__requestAvSelectionOwner !== state) return;
+    const drafts = state.optionInputDrafts ||= new Map();
+    for (const input of panel.querySelectorAll(avOptionDraftSelector)) {
+        const key = input.id || 'manual-lot';
+        if (restore) input.value = drafts.get(key) || '';
+        else if (input.value) drafts.set(key, input.value);
+        else drafts.delete(key);
+    }
+}
+
+function changeRequestAvOptionPage(direction) {
+    if (!activeItem || requestAvOptionsDropdownOpen !== true) return false;
+    const state = ensureRequestItemCodeOptionState(activeItem);
+    state.optionPage = Math.max(0, (state.optionPage || 0) + (direction < 0 ? -1 : 1));
+    renderRequestMatchingInventoryOptions(activeItem, activeDetailSourceView || lastView || '', { skipLoad: true });
+    return false;
+}
+
+function renderRequestAvOptionPager(page, total) {
+    if (page.pages <= 1) return '';
+    return `<div class="browse-page-footer flex flex-wrap items-center gap-2">
+        <span>Rows ${page.start + 1}–${page.start + page.rows.length} of ${total}</span>
+        <button type="button" onclick="return changeRequestAvOptionPage(-1)" ${page.index === 0 ? 'disabled' : ''}>Previous</button>
+        <button type="button" onclick="return changeRequestAvOptionPage(1)" ${page.index + 1 === page.pages ? 'disabled' : ''}>Next</button>
+    </div>`;
+}
+
 function prepareRequestAvOptions(item, detailSourceView, options) {
             const sharedPanel = document.getElementById('detail-av-options-panel');
             const legacyPanel = document.getElementById('req-matching-inventory-container');
@@ -70,9 +166,9 @@ function renderRequestAvOptionCard(row, index, item, context, existingKeysForRen
 }
 
 function renderLegacyRequestAvOptions(item, context) {
-    const {rows, state, hiddenCurrentSeasonRows, isOpen, suspendFillTag, canAddOptions} = context;
+    const {rows, state, hiddenCurrentSeasonRows, isOpen, suspendFillTag, canAddOptions, page} = context;
     const itemCode = getRequestItemCodeOptionItemCode(item);
-    const visibleRows = isOpen ? rows.slice(0, suspendFillTag ? state.visiblePullLimit || 12 : 80) : [];
+    const visibleRows = isOpen ? page.rows : [];
     const existing = isOpen ? getExistingRequestItemCodeOptionKeys(item) : { masterIds:new Set(), exactKeys:new Set() };
     const selectableRowCount = isOpen && !suspendFillTag ? rows.filter(row => getRequestItemCodeOptionCandidateState(row, item, existing).selectable).length : 0;
             const ptrValues = rows.map((row) => getRequestAvailableQty(row)).filter((value) => Number.isFinite(value));
@@ -88,7 +184,7 @@ function renderLegacyRequestAvOptions(item, context) {
                 ? 'No AV options outside current season for this itemcode.'
                 : 'No AV options found for this itemcode.';
     const rowsHtml = visibleRows.map((row,index) => renderRequestAvOptionCard(row,index,item,context,existing)).join('') || (isOpen ? `<div class="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-center text-[12px] font-bold text-slate-400">${state.loading ? 'Loading AV options...' : escapeShareHtml(emptyRowsMessage)}</div>` : '');
-            const moreCount = Math.max(0, rows.length - visibleRows.length);
+            const pagerHtml = renderRequestAvOptionPager(page, rows.length);
             const addOptionsLabel = suspendFillTag ? '+ Add Selected AV Option(s) / Fill Tag' : 'Add Selected Options';
             const addButtonHtml = canAddOptions && (suspendFillTag || selectableRowCount) ? `<button type="button" data-suspend-av-add${suspendFillTag ? ' data-suspend-av-header-action="true"' : ''} class="rounded-xl bg-[#007a4d] px-4 py-3 text-[11px] font-black uppercase tracking-[0.12em] text-white shadow-sm active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"${suspendFillTag ? ' disabled' : ''} onclick="event.stopPropagation(); return addSelectedRequestItemCodeOptions()">${escapeShareHtml(addOptionsLabel)}</button>` : '';
             return `<div class="flex flex-col">
@@ -106,9 +202,9 @@ function renderLegacyRequestAvOptions(item, context) {
                     </button>
 
                 </div>
-                ${isOpen && suspendFillTag && canAddOptions ? buildSuspendManualPullSelector(item, rows) : ''}
+                ${isOpen && suspendFillTag && canAddOptions ? buildSuspendManualPullSelector(visibleRows) : ''}
                     ${loadingHtml}${errorHtml}${hiddenCurrentSeasonHtml}
-                ${isOpen ? `${addButtonHtml && !suspendFillTag ? `<div class="mt-3 flex justify-end">${addButtonHtml}</div>` : ''}<div class="mt-3 space-y-2">${rowsHtml}</div>${moreCount ? `<div class="mt-2 text-center text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">${suspendFillTag ? '<button type="button" onclick="return showMoreSuspendPullLocations()">Show more pull locations (' + moreCount + ')</button>' : escapeShareHtml(String(moreCount)) + ' more not shown'}</div>` : ''}${suspendFillTag && addButtonHtml ? `<div data-suspend-av-sticky class="sticky bottom-2 z-30 mt-3 hidden rounded-2xl border border-emerald-200 bg-white/95 p-2 shadow-xl backdrop-blur dark:border-emerald-800 dark:bg-slate-900/95"><div class="flex items-center justify-between gap-3"><span data-suspend-av-selection-count class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-600 dark:text-slate-200">0 selected</span><button type="button" data-suspend-av-add class="rounded-xl bg-[#007a4d] px-4 py-3 text-[11px] font-black uppercase tracking-[0.12em] text-white shadow-sm active:scale-95 disabled:cursor-not-allowed disabled:opacity-50" disabled onclick="event.stopPropagation(); return addSelectedRequestItemCodeOptions()">+ ADD SELECTED LOCATION(S) TO TAG</button></div></div>` : ''}` : ''}
+                ${isOpen ? `${addButtonHtml && !suspendFillTag ? `<div class="mt-3 flex justify-end">${addButtonHtml}</div>` : ''}<div class="mt-3 space-y-2">${rowsHtml}</div>${pagerHtml}${suspendFillTag && addButtonHtml ? `<div data-suspend-av-sticky class="sticky bottom-2 z-30 mt-3 hidden rounded-2xl border border-emerald-200 bg-white/95 p-2 shadow-xl dark:border-emerald-800 dark:bg-slate-900/95"><div class="flex items-center justify-between gap-3"><span data-suspend-av-selection-count class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-600 dark:text-slate-200">0 selected</span><button type="button" data-suspend-av-add class="rounded-xl bg-[#007a4d] px-4 py-3 text-[11px] font-black uppercase tracking-[0.12em] text-white shadow-sm active:scale-95 disabled:cursor-not-allowed disabled:opacity-50" disabled onclick="event.stopPropagation(); return addSelectedRequestItemCodeOptions()">+ ADD SELECTED LOCATION(S) TO TAG</button></div></div>` : ''}` : ''}
             </div>`;
 }
 
@@ -129,19 +225,19 @@ function renderCompactAvOption(row, item, existing, canAdd) {
 }
 
 function renderCompactRequestAvOptions(item, context) {
-    const {rows, state, isOpen, canAddOptions, suspendFillTag} = context;
+    const {rows, state, isOpen, canAddOptions, suspendFillTag, page} = context;
     const values = rows.map(getRequestAvailableQty).filter(Number.isFinite);
     const best = values.length ? Math.max(...values) : 0;
     const total = values.reduce((sum,value) => sum + value,0);
-    const existing = getExistingRequestItemCodeOptionKeys(item);
+    const existing = isOpen ? getExistingRequestItemCodeOptionKeys(item) : null;
     const destination = suspendFillTag ? 'Suspend' : 'Request';
-    const candidates = isOpen ? rows.map(row => renderCompactAvOption(row,item,existing,canAddOptions)).join('') : '';
+    const candidates = isOpen ? page.rows.map(row => renderCompactAvOption(row,item,existing,canAddOptions)).join('') : '';
     const error = state.error ? `<p role="alert">${escapeShareHtml(state.error)}</p>` : '';
     return `<div class="detail-av-dropdown">
         <button type="button" class="detail-av-trigger" aria-expanded="${isOpen}" aria-controls="detail-av-options-list"
             onclick="return toggleRequestAvOptionsDropdown()">📍 AV Options (${rows.length} rows · Best PTR ${best} · Total ${total}) ${isOpen ? '▴' : '▾'}</button>
         ${isOpen ? `<div id="detail-av-options-list" class="detail-av-menu" aria-label="AV inventory options">
-            ${error}${candidates || '<p>No AV options found for this item.</p>'}
+            ${error}${candidates || '<p>No AV options found for this item.</p>'}${renderRequestAvOptionPager(page, rows.length)}
             ${canAddOptions ? `<button type="button" class="detail-av-add" data-suspend-av-add data-suspend-av-header-action="true" disabled
                 onclick="return addSelectedRequestItemCodeOptions()">+ Add Selected to ${destination}</button>` : ''}</div>` : ''}</div>`;
 }
@@ -149,9 +245,17 @@ function renderCompactRequestAvOptions(item, context) {
 function renderRequestMatchingInventoryOptions(item = activeItem, detailSourceView = '', options = {}) {
     const context = prepareRequestAvOptions(item,detailSourceView,options);
     if (!context) return;
-    const {panel, sharedPanel, legacyPanel} = context;
+    const {panel, sharedPanel, legacyPanel, state, rows} = context;
     const compact = isCompactQueueDetail(item,detailSourceView || activeDetailSourceView || lastView);
+    rememberRequestAvOptionSelection(panel, state);
+    keepRequestAvOptionDraftInputs(panel, state);
+    context.page = bloomscapesListWindow(rows, state.optionPage, compact ? 20 : 8);
+    state.optionPage = context.page.index;
     panel.innerHTML = compact ? renderCompactRequestAvOptions(item,context) : renderLegacyRequestAvOptions(item,context);
+    if (context.isOpen && context.canAddOptions) {
+        syncRenderedAvOptionSelection(panel, state, rows);
+        keepRequestAvOptionDraftInputs(panel, state, true);
+    }
     panel.classList.remove('hidden');
     if (sharedPanel && legacyPanel && legacyPanel !== sharedPanel) {
         legacyPanel.classList.add('hidden');

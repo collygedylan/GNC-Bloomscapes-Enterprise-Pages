@@ -86,10 +86,11 @@ function getAvResolvedCardCacheKey({term,safeTab,liveCatalogIncomplete,usePrepar
 function buildResolvedAVBaseState(options = {}) {
     const term = getAvSearchTerm();
     const safeTab = String(activeAVTab || 'open').trim();
+    const photoMode = getAvPhotoMode();
     const liveCatalogIncomplete = isAvLiveCatalogIncomplete();
     const exactSearchRows = safeTab === 'open' && liveCatalogIncomplete
         ? getCurrentExactAvSearchHydrationRows() : [];
-    const usePreparedSalesRows = !avValidPhotosOnly && getAvPhotoMode() !== 'valid_photos' && safeTab === 'open' && !exactSearchRows.length
+    const usePreparedSalesRows = !avValidPhotosOnly && photoMode !== 'valid_photos' && safeTab === 'open' && !exactSearchRows.length
         && !!(options && options.usePreparedSalesRows);
     const preparedIdentity = usePreparedSalesRows ? getAvSalesDerivationIdentity(activeAvSalesBucket) : null;
     const cacheKey = getAvResolvedCardCacheKey({term,safeTab,liveCatalogIncomplete,usePreparedSalesRows,preparedIdentity});
@@ -104,10 +105,11 @@ function buildResolvedAVBaseState(options = {}) {
         : exactSalesRows ? { salesRows: exactSalesRows } : {});
     const avFilterState = buildAvSharedFilterState(filterBaseItems);
     let items = avValidPhotosOnly ? avFilterState.filteredItems.filter(hasValidRowPhoto) : avFilterState.filteredItems;
+    let needsLotCollapse = avValidPhotosOnly || photoMode === 'valid_photos';
     const searchProfile = isAvCustomerSalesBucket(activeAvSalesBucket) ? 'av_reserves' : 'av_open';
     if (term) items = filterBySearch(items, term, searchProfile);
     if (typeof applyInventoryExcelFilters === 'function') items = applyInventoryExcelFilters('av',items);
-    if (!avValidPhotosOnly && term && (!items.length || liveCatalogIncomplete) && safeTab === 'open' && getAvPhotoMode() === 'photos') {
+    if (!avValidPhotosOnly && term && (!items.length || liveCatalogIncomplete) && safeTab === 'open' && photoMode === 'photos') {
         const extra = getAvNamePhotoSearchRows(term);
         if (extra.length) {
             const eligible = getAvSalesRowsForBucket(activeAvSalesBucket,extra);
@@ -115,12 +117,20 @@ function buildResolvedAVBaseState(options = {}) {
             const filtered = applyAvColumnFiltersToItems(photos).filter(createAvTopFilterPredicate());
             const matching = filterBySearch(filtered,term,searchProfile);
             items = items.concat(matching);
+            needsLotCollapse = matching.length > 0;
         }
     }
-    if (safeTab === 'open') items = collapseCanonicalAvLotRows(items);
+    // The ordinary raw open tab already resolves each lot before filtering.
+    if (safeTab === 'open' && needsLotCollapse) items = collapseCanonicalAvLotRows(items);
     avResolvedBaseStateKey = cacheKey;
     avResolvedBaseStateCache = { items, term, filterBaseItems, avFilterState, isPartial: liveCatalogIncomplete || !!(preparedSalesRows && preparedSalesRows.partial) };
     return avResolvedBaseStateCache;
+}
+
+function getAvDisplayExportContext(items,term) {
+    const projection=avResolvedBaseStateCache;
+    if (projection?.items!==items) return buildAVExportContext(items,term);
+    return projection.exportContext ||= buildAVExportContext(items,term);
 }
 
 function queueAvViewReads() {
@@ -161,7 +171,7 @@ function renderEmptyAvInventory(container, crumb, avState, warm) {
 
 function renderOpenAvInventory(container, crumb, items, term, avState) {
     const sourceView = getAvPhotoMode() === 'photos' ? 'av-photo' : 'av';
-    const openExportContext = buildAVExportContext(items, term);
+    const openExportContext = getAvDisplayExportContext(items,term);
     const openRows = openExportContext.rows;
     const bucketLabel = getAvSalesBucketLabel();
     const crumbText = formatAvReadySummary(bucketLabel, openRows.length);
@@ -183,7 +193,7 @@ function renderOpenAvInventory(container, crumb, items, term, avState) {
 }
 
 function renderReserveAvInventory(container, crumb, items, term) {
-    const reserveRows = buildAVExportContext(items, term).rows;
+    const reserveRows = getAvDisplayExportContext(items,term).rows;
     const crumbText = activeAvReserveMode === 'photos'
         ? (term.length > 0 ? `Search Results (${reserveRows.length})` : `Reserve Location Photos (${reserveRows.length} items)`)
         : (term.length > 0 ? `Search Results (${reserveRows.length})` : `All Reserve Locations (${reserveRows.length} items)`);
@@ -203,6 +213,25 @@ function renderReserveAvInventory(container, crumb, items, term) {
     return;
 }
 
+function prepareBloomscapesFarmAvBrowse(farm) {
+    if (!window.AgMetricAvDerivedRows || !window.BloomscapesBatteryGovernor?.canPrewarm()) return;
+    const owner=getSupabaseReadIdentityScope();
+    const prepare=()=>{
+        if (document.hidden || getCurrentVisibleViewId()==='av' || farm!==getBloomscapesFarm()
+            || owner!==getSupabaseReadIdentityScope() || !canRenderWarmAvInventory()) return;
+        getAvSalesRowsForRendering(activeAvSalesBucket);
+    };
+    if (typeof requestIdleCallback==='function') requestIdleCallback(prepare,{timeout:3000});
+    else setTimeout(prepare,250);
+}
+
+function hasPreparedWarmAvRows() {
+    const service=window.AgMetricAvDerivedRows;
+    if (!service) return false;
+    const identity=getAvSalesDerivationIdentity(activeAvSalesBucket);
+    return service.peek(identity.key,identity.scope)?.sourceKey===identity.sourceKey;
+}
+
 function renderAV() {
     syncAvKioskMode();
     const container = document.getElementById('av-content');
@@ -217,8 +246,8 @@ function renderAV() {
         syncAvSecondaryTabs();
         ensureAvDefaultSeasonSelection();
         queueAvViewReads();
-        const avState = getCurrentAVBaseItems({ usePreparedSalesRows: activeAVTab === 'open' && !warm });
-        renderAvTopControls(avState.filterBaseItems || []);
+        const avState = getCurrentAVBaseItems({ usePreparedSalesRows: activeAVTab === 'open' && (!warm || hasPreparedWarmAvRows()) });
+        renderAvTopControls(avState.filterBaseItems || [],avState.avFilterState);
         const { items, term } = avState;
         if (!items.length) return renderEmptyAvInventory(container, crumb, avState, warm);
         updateAVExportButton(avState.isPartial ? 0 : getAVVisibleExportCount(items));
