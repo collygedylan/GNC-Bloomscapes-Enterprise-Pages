@@ -33,7 +33,7 @@ function mountBloomscapesCommHub(container) {
     host.addEventListener('submit',event=>{event.preventDefault();void submitBloomscapesComm(event.target);});
     if (container.id==='view-push-to-talk') bindBloomscapesWalkieButton(host);
     scopeBloomscapesComm();renderBloomscapesComm();
-    void refreshMountedCommunication(container).catch(error=>showBloomscapesCommStatus(error.message));
+    void refreshBloomscapesComm().catch(error=>showBloomscapesCommStatus(error.message));
 }
 
 function renderBloomscapesComm() {
@@ -145,11 +145,4 @@ function openBloomscapesComm(mode='voice') {
 function syncBloomscapesCommLifecycle(view) {
     if (view==='push-to-talk') return;
     stopBloomscapesWalkie(true);releaseBloomscapesCommAudio();
-}
-
-async function refreshMountedCommunication(container) {
-    await refreshBloomscapesComm();
-    if (container.id!=='view-push-to-talk' || getCurrentVisibleViewId()!=='push-to-talk') return;
-    const channel=bloomscapesCommState.selected;
-    if (channel) await selectBloomscapesConversation(channel,false);
 }

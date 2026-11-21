@@ -69,7 +69,11 @@ function dispatchBloomscapesCommClick(event,host) {
     if (!button || !host.contains(button)) return;
     const data=button.dataset,state=bloomscapesCommState;
     const actions={commConversation:value=>void selectBloomscapesConversation(value),
-        commDirect:()=>host.querySelector('[data-radio-person]').focus(),
+        commDirect:()=>{
+            const picker=host.querySelector('[data-radio-person]');
+            picker.parentElement.hidden=false;
+            picker.focus();
+        },
         commPerson:value=>void chooseBloomscapesCommPeople([value]),
         commNew:()=>{state.creating=true;renderBloomscapesCommPeople();},
         commCancelNew:()=>{state.creating=false;renderBloomscapesCommPeople();},

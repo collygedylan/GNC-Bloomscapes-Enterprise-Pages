@@ -24,9 +24,18 @@ async function playBloomscapesCommVoice(id) {
         const bytes=Uint8Array.from(atob(result.audio),char=>char.charCodeAt(0));
         audio.src=URL.createObjectURL(new Blob([bytes],{type:result.mime}));
         audio.onended=()=>void finishBloomscapesCommVoice(entry,audio,owner,generation);
-        audio.onerror=()=>{releaseBloomscapesCommAudio();showBloomscapesCommStatus('This voice clip could not play. Tap Play to retry.');};
-        await audio.play();renderBloomscapesCommTimeline();
-    } catch(error) {releaseBloomscapesCommAudio();showBloomscapesCommStatus(error.message);}
+        audio.onerror=()=>{
+            if (bloomscapesRadioInbox.audio!==audio) return;
+            releaseBloomscapesCommAudio();
+            showBloomscapesCommStatus('This voice clip could not play. Tap Replay to retry.');
+        };
+        await audio.play();
+        if (bloomscapesRadioInbox.audio===audio) renderBloomscapesCommTimeline();
+    } catch(error) {
+        if (bloomscapesRadioInbox.audio!==audio) return;
+        releaseBloomscapesCommAudio();
+        showBloomscapesCommStatus(error.message);
+    }
 }
 
 async function finishBloomscapesCommVoice(entry,audio,owner,generation) {

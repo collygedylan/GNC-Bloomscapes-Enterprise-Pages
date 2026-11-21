@@ -70,26 +70,32 @@ async function disconnectBloomscapesRadioInbox() {
 async function playNextBloomscapesRadioCall() {
     const state=bloomscapesRadioInbox,call=state.calls[0];
     if (!call || state.audio || document.hidden) return;
-    const {client,owner}=await requireBloomscapesSession();
-    if(state.owner!==owner || state.calls[0]?.id!==call.id)return;
     const generation=state.generation;
-    const audio=new Audio();state.audio=audio;
+    let audio;
     try {
+        const {client,owner}=await requireBloomscapesSession();
+        if (state.audio || document.hidden || state.generation!==generation || state.owner!==owner || state.calls[0]?.id!==call.id) return;
+        audio=new Audio();state.audio=audio;
         const result=await bloomscapesRadioRpc(client,'gnc_read_radio_call',{p_id:call.id});
         if(result?.id!==call.id)throw Error('Radio call receipt does not match the selected call.');
         await requireBloomscapesOwner(owner);
-        if (state.generation!==generation) return;
+        if (state.generation!==generation || state.audio!==audio || document.hidden) return;
         const bytes=Uint8Array.from(atob(result.audio),char=>char.charCodeAt(0));
         const objectUrl=URL.createObjectURL(new Blob([bytes],{type:result.mime}));
         audio.src=objectUrl;
         audio.onended=()=>{void finishBloomscapesRadioPlayback(audio,objectUrl,call.id,owner,generation);};
-        audio.onerror=()=>{URL.revokeObjectURL(objectUrl);state.audio=null;showBloomscapesRadioMessage('Call could not play. Tap Play Next to retry.');};
+        audio.onerror=()=>{
+            if (state.audio!==audio) return;
+            releaseBloomscapesRadioPlayback();
+            showBloomscapesRadioMessage('Call could not play. Tap Play Next to retry.');
+        };
         if (bloomscapesRadioAutoPlay()) await chirpBloomscapesWalkie();
+        if (state.audio!==audio || document.hidden) return;
         await audio.play();
         mountBloomscapesRadioAudio(audio);
     } catch (error) {
-        if (audio.src.startsWith('blob:')) URL.revokeObjectURL(audio.src);
-        if (state.audio===audio) state.audio=null;
+        if (state.generation!==generation || audio && state.audio!==audio) return;
+        if (audio) releaseBloomscapesRadioPlayback();
         showBloomscapesRadioMessage(error.name==='NotAllowedError' ? 'Tap Play Next to listen.' : error.message);
     }
 }

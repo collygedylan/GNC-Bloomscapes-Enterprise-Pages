@@ -1,0 +1,184 @@
+/* Set the list track without touching the grid inside a card. */
+html body.agdata-pinned-results #app-wrapper :is(
+  #av-content, #drive-content, #request-content, #docks-content, #reports-content
+):has(> :is(.app-smart-card, .item-row)),
+html body.agdata-pinned-results #app-wrapper :is(
+  .av-cards-grid, .inventory-list, #av-list, #av-cards, #drive-list, #que-list,
+  #docks-list, #request-suspend-tag-card-list, .field-audit-plant-cards
+),
+html body #app-wrapper :is(
+  #drive-content, #av-content, #request-content, #docks-content, #task-content,
+  #review-content, #po-management-content, #sales-office-content, #view-low-stock
+).ops-record-collection,
+html body #app-wrapper :is(
+  #drive-content, #av-content, #request-content, #docks-content, #task-content,
+  #review-content, #po-management-content, #sales-office-content, #view-low-stock
+) .ops-record-collection,
+html body #app-wrapper :is(
+  #drive-content, #av-content, #request-content, #docks-content, #task-content,
+  #review-content, #po-management-content, #sales-office-content,
+  #view-smart-moves, #view-tasks, #view-qc, #view-advertisement, #view-production,
+  #view-pull-tags, #view-mistake-fix, #view-traffic-office, #view-sales-inventory
+) :is(.grid, [data-card-window-total]):has(> :is(
+  .app-smart-card, .drive-card, .drill-item, .dock-dispatch-card,
+  [data-docks-dock-card], [data-docks-drop-card], [data-docks-stop-card]
+)),
+html body #app-wrapper :is(
+  #drive-content:has(> :is(.app-smart-card, .drive-card, .drill-item, [role="button"])),
+  #av-content:has(> :is(.app-smart-card, .app-av-catalog-card)),
+  #docks-content:has(> :is([data-docks-dock-card], [data-docks-drop-card], [data-docks-stop-card])),
+  #request-content .request-card-list,
+  .bloomscapes-work-cards, .bloomscapes-sales-card-list, .plant-health-card-list,
+  [data-studio-phase-cards]:not([hidden]), [data-transfer-cards], .report-card-list,
+  .historical-requests__groups, .historical-requests__request-list,
+  .sales-intelligence-cards, .sw-grid, .flyer-history-grid, .advertisement-folder-list,
+  .advertisement-flyer-rows, #bloom-picker-tray-list, .eval-work-card-list,
+  .eval-work-drill-grid, .eval-aggregate-grid, .field-audit-plant-cards,
+  #view-bunch-note :is(.bn-grid, .bn-drill-grid, .bn-wizard-card-list)
+),
+html body :is(#dock-mistake-av-options, #bloom-picker-list-container) {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+/* Card windows also use this track for their spacer and band measurements. */
+html body #app-wrapper :is(
+  #drive-content, #av-content, #request-content, #docks-content, #task-content,
+  #review-content, #po-management-content, #sales-office-content, #view-low-stock
+) [data-card-window-total],
+html body #app-wrapper :is(
+  #drive-content, #av-content, #request-content, #docks-content, #task-content,
+  #review-content, #po-management-content
+)[data-card-window-total] {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+html body #app-wrapper :is(
+  #drive-content > :is(.app-smart-card, .drive-card, .drill-item, [role="button"]),
+  #av-content > :is(.app-smart-card, .app-av-catalog-card),
+  #request-content .request-card-list > :is(.app-smart-card, .drill-item, .request-swipe-row),
+  #docks-content :is([data-docks-dock-card], [data-docks-drop-card], [data-docks-stop-card]),
+  .bloomscapes-work-cards > .bloomscapes-work-group,
+  .flyer-history-grid .flyer-history-card, .advertisement-folder-list .advertisement-folder-card
+) {
+  box-sizing: border-box;
+  inline-size: 100%;
+  min-inline-size: 0;
+  max-inline-size: none;
+}
+
+/* Weight the location tracks for the longer labels and keep every label on one line. */
+#view-av .app-av-catalog-card {
+  --operational-metric-tracks: minmax(0, 1.13fr) minmax(0, 1.27fr) minmax(0, 1.72fr)
+    minmax(0, 1fr) minmax(0, .95fr) minmax(0, 1.51fr);
+}
+
+html body #app-wrapper :is(
+  .app-drive-card-quantity-band, .app-av-catalog-highlight, .app-bloom-card-metrics
+):has(.app-card-qty-row > [data-inventory-card-metric="loc-on-hand"]) {
+  container: operational-card-metrics / inline-size;
+  min-inline-size: 0;
+}
+
+html body #app-wrapper :is(
+  #drive-content, #av-content, #request-content, #docks-content, #bloom-picker-tray,
+  #view-tasks, #view-managers, #view-sales-inventory, #view-po-management, #view-advertisement
+) .app-card-qty-row:has(> [data-inventory-card-metric="loc-on-hand"]) {
+  display: grid !important;
+  grid-template-columns: var(--operational-metric-tracks,
+    minmax(0, 1fr) minmax(0, .95fr) minmax(0, 1.13fr)
+    minmax(0, 1.27fr) minmax(0, 1.72fr) minmax(0, 1.51fr)) !important;
+  gap: clamp(4px, .6vw, 8px) !important;
+  min-inline-size: 0;
+}
+
+html body #app-wrapper :is(
+  #drive-content, #av-content, #request-content, #docks-content, #bloom-picker-tray,
+  #view-tasks, #view-managers, #view-sales-inventory, #view-po-management, #view-advertisement
+) .app-card-qty-row > [data-inventory-card-metric] {
+  min-inline-size: 0 !important;
+  padding-inline: 2px !important;
+}
+
+html body #app-wrapper :is(
+  #drive-content, #av-content, #request-content, #docks-content, #bloom-picker-tray,
+  #view-tasks, #view-managers, #view-sales-inventory, #view-po-management, #view-advertisement
+) .app-card-qty-row > [data-inventory-card-metric] > :is(.app-card-qty-label, .app-card-qty-value) {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  overflow-wrap: normal !important;
+  text-overflow: ellipsis;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+}
+
+html body #app-wrapper :is(
+  #drive-content, #av-content, #request-content, #docks-content, #bloom-picker-tray,
+  #view-tasks, #view-managers, #view-sales-inventory, #view-po-management, #view-advertisement
+) .app-card-qty-row > [data-inventory-card-metric] > .app-card-qty-label {
+  font-size: var(--operational-metric-label-size, clamp(7px, 2.45cqi, 12px)) !important;
+}
+
+html body #app-wrapper :is(
+  #drive-content, #av-content, #request-content, #docks-content, #bloom-picker-tray,
+  #view-tasks, #view-managers, #view-sales-inventory, #view-po-management, #view-advertisement
+) .app-card-qty-row > [data-inventory-card-metric] > .app-card-qty-value {
+  font-size: var(--operational-metric-value-size, clamp(10px, 2.9cqi, 22px)) !important;
+}
+
+@container operational-card-metrics (width < 300px) {
+  html body #app-wrapper :is(
+    #drive-content, #av-content, #request-content, #docks-content, #bloom-picker-tray,
+    #view-tasks, #view-managers, #view-sales-inventory, #view-po-management, #view-advertisement
+  ) .app-card-qty-row:has(> [data-inventory-card-metric="loc-on-hand"]) {
+    --operational-metric-label-size: 11px;
+    --operational-metric-value-size: 14px;
+    grid-template-columns: repeat(6, minmax(max-content, 1fr)) !important;
+    max-inline-size: 100%;
+    overflow-x: auto !important;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: thin;
+  }
+}
+
+/* Blend native controls into the shell while keeping their keyboard and OS behavior. */
+:is(#app-wrapper :is(#view-wrapper, #global-action-bar), #bloom-picker-modal)
+  :is(button, [role="button"], .task-tab, .filter-pill, .app-request-card-meta-chip, h1, h2, h3):not(
+    :where(#view-home *, #view-table-management *, [data-bloomscapes-user-directory] *, table *)
+  ) {
+  word-break: normal !important;
+  overflow-wrap: break-word;
+  hyphens: none;
+}
+
+:is(#app-wrapper :is(#view-wrapper, #global-action-bar), #bloom-picker-modal)
+  :is(button, [role="button"], .task-tab, .filter-pill, h1, h2, h3) :is(.break-all, .break-words):not(
+    :where(#view-home *, #view-table-management *, [data-bloomscapes-user-directory] *, table *)
+  ) {
+  word-break: normal !important;
+  overflow-wrap: break-word;
+}
+
+:is(#app-wrapper, #bloom-picker-modal) :is(.workflow-control-rail, [data-main-browse-filters], [data-docks-primary-filters],
+  .app-card-bottom-rail, .sales-card-actions, .historical-requests__pager, [data-bloom-picker-tools])
+  :is(button, select):not(:where([aria-hidden="true"], table *, #view-home *, #view-table-management *)) {
+  min-block-size: 36px;
+}
+
+body[data-ops-theme="dark"]
+  :is(#app-wrapper :is(#view-wrapper, #global-action-bar, #global-header-search-row), #bloom-picker-modal)
+  :is(select, input[type="checkbox"]):not(
+    :where(#view-home *, #view-table-management *, [data-bloomscapes-user-directory] *, table *)
+  ) {
+  color-scheme: dark;
+  accent-color: #57d391;
+}
+
+body[data-ops-theme="dark"]
+  :is(#app-wrapper :is(#view-wrapper, #global-action-bar, #global-header-search-row), #bloom-picker-modal)
+  select:not(:where(#view-home *, #view-table-management *, [data-bloomscapes-user-directory] *, table *)) {
+  background-color: #103220;
+  border-color: #407b5c;
+  color: #ecfdf3;
+}

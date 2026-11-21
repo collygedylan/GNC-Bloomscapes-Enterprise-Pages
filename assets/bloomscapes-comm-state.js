@@ -59,7 +59,7 @@ async function refreshBloomscapesComm() {
         if (!state.conversations.some(row=>row.id===state.selected)) state.selected=sortedBloomscapesConversations()[0]?.id || '';
         bloomscapesMessagesState.unread=data.conversations.reduce((sum,row)=>sum+Number(row.unreadText || 0),0);
         syncBloomscapesHomeBadges();saveBloomscapesCommCache();renderBloomscapesComm();
-        if (!document.hidden && state.selected && isBloomscapesCommVisible()) await selectBloomscapesConversation(state.selected,false);
+        if (!document.hidden && state.selected && bloomscapesCommHost()) await selectBloomscapesConversation(state.selected,false);
     }).catch(error=>handleCommInboxReadFailure(error,generation))
         .finally(()=>{if(generation===state.generation)state.pending=null;});
     return state.pending;
@@ -128,7 +128,10 @@ async function chooseBloomscapesCommPeople(people,title='') {
         state.status='Conversation ready.';
     } catch(error) {showBloomscapesCommStatus(error.message);}
     finally {
-        if (generation===state.generation && selection===state.selectionEpoch) {state.opening=false;renderBloomscapesCommComposer();}
+        if (generation===state.generation && selection===state.selectionEpoch) {
+            state.opening=false;
+            renderBloomscapesComm();
+        }
     }
 }
 
@@ -176,6 +179,8 @@ async function dispatchBloomscapesCommText() {
 function showBloomscapesCommStatus(message) {
     bloomscapesCommState.status=message;
     document.querySelectorAll('[data-comm-status]').forEach(node=>{node.textContent=message;});
+    const retry=document.querySelector('[data-radio-panel] [data-comm-retry]');
+    if (retry) retry.hidden=!String(message).includes('Retry unsent calls');
 }
 
 function getBloomscapesCommPerson(username) {
