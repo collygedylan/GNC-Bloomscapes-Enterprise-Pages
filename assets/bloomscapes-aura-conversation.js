@@ -71,7 +71,7 @@ async function callAuraLlmRouter(body, options = {}, cachedAnswer = buildAuraDet
     verify();
     const headers = getPassiveNativeAuthRequestHeaders();
     if (!headers?.Authorization) throw new Error('AURA requires a signed-in account.');
-    const timeout = AbortSignal.timeout(35000);
+    const timeout = AbortSignal.timeout(body?.mode === 'command' ? 120000 : 35000);
     const signal = options.signal ? AbortSignal.any([timeout, options.signal]) : timeout;
     const rpc = (name, args) => auraScopedRpc(name, args, headers, signal);
     if (access) {
