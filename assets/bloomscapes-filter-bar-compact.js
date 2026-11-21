@@ -53,6 +53,26 @@ function renderManagerEvalAssignedUserControl(target = 'eval2', disabled = false
 }
 
 function openBloomscapesDockFacet(trigger) {
+    if (trigger.dataset.field==='username') void openEligibleDockAssigneeFacet(trigger);
+    else showBloomscapesDockFacet(trigger);
+    return false;
+}
+
+async function openEligibleDockAssigneeFacet(trigger) {
+    const farm=getBloomscapesFarm(), owner=getSupabaseReadIdentityScope(), navigation=navTransitionSeq;
+    const current=()=>trigger.isConnected && getCurrentVisibleViewId()==='docks' && navigation===navTransitionSeq
+        && farm===getBloomscapesFarm() && owner===getSupabaseReadIdentityScope();
+    try {
+        await readEligibleModuleDirectory(farm);
+        if (current()) showBloomscapesDockFacet(trigger);
+    } catch (error) {
+        if (!current()) return;
+        reportEligibleModuleReadFailure(error);
+        showToast('Assigned users',error.message,true);
+    }
+}
+
+function showBloomscapesDockFacet(trigger) {
     const state=getInventoryExcelState('docks'),key=trigger.dataset.field;
     const options=getInventoryExcelOptions(state,key);
     const all=key==='username'?'All Assigned Users':'All Rows';
@@ -61,5 +81,4 @@ function openBloomscapesDockFacet(trigger) {
     openBloomscapesChoicePicker(trigger,{label:trigger.getAttribute('aria-label'),choices,
         value:[...(state.filters[key] || [])][0] || '',
         select:value=>setBloomscapesCountedFilter('docks',key,value)});
-    return false;
 }

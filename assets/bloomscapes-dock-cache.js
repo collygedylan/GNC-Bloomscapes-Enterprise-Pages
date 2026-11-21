@@ -44,7 +44,7 @@ function getBloomscapesDockBrowseSource() {
 }
 
 function expectedDockPageGroups() {
-    const rows=applyDockStructuredFilters(getBloomscapesDockBrowseSource());
+    const rows=applyDockStructuredFilters(getBloomscapesDockBrowseSource(),true);
     const root=dockViewLevel===0;
     const selected=normalizeDockViewDockKey(selectedDockNum);
     const groups=root ? rows.map(row=>normalizeDockViewDockKey(row.DOCK_NUM))

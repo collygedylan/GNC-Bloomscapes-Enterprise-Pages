@@ -51698,11 +51698,6 @@ function toggleDriveQuickRequestItem(domId) {
             return (Array.isArray(items) ? items : []).filter((item) => activeKeys.every((key) => doesDockColumnFilterMatchItem(item, key, getDockColumnFilterFromMap(safeMap, key))));
         }
 
-        function applyDockColumnFiltersToItems(items = []) {
-            const rows = applyDockColumnFiltersToItemsWithMap(items, dockColumnFilters);
-            return typeof applyInventoryExcelFilters === 'function' ? applyInventoryExcelFilters('docks',rows) : rows;
-        }
-
         function normalizeDockSelectionMode(mode = '', selectedSet = new Set()) {
             if (mode === 'all' || mode === 'custom') return mode;
             // Legacy nonempty sets are intentional selections, even if they once matched all options.
@@ -52325,11 +52320,6 @@ function toggleDriveQuickRequestItem(domId) {
             if (renderSignature === lastDockFilterRenderSignature) return;
             lastDockFilterRenderSignature = renderSignature;
             updateDockFilterControlsUi(state, controls);
-        }
-
-        function applyDockStructuredFilters(items = []) {
-            clearRemovedDockTopFilterState();
-            return applyDockColumnFiltersToItems(applyDockRepCustomerFiltersOnly(items));
         }
 
         function buildDockFilterSummary(baseItems = [], shownItems = [], searchTerm = '') {

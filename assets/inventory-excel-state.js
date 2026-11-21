@@ -159,3 +159,17 @@ function applyInventoryExcelFilters(scope, rows) {
     }
     return getFilteredInventoryExcelRows(state,scope === 'av' && getAvPhotoMode() === 'valid_photos' ? 'season' : '');
 }
+
+function applyDockColumnFiltersToItems(items = [], inspectOnly = false) {
+    const rows = applyDockColumnFiltersToItemsWithMap(items,dockColumnFilters);
+    if (inspectOnly) {
+        const state = getInventoryExcelState('docks');
+        return getFilteredInventoryExcelRows({...state,rows,filtered:null},'');
+    }
+    return applyInventoryExcelFilters('docks',rows);
+}
+
+function applyDockStructuredFilters(items = [], inspectOnly = false) {
+    if (!inspectOnly) clearRemovedDockTopFilterState();
+    return applyDockColumnFiltersToItems(applyDockRepCustomerFiltersOnly(items),inspectOnly);
+}
