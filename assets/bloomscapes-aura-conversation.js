@@ -92,7 +92,7 @@ async function callAuraLlmRouter(body, options = {}, cachedAnswer = buildAuraDet
     signal.throwIfAborted();
     const answer = reply?.answer || sql.reply;
     if (state) {
-        state.badge.textContent = reply ? '🟢 Gemini 2.5 Flash Live' : '🟡 SQL Fallback';
+        state.badge.textContent = reply ? '🟢 ' + reply.provider.replace('gemini-', 'Gemini ').replace('-flash', ' Flash').replace('-lite', '-Lite') + ' Live' : '🟡 SQL Fallback';
         state.history = [...state.history, {question: body.text.slice(0, 1000), answer: answer.slice(0, 1000)}].slice(-4);
     }
     return {...sql, reply: answer, speech: answer, provider: reply?.provider || 'sql', requestId: options.requestId,
