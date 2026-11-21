@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.29';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.30';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -23322,7 +23322,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.29';
+        const APP_VERSION = '3.1.30';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -43247,12 +43247,6 @@ return false;
             ].join('::');
         }
 
-        function getDriveSearchProfile() {
-            if (activeDriveTab === 'name') return 'drive_name';
-            if (activeDriveTab === 'loc') return 'drive_loc';
-            return 'drive_card';
-        }
-
         function shouldScopeDriveSearchToSelectedLocation() {
             return activeDriveTab === 'loc'
                 && Number(driveViewLevel || 0) >= 2
@@ -43481,16 +43475,6 @@ function closeDriveQuickFiltersModal() {
         modal.innerHTML = '';
     }
     return false;
-}
-
-function getDriveCurrentReturnedRows() {
-    const driveView = document.getElementById('view-drive');
-    if (!driveView || driveView.classList.contains('hidden')) return [];
-    if (activeDriveMode !== 'ok' || activeDriveTab !== 'card') return [];
-    const driveModeLabel = DRIVE_MODE_LABELS[activeDriveMode] || 'Drive Mode';
-    const driveViewState = buildDriveVisibleItemsState();
-    const resolvedState = buildDriveResolvedCardState(driveModeLabel, driveViewState);
-    return Array.isArray(resolvedState.finalItems) ? resolvedState.finalItems.filter(Boolean) : [];
 }
 
 function getDriveReturnedSelectableRows(rows = null) {
@@ -126083,12 +126067,12 @@ ${folderNote ? `Folder Note: ${folderNote}
             if (didUpdate) scheduleStickyRailOffsetSync('drive-filter-strip');
         }
 
-        function buildDriveVisibleItemsState() {
+        function buildDriveVisibleItemsState(reconcile = true) {
             const baseSearchFilteredItems = getDriveFilteredItems(false);
             const drivePlantFilterState = buildDrivePlantFilterState(baseSearchFilteredItems);
             const resolvedStateKey = getDriveVisibleProjectionKey();
             driveVisibleItemsStateCache = readDriveVisibleProjection(baseSearchFilteredItems, drivePlantFilterState, resolvedStateKey);
-            if (driveVisibleItemsStateCacheKey !== resolvedStateKey || driveViewLevel !== 0) {
+            if (reconcile && (driveVisibleItemsStateCacheKey !== resolvedStateKey || driveViewLevel !== 0)) {
                 reconcileDriveDrillSelectionWithVisibleItems(driveVisibleItemsStateCache.visibleItems);
             }
             driveVisibleItemsStateCacheKey = resolvedStateKey;

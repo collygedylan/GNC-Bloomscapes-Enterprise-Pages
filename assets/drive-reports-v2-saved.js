@@ -65,12 +65,12 @@ function paintDriveReport2Saved(root, state) {
     const save = root.querySelector('[data-drive-custom-reports-v2-save]');
     root.querySelector('[data-drive-custom-reports-v2-retry]').hidden = !state.savedLoadFailed;
     const report = state.saved.reports.find(entry => String(entry.id) === state.savedId);
-    select.innerHTML = '<option value="">Saved Reports ▾</option>' + state.saved.reports.map(entry =>
-        `<option value="${esc(String(entry.id))}">${entry.visibility === 'public' ? '🌐 Public' : '🔒 Private'} · ${esc(entry.report_name)}</option>`).join('');
+    syncDriveReport2Options(select, state, 'Saved Reports ▾');
     select.value = state.savedId;
     save.disabled = !canManageDriveSavedReport(undefined, state.saved);
     save.textContent = report && !canManageDriveSavedReport(report, state.saved) ? 'Save as My Report' : '💾 Save';
     status.textContent = state.savedMessage;
+    root.querySelector('[data-drive-report-exit]').hidden = !state.scoped;
 }
 
 function driveReport2SavedInput(form, state, report) {
@@ -85,4 +85,83 @@ function driveReport2SavedInput(form, state, report) {
     };
     if (report && canManageDriveSavedReport(report, state.saved)) entry.id = report.id;
     return entry;
+}
+
+function syncDriveReport2Options(select, state, label) {
+    if (select.driveReportOptions === state.savedSignature && select.options.length) return;
+    select.driveReportOptions = state.savedSignature;
+    select.innerHTML = '<option value="">' + label + '</option>' + state.saved.reports.map(entry =>
+        `<option value="${esc(String(entry.id))}">${entry.visibility === 'public' ? '🌐 Public' : '🔒 Private'} · ${esc(entry.report_name)}</option>`).join('');
+}
+
+function driveReport2ViewButtons(includeTable) {
+    const modes = [['loc', '📍 Location'], ['name', '🌿 Common Name'], ['card', '🚗 Cards']];
+    if (includeTable) modes.unshift(['reports-v2', 'Table']);
+    return modes.map(([mode, label]) => `<button type="button" data-drive-report-view="${mode}">${label}</button>`).join('');
+}
+
+function paintDriveReport2Picker(bar, state) {
+    const select = bar.querySelector('select');
+    syncDriveReport2Options(select, state, '📊 Saved Reports ▾');
+    select.value = state.scoped ? state.savedId : '';
+    const retry = bar.querySelector('[data-drive-report-retry]');
+    retry.hidden = !state.savedLoadFailed;
+    bar.querySelector('[data-drive-report-status]').textContent = state.savedLoadFailed ? state.savedMessage : '';
+}
+
+function handleDriveReport2BrowseClick(event) {
+    const data = event.target.closest('button')?.dataset;
+    const state = activeDriveReport2State;
+    if (!data || !state || !driveReport2StateCurrent(state)) return;
+    if (data.driveReportView) return openDriveReport2View(state, data.driveReportView);
+    if (data.driveReportRetry !== undefined) return loadDriveReport2Saved(state);
+    if (data.driveReportExit !== undefined) return exitDriveReport2(state);
+}
+
+function handleDriveReport2BrowseChange(event) {
+    const state = activeDriveReport2State;
+    if (!state || !event.target.matches('select') || !event.target.value) return;
+    if (driveReport2ApplySaved(state, event.target.value)) setDriveTab(activeDriveTab);
+}
+
+function makeDriveReport2BrowseBar(crumb) {
+    const bar = document.createElement('div');
+    bar.id = 'drive-report-browse';
+    bar.innerHTML = `<div data-drive-report-scope role="group" aria-label="Active report">
+        <strong data-drive-report-label aria-live="polite"></strong>
+        ${driveReport2ViewButtons(true)}
+        <button type="button" data-drive-report-exit>✕ Exit Report</button>
+    </div>
+    <select aria-label="Saved Reports"></select>
+    <button type="button" data-drive-report-retry hidden>Retry saved reports</button>
+    <output data-drive-report-status aria-live="polite"></output>`;
+    bar.addEventListener('click', handleDriveReport2BrowseClick);
+    bar.addEventListener('change', handleDriveReport2BrowseChange);
+    crumb.before(bar);
+    return bar;
+}
+
+function hideDriveReport2BrowseBar() {
+    const bar = document.getElementById('drive-report-browse');
+    if (bar) bar.hidden = true;
+}
+
+function syncDriveReport2BrowseBar(crumb, state, rows, tab) {
+    if (!crumb) return;
+    const showPicker = tab === 'loc' || tab === 'name';
+    const bar = document.getElementById('drive-report-browse') || makeDriveReport2BrowseBar(crumb);
+    state.browseBar = bar;
+    bar.hidden = !rows && !showPicker;
+    bar.querySelector('select').hidden = !showPicker;
+    bar.querySelector('[data-drive-report-scope]').hidden = !rows;
+    if (rows) {
+        const name = driveReport2Selected(state)?.report_name || 'Custom Report';
+        const text = `📊 ${name} · ${rows.length.toLocaleString()} rows`;
+        const label = bar.querySelector('[data-drive-report-label]');
+        if (label.textContent !== text) label.textContent = text;
+        for (const button of bar.querySelectorAll('[data-drive-report-view]')) {
+            button.setAttribute('aria-pressed', String(button.dataset.driveReportView === tab));
+        }
+    }
+    paintDriveReport2Picker(bar, state);
 }

@@ -27,13 +27,16 @@ function runTrackedNavigationCallback(callback) {
     catch { globalThis.reportHandledRuntimeIssue?.('runDirectTrackedNavigation','HANDLED_OPERATION_FAILURE'); }
 }
 
-function setDriveTab(tab) {
+function setDriveTab(tab, { exitReport = false } = {}) {
     closeDriveQuickFiltersModal();
     lastViewSwitchAt = Date.now();
     cancelDriveSearchRenderWork();
     const requestedTab = String(tab || '').trim();
     const nextTab = ['name', 'loc', 'card', 'hold', 'reports-v2'].includes(requestedTab) ? requestedTab : 'card';
-    const preserveNameDrillSelection = shouldPreserveDriveNameDrillSelectionForCard(nextTab);
+    if (!exitReport) prepareDriveReport2Navigation(nextTab);
+    const reportTransition = driveReport2BrowseTab(nextTab) || nextTab === 'reports-v2';
+    const useReportFastPath = reportTransition && (exitReport || !!getActiveDriveReport2());
+    const preserveNameDrillSelection = !useReportFastPath && shouldPreserveDriveNameDrillSelectionForCard(nextTab);
     return runDirectTrackedNavigation('drive', `drive-tab:${nextTab}`, () => {
         const previousTab = activeDriveTab;
         applyDriveTabColumnFilterScope(previousTab, nextTab);
@@ -58,7 +61,8 @@ function setDriveTab(tab) {
         setDriveSearchManualSelectionLock((nextTab === 'name' || nextTab === 'loc') && hasActiveDriveSearchTerm());
         syncDriveTabPills();
     }, {
-        afterFirstPaint: true,
+        afterFirstPaint: !useReportFastPath,
+        allowWhileTyping: useReportFastPath,
         preferImmediate: true,
         allowSameFrameRender: true,
         forceRender: true,
@@ -71,11 +75,11 @@ function setDriveTab(tab) {
 }
 
 
-function mountDriveLocationWindow(container, entries, modeKey, renderEntry) {
-    const key = modeKey + ':' + selectedDriveBlock;
+function mountDriveLocationWindow(container, entries, modeKey, renderEntry, reportSort) {
+    const key = modeKey + (reportSort ? ':report:' : ':') + selectedDriveBlock;
     const code = row => row.location;
     if (!window.GncCardWindow) {
-        setContainerHtml(container, LocationCode.cards(key,entries,code,renderEntry));
+        setContainerHtml(container, LocationCode.cards(key,entries,code,renderEntry,reportSort));
         return;
     }
     const signature = buildDriveRenderKey(key,'',entries);
@@ -83,7 +87,7 @@ function mountDriveLocationWindow(container, entries, modeKey, renderEntry) {
         renderInventoryCardWindow(container,rows,renderRow,{
             view:'drive',signature:signature+'|'+selected,estimatedHeight:96,prefixHtml
         });
-    });
+    },reportSort);
 }
 
 function openQuickAccessTab(nested) {
@@ -154,7 +158,7 @@ function renderDriveDrillEntries(container, crumb, crumbText, entries, modeKey, 
     }
     if(modeKey==='drive:loc:blocknumbers' && !isDriveSpreadsheetGridMode()) {
         syncDriveCrumb(crumb,crumbText);
-        mountDriveLocationWindow(container,safeEntries,modeKey,renderEntry);
+        mountDriveLocationWindow(container,safeEntries,modeKey,renderEntry,options.reportSort);
         return;
     }
     const emptyMessage = String(options.emptyMessage || 'No matching Drive rows.');
@@ -164,6 +168,14 @@ function renderDriveDrillEntries(container, crumb, crumbText, entries, modeKey, 
         return;
     }
     const renderKey = buildDriveRenderKey(modeKey, crumbText, safeEntries);
+    if (options.reportCards && safeEntries.length <= 24 && !isDriveSpreadsheetGridMode()) {
+        applyDriveRenderMarkup(container, crumb, crumbText, safeEntries.map(renderEntry).join(''), renderKey + ':report');
+        if (modeKey === 'drive:name:list') {
+            container.dataset.driveCommonnameState = 'complete';
+            container.dataset.driveCommonnameCount = String(safeEntries.length);
+        }
+        return;
+    }
     if (modeKey === 'drive:name:list' && !isDriveSpreadsheetGridMode()) {
         renderDriveCompleteCommonNames(container, crumb, crumbText, safeEntries, renderEntry, renderKey);
         return;

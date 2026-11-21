@@ -23,16 +23,22 @@ function openDriveReport2Row(row) {
     openDetail(uid, 'drive', { sourceDomId: row.DOM_ID ?? row.dom_id });
 }
 
-function renderDriveReport2Cards(container, rows, revision, filters) {
-    const sorted = driveHasSeasonCardSort(filters) ? sortDriveSeasonCards(rows) : rows;
-    if (!rows.length) {
-        setContainerHtml(container, '<p>No matching cards</p>');
-        return;
-    }
-    const signature = buildDriveRenderKey(`drive:reports-v2:${revision}`, '', sorted);
-    const renderCard = row => generateCard(row, 'drive', getDriveCardStatusClass(row, 'status-green'));
-    if (renderInventoryCardWindow(container, sorted, renderCard, { view: 'drive', signature, estimatedHeight: 310 })) return;
-    renderMarkupChunkedByKey('drive-reports-v2-cards', container, null, sorted, '', renderCard, { approxCardHeight: 310 });
+function getDriveSearchProfile() {
+    if (driveReport2BrowseTab(activeDriveTab) && getActiveDriveReport2()) return 'drive_card';
+    if (activeDriveTab === 'name') return 'drive_name';
+    if (activeDriveTab === 'loc') return 'drive_loc';
+    return 'drive_card';
+}
+
+function driveReport2Context() {
+    return {
+        owner: getSupabaseReadIdentityScope(), farm: getBloomscapesFarm(), authenticated: nativeAuthSessionActive,
+        fields: driveReport2Fields(DRIVE_COLUMN_FILTER_ALLOWED_HEADERS), openRow: openDriveReport2Row
+    };
+}
+
+function driveReport2Source(viewState) {
+    return { rows: viewState.visibleItems, sourceKey: viewState.resolvedStateKey, projectRow: projectDriveReport2Row };
 }
 
 function renderDriveReport2Tab(container, crumb) {
@@ -50,20 +56,15 @@ function renderDriveReport2Tab(container, crumb) {
         delete container.dataset.driveRenderKey;
     }
     syncDriveCrumb(crumb, '');
-    mountDriveReport2(container, {
-        owner: getSupabaseReadIdentityScope(), farm: getBloomscapesFarm(), authenticated: nativeAuthSessionActive,
-        rows: state.visibleItems, sourceKey: state.resolvedStateKey,
-        fields: driveReport2Fields(DRIVE_COLUMN_FILTER_ALLOWED_HEADERS),
-        projectRow: projectDriveReport2Row, openRow: openDriveReport2Row, renderCards: renderDriveReport2Cards
-    });
+    mountDriveReport2(container, { ...driveReport2Context(), ...driveReport2Source(state) });
 }
 
 function renderDriveRecordResults(tokenKey, container, crumb, rows, crumbText, renderKey = '', options = {}) {
     const input = Array.isArray(rows) ? rows : [];
-    const safeRows = tokenKey === 'drive-loc-card' && driveHasSeasonCardSort() ? sortDriveSeasonCards(input) : input;
+    const safeRows = !options.reportCards && tokenKey === 'drive-loc-card' && driveHasSeasonCardSort() ? sortDriveSeasonCards(input) : input;
     const nextOptions = options && typeof options === 'object' ? options : {};
     const browsePage = getClientBrowsePage('drive', renderKey || `${tokenKey}:${crumbText}`, safeRows);
-    const useSpreadsheet = isDriveSpreadsheetGridMode();
+    const useSpreadsheet = !nextOptions.reportCards && isDriveSpreadsheetGridMode();
     const continuous = tokenKey === 'drive-main-card' && !useSpreadsheet && !!window.GncCardWindow;
     const renderedRows = continuous ? safeRows : browsePage.rows;
     const pageFooter = continuous ? '' : renderClientBrowsePageFooter('drive', browsePage.key, safeRows.length, browsePage);
@@ -109,10 +110,43 @@ function syncDriveNameCatalogCompleteness(container) {
 }
 
 function releaseDriveReport2Ui(container) {
-    const report = container?.querySelector('#drive-custom-reports-v2');
-    if (!report) return;
+    const grid = container?.querySelector('.drive-custom-reports-v2-grid');
+    if (!grid) return;
+    const state = activeDriveReport2State;
+    if (state?.root?.contains(grid)) state.gridScrollTop = grid.scrollTop;
     closeInventoryExcelPopover('drive-custom-reports-v2');
-    window.GncCardWindow?.destroy(report.querySelector('.drive-custom-reports-v2-cards'));
+}
+
+function renderDriveReport2Browse(container, crumb, driveModeLabel) {
+    const context = driveReport2Context();
+    const state = getDriveReport2State(context);
+    if (activeDriveTab !== 'card') scheduleDriveReport2Saved(state, context.authenticated);
+    if (!state.scoped) {
+        syncDriveReport2BrowseBar(crumb, state, null, activeDriveTab);
+        return false;
+    }
+    const viewState = buildDriveVisibleItemsState(false);
+    syncDriveReport2Rows(state, driveReport2Source(viewState));
+    const rows = getDriveReport2PhysicalRows(state);
+    if (driveViewLevel) reconcileDriveDrillSelectionWithVisibleItems(rows);
+    const scopedView = { visibleItems: rows, reportCards: true, reportSort: state.layout.sorting.length > 0 };
+    syncDriveReport2BrowseBar(crumb, state, rows, activeDriveTab);
+    hideDrivePlantFilters();
+    renderDriveQuickRequestBar(activeDriveTab === 'card' ? rows : []);
+    if (activeDriveTab === 'name') {
+        syncDriveNameCatalogCompleteness(container);
+        renderDriveCommonNameDrill(container, crumb, driveModeLabel, scopedView);
+    } else if (activeDriveTab === 'loc') {
+        renderDriveLocationDrill(container, crumb, driveModeLabel, scopedView);
+    } else if (!rows.length) {
+        applyDriveRenderMarkup(container, crumb, driveModeLabel + ' > All Cards', '<p class="p-8">No rows match this report.</p>', 'drive:report:cards:empty');
+    } else {
+        const label = driveModeLabel + ' > All Cards (' + rows.length.toLocaleString() + ' items)';
+        const renderKey = getDriveListSignature(rows, 'drive:report:cards', label);
+        renderDriveRecordResults('drive-main-card', container, crumb, rows, label, renderKey, { reportCards: true });
+    }
+    scheduleDriveTopControlsRender(viewState.baseSearchFilteredItems, viewState.drivePlantFilterState);
+    return true;
 }
 
 function renderDrive() {
@@ -127,8 +161,14 @@ function renderDrive() {
     const driveModeLabel = DRIVE_MODE_LABELS[activeDriveMode] || 'Drive Mode';
     const drillTabs = document.getElementById('drive-drill-tabs');
     if (drillTabs) drillTabs.classList.remove('hidden');
-    if (activeDriveTab === 'reports-v2' && activeDriveMode === 'ok') return renderDriveReport2Tab(container, crumb);
-    releaseDriveReport2Ui(container);
+    if (activeDriveMode === 'ok' && driveReport2BrowseTab(activeDriveTab)) {
+        releaseDriveReport2Ui(container);
+        if (renderDriveReport2Browse(container, crumb, driveModeLabel)) return;
+    } else {
+        hideDriveReport2BrowseBar();
+        if (activeDriveTab === 'reports-v2' && activeDriveMode === 'ok') return renderDriveReport2Tab(container, crumb);
+        releaseDriveReport2Ui(container);
+    }
     if (renderDriveUniversalSearchResultsOnly()) return;
     if (activeDriveMode !== 'ok') {
         syncDriveFilterStrip(filtersDiv, '');
@@ -159,6 +199,26 @@ function renderDrive() {
         syncControls();
         return;
     }
+    renderStandardDriveCards(container, crumb, driveModeLabel, driveViewState);
+    syncControls();
+}
+
+function getDriveCurrentReturnedRows() {
+    const driveView = document.getElementById('view-drive');
+    if (!driveView || driveView.classList.contains('hidden')) return [];
+    if (activeDriveMode !== 'ok' || activeDriveTab !== 'card') return [];
+    const driveModeLabel = DRIVE_MODE_LABELS[activeDriveMode] || 'Drive Mode';
+    const driveViewState = buildDriveVisibleItemsState();
+    const report = getActiveDriveReport2();
+    if (report) {
+        syncDriveReport2Rows(report, driveReport2Source(driveViewState));
+        return getDriveReport2PhysicalRows(report);
+    }
+    const resolvedState = buildDriveResolvedCardState(driveModeLabel, driveViewState);
+    return Array.isArray(resolvedState.finalItems) ? resolvedState.finalItems.filter(Boolean) : [];
+}
+
+function renderStandardDriveCards(container, crumb, driveModeLabel, driveViewState) {
     const { finalItems, crumbText, renderKey } = buildDriveResolvedCardState(driveModeLabel, driveViewState);
     renderDriveQuickRequestBar(finalItems);
     if (finalItems.length === 0) {
@@ -166,11 +226,9 @@ function renderDrive() {
             ? 'No rows match the current Drive filters.'
             : 'No items found matching the current search.';
         applyDriveRenderMarkup(container, crumb, crumbText, `<div class="p-8 text-center text-gray-400">${emptyMessage}</div>`, 'drive:cards:empty');
-        syncControls();
         return;
     }
     renderDriveRecordResults('drive-main-card', container, crumb, finalItems, crumbText, renderKey, {
         approxCardHeight: 310
     });
-    syncControls();
 }

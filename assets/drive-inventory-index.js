@@ -16,26 +16,31 @@ function addDriveIndexRow(blocks, row) {
     entry.locations.get(location).push(row);
 }
 
-function finishDriveLocationIndex(blocks) {
+function finishDriveLocationIndex(blocks, reportSort = false) {
     const groups = Array.from(blocks, ([block, entry]) => ({
             block, rowCount: entry.rows.length, blockNumberCount: entry.locations.size,
             __driveRenderKeyValue: [block, entry.rows.length, entry.locations.size].join('|')
-        })).sort((a, b) => driveIndexOrder(getDriveBlockAlphaLabel(a.block), getDriveBlockAlphaLabel(b.block)));
+        }));
+    if (!reportSort) groups.sort((a, b) => driveIndexOrder(getDriveBlockAlphaLabel(a.block), getDriveBlockAlphaLabel(b.block)));
     return { blocks, groups };
 }
 
-function getDriveLocationIndex(rows) {
-    return getCanonicalDriveProjection(rows, 'drive-blocks', () => {
+function getDriveLocationIndex(rows, reportSort = false) {
+    return getCanonicalDriveProjection(rows, reportSort ? 'drive-blocks:report-order' : 'drive-blocks', () => {
         const blocks = new Map();
         for (const row of rows) addDriveIndexRow(blocks, row);
-        return finishDriveLocationIndex(blocks);
+        return finishDriveLocationIndex(blocks, reportSort);
     });
 }
 
-function getDriveBlockNumberGroups(block, entry) {
-    return getCanonicalDriveProjection(entry.rows, 'drive-locations', () => Array.from(entry.locations, ([location, rows]) => ({
-        location, rowCount: rows.length, __driveRenderKeyValue: [block, location, rows.length].join('|')
-    })).sort((a, b) => driveIndexOrder(getDriveBlockNumberLabel(a.location), getDriveBlockNumberLabel(b.location))));
+function getDriveBlockNumberGroups(block, entry, reportSort = false) {
+    return getCanonicalDriveProjection(entry.rows, reportSort ? 'drive-locations:report-order' : 'drive-locations', () => {
+        const groups = Array.from(entry.locations, ([location, rows]) => ({
+            location, rowCount: rows.length, __driveRenderKeyValue: [block, location, rows.length].join('|')
+        }));
+        if (!reportSort) groups.sort((a, b) => driveIndexOrder(getDriveBlockNumberLabel(a.location), getDriveBlockNumberLabel(b.location)));
+        return groups;
+    });
 }
 
 function getDriveVisibleProjectionKey() {
@@ -126,21 +131,21 @@ function renderDriveLocationDrill(container, crumb, driveModeLabel = '', viewSta
     const driveViewState = viewStateOverride && typeof viewStateOverride === 'object'
         ? viewStateOverride
         : buildDriveVisibleItemsState();
-    const { visibleItems } = driveViewState;
+    const { visibleItems, reportCards, reportSort } = driveViewState;
     const forceTopLevelSearchResults = shouldLockDriveSearchToTopLevel();
     if (!visibleItems.length) {
         applyDriveRenderMarkup(container, crumb, `${resolvedDriveModeLabel} > Location`, `<div class="p-8 text-center text-gray-400">No rows match the current Drive filters.</div>`, 'drive:loc:empty');
         return;
     }
     if (driveViewLevel <= 0 || !selectedDriveBlock || forceTopLevelSearchResults) {
-        const groups = getDriveLocationIndex(visibleItems).groups;
+        const groups = getDriveLocationIndex(visibleItems, reportSort).groups;
         renderDriveDrillEntries(container, crumb, `${resolvedDriveModeLabel} > Location > Select Block Alpha (${groups.length})`, groups, 'drive:loc:blocks', renderDriveBlockGroupCard, {
             emptyMessage: 'No Block Alpha values match the current Drive filters.',
-            approxCardHeight: 84
+            approxCardHeight: 84, reportCards
         });
         return;
     }
-    const blockEntry = getDriveLocationIndex(visibleItems).blocks.get(selectedDriveBlock);
+    const blockEntry = getDriveLocationIndex(visibleItems, reportSort).blocks.get(selectedDriveBlock);
     const selectedBlockItems = blockEntry?.rows || [];
     const selectedBlockLabel = getDriveBlockAlphaLabel(selectedDriveBlock);
     if (!selectedBlockItems.length) {
@@ -148,15 +153,16 @@ function renderDriveLocationDrill(container, crumb, driveModeLabel = '', viewSta
         return;
     }
     if (driveViewLevel <= 1 || !selectedDriveLoc) {
-        const groups = getDriveBlockNumberGroups(selectedDriveBlock, blockEntry);
+        const groups = getDriveBlockNumberGroups(selectedDriveBlock, blockEntry, reportSort);
         renderDriveDrillEntries(container, crumb, `${resolvedDriveModeLabel} > ${selectedBlockLabel} > Select Block Number (${groups.length})`, groups, 'drive:loc:blocknumbers', renderDriveLocationGroupCard, {
             emptyMessage: 'No Block Number values match the selected Block Alpha.',
-            approxCardHeight: 84
+            approxCardHeight: 84, reportSort
         });
         return;
     }
     const selectedBlockNumberItems = blockEntry.locations.get(selectedDriveLoc) || [];
-    const finalItems = sortDriveCardItems(selectedBlockNumberItems).sort((a, b) => compareLocationCodeValues(getDrivePlantLocationCode(a), getDrivePlantLocationCode(b)) || compareItemInquiryRows(a, b));
+    const finalItems = reportCards ? selectedBlockNumberItems : sortDriveCardItems(selectedBlockNumberItems)
+        .sort((a, b) => compareLocationCodeValues(getDrivePlantLocationCode(a), getDrivePlantLocationCode(b)) || compareItemInquiryRows(a, b));
     const selectedBlockNumberLabel = getDriveBlockNumberLabel(selectedDriveLoc);
     const crumbText = `${resolvedDriveModeLabel} > ${selectedBlockLabel} > ${selectedBlockNumberLabel} (${finalItems.length} physical rows)`;
     const renderKey = buildDriveRenderKey('drive:loc:cards', crumbText, finalItems);
@@ -165,6 +171,6 @@ function renderDriveLocationDrill(container, crumb, driveModeLabel = '', viewSta
         return;
     }
     renderDriveRecordResults('drive-loc-card', container, crumb, finalItems, crumbText, renderKey, {
-        approxCardHeight: 310
+        approxCardHeight: 310, reportCards
     });
 }

@@ -67,7 +67,6 @@
 .drive-custom-reports-v2-grid tr[data-drive-custom-reports-v2-row] { cursor: pointer; }
 .drive-custom-reports-v2-grid tr[aria-hidden] td { border: 0; padding: 0; }
 .drive-custom-reports-v2-grid > p { padding: 8px 12px; }
-.drive-custom-reports-v2-cards { display: grid; grid-template-columns: minmax(0, 1fr); }
 .drive-custom-reports-v2-dialog, #drive-custom-reports-v2-excel-popover {
     color-scheme: dark;
     color: #e6f5ea;
@@ -91,3 +90,40 @@
 .drive-custom-reports-v2-values label { display: grid; height: 28px; grid-template-columns: 1fr auto 24px; gap: 4px; align-items: center; padding: 0 4px; }
 .drive-custom-reports-v2-values label span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #drive-custom-reports-v2 :is(button, select, input):focus-visible, #drive-custom-reports-v2-excel-popover :is(button, select, input):focus-visible { outline: 2px solid #92e8a6; outline-offset: -2px; }
+
+#drive-report-browse {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 6px;
+    color: #d3eadb;
+    font-size: 12px;
+}
+#drive-report-browse [data-drive-report-scope] {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 4px;
+    border: 1px solid #426751;
+    border-radius: 8px;
+    background: #102c20;
+}
+#drive-report-browse [data-drive-report-label] {
+    padding-inline: 4px;
+    overflow-wrap: anywhere;
+}
+#drive-report-browse :is(button, select) {
+    min-height: 32px;
+    max-width: 100%;
+    padding: 3px 7px;
+    border: 1px solid #426751;
+    border-radius: 5px;
+    color: inherit;
+    background: #173829;
+    font: inherit;
+}
+#drive-report-browse button[aria-pressed="true"] { background: #246941; }
+#drive-report-browse :is(button, select):focus-visible { outline: 2px solid #92e8a6; outline-offset: -2px; }
+#drive-report-browse[hidden], #drive-report-browse :is([hidden], output:empty) { display: none !important; }

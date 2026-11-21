@@ -22,9 +22,11 @@
    }
    return text(left.raw,right.raw);
   }
-  function group(values) {
+  function group(values, preserveOrder = false) {
    const groups = new Map();
-   [...new Set(values.map(normalize).filter(Boolean))].sort(compareLocationCodeNatural).forEach(code=>{
+   const codes = [...new Set(values.map(normalize).filter(Boolean))];
+   if (!preserveOrder) codes.sort(compareLocationCodeNatural);
+   codes.forEach(code=>{
    const key=base(code); if(!groups.has(key))groups.set(key,[]);groups.get(key).push(code);
   });
   return groups;
@@ -37,9 +39,9 @@ function createLocationCardNavigation(root,normalize,base,group) {
  const views=new Map();
  const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const arg=value=>escape(JSON.stringify(value));
- function prepareView(key,entries,code,render,mount) {
-  const prior=views.get(key), groups=group(entries.map(code));
-  const view={key,entries,code,render,mount,groups,selected:prior?.selected||'',scroll:prior?.scroll||0};
+ function prepareView(key,entries,code,render,mount,preserveOrder) {
+  const prior=views.get(key), groups=group(entries.map(code),preserveOrder);
+  const view={key,entries,code,render,mount,groups,preserveOrder,selected:prior?.selected||'',scroll:prior?.scroll||0};
   if(!groups.has(view.selected))view.selected='';
   views.set(key,view);
   return view;
@@ -52,12 +54,12 @@ function createLocationCardNavigation(root,normalize,base,group) {
  function locationSection(view,html='') {
   return `<section data-location-navigation="${escape(view.key)}" data-location-bays="${view.selected?'true':'false'}">${html}</section>`;
  }
- function cards(key,entries,code,render) {
-  const view=prepareView(key,entries,code,render,null);
+ function cards(key,entries,code,render,preserveOrder) {
+  const view=prepareView(key,entries,code,render,null,preserveOrder);
   return locationSection(view,locationWindowRows(view,normalize,base).map(row=>renderLocationWindowRow(view,row)).join(''));
  }
- function windowCards(key,entries,code,render,mount) {
-  const view=prepareView(key,entries,code,render,mount);
+ function windowCards(key,entries,code,render,mount,preserveOrder) {
+  const view=prepareView(key,entries,code,render,mount,preserveOrder);
   mountLocationWindow(view);
  }
  function mountLocationWindow(view) {
@@ -68,7 +70,7 @@ function createLocationCardNavigation(root,normalize,base,group) {
   const v=views.get(key),el=element(key);
   if(!v||!el)return;
   if(v.mount)mountLocationWindow(v);
-  else el.outerHTML=cards(key,v.entries,v.code,v.render);
+  else el.outerHTML=cards(key,v.entries,v.code,v.render,v.preserveOrder);
  }
  function open(key,value) {const v=views.get(key);if(!v)return;v.scroll=typeof getMainAreaScrollTop==='function'?getMainAreaScrollTop():(root.scrollY||0);v.selected=value;paint(key);typeof setMainAreaScrollTop==='function'?setMainAreaScrollTop(0):root.scrollTo?.(0,0);}
  function back() {
