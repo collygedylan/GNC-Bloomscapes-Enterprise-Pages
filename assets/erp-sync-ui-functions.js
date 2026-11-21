@@ -150,14 +150,16 @@ function erpHomeRunScriptLabel(manualSyncActive, progress) {
     if (window.googleScriptRunInFlight) return 'Starting...';
     if (manualSyncActive && isAutoManualSyncStatus()) return progress.text ? `Auto ${progress.text}` : 'Auto Sync';
     if (isRunScriptActive || manualSyncActive) return progress.text ? `Sync ${progress.text}` : 'Syncing...';
-    return 'Run Script';
+    return 'Manual Sync Override';
 }
 
 function syncGoogleScriptButton() {
     const button = document.getElementById('run-google-script-btn');
     if (!button) return;
     const isVisible = canRunManualInventoryImport();
-    mountHomeSyncMultiselect(button,isVisible);
+    const group = button.closest('#drawer-manual-sync');
+    if (group) group.hidden = !isVisible;
+    if (isVisible || group?.querySelector('#erp-sync-target-multiselect')) mountHomeSyncMultiselect(button,isVisible);
     const label = button.querySelector('[data-run-script-label]');
     const panel = document.getElementById('dashboard-sync-accordion');
     if (panel) bindErpHomeStatusPanel(panel);

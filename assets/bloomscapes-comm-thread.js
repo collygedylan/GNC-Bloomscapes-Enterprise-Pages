@@ -7,7 +7,7 @@ function renderBloomscapesCommTimeline() {
     host.querySelector('[data-comm-thread-heading]').innerHTML='<header class="comm-thread-header"><button type="button" data-comm-inbox>‹ Inbox</button>'
         +'<div><strong>'+commEscape(title)+'</strong><small>'+commEscape(state.farm)+'</small></div>'
         +'<select data-comm-switch aria-label="Switch recipient"><option value="">Switch recipient…</option>'
-        +sortedBloomscapesConversations().map(item=>'<option value="'+item.id+'"'+(item.id===state.selected?' selected':'')+'>'+commEscape(commConversationName(item))+'</option>').join('')+'</select></header>';
+        +eligibleCommChannels(sortedBloomscapesConversations(),'text').map(item=>'<option value="'+item.id+'"'+(item.id===state.selected?' selected':'')+'>'+commEscape(commConversationName(item))+'</option>').join('')+'</select></header>';
     const thread=state.threads[state.selected],timeline=host.querySelector('[data-comm-timeline]');
     const bottom=timeline.scrollHeight-timeline.clientHeight-timeline.scrollTop<60;
     timeline.innerHTML=(thread?.more?'<button type="button" data-comm-older>Load earlier messages</button>':'')
@@ -53,7 +53,7 @@ function renderBloomscapesCommComposer() {
     if (!host || host.closest('#view-push-to-talk')) return;
     const root=host.querySelector('[data-comm-composer]'),state=bloomscapesCommState;
     const thread=state.threads[state.selected];
-    const enabled=!!state.selected && state.textAccess==='FULL_EDIT' && !state.opening;
+    const enabled=eligibleSelectedCommChannel('text') && state.textAccess==='FULL_EDIT' && !state.opening;
     const editor=root.querySelector('textarea');
     if (!editor) root.innerHTML='<form class="comm-text-form"><textarea name="body" data-comm-text maxlength="4000" rows="2" aria-label="Message"></textarea><button type="submit">Send</button></form>';
     const input=root.querySelector('textarea');

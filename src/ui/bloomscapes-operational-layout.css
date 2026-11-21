@@ -182,3 +182,4 @@ body[data-ops-theme="dark"]
   border-color: #407b5c;
   color: #ecfdf3;
 }
+button.card-eval-owner[data-owner-item] { pointer-events: auto; cursor: pointer; }

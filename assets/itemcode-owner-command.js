@@ -37,6 +37,10 @@ function prepareFarmOwnerCommand(itemcodes,assignedto) {
     if (!codes.length || codes.some(code=>state.defaultPending.has(code))) return null;
     const farm = getBloomscapesFarm();
     const assignee = normalizeEvalAssignableUser(assignedto);
+    if (assignee && !eligiblePickerUsers('evaluation').some(user=>user.username===assignee)) {
+        showToast('Assignments','Choose an eligible owner for this farm.',true);
+        return null;
+    }
     const changes = codes.map(itemcode=>({itemcode,assignedto:assignee || null}));
     const fingerprint = JSON.stringify([farm,changes]);
     state.defaultCommands ||= new Map();

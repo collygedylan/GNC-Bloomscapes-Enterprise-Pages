@@ -26,9 +26,10 @@ async function previewBloomscapesFieldWork(input) {
 
 async function readBloomscapesFieldRoster() {
     const {client,owner} = await requireBloomscapesSession();
-    const result = await client.rpc('gnc_field_work_roster',{p_farm:getBloomscapesFarm()});
+    const farm=getBloomscapesFarm();
+    const [result]=await Promise.all([client.rpc('gnc_field_work_roster',{p_farm:farm}),readEligibleModuleDirectory(farm)]);
     await requireBloomscapesOwner(owner);
-    return bloomscapesData(result);
+    return eligiblePickerRows(bloomscapesData(result),'field');
 }
 
 async function createBloomscapesFieldWork(command) {

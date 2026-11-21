@@ -40,7 +40,7 @@ function closeGroupedBloomNcrRecipientModal(choice = 'cancel') {
 async function openGroupedBloomNcrRecipientModal(items = [], defaultEmails = [], options = {}) {
     const rows = (Array.isArray(items) ? items : []).filter(Boolean);
     const modal = mountBloomscapesStaticBody('grouped-bloom-ncr-recipient-modal');
-    if (!modal) return dedupeRequestEmailRecipients(defaultEmails);
+    if (!modal) return options.recipientCapability || Array.isArray(options.allowedUsernames) ? null : dedupeRequestEmailRecipients(defaultEmails);
     groupedBloomNcrRecipientItems = rows.slice();
     groupedBloomNcrRecipientModalOptions = options && typeof options === 'object' ? { ...options } : {};
     groupedBloomNcrRecipientSearch = '';
@@ -160,4 +160,33 @@ function closeBloomActionRowFormModal() {
     bloomActionRowFormSubmitting = false;
     if (typeof detachBloomscapesStaticBody === 'function') detachBloomscapesStaticBody('bloom-action-row-form-modal');
     return false;
+}
+
+function getGroupedBloomNcrRecipientOptions() {
+    const byEmail = new Map();
+    const appUsersOnly = !!(groupedBloomNcrRecipientModalOptions && groupedBloomNcrRecipientModalOptions.appUsersOnly);
+    const allowedUsernames = new Set((Array.isArray(groupedBloomNcrRecipientModalOptions && groupedBloomNcrRecipientModalOptions.allowedUsernames) ? groupedBloomNcrRecipientModalOptions.allowedUsernames : []).map(normalizePushUsername).filter(Boolean));
+    const addRecipient = (entry = {}) => {
+        const username = normalizePushUsername(firstNonEmptyValue(entry.username, entry.userName, entry.display, ''));
+        const email = normalizeBloomPurposeRecipientEmail(firstNonEmptyValue(entry.email, entry.address, resolveRequestRecipientEmail(username), getGreenleafEmailForUsername(username), ''));
+        if (!email) return;
+        const display = String(firstNonEmptyValue(entry.display, entry.name, formatBloomPurposeDisplayName(username || email), '') || '').trim() || formatBloomPurposeDisplayName(email);
+        const role = String(firstNonEmptyValue(entry.role, entry.ROLE, '') || '').trim();
+        byEmail.set(email, { email, username, display, role });
+    };
+    if (appUsersOnly) {
+        try { (allowedUsernames.size ? getEvalWorkAssignableUserOptions(Array.from(allowedUsernames)) : getAssignableAppUserOptions()).forEach(addRecipient); } catch { globalThis.reportHandledRuntimeIssue?.("getGroupedBloomNcrRecipientOptions", 'HANDLED_OPERATION_FAILURE'); }
+    } else {
+        try { getBloomPurposeRecipientOptions().forEach(addRecipient); } catch { globalThis.reportHandledRuntimeIssue?.("getGroupedBloomNcrRecipientOptions", 'HANDLED_OPERATION_FAILURE'); }
+        try { getAssignableAppUserOptions([...PRIVILEGED_MANAGER_USER_KEYS]).forEach(addRecipient); } catch { globalThis.reportHandledRuntimeIssue?.("getGroupedBloomNcrRecipientOptions", 'HANDLED_OPERATION_FAILURE'); }
+        try { (Array.isArray(appAdminRecipientUsers) ? appAdminRecipientUsers : []).forEach(addRecipient); } catch { globalThis.reportHandledRuntimeIssue?.("getGroupedBloomNcrRecipientOptions", 'HANDLED_OPERATION_FAILURE'); }
+        BLOOM_GROUPED_NCR_ALLOWED_USER_KEYS.forEach((username) => addRecipient({ username, display: formatBloomPurposeDisplayName(username), role: 'NCR' }));
+        Array.from(groupedBloomNcrSelectedRecipients || []).forEach((email) => {
+            const safeEmail = normalizeBloomPurposeRecipientEmail(email);
+            if (safeEmail && !byEmail.has(safeEmail)) addRecipient({ email: safeEmail, display: formatBloomPurposeDisplayName(safeEmail), role: 'Selected' });
+        });
+    }
+    const capability=groupedBloomNcrRecipientModalOptions?.recipientCapability;
+    const users=capability ? eligiblePickerRows([...byEmail.values()],capability) : [...byEmail.values()];
+    return users.filter((entry) => !Array.isArray(groupedBloomNcrRecipientModalOptions?.allowedUsernames) || allowedUsernames.has(normalizePushUsername(entry.username))).sort((a, b) => a.display.localeCompare(b.display));
 }

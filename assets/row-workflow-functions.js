@@ -76,31 +76,8 @@ async function warmDrivePhotoSaveForRow(item) {
 
 
 function getManagerAssignableOwnerUsers() {
-            const state = getManagerAssignedColumnState();
-            const warehouse = typeof warehouseAssignedItemsInventory === 'undefined' ? null : warehouseAssignedItemsInventory;
-            const inventory = typeof fullInventory === 'undefined' ? null : fullInventory;
-            const cached = state.rosterSources;
-            if (!cached || cached.warehouse !== warehouse || cached.inventory !== inventory || cached.rows !== state.rows
-                || cached.defaults !== state.defaultOwnersByCode || cached.epoch !== state.dataEpoch) {
-                const existing = new Set();
-                for (const source of [warehouse, inventory, state.rows, state.defaultOwnersByCode?.values()]) {
-                    for (const row of source || []) {
-                        for (const raw of [row.ASSIGNEDTO, row.assignedto, row.DEFAULT_ASSIGNEDTO, row.default_assignedto]) {
-                            if (raw) existing.add(raw);
-                        }
-                    }
-                }
-                state.rosterSources = {warehouse, inventory, rows:state.rows, defaults:state.defaultOwnersByCode,
-                    epoch:state.dataEpoch, owners:new Set([...existing].map(normalizeEvalAssignableUser).filter(Boolean))};
-            }
-            const existingOwners = state.rosterSources.owners;
-            const matrixEvaluators = (globalThis.GncUserAccessControl?.state?.userAccess || [])
-                .filter(entry => /^(eval|evaluator)$/i.test(String(entry.role || '').trim())).map(entry => entry.username);
-            const directory = [...getAssignableAppUserOptions().map(entry => entry.username), ...matrixEvaluators];
-            return Array.from(new Set([...directory, ...EVAL_ASSIGNMENT_ROSTER_USERS, ...evalAssignableUsers, ...existingOwners]
-                .map(normalizeEvalAssignableUser).filter(user => user && (existingOwners.has(user) || (user !== 'ellen_ward' && !EVAL_TASK_INACTIVE_USERS.has(user))))))
-                .sort((a, b) => a.localeCompare(b));
-        }
+    return eligibleAssignmentNames();
+}
 
         function setManagerAssignedViewMode(value = 'unique') {
             getManagerAssignedColumnState().viewMode = value === 'rows' ? 'rows' : 'unique';
@@ -253,9 +230,8 @@ function mergeActiveItemDetailPhotoFields(row, prefix = '') {
                 add(option, id ? `rep:${normalizeRequestSalesrepId(id) || id}` : `user:${username}`);
             });
             const options=Array.from(optionsByIdentity.values()).sort((a, b) => a.label.localeCompare(b.label));
-            if (!matrixAccess) return options;
-            const roster=new Set(matrixAccess.getAccessSalesReps().map(rep=>matrixAccess.normalizeAccessUsername(rep.username)));
-            return mergeRequestModalRepOptions(options).filter(option=>matrixAccess.canRequestSalesRep(resolveUserAccessMatrix(),option.username||option.label));
+            const eligible=eligibleRequestRepOptions(mergeRequestModalRepOptions(options));
+            return matrixAccess ? eligible.filter(option=>matrixAccess.canRequestSalesRep(resolveUserAccessMatrix(),option.username||option.label)) : eligible;
         }
 
         function currentSuspendSourceSnapshot(operation, payload) {
@@ -1096,7 +1072,7 @@ function buildSuspendEvalUserFilter(items = [], id = 'suspend-eval-user-filter')
     const selected = getSuspendEvalUserFilter(tab);
     if (selected !== 'ALL' && !counts.has(selected)) counts.set(selected, 0);
     const option = (value, label, count) => '<option value="'+escapeHtml(value)+'"'+(value === selected ? ' selected' : '')+'>'+escapeHtml(label)+' ('+count+')</option>';
-    const options = [...counts.keys()].filter(user => user !== 'Unassigned').sort().map(user => option(user,user,counts.get(user)));
+    const options = eligiblePickerRows([...counts.keys()],'queue',user=>user).sort().map(user => option(user,user,counts.get(user)));
     if (counts.has('Unassigned')) options.push(option('Unassigned','Unassigned',counts.get('Unassigned')));
     return '<label class="workflow-control"><span>Assigned User / Eval User</span><select id="'+id+'" onchange="return setSuspendEvalUserFilter(this.value)">'+option('ALL','All Users',items.length)+options.join('')+'</select></label>';
 }

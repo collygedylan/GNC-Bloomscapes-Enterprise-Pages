@@ -28,6 +28,7 @@ async function dispatchBloomscapesModuleAccess(select,status,row) {
     try {
         const receipt=await saveBloomscapesModuleAccess(row,level);
         if (!select.isConnected || owner!==getSupabaseReadIdentityScope()) return;
+        invalidateScopedSecondarySnapshots('picker-users:');
         row.access_level=receipt.access_level;status.textContent='Saved '+row.subject_key+' · '+row.view_key+' · '+level;
     } catch(error) {
         if (select.isConnected) {select.value=row.access_level;status.textContent=error.message;}

@@ -144,16 +144,25 @@ function syncQueHeaderLayout() {
     row.dataset.jobBoardHeader = 'true';
 }
 
-function renderRequestCategoryToolbar(counts = null) {
-    const toolbar = document.getElementById('request-filter-toolbar');
-    if (!toolbar) return false;
-    counts = counts || getRequestTabQueueCounts();
+function syncQueCategoryControl(toolbar, counts) {
     const categories = bloomscapesJobBoardCategories().map(([category,label]) => ({
         key: category,
         label,
         count: bloomscapesWorkKind(category) ? bloomscapesWorkQueueCount(category) : Math.max(0, Number(counts[category]) || 0)
     }));
     syncQueCategoryButtons(toolbar.querySelector('.request-category-options'), categories);
+}
+
+function mountQueCategoryControl() {
+    const toolbar = document.getElementById('request-filter-toolbar');
+    if (!toolbar || toolbar.querySelector('#que-view-select')) return;
+    syncQueCategoryControl(toolbar, getRequestTabQueueCounts());
+}
+
+function renderRequestCategoryToolbar(counts = null) {
+    const toolbar = document.getElementById('request-filter-toolbar');
+    if (!toolbar) return false;
+    syncQueCategoryControl(toolbar, counts || getRequestTabQueueCounts());
     syncBloomscapesJobBoardToolbar(toolbar);
     toolbar.dataset.toolbarSingleRow = 'true';
     syncQueHeaderLayout();

@@ -323,3 +323,62 @@ function handleArgosReclassV3ProposalInput(input = null) {
     markArgosReclassProposalEdited(uid);
     return true;
 }
+
+async function reassignEvalWork(workId = '') {
+    const work = getEvalWorkById(workId);
+    if (!work || !evalWorkManager) return false;
+    await ensureAssignableAppUsers(false).catch(() => []);
+    const selectedEmails = await openGroupedBloomNcrRecipientModal([], getEvalWorkAssigneeUsernames(work).map(resolveRequestRecipientEmail).filter(Boolean), {
+        brandLabel: 'GNC PH Eval Work', title: 'Reassign Eval Work', confirmLabel: 'Use Evaluators',
+        searchPlaceholder: 'Search Eval users...', selectionNoun: 'evaluator', appUsersOnly: true,
+        allowedUsernames: eligibleEvalRoster('evaluation'), requiredEmails: []
+    });
+    if (selectedEmails === null) return false;
+    const assigneeUsernames = eligiblePickerRows(getEvalWorkAssigneesByEmails(selectedEmails),'evaluation').map(entry=>entry.username);
+    if (!assigneeUsernames.length) return false;
+    try {
+        const result = await evalWorkApi('reassign', { workId: work.id, expectedVersion: work.version, assigneeUsernames });
+        Object.assign(work, result.data || {});
+        showToast('Eval Work Reassigned', `${assigneeUsernames.length} evaluator${assigneeUsernames.length === 1 ? '' : 's'} selected. Their assignment email is queued.`);
+        scheduleRequestRender(0, 0, true);
+    } catch (error) { showToast('Reassign Failed', String(error && error.message ? error.message : 'Could not reassign Eval Work.'), true); }
+    return false;
+}
+
+async function chooseEvalWorkAssignee() {
+    await ensureAssignableAppUsers(false).catch(() => []);
+    const state = evalWorkSetupState.transactionState || argosInventoryTransactionState || {};
+    const selectedEmails = await openGroupedBloomNcrRecipientModal([state.item].filter(Boolean), (evalWorkSetupState.assigneeUsernames || []).map(resolveRequestRecipientEmail).filter(Boolean), {
+        brandLabel: 'GNC PH Eval Work',
+        title: 'Select Evaluator',
+        confirmLabel: 'Use Evaluators',
+        searchPlaceholder: 'Search Eval users...',
+        previewLabel: 'Review assignment',
+        selectionNoun: 'evaluator',
+        appUsersOnly: true,
+        allowedUsernames: eligibleEvalRoster('reclass'), recipientCapability:'reclass',
+        requiredEmails: []
+    });
+    if (selectedEmails === null) return false;
+    const assignees = eligiblePickerRows(getEvalWorkAssigneesByEmails(selectedEmails),'reclass');
+    if (!assignees.length) {
+        showToast('Choose Evaluators', 'Select at least one Eval user with an email address.', true);
+        return false;
+    }
+    evalWorkSetupState.assigneeUsernames = assignees.map((entry) => entry.username);
+    syncEvalWorkSetupSummary();
+    return false;
+}
+
+async function chooseEvalWorkCompletionRecipients() {
+    const state = evalWorkSetupState.transactionState || argosInventoryTransactionState || {};
+    const selected = await openGroupedBloomNcrRecipientModal([state.item].filter(Boolean), evalWorkSetupState.completionRecipients || [], {
+        brandLabel: 'GNC PH Eval Work',
+        title: 'Select Completion Recipients',
+        recipientCapability: 'reclass',
+        requiredEmails: []
+    });
+    if (selected !== null) evalWorkSetupState.completionRecipients = dedupeRequestEmailRecipients(selected || []);
+    syncEvalWorkSetupSummary();
+    return false;
+}

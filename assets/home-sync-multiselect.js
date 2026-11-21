@@ -4,11 +4,11 @@ let homeSyncSelectionCleanup;
 const HOME_SYNC_SELECTION_STYLE = `
 #view-home #dashboard-sync-accordion > summary {flex-wrap:wrap!important}
 #view-home #dashboard-sync-accordion .home-sync-target-toolbar {gap:5px!important;flex-wrap:wrap;max-width:100%}
-#home-header-sync > button {height:36px!important;min-height:36px!important;box-sizing:border-box;padding:0 8px!important;font-size:10px!important;letter-spacing:0!important;border-radius:9px;white-space:nowrap}
-#home-header-sync > button svg {width:16px!important;height:16px!important;flex:none}
-#home-header-sync #erp-sync-target-multiselect {display:inline-flex;align-items:center;gap:4px;background:linear-gradient(#103220,#081c12);color:#ecfdf5;border:1px solid #448b65}
-#home-header-sync #erp-sync-target-multiselect[hidden],#home-header-sync #erp-sync-target-popover[hidden] {display:none!important}
-#home-header-sync #erp-sync-target-popover {position:fixed;left:50%;transform:translateX(-50%);width:min(94vw,460px);max-height:72dvh;overflow-y:auto;z-index:9500;box-sizing:border-box;padding:14px;border:1px solid #448b65;border-radius:16px;background:linear-gradient(145deg,#103220f5,#081c12fa);color:#ecfdf5;box-shadow:0 18px 50px #0008;text-align:left;font:12px/1.4 system-ui}
+#drawer-manual-sync > button {height:36px!important;min-height:36px!important;box-sizing:border-box;padding:0 8px!important;font-size:10px!important;letter-spacing:0!important;border-radius:9px;white-space:nowrap}
+#drawer-manual-sync > button svg {width:16px!important;height:16px!important;flex:none}
+#drawer-manual-sync #erp-sync-target-multiselect {display:inline-flex;align-items:center;gap:4px;background:linear-gradient(#103220,#081c12);color:#ecfdf5;border:1px solid #448b65}
+#drawer-manual-sync #erp-sync-target-multiselect[hidden],#drawer-manual-sync #erp-sync-target-popover[hidden] {display:none!important}
+#drawer-manual-sync #erp-sync-target-popover {position:fixed;left:50%;transform:translateX(-50%);width:min(94%,460px);max-height:72dvh;overflow-y:auto;z-index:9500;box-sizing:border-box;padding:14px;border:1px solid #448b65;border-radius:16px;background:linear-gradient(145deg,#103220f5,#081c12fa);color:#ecfdf5;box-shadow:0 18px 50px #0008;text-align:left;font:12px/1.4 system-ui}
 #erp-sync-target-popover h3 {font-size:13px;font-weight:800;margin:14px 0 6px;color:#a7f3d0}
 #erp-sync-target-popover h4 {font-size:11px;margin:10px 0 4px;color:#a7f3d0}
 #erp-sync-target-popover button {border:1px solid #448b65;border-radius:8px;padding:7px 9px;color:#ecfdf5;background:#174b30;font:inherit;cursor:pointer}
@@ -135,11 +135,12 @@ function bindHomeSyncSelection(host, signal) {
 }
 
 function mountHomeSyncMultiselect(button, allowed = canRunManualInventoryImport()) {
-    const home = button.closest('#home-header-sync');
+    const home = button.closest('#drawer-manual-sync');
     if (!home) return;
     const existing = home.querySelector('#erp-sync-target-multiselect');
     if (existing) {
         existing.hidden = !allowed;
+        if (!allowed) closeHomeSyncSelection(home);
         return paintHomeSyncSelection(home);
     }
     delete home.dataset.erpSelection;

@@ -192,7 +192,7 @@ function paintBloomscapesDockDisclosure(details,state) {
 }
 
 function bindBloomscapesDockChoiceFields(host,state) {
-    const people = predicate => pullChoices(state.board?.people.filter(predicate) || []);
+    const people = predicate => pullChoices(eligiblePickerRows(state.board?.people || [],'docks').filter(predicate));
     bindBloomscapesChoiceFields(host,{
         'pull-borrow-worker':()=>people(()=>true),
         'pull-assign':()=>people(person=>person.puller_eligible===true),
@@ -210,9 +210,9 @@ function pullDistinctFilters(rows,value,empty) {
 }
 
 function pullWorkerFilters(board) {
-    const names = new Map(pullChoices(board.people));
+    const names = new Map(pullChoices(eligiblePickerRows(board.people,'docks')));
     return pullDistinctFilters(board.tags,row=>row.puller,'All pullers')
-        .map(([key,label])=>[key,names.get(key) || label]);
+        .filter(([key])=>!key || names.has(key)).map(([key,label])=>[key,names.get(key) || label]);
 }
 
 function paintBloomscapesDocksWorkspace(host, viewId, state) {

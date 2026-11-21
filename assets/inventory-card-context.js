@@ -145,7 +145,12 @@ function getCanonicalCardMatchDisplay(item, view) {
 }
 
 function buildEvalOwnerBadge(item) {
-    return '<span class="card-eval-owner">EVAL: ' + escapeHtml(getSuspendEvalOwner(item) || 'Unassigned') + '</span>';
+    const owner=getSuspendEvalOwner(item) || '';
+    const label='EVAL: '+escapeHtml(owner || 'Unassigned');
+    const code=String(item?.ITEMCODE || item?.itemcode || '').trim();
+    if (!code || !canManageEvalItemcodeAssignments()) return '<span class="card-eval-owner">'+label+'</span>';
+    return '<button type="button" class="card-eval-owner" data-fast-press-ignore data-owner-item="'+escapeHtml(code)+'" data-owner-value="'+escapeHtml(owner)+
+        '" onclick="event.stopPropagation();openEligibleItemOwnerPicker(this)">'+label+'</button>';
 }
 
 function prepareInventoryCardItem(item, sourceView, colorClass, renderMeta) {

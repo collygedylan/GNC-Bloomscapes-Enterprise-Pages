@@ -1,4 +1,5 @@
 function renderViewContent(viewId, forceReset = false, forceRender = false, syncHeader = false) {
+    refreshModulePickersOnEntry(viewId);
     mountBloomscapesCalendarShell(viewId);
     syncBloomscapesCommLifecycle(viewId);
     detachInactiveBloomscapesReceivingPanels(viewId);

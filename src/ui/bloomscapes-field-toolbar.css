@@ -48,15 +48,11 @@ html body #app-wrapper #view-detail [data-photo-slot] img {width:80px;height:80p
 html body #app-wrapper #av-filter-options > .bloomscapes-farm-selector {flex:0 0 74px!important;min-width:74px!important;padding:0!important;border:0!important;margin:0!important;align-self:center;}
 html body #app-wrapper #av-filter-options > .bloomscapes-farm-selector select {width:100%!important;min-width:0!important;height:36px!important;min-height:36px!important;font-size:11px!important;padding:0 4px!important;}
 
-html body #app-wrapper #app-top-chrome #home-header-sync{display:none!important;}
 html body.current-view-home #app-wrapper #view-home:not(.hidden){display:flex!important;flex-direction:column;}
-html body.current-view-home #app-wrapper #app-top-chrome #home-header-sync{display:flex!important;align-items:center;gap:6px;min-width:0;}
 html body.current-view-home #app-wrapper #app-top-chrome #global-header-search-row > :is(#global-header-search-slot,#global-header-inline-title,#global-header-inline-back):not([popover]){
   display:none!important;
 }
 html body.current-view-home #app-wrapper #home-dashboard-sticky{display:none!important;}
-html body #app-wrapper #home-header-sync > button:not([hidden]):not(.hidden){display:inline-flex!important;align-items:center;justify-content:center;gap:3px;height:36px!important;min-height:36px!important;min-width:0!important;padding:0 7px!important;border:1px solid var(--bloom-border);background:var(--bloom-pill);color:var(--bloom-ink);border-radius:999px!important;font-size:11px!important;white-space:nowrap;}
-html body #app-wrapper #home-header-sync :is([hidden],button.hidden){display:none!important;}
 html body #app-wrapper #view-request > [data-job-board-header]{padding:0!important;background:transparent!important;border:0!important;box-shadow:none!important;}
 html body #app-wrapper #view-request #request-filter-toolbar[data-toolbar-single-row]{display:flex!important;align-items:center!important;flex-flow:row nowrap!important;height:38px!important;min-height:38px!important;max-height:38px!important;overflow-x:auto!important;overflow-y:hidden!important;scrollbar-width:none;gap:4px!important;padding:1px 4px!important;border:0!important;background:transparent;box-shadow:none;box-sizing:border-box;}
 html body #app-wrapper #view-request #request-filter-toolbar :is([data-job-board-tools],[data-inventory-excel-scope],.request-category-options,.bloomscapes-compact-select):not([hidden]){display:contents!important;}

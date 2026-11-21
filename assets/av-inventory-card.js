@@ -116,7 +116,7 @@ function renderAvInventoryCardMarkup(context) {
         <div class="app-av-catalog-frame">
             ${renderAvCardHeading(context, commonNameText)}
             <div class="app-av-catalog-media app-inline-thumb-column"><div class="app-av-catalog-photo-wrap">${heroHtml}</div>${photoDateHtml}</div>
-            <div class="app-av-catalog-info">${renderAvCardQuantities(context)}${renderAvCardNote('Spec', specText)}${renderAvCardNote('Caliper', caliperText)}${renderAvCardNote('AV Note', avNoteDisplay)}${kiosk ? '' : renderAvCardNote('Pick note', pickNoteText)}${buildAvCardActions(context)}${renderAvCardHold(context)}${kiosk ? "" : renderBloomscapesBorrowedCardTrigger(item, "CAV")}</div>
+            <div class="app-av-catalog-info">${renderAvCardQuantities(context)}${renderAvCardNote('Spec', specText)}${renderAvCardNote('Caliper', caliperText)}${renderAvCardNote('AV Note', avNoteDisplay)}${kiosk ? '' : renderAvCardNote('Pick note', pickNoteText)}${buildAvCardActions(context)}${renderAvCardHold(context)}</div>
         </div>
     </div>`;
 }

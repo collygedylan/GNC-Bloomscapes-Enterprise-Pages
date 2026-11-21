@@ -59,7 +59,9 @@ async function refreshBloomscapesComm() {
         if (!state.conversations.some(row=>row.id===state.selected)) state.selected=sortedBloomscapesConversations()[0]?.id || '';
         bloomscapesMessagesState.unread=data.conversations.reduce((sum,row)=>sum+Number(row.unreadText || 0),0);
         syncBloomscapesHomeBadges();saveBloomscapesCommCache();renderBloomscapesComm();
-        if (!document.hidden && state.selected && bloomscapesCommHost()) await selectBloomscapesConversation(state.selected,false);
+        if (!document.hidden && state.selected && !state.creating && !state.opening && bloomscapesCommHost()) {
+            await selectBloomscapesConversation(state.selected,false);
+        }
     }).catch(error=>handleCommInboxReadFailure(error,generation))
         .finally(()=>{if(generation===state.generation)state.pending=null;});
     return state.pending;
@@ -119,6 +121,9 @@ async function chooseBloomscapesCommPeople(people,title='') {
     const selection=state.selectionEpoch=(state.selectionEpoch || 0)+1;
     state.opening=true;state.mobileThread=true;state.status='Opening selected conversation…';renderBloomscapesComm();
     try {
+        await readEligibleModuleDirectory(state.farm);
+        const recipients=new Set(eligibleCommPeople(state.mode).map(row=>row.username));
+        if (!people.length || people.some(name=>!recipients.has(name))) throw Error('Choose eligible recipients for this module.');
         const id=await createBloomscapesCommConversation(state.farm,people,title);
         if (generation!==state.generation || selection!==state.selectionEpoch) return;
         await refreshBloomscapesComm();
@@ -153,7 +158,7 @@ function draftBloomscapesCommText(value) {
 async function dispatchBloomscapesCommText() {
     const state=bloomscapesCommState,id=state.selected,thread=state.threads[id],generation=state.generation;
     const body=thread?.draft?.trim();
-    if (!body || thread.sending) return;
+    if (!body || thread.sending || !eligibleSelectedCommChannel('text')) return;
     const prior=thread.command,command=prior?.body===body?prior:{id:crypto.randomUUID(),farm:state.farm,channel:id,body};
     thread.command=command;thread.sending=true;thread.sendingId=command.id;
     showPendingCommunicationText(thread);

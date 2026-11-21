@@ -121,30 +121,11 @@ function mountBloomscapesFieldBorrowing(view) {
     if (!route || !nativeAuthSessionActive) return;
     const host = document.querySelector('#view-'+view+' .freeze-panel');
     if (!host) return;
-    mountBorrowedFieldTrigger(host,[route],view);
+    mountBorrowedFieldTrigger(host,[route]);
     mountBloomscapesTimeCardLink(host);
 }
 
-function renderBloomscapesBorrowedCardTrigger(row, kind) {
-    if (!nativeAuthSessionActive || !bloomscapesFarmRowIsVisible(row) || !getItemUniqueId(row)) return '';
-    const data = pullHtml(encodeFastPressArgs([kind,inventoryCardDetailIdentity(row)]));
-    const enabled = getBorrowedFieldState().board?.can_borrow === true;
-    return `<button type="button" class="${pullWorkspacePill}" data-inline-borrow-card="${data}" data-fast-press-ignore
-        ${enabled ? '' : 'hidden'} onclick="return openBloomscapesBorrowExactCard(event,this.dataset.inlineBorrowCard)">➕ Borrow Help (All Departments)</button>`;
-}
-
-function openBloomscapesBorrowExactCard(event, encoded) {
-    event.stopPropagation();
-    const [kind,identity] = decodeFastPressArgs(encoded);
-    if (kind !== 'CAV' && kind !== 'DRIVE') return false;
-    const rows = kind === 'CAV' ? avOpenInventory : fullInventory;
-    const id = identity?.[0];
-    const row = rows?.find(row => bloomscapesFarmRowIsVisible(row) && matchesInventoryCardDetailIdentity(row,id,identity));
-    if (row) openBorrowedFieldPicker(getBorrowedFieldState(),Object.keys(borrowedFieldDepartments),{id,kind,row});
-    return false;
-}
-
-function mountBorrowedFieldTrigger(host, routes, view) {
+function mountBorrowedFieldTrigger(host, routes) {
     const state = getBorrowedFieldState();
     const current = host.querySelector('[data-borrowed-field-trigger]');
     if (current?.dataset.borrowScope === state.scope && current?.dataset.borrowFarm === state.farm) return;
@@ -160,40 +141,32 @@ function mountBorrowedFieldTrigger(host, routes, view) {
     button.addEventListener('click',() => openBorrowedFieldPicker(state,routes));
     host.appendChild(button);
     if (!state.board && !state.error) void refreshBorrowedFieldBoard(state).then(() => {
-        if (button.isConnected && borrowedFieldStateCurrent(state)) paintBorrowedFieldPermission(button,state,view);
+        if (button.isConnected && borrowedFieldStateCurrent(state)) button.hidden = !state.board?.can_borrow;
     });
 }
 
-function paintBorrowedFieldPermission(button, state, view) {
-    const allowed = state.board?.can_borrow === true;
-    button.hidden = !allowed;
-    const host = document.getElementById('view-'+view);
-    for (const card of host?.querySelectorAll('[data-inline-borrow-card]') || []) card.hidden = !allowed;
-}
-
-function openBorrowedFieldPicker(state, routes, exact) {
+function openBorrowedFieldPicker(state, routes) {
     if (!borrowedFieldStateCurrent(state) || !state.board?.can_borrow) return;
     state.dialog?.remove();
     const dialog = document.createElement('dialog');
     dialog.className = 'bloomscapes-work-dialog';
     dialog.setAttribute('aria-label','Borrow Help (All Departments)');
-    dialog.innerHTML = borrowedFieldPickerMarkup(routes,exact);
+    dialog.innerHTML = borrowedFieldPickerMarkup(routes);
     state.dialog = dialog;
     dialog.addEventListener('close',() => dialog.remove(),{once:true});
     dialog.querySelector('[data-borrowed-field-close]').addEventListener('click',() => dialog.close());
     dialog.querySelector('[data-borrowed-field-existing]').addEventListener('submit',handleBorrowedFieldAssignmentSubmit);
     document.body.appendChild(dialog);
     dialog.showModal();
-    bindBorrowedFieldPicker(state,dialog,exact);
+    bindBorrowedFieldPicker(state,dialog);
 }
 
-function borrowedFieldPickerMarkup(routes, exact) {
+function borrowedFieldPickerMarkup(routes) {
     const routeOptions = routes.map(route => `<option value="${route}">${borrowedFieldLabels[route]}</option>`).join('');
-    const exactText = exact ? borrowerTargetLabel(exact.row) : '';
-    const target = exact ? `<p>${pullHtml(exactText)}</p>` :
-        '<label>Find card <input type="search" name="search" placeholder="Item, name, location or lot"></label><label>Exact card <select name="target" required></select></label>';
     return `<button type="button" data-borrowed-field-close>Close</button><h2>Borrow Help (All Departments)</h2>
-        <form class="space-y-2"><label>Work <select name="route">${routeOptions}</select></label>${target}
+        <form class="space-y-2"><label>Work <select name="route">${routeOptions}</select></label>
+        <label>Find card <input type="search" name="search" placeholder="Item, name, location or lot"></label>
+        <label>Exact card <select name="target" required></select></label>
         ${renderBloomscapesChoiceField('username','Borrowed worker','borrowed-field-worker','','',{required:true,className:pullWorkspacePill})}
         ${renderBloomscapesChoiceField('supervisor','Receiving supervisor','borrowed-field-supervisor','','',{required:true,className:pullWorkspacePill})}
         <button type="submit" class="${pullWorkspacePill}">Assign help</button><p role="status"></p></form>
@@ -216,31 +189,34 @@ function borrowedFieldRoster(people) {
     return people.map(row => ({...row,id:row.username,label:[row.name || row.username,row.department].filter(Boolean).join(' · ')}));
 }
 
-function bindBorrowedFieldPicker(state, dialog, exact) {
+function bindBorrowedFieldPicker(state, dialog) {
     const form = dialog.querySelector('form');
-    const roster = borrowedFieldRoster(state.board.people);
     const route = form.elements.route;
-    const supervisors = () => roster.filter(person =>
+    const roster = () => borrowedFieldRoster(eligiblePickerRows(state.board.people,route.value));
+    const supervisors = () => roster().filter(person =>
         person.supervisor_departments?.some(department=>String(department)===borrowedFieldDepartments[route.value]));
     const choices = rows => rows.map(row=>[row.id,row.label]);
     bindBloomscapesChoiceFields(dialog,{
-        'borrowed-field-worker':()=>choices(roster),
+        'borrowed-field-worker':()=>choices(roster()),
         'borrowed-field-supervisor':()=>choices(supervisors())
     });
     const paint = () => {
+        const worker=form.elements.username;
+        if (worker.value && !roster().some(person=>person.id===worker.value)) setBloomscapesChoiceFieldValue(worker,'');
         const supervisor = form.elements.supervisor;
         if (supervisor.value && !supervisors().some(person=>person.id===supervisor.value)) {
             setBloomscapesChoiceFieldValue(supervisor,'');
         }
-        if (!exact) paintBorrowedFieldTargets(form);
+        paintBorrowedFieldTargets(form);
         paintBorrowedFieldManagedAssignments(dialog,state,route.value);
     };
     route.addEventListener('change',paint);
     form.elements.search?.addEventListener('input',()=>paintBorrowedFieldTargets(form));
     form.addEventListener('submit',event => {
         event.preventDefault();
-        const target = exact || parseBorrowedFieldTarget(form.elements.target.value);
-        if (!target) return;
+        const target = parseBorrowedFieldTarget(form.elements.target.value);
+        if (!target || !roster().some(person=>person.id===form.elements.username.value)
+            || !supervisors().some(person=>person.id===form.elements.supervisor.value)) return;
         const input = {route:route.value,row_id:target.id,source_kind:target.kind,
             username:form.elements.username.value,supervisor:form.elements.supervisor.value};
         void applyBorrowedFieldCommand(state,form,'assign',input,form.querySelector('[role="status"]'));

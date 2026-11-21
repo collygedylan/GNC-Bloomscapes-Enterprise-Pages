@@ -42,7 +42,7 @@ function bindBloomscapesWalkieButton(host) {
 
 async function startBloomscapesWalkie() {
     const state=bloomscapesCommState;
-    if (!['ready','sent'].includes(bloomscapesWalkiePhase) || !state.selected || state.voiceAccess!=='FULL_EDIT' || state.opening) return;
+    if (!['ready','sent'].includes(bloomscapesWalkiePhase) || !eligibleSelectedCommChannel('voice') || state.voiceAccess!=='FULL_EDIT' || state.opening) return;
     const epoch=++bloomscapesWalkieEpoch, generation=state.generation, channel=state.selected;
     const current=()=>epoch===bloomscapesWalkieEpoch && generation===state.generation && channel===state.selected;
     bloomscapesWalkiePhase='starting';
@@ -173,7 +173,7 @@ function renderWalkieControls(host) {
     host.querySelector('[data-radio-user]').textContent=self;
     host.querySelector('[data-radio-title]').textContent='Broadcasting → '+walkieChannelLabel(selected);
     host.querySelector('[data-comm-autoplay]').checked=bloomscapesRadioAutoPlay();
-    host.querySelector('[data-comm-talk]').disabled=!selected || state.voiceAccess!=='FULL_EDIT' || state.opening;
+    host.querySelector('[data-comm-talk]').disabled=!eligibleSelectedCommChannel('voice') || state.voiceAccess!=='FULL_EDIT' || state.opening;
     const all=state.conversations.find(row=>row.is_group && row.title===state.farm+' All' && !row.participant_usernames?.length);
     const channels=[{slug:'all_call',title:'All Call',id:all?.id},...standardRadioChannels];
     const nav=host.querySelector('[data-radio-channels]');
@@ -184,7 +184,7 @@ function renderWalkieControls(host) {
     }).join('')+walkieChannelButton('direct_radio','Direct Radio','data-comm-direct',!!selected && !selected.is_group);
     const direct=host.querySelector('[data-radio-person]');
     direct.parentElement.hidden=selected?.is_group!==false && document.activeElement!==direct;
-    direct.innerHTML='<option value="">Select person</option>'+state.people.filter(user=>user.username!==currentUser).map(user=>
+    direct.innerHTML='<option value="">Select person</option>'+eligibleCommPeople('voice').map(user=>
         '<option value="'+commEscape(user.username)+'">'+commEscape(user.name)+'</option>').join('');
     direct.value=selected?.is_group?'':selected?.participant_usernames?.find(name=>name!==currentUser) || '';
     renderWalkieClips(host);

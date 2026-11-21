@@ -183,6 +183,7 @@ function mountPrimaryNavigation(context) {
     const targetView = getViewElementById(nextViewId);
     if (targetView) {
         showOnlyPrimaryView(nextViewId);
+        if (nextViewId === 'request') mountQueCategoryControl();
         updateFooterNavState(nextViewId);
         if (nextViewId === 'docks') mountDocksFilterDisclosure(targetView);
     }

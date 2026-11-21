@@ -82,7 +82,7 @@ function renderBloomscapesCommPeople() {
     const host=bloomscapesCommHost();
     if (!host) return;
     const state=bloomscapesCommState,query=state.search.toLowerCase().replace(/^@/,'');
-    const people=state.people.filter(user=>user.username!==currentUser && [user.name,user.username,user.role,...user.farms].join(' ').toLowerCase().includes(query));
+    const people=eligibleCommPeople('text').filter(user=>[user.name,user.username,user.role,...user.farms].join(' ').toLowerCase().includes(query));
     const root=host.querySelector('[data-comm-people]');
     if (state.creating) return renderCommRecipientForm(root,people);
     const show=state.filter==='all' || state.filter==='direct';

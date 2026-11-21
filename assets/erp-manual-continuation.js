@@ -278,8 +278,15 @@ function reduceManualErpSliceLimit(current = 2500) {
 function canRunManualInventoryImport() {
     const profile = nativeAuthProfile;
     const username = String(currentUser || '').trim().toLowerCase();
-    if (!username || !canViewDashboardSyncStatus() || window.GncUserAccessControl?.getSelfState?.()?.denied === true) return false;
-    if (!profile?.id) return !!getCurrentAppSessionToken();
+    if (!username || window.GncUserAccessControl?.getSelfState?.()?.denied === true) return false;
+    const identity = getCanonicalAccessSessionIdentity();
+    if (!identity || identity.username !== username) return false;
+    const matrix = resolveUserAccessMatrix(username);
+    const role = String(profile?.role || matrix?.role || '').trim().toLowerCase();
+    const flag = matrix?.view_permissions?.run_script ?? matrix?.view_permissions?.run_erp_sync;
+    if (username !== 'dylan_collyge' && (!['super-admin','admin'].includes(role)
+        || matrix?.verified !== true || flag !== 'Y')) return false;
+    if (!profile?.id) return identity.legacy;
     const lock = profile.locked_until ? Date.parse(profile.locked_until) : 0;
     return nativeAuthSessionActive === true && profile.id === nativeAuthSessionUserId
         && username === String(profile.username || '').trim().toLowerCase()

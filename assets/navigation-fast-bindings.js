@@ -33,7 +33,6 @@ bindFastInvokeById('footer-communication-btn', 'openBloomscapesComm', ['voice'],
         if (!viewId) return;
         bindFastPressTarget(element, 'invoke', viewId==='communication'?'openBloomscapesComm':'switchView', [viewId==='communication'?'voice':viewId], element.getAttribute('aria-label') || viewId);
     });
-    bindFastInvokeById('run-google-script-btn', 'runGoogleAppsScriptTrigger', [], 'Run Script');
     bindFastInvokeById('tab-av-open', 'setAVTab', ['open'], 'Open Stock');
     bindFastInvokeById('tab-av-reserves', 'setAVTab', ['reserves'], 'My Reserves');
     bindFastInvokeById('tab-av-secondary-all', 'setAvSecondaryTab', ['all'], 'ALL Open Stock');
@@ -84,4 +83,15 @@ function handleIosTaskFilterTriggerEvent(event = null) {
     event.stopPropagation();
     if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
     openIosTaskFilterSheet(kind);
+}
+
+function prepareBloomscapesMenu(drawer, overlay) {
+    if (typeof mountBloomscapesStaticBody === 'function') mountBloomscapesStaticBody('side-drawer');
+    if (typeof mountBloomscapesDockDrawerLinks === 'function') mountBloomscapesDockDrawerLinks(drawer);
+    if (typeof syncRoleAccessUi === 'function') syncRoleAccessUi();
+    syncGoogleScriptButton();
+    void refreshBloomscapesBorrowedRoutes();
+    drawer.classList.remove('hidden');
+    overlay.classList.remove('hidden');
+    overlay.style.display = '';
 }

@@ -234,9 +234,9 @@ function paintBloomscapesJobFacets(tools) {
     for (const [field,title] of [['assigned','All Assigned'],['block','Location / Block'],['priorityStatus','Priority / Status']]) {
         const select=tools.querySelector('[data-job-filter="'+field+'"]');
         if (select.hidden) continue;
-        if (select._facetEntry!==entry || !select.options.length) {
+        if (field==='assigned' || select._facetEntry!==entry || !select.options.length) {
             const choices=[...(entry?.fields[field] || [])].sort((a,b)=>String(a).localeCompare(String(b),undefined,{numeric:true}));
-            select.replaceChildren(new Option(title,field==='assigned'?'all':''),...choices.map(value=>new Option(value,value)));
+            select.replaceChildren(new Option(title,field==='assigned'?'all':''),...eligibleJobFacetValues(field,choices).map(value=>new Option(value,value)));
             select._facetEntry=entry;
         }
         select.value=filters[field] || '';

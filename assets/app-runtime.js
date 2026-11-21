@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.31';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.32';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -17962,17 +17962,7 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
         }
 
         function getEvalAssignableUserList() {
-            const assignmentUsers = getWarehouseAssignmentSourceUsers();
-            const assignmentsAreAuthoritative = assignmentUsers.length > 0;
-            const sourceUsers = assignmentsAreAuthoritative
-                ? assignmentUsers
-                : (evalAssignableUsersDirectoryResolved
-                    ? evalAssignableUsers
-                    : (evalAssignableUsers.length ? evalAssignableUsers : EVAL_TASK_FALLBACK_USERS));
-            return Array.from(new Set(sourceUsers
-                .map(normalizeEvalAssignableUser)
-                .filter((user) => user && (assignmentsAreAuthoritative || !EVAL_TASK_INACTIVE_USERS.has(user)))))
-                .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+            return eligibleAssignmentNames();
         }
 
         function getEvalAssignableUserLabel(value = '') {
@@ -22515,15 +22505,15 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
                 if (!user || user === 'all') return;
                 if (!optionsByUser.has(user)) optionsByUser.set(user, String(label || value || user).trim() || user);
             };
-            try { getEvalAssignableUserList().forEach((user) => addUser(user, user)); } catch (error) { globalThis.reportHandledRuntimeIssue?.("getAvOptionEvalUserOptions", 'HANDLED_OPERATION_FAILURE'); }
+            try { getEvalAssignableUserList().forEach((user) => addUser(user, user)); } catch { globalThis.reportHandledRuntimeIssue?.("getAvOptionEvalUserOptions", 'HANDLED_OPERATION_FAILURE'); }
             try {
                 getEvalTaskViewerUserOptions(fullInventory).forEach((option) => {
                     if (option && option.value !== 'all') addUser(option.value, option.label || option.value);
                 });
-            } catch (error) { globalThis.reportHandledRuntimeIssue?.("getAvOptionEvalUserOptions", 'HANDLED_OPERATION_FAILURE'); }
+            } catch { globalThis.reportHandledRuntimeIssue?.("getAvOptionEvalUserOptions", 'HANDLED_OPERATION_FAILURE'); }
             AV_OPTION_EVAL_MANAGER_USERS.forEach((user) => addUser(user, user));
             (Array.isArray(avOptionEvalRequests) ? avOptionEvalRequests : []).forEach((row) => addUser(firstNonEmptyValue(row && row.assignedto, row && row.ASSIGNEDTO, '')));
-            return Array.from(optionsByUser.entries())
+            return eligiblePickerRows(Array.from(optionsByUser.entries()),'evaluation',pair=>pair[0])
                 .map(([value, label]) => ({ value, label }))
                 .sort((left, right) => String(left.label || left.value).localeCompare(String(right.label || right.value), undefined, { sensitivity: 'base' }));
         }
@@ -23322,7 +23312,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.31';
+        const APP_VERSION = '3.1.32';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -28590,26 +28580,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             return false;
         }
 
-        async function reassignEvalWork(workId = '') {
-            const work = getEvalWorkById(workId);
-            if (!work || !evalWorkManager) return false;
-            await ensureAssignableAppUsers(false).catch(() => []);
-            const selectedEmails = await openGroupedBloomNcrRecipientModal([], getEvalWorkAssigneeUsernames(work).map(resolveRequestRecipientEmail).filter(Boolean), {
-                brandLabel: 'GNC PH Eval Work', title: 'Reassign Eval Work', confirmLabel: 'Use Evaluators',
-                searchPlaceholder: 'Search Eval users...', selectionNoun: 'evaluator', appUsersOnly: true,
-                allowedUsernames: EVAL_ASSIGNMENT_ROSTER_USERS, requiredEmails: []
-            });
-            if (selectedEmails === null) return false;
-            const assigneeUsernames = getEvalWorkAssigneesByEmails(selectedEmails).map((entry) => entry.username);
-            if (!assigneeUsernames.length) return false;
-            try {
-                const result = await evalWorkApi('reassign', { workId: work.id, expectedVersion: work.version, assigneeUsernames });
-                Object.assign(work, result.data || {});
-                showToast('Eval Work Reassigned', `${assigneeUsernames.length} evaluator${assigneeUsernames.length === 1 ? '' : 's'} selected. Their assignment email is queued.`);
-                scheduleRequestRender(0, 0, true);
-            } catch (error) { showToast('Reassign Failed', String(error && error.message ? error.message : 'Could not reassign Eval Work.'), true); }
-            return false;
-        }
+
 
         async function cancelEvalWork(workId = '') {
             const work = getEvalWorkById(workId);
@@ -28760,42 +28731,9 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             return false;
         }
 
-        async function chooseEvalWorkAssignee() {
-            await ensureAssignableAppUsers(false).catch(() => []);
-            const state = evalWorkSetupState.transactionState || argosInventoryTransactionState || {};
-            const selectedEmails = await openGroupedBloomNcrRecipientModal([state.item].filter(Boolean), (evalWorkSetupState.assigneeUsernames || []).map(resolveRequestRecipientEmail).filter(Boolean), {
-                brandLabel: 'GNC PH Eval Work',
-                title: 'Select Evaluator',
-                confirmLabel: 'Use Evaluators',
-                searchPlaceholder: 'Search Eval users...',
-                previewLabel: 'Review assignment',
-                selectionNoun: 'evaluator',
-                appUsersOnly: true,
-                allowedUsernames: EVAL_ASSIGNMENT_ROSTER_USERS,
-                requiredEmails: []
-            });
-            if (selectedEmails === null) return false;
-            const assignees = getEvalWorkAssigneesByEmails(selectedEmails);
-            if (!assignees.length) {
-                showToast('Choose Evaluators', 'Select at least one Eval user with an email address.', true);
-                return false;
-            }
-            evalWorkSetupState.assigneeUsernames = assignees.map((entry) => entry.username);
-            syncEvalWorkSetupSummary();
-            return false;
-        }
 
-        async function chooseEvalWorkCompletionRecipients() {
-            const state = evalWorkSetupState.transactionState || argosInventoryTransactionState || {};
-            const selected = await openGroupedBloomNcrRecipientModal([state.item].filter(Boolean), evalWorkSetupState.completionRecipients || [], {
-                brandLabel: 'GNC PH Eval Work',
-                title: 'Select Completion Recipients',
-                requiredEmails: []
-            });
-            if (selected !== null) evalWorkSetupState.completionRecipients = dedupeRequestEmailRecipients(selected || []);
-            syncEvalWorkSetupSummary();
-            return false;
-        }
+
+
 
         async function createEvalWorkFromSetup(button = null) {
             const setupState = evalWorkSetupState;
@@ -43911,7 +43849,7 @@ function toggleDriveQuickRequestItem(domId) {
             if (searchInput && searchInput.value !== assignUserSearchTerm) searchInput.value = assignUserSearchTerm;
             if (!list) return;
             const search = String(assignUserSearchTerm || '').trim().toLowerCase();
-            const users = getAssignableAppUserOptions();
+            const users = eligiblePickerRows(getAssignableAppUserOptions(),'evaluation');
             const filtered = users.filter((entry) => {
                 if (!search) return true;
                 return doesProgressiveSearchFieldsMatch([entry.username, entry.display, entry.role], search);
@@ -53248,7 +53186,7 @@ function toggleDriveQuickRequestItem(domId) {
                 inspector: String(preservedValues.inspector || ''),
                 mistake: String(preservedValues.mistake || '')
             } : {};
-            const baseNames = Array.from(new Set(dockAssignableUsers.map(name => String(name || '').trim()).filter(Boolean)))
+            const baseNames = eligiblePickerRows([...new Set(dockAssignableUsers)],'docks',name=>name)
                 .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
             selectIds.forEach((id) => {
                 const el = document.getElementById(id);
@@ -53256,7 +53194,6 @@ function toggleDriveQuickRequestItem(domId) {
                 const field = id.replace('dock-', '');
                 const currentValue = Object.prototype.hasOwnProperty.call(resolvedValues, field) ? resolvedValues[field] : String(el.value || '');
                 const optionNames = baseNames.slice();
-                if (currentValue && !optionNames.includes(currentValue)) optionNames.push(currentValue);
                 optionNames.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
                 el.innerHTML = '';
                 el.add(new Option('Unassigned', ''));
@@ -53943,13 +53880,7 @@ function toggleDriveQuickRequestItem(domId) {
             const currentlyOpen = drawer.classList.contains('open') || overlay.classList.contains('open');
             if (!shouldOpen && !currentlyOpen) return false;
             if (shouldOpen) {
-                if (typeof mountBloomscapesStaticBody === 'function') mountBloomscapesStaticBody('side-drawer');
-                if (typeof mountBloomscapesDockDrawerLinks === 'function') mountBloomscapesDockDrawerLinks(drawer);
-                if (typeof syncRoleAccessUi === 'function') syncRoleAccessUi();
-                void refreshBloomscapesBorrowedRoutes();
-                drawer.classList.remove('hidden');
-                overlay.classList.remove('hidden');
-                overlay.style.display = '';
+                prepareBloomscapesMenu(drawer, overlay);
             }
             drawer.classList.toggle('open', shouldOpen);
             overlay.classList.toggle('open', shouldOpen);
@@ -54817,7 +54748,7 @@ function toggleDriveQuickRequestItem(domId) {
                 });
             });
             const search = String(chatUserSearchTerm || '').trim().toLowerCase();
-            return Array.from(byUsername.values())
+            return eligiblePickerRows(Array.from(byUsername.values()),'messages')
                 .filter((user) => {
                     if (!search) return true;
                     return doesProgressiveSearchFieldsMatch([user.displayName, user.username, user.role], search);
@@ -73925,7 +73856,7 @@ function toggleDriveQuickRequestItem(domId) {
             const requestedRepName = resolveCanonicalRequestRepName(repName);
             const matrix = typeof resolveUserAccessMatrix === 'function' ? resolveUserAccessMatrix() : null;
             const allowed = !matrix || window.GncUserAccessControl.canRequestSalesRep(matrix, requestedRepName);
-            if (requestedRepName && allowed) return requestedRepName;
+            if (requestedRepName && allowed && eligibleRequestRepOptions([{label:requestedRepName}]).length) return requestedRepName;
             if (options && options.showToast) showToast('Select REP', 'Choose an active sales rep from the list.', true);
             return '';
         }
@@ -109064,7 +108995,8 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
         }
 
         function getManagerAssignedPopoverOptions(editor) {
-            const options = getManagerAssignedColumnOptions(editor.field);
+            const choices = getManagerAssignedColumnOptions(editor.field);
+            const options = editor.field==='ASSIGNEDTO' ? eligibleAssignedColumnChoices(choices) : choices;
             const query = editor.search.trim().toLowerCase();
             if (!query) return options;
             const tokens = query.split(/\s+/);
@@ -109226,12 +109158,12 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
         function getManagerAssignedItemsAssigneeOptions(rows = null) {
             const assignedPageState = getManagerAssignedColumnState();
             const pageOptions = assignedPageState.viewPageSource && assignedPageState.viewMetadata?.assignedToOptions;
-            if (Array.isArray(pageOptions)) return pageOptions.map(option => ({
+            if (Array.isArray(pageOptions)) return eligiblePickerRows(pageOptions,'evaluation',option=>option.key ?? option.value).map(option => ({
                 key:normalizeEvalAssignableUser(option.key ?? option.value), label:String(option.label ?? option.key ?? option.value ?? ''), count:Number(option.count || 0)
             })).filter(option => option.key);
             const sourceRows = Array.isArray(rows) ? rows : getManagerAssignedItemsExportRows();
             const state = getManagerAssignedColumnState();
-            if (state.assigneeCache?.rows === sourceRows) return state.assigneeCache.options;
+            if (state.assigneeCache?.rows === sourceRows) return eligiblePickerRows(state.assigneeCache.options,'evaluation',option=>option.key);
             const byUser = new Map();
             sourceRows.forEach((row) => {
                 const key = normalizeEvalAssignableUser(row && row.ASSIGNEDTO);
@@ -109243,7 +109175,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             });
             const options = Array.from(byUser.values()).sort((a, b) => String(a.label || '').localeCompare(String(b.label || ''), undefined, { numeric: true }));
             state.assigneeCache = { rows: sourceRows, options };
-            return options;
+            return eligiblePickerRows(options,'evaluation',option=>option.key);
         }
 
         function getManagerAssignedItemsActiveAssigneeKey() {

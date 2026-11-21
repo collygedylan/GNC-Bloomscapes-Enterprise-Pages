@@ -2,6 +2,7 @@
 let bloomscapesLoadState;
 let bloomscapesLoadFitBound = false;
 const bloomscapesLoadUnits=new Intl.NumberFormat('en-US',{maximumFractionDigits:4});
+const BLOOMSCAPES_LOAD_BATCH_SIZE = 6;
 
 function bloomscapesLoadText(value) {
     return escapeHtml(String(value ?? ''));
@@ -83,7 +84,7 @@ async function flushBloomscapesLoad(state) {
     const mounted=new Set([...document.querySelectorAll('[data-bloom-load]')]
         .filter(node=>node.dataset.bloomLoadOwner===state.context.key).map(node=>node.dataset.bloomLoad));
     for (const key of state.queued.keys()) if (!mounted.has(key)) state.queued.delete(key);
-    const jobs=[...state.queued.entries()].slice(0,30);
+    const jobs=[...state.queued.entries()].slice(0,BLOOMSCAPES_LOAD_BATCH_SIZE);
     if (!jobs.length) return;
     jobs.forEach(([key])=>state.queued.delete(key));
     state.busy=true;

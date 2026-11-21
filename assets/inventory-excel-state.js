@@ -77,7 +77,7 @@ function inventoryExcelOptionsContext(state,field) {
 
 function getInventoryExcelOptions(state, field) {
     const {filters,ownerIndex}=inventoryExcelOptionsContext(state,field);
-    if (state.options.has(field)) return state.options.get(field);
+    if (state.options.has(field)) return inventoryExcelPickerOptions(state,field);
     const counts = new Map();
     const candidates = state.scope === 'drive' ? getDriveExcelFacetRows(state.rows, field) : state.rows;
     let matchingRows = 0;
@@ -98,7 +98,12 @@ function getInventoryExcelOptions(state, field) {
     const options = [...counts.values()].sort((a,b)=>compare(a.label,b.label));
     state.options.set(field, options);
     state.optionTotals.set(field,matchingRows);
-    return options;
+    return inventoryExcelPickerOptions(state,field);
+}
+
+function inventoryExcelPickerOptions(state,field) {
+    const options=state.options.get(field);
+    return field==='username' && state.scope!=='eval2' ? eligiblePickerFacets(options,state.scope) : options;
 }
 
 function inventoryExcelActiveSelections(filters,ignore) {
