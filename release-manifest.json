@@ -1,6 +1,6 @@
 {
   "schemaVersion": "gnc-release-artifact-v1",
-  "commit": "97c710b839d3d2c472db3e81194770c99f9c4992",
+  "commit": "2d05da1c85aaf01648a30f6fae1d1b00374a92f7",
   "release": "AgData v3.1.25",
   "files": [
     {
@@ -500,8 +500,8 @@
     },
     {
       "path": "assets/bloomscapes-aura-conversation.js",
-      "bytes": 9208,
-      "sha256": "2eb351480636dad6b718f8a1929c6adbe6fdb43fd1bf0ef57c3df7c854313a1f"
+      "bytes": 9199,
+      "sha256": "5ee2f01b5b8c9a0d3b2bb5b66efc7355c1df22460a1a4974d20ec93f6b6ef1e2"
     },
     {
       "path": "assets/bloomscapes-auth-prepaint.css",
@@ -1670,8 +1670,8 @@
     },
     {
       "path": "assets/live-app-runtime-v2026082010.min.js",
-      "bytes": 9535191,
-      "sha256": "b2fc5380d9d97be95db9b5d2c94c8c3dd87e6b73e22079395ae53b0db9416501"
+      "bytes": 9535183,
+      "sha256": "ecef78076822b6399be67949473d3dc4de23f51a1cdad364c0cc7aeb263d1cd3"
     },
     {
       "path": "assets/live-app-styles-authority-v2026090503.css",
@@ -3446,12 +3446,12 @@
     {
       "path": "deployment-fingerprint.json",
       "bytes": 187,
-      "sha256": "0ae1622af998ee033e09a3e6a035d5321673067d408fb97165fd3bfa1c7b600f"
+      "sha256": "d056f41d4896226a5302decb9ee8e760e374c3b9c86adc5233d831f317362586"
     },
     {
       "path": "deployment.json",
       "bytes": 187,
-      "sha256": "0ae1622af998ee033e09a3e6a035d5321673067d408fb97165fd3bfa1c7b600f"
+      "sha256": "d056f41d4896226a5302decb9ee8e760e374c3b9c86adc5233d831f317362586"
     },
     {
       "path": "deployments/00605449467180cae09703db28b9c9aeb53f25a8.json",
@@ -3557,6 +3557,11 @@
       "path": "deployments/2816389755690f1e3f4625d7725a7e88f3a70dc8.json",
       "bytes": 0,
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "deployments/2d05da1c85aaf01648a30f6fae1d1b00374a92f7.json",
+      "bytes": 187,
+      "sha256": "d056f41d4896226a5302decb9ee8e760e374c3b9c86adc5233d831f317362586"
     },
     {
       "path": "deployments/35cb199dded7356deece5478d448e414f3022494.json",
@@ -3685,8 +3690,8 @@
     },
     {
       "path": "deployments/97c710b839d3d2c472db3e81194770c99f9c4992.json",
-      "bytes": 187,
-      "sha256": "0ae1622af998ee033e09a3e6a035d5321673067d408fb97165fd3bfa1c7b600f"
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
       "path": "deployments/99c8870d7a470ae0459796ff7e7e2960348dd163.json",
@@ -3841,7 +3846,7 @@
     {
       "path": "index.html",
       "bytes": 343498,
-      "sha256": "48a70bc1147e7fda5a58efbb7aafb39ae052a0c0c3adda156100b83a40c53283"
+      "sha256": "74adb091203dc2664c5a2a3ef0babea77cc51c08b066f01a3d3b49d7eda27de6"
     },
     {
       "path": "manifest.json",
@@ -3921,7 +3926,7 @@
     {
       "path": "sw.js",
       "bytes": 37539,
-      "sha256": "686fec67de5933dc9b4745670b6e37482470a44ca04e712d648ee105932e05fe"
+      "sha256": "38bc1ee8f602aad902b33c34480462b9f2a9a54e53f209c32596745d504843f1"
     },
     {
       "path": "utils/auraIntentParser.js",
@@ -4176,7 +4181,7 @@
     {
       "path": "version.json",
       "bytes": 134,
-      "sha256": "fe4fb39a79cb45396bc3c7eaaf9e2e7da2b111517b4d7e8017418ec4ba20c578"
+      "sha256": "f9bd18e9aaa00822973d0d2007f2224328b37a5d22cce33dc68a3f364a9abba6"
     }
   ]
 }

@@ -54,7 +54,7 @@ async function auraCloudAnswer(body, state, sql, headers, signal) {
         const response = await fetch(AURA_SHEET_URL, {method: 'POST', headers: {'Content-Type': 'text/plain;charset=utf-8'},
             credentials: 'omit', redirect: 'follow', referrerPolicy: 'no-referrer', body: encoded, signal});
         const reply = response.ok && await response.json();
-        return reply?.ok && ['gemini-2.5-flash', 'gemini-2.5-flash-lite'].includes(reply.provider) && typeof reply.answer === 'string' && reply.answer.trim() ? reply : null;
+        return reply?.ok && /^gemini-\d+(?:\.\d+)?-flash(?:-lite)?$/.test(reply.provider) && typeof reply.answer === 'string' && reply.answer.trim() ? reply : null;
     } catch (error) {
         if (signal.aborted) throw error;
         return null;
