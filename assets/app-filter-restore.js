@@ -39,7 +39,7 @@ function restoreSavedInventoryColumnFilters(saved) {
 function restoreDriveFilters(drive) {
     if (!drive || typeof drive !== 'object') return;
     activeDriveMode = appFilterText(drive.activeDriveMode, activeDriveMode || 'ok') || 'ok';
-    activeDriveTab = appFilterMode(drive.activeDriveTab, ['name', 'loc', 'card', 'hold'], activeDriveTab || 'name');
+    activeDriveTab = appFilterMode(drive.activeDriveTab, ['name', 'loc', 'card', 'hold', 'reports-v2'], activeDriveTab || 'name');
     activeDriveHoldStopReport = normalizeDriveHoldStopReportMode(appFilterText(drive.activeDriveHoldStopReport, activeDriveHoldStopReport || 'hold-stop'));
     driveReportEvalUserFilter = normalizeDriveReportEvalUserFilter(appFilterText(drive.driveReportEvalUserFilter, driveReportEvalUserFilter || 'all'));
     driveOpenStockReportSeason = appFilterText(drive.driveOpenStockReportSeason, driveOpenStockReportSeason || 'S1') || 'S1';

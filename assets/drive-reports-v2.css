@@ -1,0 +1,93 @@
+#drive-custom-reports-v2 {
+    margin: 0 0 10px;
+    min-width: 0;
+    color: #e6f5ea;
+    --drive-report-2-line: #335443;
+    --drive-report-2-panel: #103220;
+    --drive-report-2-surface: #0b2418;
+}
+#drive-custom-reports-v2 :is([hidden], output:empty), #drive-custom-reports-v2-excel-popover [hidden] { display: none !important; }
+.drive-custom-reports-v2-toolbar, .drive-custom-reports-v2-actions, .drive-custom-reports-v2-dialog-head {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+}
+.drive-custom-reports-v2-toolbar {
+    height: 34px;
+    overflow-x: auto;
+    margin-bottom: 5px;
+    scrollbar-width: thin;
+    white-space: nowrap;
+}
+.drive-custom-reports-v2-toolbar > * { flex: none; }
+#drive-custom-reports-v2 :is(button, select, input), #drive-custom-reports-v2-excel-popover :is(button, select, input) {
+    color: inherit;
+    font: inherit;
+    font-size: 12px;
+    min-height: 26px;
+    border: 1px solid #426751;
+    border-radius: 5px;
+    padding: 2px 7px;
+    background: #183b28;
+}
+#drive-custom-reports-v2 button { cursor: pointer; }
+#drive-custom-reports-v2 button:disabled { cursor: default; opacity: .55; }
+#drive-custom-reports-v2 button[aria-pressed='true'] { background: #246941; }
+#drive-custom-reports-v2 [data-drive-custom-reports-v2-saved] { max-width: 190px; }
+#drive-custom-reports-v2 output { color: #c6e7d0; font-size: 12px; }
+.drive-custom-reports-v2-grid {
+    max-height: min(62vh, 440px);
+    overflow: auto;
+    overflow-anchor: none;
+    border: 1px solid var(--drive-report-2-line);
+    border-radius: 6px;
+    background: var(--drive-report-2-surface);
+}
+.drive-custom-reports-v2-grid-dense { max-height: min(56vh, 405px); }
+.drive-custom-reports-v2-grid table { border-spacing: 0; table-layout: fixed; font-size: 12px; }
+.drive-custom-reports-v2-grid thead { position: sticky; top: 0; z-index: 3; }
+.drive-custom-reports-v2-grid :is(th, td) {
+    height: 34px;
+    box-sizing: border-box;
+    border-right: 1px solid var(--drive-report-2-line);
+    border-bottom: 1px solid var(--drive-report-2-line);
+    padding: 1px 7px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: left;
+    background: var(--drive-report-2-surface);
+}
+.drive-custom-reports-v2-grid th { padding: 1px 3px; background: var(--drive-report-2-panel); }
+#drive-custom-reports-v2 th button { border: 0; width: 100%; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; text-align: left; }
+#drive-custom-reports-v2 th button span { color: #a2e0ae; }
+.drive-custom-reports-v2-grid .drive-custom-reports-v2-pinned { position: sticky; z-index: 1; }
+.drive-custom-reports-v2-grid :is(tr:hover, tr:focus-within) > td { background: #173829; }
+.drive-custom-reports-v2-grid tr[data-drive-custom-reports-v2-row] { cursor: pointer; }
+.drive-custom-reports-v2-grid tr[aria-hidden] td { border: 0; padding: 0; }
+.drive-custom-reports-v2-grid > p { padding: 8px 12px; }
+.drive-custom-reports-v2-cards { display: grid; grid-template-columns: minmax(0, 1fr); }
+.drive-custom-reports-v2-dialog, #drive-custom-reports-v2-excel-popover {
+    color-scheme: dark;
+    color: #e6f5ea;
+    background: #103220;
+    border: 1px solid #426751;
+    border-radius: 7px;
+}
+.drive-custom-reports-v2-dialog { width: min(420px, 94vw); padding: 11px; }
+.drive-custom-reports-v2-dialog::backdrop { background: #07170dbb; }
+.drive-custom-reports-v2-dialog-head { justify-content: space-between; margin-bottom: 5px; }
+.drive-custom-reports-v2-dialog-scroll { max-height: min(68vh, 550px); overflow: auto; }
+.drive-custom-reports-v2-column { display: grid; grid-template-columns: minmax(80px, 1fr) auto auto auto 64px; align-items: center; gap: 3px; padding: 3px; font-size: 12px; }
+.drive-custom-reports-v2-column label { display: flex; align-items: center; gap: 4px; overflow-wrap: anywhere; }
+.drive-custom-reports-v2-dialog form > label, .drive-custom-reports-v2-filter { display: grid; gap: 5px; }
+.drive-custom-reports-v2-dialog form > label { grid-template-columns: 88px 1fr; margin: 6px 0; align-items: center; }
+#drive-custom-reports-v2-excel-popover { box-sizing: border-box; max-height: min(80vh, 480px); overflow: auto; }
+.drive-custom-reports-v2-filter { padding: 8px; font-size: 12px; }
+.drive-custom-reports-v2-filter > .drive-custom-reports-v2-actions { flex-wrap: wrap; }
+.drive-custom-reports-v2-filter :is([name='first'], [name='second']) { min-width: 60px; width: 86px; }
+.drive-custom-reports-v2-values { height: min(180px, 30vh); overflow-y: auto; overflow-anchor: none; border: 1px solid #426751; border-radius: 4px; }
+.drive-custom-reports-v2-values label { display: grid; height: 28px; grid-template-columns: 1fr auto 24px; gap: 4px; align-items: center; padding: 0 4px; }
+.drive-custom-reports-v2-values label span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#drive-custom-reports-v2 :is(button, select, input):focus-visible, #drive-custom-reports-v2-excel-popover :is(button, select, input):focus-visible { outline: 2px solid #92e8a6; outline-offset: -2px; }

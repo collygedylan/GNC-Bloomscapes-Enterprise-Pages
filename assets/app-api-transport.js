@@ -299,6 +299,11 @@ function createSupabaseTransportClient(sdk, url, key, readAccessToken) {
 
 async function fetchObservedSupabaseRequest(input, init) {
     const operation = describeWatchdogRequest(input, init);
+    if (operation.tableName === 'profiles' || operation.rpcName === 'get_my_app_permissions_v1') {
+        const session = readCachedNativeAuthSession();
+        const headers = new Headers(init?.headers || input?.headers);
+        if (!session || headers.get('Authorization') !== 'Bearer ' + session.access_token) throw nativeAuthReadRetryError();
+    }
     const label = operation.rpcName || operation.tableName || operation.action || 'Supabase SDK';
     try {
         const response = await fetchWithTimeout(input, init, SUPABASE_WRITE_TIMEOUT_MS, label);

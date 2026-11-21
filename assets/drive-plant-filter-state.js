@@ -301,7 +301,7 @@ function renderDriveCommonNameSeasons(container,crumb,resolvedDriveModeLabel,sel
 function renderDriveCommonNameRows(container,crumb,resolvedDriveModeLabel,selectedSizeItems,selectedSizeLabel) {
     const selectedSeasonIsAll = isDriveDrillAllValue(selectedDriveSeason);
     const selectedSeasonLabel = getDriveDrillDisplayValue(selectedDriveSeason, 'Unknown');
-    const seasonItems = sortDriveCardItems(selectedSeasonIsAll ? selectedSizeItems : selectedSizeItems.filter((item) => String(firstNonEmptyValue(item.SEASON, '') || '').trim().toUpperCase() === String(selectedDriveSeason || '').trim().toUpperCase()));
+    const seasonItems = sortDriveCardsForActiveFilters(selectedSeasonIsAll ? selectedSizeItems : selectedSizeItems.filter((item) => String(firstNonEmptyValue(item.SEASON, '') || '').trim().toUpperCase() === String(selectedDriveSeason || '').trim().toUpperCase()));
     if (!seasonItems.length) {
         const crumbText = `${resolvedDriveModeLabel} > ${selectedDriveName} > ${selectedSizeLabel} > ${selectedSeasonLabel} (0 items)`;
         applyDriveRenderMarkup(container, crumb, crumbText, `<div class="p-8 text-center text-gray-400">No rows match the selected season.</div>`, 'drive:name:cards-empty');

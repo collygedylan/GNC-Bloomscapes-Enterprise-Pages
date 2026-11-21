@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.26';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.27';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -700,7 +700,7 @@
             if (!SUPABASE_KEY || !window.supabase || typeof window.supabase.createClient !== 'function') return null;
             try {
                 supabaseClient = createSupabaseTransportClient(window.supabase, SUPABASE_URL, SUPABASE_KEY,
-                    () => readCachedNativeAuthSession()?.access_token || null);
+                    readNativeSdkAccessToken);
                 return supabaseClient;
             } catch (error) {
                 console.warn('Supabase browser client initialization failed.', error);
@@ -773,50 +773,7 @@
             return Object.assign(new Error('Your session could not be restored. Retry, or sign in again to load data.'), { code: 'NATIVE_SESSION_RECOVERY_REQUIRED' });
         }
 
-        function readCachedNativeAuthSession() {
-            const session = nativeAuthSessionSnapshot;
-            if (!nativeAuthSessionActive || !nativeAuthAccessToken || session?.access_token !== nativeAuthAccessToken
-                || session.user?.id !== nativeAuthSessionUserId || nativeAuthProfile?.disabled_at || nativeAuthProfile?.active === false
-                || (nativeAuthProfile && nativeAuthProfile.id !== nativeAuthSessionUserId)) return null;
-            return session;
-        }
-
-        async function getNativeAuthSession() {
-            if (!NATIVE_AUTH_ENABLED) return null;
-            const saved = readCachedNativeAuthSession();
-            if (saved) return saved;
-            if (nativeAuthSessionRead) return nativeAuthSessionRead;
-            const epoch = nativeAuthRecoveryEpoch;
-            const task = (async () => {
-                const client = getSupabaseBrowserClient();
-                if (!client || !client.auth) return null;
-                let result;
-                try {
-                    result = await (window.GncLoginTrace?.measure('session-read', () => client.auth.getSession()) ?? client.auth.getSession());
-                } catch (error) {
-                    if (isTransientNativeAuthReadFailure(error)) throw nativeAuthReadRetryError(error);
-                    throw error;
-                }
-                const { data, error } = result || {};
-                if (epoch !== nativeAuthRecoveryEpoch) return null;
-                if (error) {
-                    if (isTransientNativeAuthReadFailure(error)) throw nativeAuthReadRetryError(error);
-                    if (isNativeAuthSessionRevoked(error)) throw error;
-                    return null;
-                }
-                if (!data?.session) return null;
-                if (nativeAuthProfile?.id && data.session.user?.id !== nativeAuthProfile.id) return null;
-                nativeAuthReadRequired = true;
-                nativeAuthSessionActive = true;
-                nativeAuthAccessToken = String(data.session.access_token || '').trim();
-                nativeAuthSessionUserId = String(data.session.user && data.session.user.id || '').trim();
-                nativeAuthSessionSnapshot = data.session;
-                return data.session;
-            })();
-            nativeAuthSessionRead = task;
-            try { return await task; }
-            finally { if (nativeAuthSessionRead === task) nativeAuthSessionRead = null; }
-        }
+        /* @runtime-fragment assets/bloomscapes-auth-session.js */
 
         let mutationBlockedAccessCanaryAuthEnabled = false;
 
@@ -23398,7 +23355,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.26';
+        const APP_VERSION = '3.1.27';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -72140,7 +72097,7 @@ function toggleDriveQuickRequestItem(domId) {
             lastViewSwitchAt = Date.now();
             cancelDriveSearchRenderWork();
             const requestedTab = String(tab || '').trim();
-            const nextTab = ['name', 'loc', 'card', 'hold'].includes(requestedTab) ? requestedTab : 'card';
+            const nextTab = ['name', 'loc', 'card', 'hold', 'reports-v2'].includes(requestedTab) ? requestedTab : 'card';
             const preserveNameDrillSelection = shouldPreserveDriveNameDrillSelectionForCard(nextTab);
             return runDirectTrackedNavigation('drive', `drive-tab:${nextTab}`, () => {
                 const previousTab = activeDriveTab;
@@ -122100,7 +122057,7 @@ ${folderNote ? `Folder Note: ${folderNote}
             const searchMatches = filterBySearch(scopedItems, safeTerm, 'drive_universal');
             const columnFilteredItems = applyDriveColumnFiltersToItems(searchMatches);
             const visibleItems = applyDriveQuickFiltersToItems(columnFilteredItems, `universal:${cacheKey}`);
-            const finalItems = sortDriveCardItems(visibleItems);
+            const finalItems = sortDriveCardsForActiveFilters(visibleItems);
             const state = { baseItems, drivePlantFilterState, finalItems, cacheKey };
             setDriveUniversalSearchCacheEntry(cacheKey, state);
             return state;
@@ -122129,7 +122086,7 @@ ${folderNote ? `Folder Note: ${folderNote}
         }
 
         function shouldRenderDriveUniversalDetailedSearch() {
-            return activeDriveMode === 'ok' && activeDriveTab !== 'name';
+            return activeDriveMode === 'ok' && activeDriveTab !== 'name' && activeDriveTab !== 'reports-v2';
         }
 
         function renderDriveUniversalSearchResultsOnly() {
@@ -126302,46 +126259,6 @@ ${folderNote ? `Folder Note: ${folderNote}
             </div>`;
         }
 
-        function renderDriveRecordResults(tokenKey, container, crumb, rows, crumbText, renderKey = '', options = {}) {
-            const safeRows = Array.isArray(rows) ? rows : [];
-            const nextOptions = options && typeof options === 'object' ? options : {};
-            const browsePage = getClientBrowsePage('drive', renderKey || `${tokenKey}:${crumbText}`, safeRows);
-            const renderedRows = browsePage.rows;
-            const pageFooter = renderClientBrowsePageFooter('drive', browsePage.key, safeRows.length, browsePage);
-            const prefixHtml = String(nextOptions.prefixHtml || '');
-            const useSpreadsheet = isDriveSpreadsheetGridMode();
-            if (container && container.dataset) {
-                container.dataset.driveDetailedRecords = 'true';
-                container.dataset.driveDisplay = useSpreadsheet ? 'grid' : 'cards';
-            }
-            const evidenceKey = buildDriveRenderKey('drive:visible-card-evidence','',renderedRows);
-            const displayRenderKey = `${String(renderKey || tokenKey)}::page:${browsePage.pageIndex}::${useSpreadsheet ? 'spreadsheet-v2' : 'cards-v1'}::${evidenceKey}`;
-            if (useSpreadsheet) {
-                cancelChunkRenderWorkForContainer(container, String(tokenKey || 'drive-grid'));
-                applyDriveRenderMarkup(container, crumb, crumbText, `${prefixHtml}${buildDriveSpreadsheetTableHtml(renderedRows)}${pageFooter}`, displayRenderKey);
-                return true;
-            }
-            const renderRow = typeof nextOptions.renderRow === 'function'
-                ? nextOptions.renderRow
-                : ((item) => generateCard(item, 'drive', getDriveCardStatusClass(item, nextOptions.fallbackStatusClass || 'status-green')));
-            if (renderInventoryCardWindow(container, renderedRows, renderRow, {
-                view:'drive', signature:displayRenderKey, estimatedHeight:Number(nextOptions.approxCardHeight)||310,
-                prefixHtml, footerHtml:pageFooter
-            })) { if(getCurrentVisibleViewId()==='drive'){syncDriveCrumb(crumb,crumbText);container.dataset.driveRenderKey=displayRenderKey;}return true; }
-            if (shouldUseChunkedCardRender(renderedRows.length, 90, 170)) {
-                syncDriveCrumb(crumb, crumbText);
-                if (container.dataset && container.dataset.driveRenderKey === displayRenderKey) return true;
-                if (container.dataset) container.dataset.driveRenderKey = displayRenderKey;
-                renderMarkupChunkedByKey(tokenKey, container, crumb, renderedRows, crumbText, renderRow, {
-                    approxCardHeight: Number(nextOptions.approxCardHeight) || 310,
-                    prefixHtml,
-                    onComplete: () => { if (pageFooter && container.dataset.driveRenderKey === displayRenderKey) container.insertAdjacentHTML('beforeend', pageFooter); }
-                });
-                return true;
-            }
-            applyDriveRenderMarkup(container, crumb, crumbText, `${prefixHtml}${renderedRows.map((item) => renderRow(item)).join('')}${pageFooter}`, displayRenderKey);
-            return true;
-        }
 
         function syncDriveFilterStrip(container, html = '', signature = '') {
             if (!container) return;
@@ -126450,7 +126367,7 @@ ${folderNote ? `Folder Note: ${folderNote}
                     ...driveResolvedCardStateCache
                 };
             }
-            const finalItems = sortDriveCardItems(drillScope.items);
+            const finalItems = sortDriveCardsForActiveFilters(drillScope.items);
             const crumbText = drillScope.crumbText || `${resolvedDriveModeLabel} (${finalItems.length} items)`;
             const renderKey = buildAVBrowsePageKey(`drive:cards:resolved|${crumbText}`,finalItems);
             driveResolvedCardStateKey = cardStateKey;
@@ -126926,68 +126843,8 @@ ${folderNote ? `Folder Note: ${folderNote}
             applyDriveRenderMarkup(container, crumb, crumbText, finalItems.map((item) => generateCard(item, 'drive', getDriveCardStatusClass(item))).join(''), renderKey);
         }
 
-        function renderDrive() {
-            ensureDriveToolbarControls();
-            if (ensureViewDataForRender('drive')) return;
-            if (activeDriveTab === 'season-sales-notes') activeDriveTab = 'card';
-            syncDriveModeTabs();
-            syncDriveTabPills();
-            const container = document.getElementById('drive-content');
-            const filtersDiv = document.getElementById('drive-season-filters');
-            const crumb = document.getElementById('drive-crumb');
-            const driveModeLabel = DRIVE_MODE_LABELS[activeDriveMode] || 'Drive Mode';
-            const drillTabs = document.getElementById('drive-drill-tabs');
-            if (drillTabs) drillTabs.classList.remove('hidden');
-            if (renderDriveUniversalSearchResultsOnly()) return;
-            if (activeDriveMode !== 'ok') {
-                syncDriveFilterStrip(filtersDiv, '');
-                hideDrivePlantFilters();
-                renderDriveQuickRequestBar([]);
-                applyDriveRenderMarkup(container, crumb, driveModeLabel, `<div class="p-8 text-center text-gray-400">No ${driveModeLabel} rows have been added yet.</div>`, `drive:mode-empty:${activeDriveMode}`);
-                return;
-            }
-            hideDrivePlantFilters();
-            const driveViewState = buildDriveVisibleItemsState();
-            const syncControls = () => scheduleDriveTopControlsRender(driveViewState.baseSearchFilteredItems, driveViewState.drivePlantFilterState);
-            if (activeDriveTab === 'name') {
-                renderDriveQuickRequestBar([]);
-                // The authorized display snapshot is usable while its final
-                // background receipt is pending. Completeness still gates exports.
-                if (!canUseProductionLiveSync() || getDatasetState('master').rowCompleteness === 'complete'
-                    || productionDisplayMasterReceipt?.rows === fullInventory) {
-                    container.setAttribute('data-complete-name-catalog', 'true');
-                } else container.removeAttribute('data-complete-name-catalog');
-                renderDriveCommonNameDrill(container, crumb, driveModeLabel, driveViewState);
-                syncControls();
-                return;
-            }
-            if (activeDriveTab === 'loc') {
-                renderDriveQuickRequestBar([]);
-                renderDriveLocationDrill(container, crumb, driveModeLabel, driveViewState);
-                syncControls();
-                return;
-            }
-            if (activeDriveTab === 'hold') {
-                renderDriveQuickRequestBar([]);
-                renderDriveHoldStopCodeView(container, crumb, driveModeLabel, driveViewState);
-                syncControls();
-                return;
-            }
-            const { finalItems, crumbText, renderKey } = buildDriveResolvedCardState(driveModeLabel, driveViewState);
-            renderDriveQuickRequestBar(finalItems);
-            if (finalItems.length === 0) {
-                const emptyMessage = hasActiveDriveQuickFilters()
-                    ? 'No rows match the current Drive filters.'
-                    : 'No items found matching the current search.';
-                applyDriveRenderMarkup(container, crumb, crumbText, `<div class="p-8 text-center text-gray-400">${emptyMessage}</div>`, 'drive:cards:empty');
-                syncControls();
-                return;
-            }
-            renderDriveRecordResults('drive-main-card', container, crumb, finalItems, crumbText, renderKey, {
-                approxCardHeight: 310
-            });
-            syncControls();
-        }
+        /* @runtime-fragment assets/drive-card-sort.js */ /* @runtime-fragment assets/drive-reports-v2-domain.js */ /* @runtime-fragment assets/drive-excel-filter-popover.js */ /* @runtime-fragment assets/drive-reports-v2-grid.js */ /* @runtime-fragment assets/drive-reports-v2-saved.js */ /* @runtime-fragment assets/drive-reports-v2-view.js */ /* @runtime-fragment assets/drive-saved-reports-service.js */
+        /* @runtime-fragment assets/drive-reports-v2-bridge.js */
 
         function toggleDriveSeason(s) {
             const value = String(s || '').trim().toUpperCase();
