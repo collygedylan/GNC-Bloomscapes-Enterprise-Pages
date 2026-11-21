@@ -6,12 +6,10 @@ function auraCloudPanelState() {
     if (!panel) return null;
     const existing = auraPanelSessions.get(panel);
     if (existing) return existing;
-    panel.id = 'view-aura';
-    const badge = document.createElement('small');
-    badge.setAttribute('role', 'status');
-    badge.textContent = '🟡 SQL Fallback';
-    panel.querySelector('.aura-title').after(badge);
-    const state = {badge, model: mountAuraModelPicker(panel), history: []};
+    const model = panel.querySelector('[data-aura-model]');
+    if (!model) return null;
+    const state = {model, history: [], catalogPending: false, catalogReady: false};
+    panel.addEventListener('aura-settings-opened', () => { void loadAuraPickerOptions(state); });
     auraPanelSessions.set(panel, state);
     return state;
 }
@@ -45,7 +43,7 @@ async function auraCloudAnswer(body, state, sql, headers, signal) {
     const payload = {action: 'AURA_GEMINI_QUERY', app_id: 'gnc-bloomscapes-enterprise',
         username: normalizeNativeAuthAlias(nativeAuthProfile?.username).split('@')[0], farm_code: sql.source.filters?.farm || 'ALL',
         requested_model: state?.model?.value || 'auto', query: body.text, authorization: headers.Authorization,
-        history: state?.history || [], context_snapshot: {source: sql.source, summary: sql.reply, ...auraSupplementalContext(body.text)}};
+        history: (body.history || state?.history || []).slice(-8), context_snapshot: {source: sql.source, summary: sql.reply, ...auraSupplementalContext(body.text)}};
     if (sql.data) payload.context_snapshot.records = sql.data.rows.slice(0, 8);
     if (sql.source.dataset === 'inventory') payload.context_snapshot.inventorySample = auraInventorySample(sql.data?.rows);
     const encoded = JSON.stringify(payload);
@@ -63,19 +61,19 @@ async function auraCloudAnswer(body, state, sql, headers, signal) {
 
 async function callAuraLlmRouter(body, options = {}, cachedAnswer = buildAuraDeterministicInventoryAnswer) {
     const owner = getSupabaseReadIdentityScope();
+    const farm = getBloomscapesFarm();
     const access = body?.mode === 'capabilities';
     const authorized = access ? isAuraRouterProfileCandidate : isAuraRouterWidgetAuthorized;
     const verify = () => {
-        if (!authorized() || owner !== getSupabaseReadIdentityScope()) throw new Error('AURA session changed.');
+        if (!authorized() || owner !== getSupabaseReadIdentityScope() || farm !== getBloomscapesFarm()) throw new Error('AURA session changed.');
     };
     verify();
     const headers = getPassiveNativeAuthRequestHeaders();
     if (!headers?.Authorization) throw new Error('AURA requires a signed-in account.');
-    const timeout = AbortSignal.timeout(body?.mode === 'command' ? 120000 : 35000);
-    const signal = options.signal ? AbortSignal.any([timeout, options.signal]) : timeout;
-    const rpc = (name, args) => auraScopedRpc(name, args, headers, signal);
     if (access) {
-        const capabilities = await rpc('gnc_bloomscapes_aura_access', {});
+        const deadline = AbortSignal.timeout(35000);
+        const signal = options.signal ? AbortSignal.any([deadline, options.signal]) : deadline;
+        const capabilities = await auraScopedRpc('gnc_bloomscapes_aura_access', {}, headers, signal);
         verify();
         return {ok: true, configured: true, capabilities, voiceEngine: 'browser'};
     }
@@ -85,16 +83,28 @@ async function callAuraLlmRouter(body, options = {}, cachedAnswer = buildAuraDet
         return {ok: true, conversationId: crypto.randomUUID(), revision: 0, title: 'Session conversation'};
     }
     if (body.mode !== 'command') return {ok: false, code: 'AURA_LOCAL_CONVERSATION_ONLY'};
-    const sql = await auraGroundedAnswer(body.text, rpc, signal, cachedAnswer);
-    verify();
-    const reply = await auraCloudAnswer(body, state, sql, headers, signal);
-    verify();
-    signal.throwIfAborted();
-    const answer = reply?.answer || sql.reply;
-    if (state) {
-        state.badge.textContent = reply ? '🟢 ' + auraModelLabel(reply.provider) + ' Live' : '🟡 SQL Fallback';
-        state.history = [...state.history, {question: body.text.slice(0, 1000), answer: answer.slice(0, 1000)}].slice(-4);
+    const auto = (state?.model?.value || 'auto') === 'auto';
+    const deadline = AbortSignal.timeout(auto ? 10000 : 120000);
+    const signal = options.signal ? AbortSignal.any([deadline, options.signal]) : deadline;
+    const rpc = (name, args) => auraScopedRpc(name, args, headers, signal);
+    let sql;
+    let reply;
+    try {
+        sql = await auraStockAnswer(body.text, headers, signal, cachedAnswer)
+            || await auraGroundedAnswer(body.text, rpc, signal, cachedAnswer);
+        verify();
+        options.signal?.throwIfAborted();
+        if (auto && sql.source?.filters?.metric === 's_lts') options.onGrounded?.(sql.reply);
+        reply = await auraCloudAnswer(body, state, sql, headers, signal);
+    } catch (error) {
+        options.signal?.throwIfAborted();
+        if (error.status === 401 || error.status === 403) throw error;
+        sql ||= auraCachedAnswer(body.text, cachedAnswer);
     }
+    verify();
+    options.signal?.throwIfAborted();
+    const answer = reply?.answer || sql.reply;
+    if (state) state.history = [...state.history, {question: body.text.slice(0, 1000), answer: answer.slice(0, 1000)}].slice(-4);
     return {...sql, reply: answer, speech: answer, provider: reply?.provider || 'sql', requestId: options.requestId,
         suggested_followups: reply?.suggested_followups || []};
 }
@@ -131,13 +141,24 @@ async function auraGroundedAnswer(question, rpc, signal, cachedAnswer) {
     } catch (error) {
         signal.throwIfAborted();
         if (error.status === 401 || error.status === 403) throw error;
-        const query = parseAuraDeterministicInventoryQuestion(question);
-        const cached = query && cachedAnswer(query, fullInventory, {
-            source: 'cached inventory', complete: false
-        });
-        return cached || {ok: true, reply: 'The SQL source is unavailable for this question.',
-            source: {kind: 'unavailable', complete: false}};
+        return auraCachedAnswer(question, cachedAnswer);
     }
+}
+
+function auraCachedAnswer(question, cachedAnswer) {
+    const inventory = canAccessView('drive') && auraRouterCapabilities?.inventory === true && Array.isArray(fullInventory)
+        ? fullInventory.filter(bloomscapesFarmRowIsVisible) : [];
+    const stock = inventory.length && auraCachedStockAnswer(question, inventory, cachedAnswer);
+    if (stock) return stock;
+    const requestedFarm = question.match(/\b(?:10-PH|60-HL|20-TX|40-NC)\b/i)?.[0];
+    const query = (!requestedFarm || requestedFarm.toUpperCase() === getBloomscapesFarm())
+        && parseAuraDeterministicInventoryQuestion(question);
+    if (query && inventory.length) {
+        const cached = cachedAnswer(query, inventory, {source: 'cached inventory', complete: false});
+        return {...cached, reply: 'Cached inventory (partial). ' + cached.reply};
+    }
+    return {ok: true, reply: 'Current SQL data is unavailable for this question.',
+        source: {kind: 'unavailable', complete: false}};
 }
 
 function auraInventorySample(matches) {
@@ -157,45 +178,38 @@ function auraInventorySample(matches) {
     return sample;
 }
 
-function auraModelLabel(id) {
-    if (id === 'auto') return 'Auto';
-    return id.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-}
-
-function mountAuraModelPicker(panel) {
-    const picker = document.createElement('select');
-    picker.setAttribute('aria-label', 'Model');
-    picker.style.maxWidth = '15em';
-    const label = document.createElement('label');
-    label.append('Model ', picker);
-    panel.querySelector('.aura-title').parentElement.append(label);
-    const storageKey = 'bloomscapes.aura.model';
-    let preferred;
-    try { preferred = localStorage.getItem(storageKey); } catch { preferred = null; }
-    const pinned = ['auto', 'gemini-4-hydrogen', 'gemini-4-carbon', 'gemini-4-neon', 'gemini-3.8-flash', 'gemini-3.5-flash-lite'];
-    const values = new Set(pinned);
-    if (preferred) values.add(preferred);
-    for (const id of values) picker.add(new Option(auraModelLabel(id), id));
-    picker.value = preferred || 'auto';
-    picker.addEventListener('change', () => {
-        try { localStorage.setItem(storageKey, picker.value); } catch { /* Session selection still applies. */ }
-    });
-    void loadAuraPickerOptions(picker, values);
-    return picker;
-}
-
-async function loadAuraPickerOptions(picker, values) {
+async function loadAuraPickerOptions(state) {
+    if (state.catalogPending || state.catalogReady || navigator.onLine === false) return;
     const headers = getPassiveNativeAuthRequestHeaders();
     if (!headers?.Authorization || !isAuraRouterWidgetAuthorized()) return;
+    const owner = getSupabaseReadIdentityScope();
+    state.catalogPending = true;
     try {
         const response = await fetch(AURA_SHEET_URL, {method: 'POST', headers: {'Content-Type': 'text/plain;charset=utf-8'},
             redirect: 'follow', credentials: 'omit', referrerPolicy: 'no-referrer', signal: AbortSignal.timeout(30000),
             body: JSON.stringify({action: 'AURA_LIST_MODELS', app_id: 'gnc-bloomscapes-enterprise',
                 username: normalizeNativeAuthAlias(nativeAuthProfile.username).split('@')[0], authorization: headers.Authorization})});
         const catalog = response.ok && await response.json();
-        if (!picker.isConnected || !catalog?.ok || !Array.isArray(catalog.models)) return;
-        for (const id of catalog.models) {
-            if (!values.has(id)) picker.add(new Option(auraModelLabel(id), id));
-        }
+        if (!state.model.isConnected || owner !== getSupabaseReadIdentityScope() || !catalog?.ok || !Array.isArray(catalog.models)) return;
+        state.model.dispatchEvent(new CustomEvent('aura-model-catalog', {detail: catalog.models}));
+        state.catalogReady = true;
     } catch { /* The pinned choices remain available when discovery is offline. */ }
+    finally { state.catalogPending = false; }
+}
+
+function syncAuraVoiceSettings() {
+    auraCloudPanelState();
+    const visible = !!auraWidgetHandle && isAuraRouterWidgetAuthorized();
+    const voice = document.getElementById('aura-voice-preference');
+    if (voice && visible) voice.value = auraWidgetHandle.getVoicePreference();
+    const settings = document.getElementById('aura-voice-settings');
+    if (settings) { settings.hidden = !visible; settings.style.display = visible ? '' : 'none'; settings.classList.toggle('hidden', !visible); }
+    const host = document.getElementById('aura-standby-control');
+    if (host) { host.hidden = !isAuraRouterProfileCandidate(); host.style.display = host.hidden ? 'none' : ''; }
+    const toggle = document.getElementById('aura-auto-start-toggle');
+    if (toggle) {
+        const enabled = visible && auraWidgetHandle.getHandsFreeAutoStart();
+        toggle.setAttribute('aria-pressed', String(!!enabled));
+        toggle.textContent = 'Hands-Free Auto-Start: ' + (enabled ? 'On' : 'Off');
+    }
 }

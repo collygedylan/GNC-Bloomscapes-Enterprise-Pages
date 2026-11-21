@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.27';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.28';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -266,22 +266,7 @@
             document.getElementById('aura-react-root')?.remove();
             syncAuraVoiceSettings();
         }
-        function syncAuraVoiceSettings() {
-            auraCloudPanelState();
-            const visible = !!auraWidgetHandle && isAuraRouterWidgetAuthorized();
-            const voice = document.getElementById('aura-voice-preference');
-            if (voice && visible) voice.value = auraWidgetHandle.getVoicePreference();
-            const settings = document.getElementById('aura-voice-settings');
-            if (settings) { settings.hidden = !visible; settings.style.display = visible ? '' : 'none'; settings.classList.toggle('hidden', !visible); }
-            const host = document.getElementById('aura-standby-control');
-            if (host) { host.hidden = !isAuraRouterProfileCandidate(); host.style.display = host.hidden ? 'none' : ''; }
-            const toggle = document.getElementById('aura-auto-start-toggle');
-            if (toggle) {
-                const enabled = visible && auraWidgetHandle.getHandsFreeAutoStart();
-                toggle.setAttribute('aria-pressed', String(!!enabled));
-                toggle.textContent = 'Hands-Free Auto-Start: ' + (enabled ? 'On' : 'Off');
-            }
-        }
+        /* @runtime-fragment assets/bloomscapes-aura-conversation.js */
         function toggleAuraHandsFreeAutoStart() {
             if (!isAuraRouterWidgetAuthorized() || !auraWidgetHandle) return false;
             auraWidgetHandle.setHandsFreeAutoStart(!auraWidgetHandle.getHandsFreeAutoStart());
@@ -364,7 +349,7 @@
             return withProductionLiveSyncSignal(options.signal || null, (cohortSignal) =>
                 runDedupeSupabaseRead(readKey, ({ signal }) => callAuraAppApi(payload, { ...options, signal }), { signal: cohortSignal, maxAttempts: 1, explicitRetry: options.explicitRetry === true }));
         }
-        /* @runtime-fragment assets/bloomscapes-aura-conversation.js */
+        /* @runtime-fragment assets/bloomscapes-aura-stock.js */
         async function callAuraLegacyQuery(body, options = {}) {
             const identity = getSupabaseReadIdentityScope();
             if (!isAuraWidgetAuthorized()) throw Object.assign(new Error('The legacy AURA service is available only to its owner.'), { status: 403 });
@@ -23355,7 +23340,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.27';
+        const APP_VERSION = '3.1.28';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
