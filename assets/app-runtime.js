@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.32';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.33';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -19089,6 +19089,7 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
         }
 
         /* @runtime-fragment assets/app-api-transport.js */
+        /* @runtime-fragment assets/bloomscapes-user-access-transport.js */
         /* @runtime-fragment assets/photo-publication-fallback.js */
 
         function getAvReadDataset(table, query = '') {
@@ -23312,7 +23313,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.32';
+        const APP_VERSION = '3.1.33';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -71013,19 +71014,8 @@ function toggleDriveQuickRequestItem(domId) {
                 getSessionIdentity: getCanonicalAccessSessionIdentity,
                 matrixLoader: identity.legacy ? null : () => supabaseClient.from('user_access').select('*').order('username').limit(1000).then(normalizeNavigationAccessRows),
                 repRoster: () => getRequestMappedRepDirectory().options,
-                transport: envelope => postAppFunctionJson(APP_API_FUNCTION_URL, envelope, { timeoutMs: 15000, label: 'User and role access', idempotencyKey: envelope.command_id }),
-                lifecycleTransport: async envelope => {
-                    if (!supabaseClient?.functions?.invoke) throw new Error('User lifecycle service is unavailable.');
-                    const result = await supabaseClient.functions.invoke('auth-admin', { body: envelope });
-                    if (result.error) throw result.error;
-                    if (!result.data || result.data.ok !== true) {
-                        const error = new Error(String(result.data?.error || 'User lifecycle request failed.'));
-                        error.code = String(result.data?.error || 'USER_LIFECYCLE_FAILED');
-                        error.status = Number(result.data?.status) || 0;
-                        throw error;
-                    }
-                    return result.data;
-                },
+                transport: sendBloomscapesUserAccess,
+                lifecycleTransport: sendBloomscapesUserLifecycle,
                 onChange: detail => {
                     refreshNavigationDisplayCache();
                     const self = detail?.self;

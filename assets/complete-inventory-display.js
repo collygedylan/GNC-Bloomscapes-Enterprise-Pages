@@ -5,6 +5,7 @@ function previewProductionSnapshots(snapshots, context) {
     const previewCore = context.view === 'docks' ? 'core:soc' : 'core:master';
     if (context.partialCohort && (!['drive', 'av', 'tasks', 'docks'].includes(context.view)
         || snapshots.some(({ adapter }) => adapter.id !== previewCore))) return;
+    snapshots = snapshots.filter(acceptDockInventoryPreview);
     snapshots = snapshots.filter(({ adapter, value }) => adapter.id !== 'core:warehouseAssignedItems'
         || value?.rowCompleteness === 'complete'
         || Number(value?.rowCount || 0) >= getDatasetRenderRowCount('warehouseAssignedItems'));
@@ -45,6 +46,12 @@ function previewProductionSnapshots(snapshots, context) {
         return;
     }
     finishCompleteInventoryPreview(snapshots, context, alreadyDisplayedPreparedMaster);
+}
+
+function acceptDockInventoryPreview({ adapter, value }) {
+    if (adapter.id !== 'core:soc' || value?.rowCompleteness === 'complete') return true;
+    if (suspendSocDisplayIdentity !== getSuspendSocDisplayIdentity()) return true;
+    return Array.isArray(value?.payload?.socData) && value.payload.socData.length >= socInventory.length;
 }
 
 function finishCompleteInventoryPreview(snapshots, context, alreadyDisplayedPreparedMaster) {

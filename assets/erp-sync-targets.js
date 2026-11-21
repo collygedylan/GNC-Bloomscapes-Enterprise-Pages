@@ -63,6 +63,10 @@ function buildErpSyncTargets() {
 }
 
 const ERP_SYNC_TARGETS = buildErpSyncTargets();
+const ERP_CLOUD_SYNC_TARGETS = Object.freeze([
+    ...ERP_SYNC_TARGETS,
+    erpTarget('PH_CAV','PH','CAV','CAV','cav_snapshot',false,'CAV')
+]);
 const DEFAULT_CORE_SYNC_KEYS = Object.freeze(ERP_SYNC_TARGETS.filter(target=>target.defaultChecked).map(target=>target.key));
 
 function selectErpSyncTargets(keys = DEFAULT_CORE_SYNC_KEYS) {

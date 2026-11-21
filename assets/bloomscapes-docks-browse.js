@@ -157,7 +157,7 @@ function renderBloomscapesDockList(container, crumb, items) {
         card => renderBloomscapesCompactDockCard(card,canEdit,tripIndex),{
             approxCardHeight:130,
             emptyHtml:'<div class="p-8 text-center text-gray-400">No dock items found.</div>',
-            renderSignature:buildRowsRenderSignature('docks-main|Select a Dock',cards,['dockTeamRenderVersion']) + ':' + bloomscapesDockBoardRevision()
+            renderSignature:buildRowsRenderSignature('docks-main|Select a Dock',cards,['dockNum','dockTeamRenderVersion']) + ':' + bloomscapesDockBoardRevision()
         });
 }
 
@@ -276,6 +276,9 @@ function renderBloomscapesDockPage(key,container,crumb,rows,label,render,options
     const page = getClientBrowsePage('docks',dockBrowsePageKey(key,label,search),rows,dockBrowsePageLimit(key));
     const pager = renderClientBrowsePageFooter('docks',page.key,rows.length,page);
     const prefixHtml = (options.prefixHtml || '')+pager;
-    const renderSignature = (options.renderSignature || buildRowsRenderSignature(key,rows))+':'+page.pageIndex;
-    return renderMarkupChunkedByKey(key,container,crumb,page.rows,label,render,{...options,prefixHtml,renderSignature});
+    const renderSignature = (options.renderSignature || buildRowsRenderSignature(key,rows,['stop']))+':'+page.pageIndex;
+    const firstGroups = key !== 'docks-stop-items' && getContainerUiState(container) === 'empty';
+    return renderMarkupChunkedByKey(key,container,crumb,page.rows,label,render,{
+        ...options,prefixHtml,renderSignature,_backgroundStage:firstGroups
+    });
 }
