@@ -1,5 +1,4 @@
 
-const bloomscapesDockBrowseMetadata={owner:'',checkedAt:0};
 const bloomscapesDockLabelCollator=new Intl.Collator(undefined,{numeric:true});
 const bloomscapesDockNameCollator=new Intl.Collator(undefined,{sensitivity:'base'});
 
@@ -26,35 +25,6 @@ function renderBloomscapesDocksBrowse() {
         return;
     }
     renderBloomscapesSelectedDock(container,crumb,items);
-}
-
-function bloomscapesDockBrowseMetadataOwner() {
-    return JSON.stringify([getSupabaseReadIdentityScope(),getBloomscapesFarm()]);
-}
-
-function bloomscapesDockBrowseMetadataRevision() {
-    return [dockWorkflowStateEpoch,dockTeamStatusRenderVersion,dockTeamStatusLoaded,dockItemProgressLoaded,
-        dockIssueDataLoaded,dockTeamSchemaReady,dockItemSchemaReady,dockIssueStatusSchemaReady,dockIssueAllocationSchemaReady].join('|');
-}
-
-function requestBloomscapesDockBrowseMetadata() {
-    const owner=bloomscapesDockBrowseMetadataOwner();
-    const state=bloomscapesDockBrowseMetadata;
-    if (state.owner===owner && Date.now()-state.checkedAt<45000) return;
-    const jobs=[];
-    if (!dockTeamStatusLoaded && !dockTeamStatusPromise && dockTeamSchemaReady!==false) jobs.push(ensureDockTeamStatusLoaded);
-    if (!dockItemProgressLoaded && !dockItemProgressPromise && dockItemSchemaReady!==false) jobs.push(ensureDockItemStatusLoaded);
-    if (!dockIssueDataLoaded && !dockIssueDataPromise && dockIssueStatusSchemaReady!==false && dockIssueAllocationSchemaReady!==false) {
-        jobs.push(ensureDockIssueDataLoaded);
-    }
-    if (!jobs.length) return;
-    state.owner=owner;
-    state.checkedAt=Date.now();
-    const revision=bloomscapesDockBrowseMetadataRevision();
-    void Promise.allSettled(jobs.map(read=>Promise.resolve().then(read))).then(()=>{
-        if (getCurrentVisibleViewId()!=='docks' || owner!==bloomscapesDockBrowseMetadataOwner()) return;
-        if (revision!==bloomscapesDockBrowseMetadataRevision()) scheduleDocksRender(0);
-    });
 }
 
 function renderBloomscapesLegacyDockExceptions(container, crumb, term) {

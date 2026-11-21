@@ -67,29 +67,31 @@ function hasVerifiedBloomscapesFarmPermission() {
         && access.username===getRequestCapabilityUsernameKey(currentUser);
 }
 
-async function ensureBloomscapesWarmFarm(farm,refresh=false,attempt=0,speculative=false) {
+async function ensureBloomscapesWarmFarm(farm,refresh=false,attempt=0,speculative=false,visit=null) {
     const cache = getBloomscapesFarmCache();
     assertBloomscapesFarmCache(cache,farm);
     const pending = cache.pending.get(farm);
-    if (pending) {
+    if (pending && !pending.visit?.aborted && (!pending.visit || pending.visit===visit)) {
         if (!speculative) {
             pending.speculative = false;
             pending.resume?.();
         }
-        return pending.promise;
+        return visit && !pending.visit ? waitForDocksRead(visit,()=>pending.promise) : pending.promise;
     }
     if (!refresh && cache.snapshots.has(farm)) {
         const snapshot = cache.snapshots.get(farm);
         scheduleBloomscapesWarmAssignments(snapshot);
         return snapshot;
     }
-    const flight = {speculative,resume:null,promise:null,scope:getSupabaseReadIdentityScope(),
+    const flight = {visit,speculative,resume:null,promise:null,scope:getSupabaseReadIdentityScope(),
         epoch:nativeAuthRecoveryEpoch,permission:appAccessSnapshotState.snapshot?.dataPermissionVersion || ''};
-    flight.promise = loadBloomscapesWarmFarm(cache,farm,refresh,flight).catch(error=>{
-        if (!attempt && canRetryBloomscapesFarmSnapshot(error,cache,farm,flight)) {
+    const read = ()=>loadBloomscapesWarmFarm(cache,farm,refresh,flight);
+    flight.promise = (visit ? waitForDocksRead(visit,read) : read()).catch(error=>{
+        if (visit?.aborted) flight.resume?.();
+        if (!attempt && cache.pending.get(farm)===flight && !visit?.aborted && canRetryBloomscapesFarmSnapshot(error,cache,farm,flight)) {
             cache.pending.delete(farm);
             const freshRead = error.code==='DATASET_READ_SCOPE_CHANGED' && !hasVerifiedBloomscapesFarmPermission();
-            return ensureBloomscapesWarmFarm(farm,refresh || freshRead,1);
+            return ensureBloomscapesWarmFarm(farm,refresh || freshRead,1,false,visit);
         }
         throw error;
     }).finally(()=>{
@@ -100,14 +102,19 @@ async function ensureBloomscapesWarmFarm(farm,refresh=false,attempt=0,speculativ
 }
 
 async function loadBloomscapesWarmFarm(cache,farm,refresh,flight) {
-    const assertCurrent = ()=>assertBloomscapesFarmCache(cache,farm);
-    const background = flight.speculative ? bloomscapesFarmPrewarmContext(flight,assertCurrent) : null;
+    const assertCurrent = ()=>{
+        flight.visit?.throwIfAborted();
+        if (flight.visit && cache.pending.get(farm)!==flight) throw new DOMException('Farm refresh superseded.','AbortError');
+        assertBloomscapesFarmCache(cache,farm);
+    };
+    const prewarm = flight.speculative ? bloomscapesFarmPrewarmContext(flight,assertCurrent) : null;
+    const background = flight.visit ? docksFarmReadContext(flight.visit,prewarm) : prewarm;
     const scope = JSON.stringify(JSON.parse(cache.owner).filter((_value,index)=>index !== 3));
     const key = 'bloomscapes-farm-v3111:'+scope+':'+farm;
     const existing = cache.snapshots.get(farm);
     if (refresh && existing?.lastSyncRevisionAt) {
         if (Date.now()-existing.verifiedAt < 45000) return existing;
-        if (await readBloomscapesFarmRevision(farm)===existing.revision) {
+        if (await readBloomscapesFarmRevision(farm,background)===existing.revision) {
             assertCurrent();
             existing.verifiedAt=Date.now();
             return existing;
@@ -154,11 +161,11 @@ function scheduleBloomscapesWarmAssignments(snapshot) {
     else setTimeout(prepare,200);
 }
 
-async function refreshBloomscapesWarmFarm(farm) {
+async function refreshBloomscapesWarmFarm(farm,visit=null) {
     const cache = getBloomscapesFarmCache();
     const previous = cache.snapshots.get(farm);
     try {
-        const snapshot = await ensureBloomscapesWarmFarm(farm,true);
+        const snapshot = await ensureBloomscapesWarmFarm(farm,true,0,false,visit);
         assertBloomscapesFarmCache(cache,farm);
         if (snapshot===previous || getBloomscapesFarm()!==farm || bloomscapesFarmState.busy) return;
         activateBloomscapesWarmFarm(snapshot);
@@ -235,7 +242,7 @@ function bloomscapesFarmPrewarmContext(flight,assertCurrent) {
 }
 
 function isObsoleteBloomscapesPreparation(cache,error) {
-    return ['FARM_PREPARATION_PAUSED','FARM_SNAPSHOT_REVISION_CHANGED'].includes(error.code) || cache.owner!==bloomscapesFarmCacheOwner();
+    return error.name==='AbortError' || ['FARM_PREPARATION_PAUSED','FARM_SNAPSHOT_REVISION_CHANGED'].includes(error.code) || cache.owner!==bloomscapesFarmCacheOwner();
 }
 
 function isReusableBloomscapesFarmSnapshot(saved,scope,farm,now = Date.now()) {

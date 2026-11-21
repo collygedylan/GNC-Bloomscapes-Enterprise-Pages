@@ -1,10 +1,9 @@
+
 function createProductionLiveSyncSideAdapters() {
     const api = window.AgMetricLiveSyncAdapters;
-    const registry = window.AgMetricLiveSyncRegistry;
     const array = api.rows;
-    const read = async (table, query = 'select=*', options = {}) => array(await fetchAllSupabaseRows(table, query, { signal: options.signal, count: options.requireComplete === true, requireComplete: options.requireComplete === true }), table);
+    const read = async (table, query = 'select=*', options = {}) => array(await fetchAllSupabaseRows(table, query, { signal: options.signal, docksVisit:options.docksVisit, count: options.requireComplete === true, requireComplete: options.requireComplete === true }), table);
     const stateReady = (state, values) => Object.assign(state, values, { loaded: true, loading: false, error: '', lastLoadedAt: Date.now() });
-    const managerSourceScope = () => getSupabaseReadIdentityScope();
     const emitManagerSourceRefresh = (surface, authorized, sources) => {
         const eventContext = getProductionLiveSyncSideContext();
         const rootId = surface === 'company-directory' ? 'manager-company-directory-root'
@@ -29,8 +28,8 @@ function createProductionLiveSyncSideAdapters() {
     };
     const bindings = {
         ...buildOperationalSideBindings(api),
-        ...buildCustomerMappingRevisionSideBindings(managerSourceScope, emitManagerSourceRefresh),
-        ...buildProductionScheduleRevisionSideBindings(read, managerSourceScope, emitManagerSourceRefresh),
+        ...buildCustomerMappingRevisionSideBindings(getSupabaseReadIdentityScope, emitManagerSourceRefresh),
+        ...buildProductionScheduleRevisionSideBindings(read, getSupabaseReadIdentityScope, emitManagerSourceRefresh),
         ...buildDockWorkflowSideBindings(api, array, read),
         ...buildUsersSideBindings(array),
         ...buildBunchQueueSideBindings(array, read, stateReady),
@@ -41,68 +40,7 @@ function createProductionLiveSyncSideAdapters() {
         ...buildTransactionsKeyedSideBindings(array, stateReady),
         ...buildPendingOrdersSideBindings(array)
     };
-    return api.create(bindings,registry);
-}
-
-function buildOperationalSideBindings(api) {
-    return {
-        ...buildManagerReportMetadataBindings(),
-        'side:homeSyncMetadata': {
-            enabled: () => canViewDashboardSyncStatus(),
-            scope: () => getSupabaseReadIdentityScope(),
-            stage: ctx => stageHomeSyncMetadata(ctx,api),
-            commit: snapshot => {
-                const labels = Object.fromEntries(getDashboardSyncMetadataSources().map(source => [source.table, source.label]));
-                const retained = dashboardSyncMetadataOwner === getSupabaseReadIdentityScope() ? dashboardSyncMetadataSummaries : [];
-                dashboardSyncMetadataSummaries = mergeDashboardSyncSummaries([...retained, ...snapshot.entries
-                    .map(entry => collectDashboardSyncSource(entry.rows, labels[entry.table]))
-                    .filter(entry => entry.iso || entry.files.length)]);
-                dashboardSyncMetadataFetchedAt = Date.now();
-                dashboardSyncMetadataOwner = getSupabaseReadIdentityScope();
-                updateDashboardSyncSummary();
-            }
-        }
-    };
-}
-
-function buildManagerReportMetadataBindings() {
-    const surfaces = {reportEval1:'eval1',reportEval2:'eval2',reportNcr:'ncr',reportAssigned:'assigned-items',
-        reportSeason:'season-priority',reportApproval:'approval'};
-    return Object.fromEntries(Object.entries(surfaces).map(([id,surface]) => ['side:'+id,createManagerReportMetadataBinding(surface)]));
-}
-
-function createManagerReportMetadataBinding(surface) {
-    return {
-        enabled:() => useManagerReportPages(surface),
-        scope:() => buildManagerReportPageQuery(surface,'metadata'),
-        stage:ctx => getManagerReportPageController().readPage(buildManagerReportPageQuery(surface,'metadata'),ctx.signal),
-        commit:page => getManagerReportPageController().acceptMetadata(surface,page)
-    };
-}
-
-async function stageHomeSyncMetadata(ctx, api) {
-    const tables = ['ph_master_inventory','ph_soc_master','ph_reserves','ph_cav_import'];
-    const entries = [];
-    for (let offset = 0; offset < tables.length; offset += 2) {
-        const batch = await Promise.all(tables.slice(offset,offset+2).map(table => readHomeSyncMetadataTable(table,ctx.signal,api)));
-        entries.push(...batch);
-    }
-    return {entries};
-}
-
-async function readHomeSyncMetadataTable(table, signal, api) {
-    try {
-        const query = `select=filename,last_updated&last_updated=not.is.null&order=last_updated.desc&limit=${DASHBOARD_SYNC_METADATA_LIMIT}&offset=0`;
-        const page = await runDedupeSupabaseRead(`home-sync-metadata:${table}:${query}`,
-            ({signal:readSignal}) => fetchAuthenticatedSupabaseReadPage(table,query,{signal:readSignal,timeoutMs:SUPABASE_READ_TIMEOUT_MS}),{signal});
-        const rows = api.rows(page?.rows,`Home ${table} metadata`);
-        return {table,rows:rows.slice(0,DASHBOARD_SYNC_METADATA_LIMIT).map(row => ({
-            filename:String(row?.filename || ''),last_updated:String(row?.last_updated || '')
-        }))};
-    } catch (error) {
-        window.GncRuntimeWatchdog?.capture?.(error,`homeSyncMetadata:${table}`);
-        return {table,rows:[],retained:true};
-    }
+    return api.create(bindings,window.AgMetricLiveSyncRegistry);
 }
 
 function buildCustomerMappingRevisionSideBindings(managerSourceScope, emitManagerSourceRefresh) {
@@ -187,38 +125,6 @@ function buildProductionScheduleRevisionSideBindings(read, managerSourceScope, e
             enabled: () => canManageItemInquiryCoverage(),
             stage: async () => normalizeItemInquiryCoverage(await supabaseRpc('get_item_inquiry_coverage_v1', {}, { timeoutMs: 15000 })),
             commit: (value) => { itemInquiryCoverageState = value; }
-        }
-    };
-}
-
-function buildDockWorkflowSideBindings(api, array, read) {
-    return {
-        'side:dockWorkflow': {
-            stage: async () => {
-                const [tripsResult, itemRows, issueRows, allocationRows] = await Promise.all([
-                    runDockTripStatusRequest('list'), read('ph_dock_item_status', 'select=*&order=unique_id.asc'),
-                    read('ph_dock_issue_status', 'select=*&order=issue_source_unique_id.asc'),
-                    read('ph_dock_issue_allocations', 'select=*&order=allocation_unique_id.asc')
-                ]);
-                const trips = api.keyed(array(tripsResult.data, 'Dock trips'), normalizeDockTeamInfo, (row) => normalizeDockTeamTripKey(row.tripnumber));
-                const items = new Map(itemRows.map((row) => [bloomscapesDockProgressKey(row.unique_id || row.UNIQUE_ID), normalizeDockItemProgress(row)]).filter(([key]) => key));
-                const issues = api.keyed(issueRows, normalizeDockIssueStatusRow, (row) => row.issueSourceUniqueId);
-                const allocations = api.keyed(allocationRows, normalizeDockIssueAllocationRow, (row) => row.allocationUniqueId);
-                const bySource = new Map();
-                allocations.forEach((row) => {
-                    if (!bySource.has(row.issueSourceUniqueId)) bySource.set(row.issueSourceUniqueId, []);
-                    bySource.get(row.issueSourceUniqueId).push(row);
-                });
-                return { trips, items, issues, allocations, bySource };
-            },
-            commit: (value) => {
-                dockTeamStatusByTrip = value.trips; dockItemProgressByUid = value.items;
-                dockIssueStatusByUid = value.issues; dockIssueAllocationsById = value.allocations; dockIssueAllocationsBySourceUid = value.bySource;
-                dockTeamStatusLoaded = dockItemProgressLoaded = dockIssueDataLoaded = true;
-                dockTeamSchemaReady = dockItemSchemaReady = true;
-                dockTeamStatusRenderVersion += 1;
-                invalidateDockWorkflowResolvedState();
-            }
         }
     };
 }

@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.35';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.36';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -11573,12 +11573,6 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
         /* @runtime-fragment assets/cold-operational-display.js */
         /* @runtime-fragment assets/complete-inventory-display.js */
 
-        function ensureColdOperationalHydration(viewId = '') {
-            if (!canUseProductionLiveSync() || !['home', 'drive', 'av', 'docks', 'request', 'managers', 'detail'].includes(viewId)) return;
-            const keys = ['master', 'soc', 'requests', 'suspendTag', 'warehouseAssignedItems'];
-            keys.forEach(key => { void hydrateColdSource(key); });
-        }
-
         function getDatasetKeysForTable(tableName = '') {
             if (tableName === 'ph_master_inventory') return ['master', 'avOpen'];
             if (tableName === ACTIVE_REQUEST_TABLE) return ['requests'];
@@ -12964,7 +12958,8 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
                 activeRealtimeViewId = String(viewId || 'home');
                 if (activeRealtimeViewId !== 'request' || activeReqTab !== 'eval-work') unsubscribeEvalWorkRealtime();
                 else subscribeEvalWorkRealtime();
-                ensureColdOperationalHydration(activeRealtimeViewId);
+                const docksVisit = activeRealtimeViewId === 'docks' ? currentDocksReadVisit() : null;
+                if (activeRealtimeViewId !== 'docks' || docksVisit) ensureColdOperationalHydration(activeRealtimeViewId, docksVisit);
                 void warmColdOperationalDisplay();
                 signalProductionLiveSync('view-entry', 0);
                 return;
@@ -16162,56 +16157,46 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
             if (!requestedKey || typeof taskFn !== 'function') return Promise.resolve(null);
             if (options?.signal?.aborted) return Promise.reject(Object.assign(new Error('Data read cancelled.'), { code: 'REQUEST_ABORTED' }));
             const identityScope = getSupabaseReadIdentityScope();
-            // Reusing a promise begun before the coordinator's revision check can
-            // certify old rows against new metadata. Each staged cycle gets its
-            // own read generation; identical reads inside that cycle still share.
             const cooldownKey = getSupabaseReadCooldownKey(identityScope, requestedKey);
             const terminalKey = getSupabaseReadTerminalKey(identityScope, requestedKey);
-            if (options.explicitRetry === true && requestedKey.startsWith('aura_inventory_v2:')) {
-                supabaseReadTerminalDenials.delete(terminalKey);
-                supabaseReadFailureCooldowns.delete(cooldownKey);
-            }
             const denial = supabaseReadTerminalDenials.get(terminalKey);
-            if (denial && denial.until > Date.now()) return Promise.reject(denial.error);
-            if (denial) supabaseReadTerminalDenials.delete(terminalKey);
+            if (denial || options.explicitRetry) {
+                const failure = applicableSupabaseReadDenial(requestedKey, options, cooldownKey, terminalKey, denial);
+                if (failure) return Promise.reject(failure);
+            }
             const generation = productionLiveSyncReadGeneration;
             const retainOnGenerationChange = options.retainOnGenerationChange === true;
-            const safeKey = JSON.stringify([cooldownKey, retainOnGenerationChange ? 'identity-scoped' : generation]);
+            const flightKey = options.docksVisit ? cooldownKey + getProductionLiveSyncReadSignalKey(options.docksVisit) : cooldownKey;
+            const safeKey = JSON.stringify([flightKey, retainOnGenerationChange ? 'identity-scoped' : generation]);
             if (supabaseReadInFlight.has(safeKey)) {
                 incrementInternalPerfCounter('dedupedSupabaseReads');
                 return supabaseReadInFlight.get(safeKey);
             }
-            const previous = supabaseReadLatestByKey.get(cooldownKey);
-            if (!retainOnGenerationChange && previous?.retainOnGenerationChange === true
-                && previous.identityScope === identityScope && identityScope === getSupabaseReadIdentityScope()) {
+            const previous = supabaseReadLatestByKey.get(flightKey);
+            if (previous && !retainOnGenerationChange && previous.retainOnGenerationChange && previous.identityScope === identityScope) {
                 incrementInternalPerfCounter('dedupedSupabaseReads');
                 return previous.promise;
             }
-            if (previous && previous.generation !== generation
-                && !(previous.retainOnGenerationChange === true && previous.identityScope === identityScope && identityScope === getSupabaseReadIdentityScope())) {
-                previous.controller.abort();
-                // Old reads are already fenced by generation and identity. Do
-                // not make a new view wait for a transport ignoring cancellation.
-                supabaseReadLatestByKey.delete(cooldownKey);
-            }
+            if (previous && previous.generation !== generation) retireSupersededRead(flightKey,previous,identityScope);
             const controller = new AbortController();
-            const externalSignal = options?.signal || null;
-            const abortController = () => { try { controller.abort(externalSignal?.reason); } catch (_) { controller.abort(); } };
+            const externalSignal = options.docksVisit ? docksReadSignal(options.docksVisit,options.signal) : options.signal;
+            const execute = options.docksVisit ? ({signal})=>waitForDocksRead(signal,()=>taskFn({signal})) : taskFn;
+            const abortController = () => controller.abort(externalSignal.reason);
             if (externalSignal?.aborted) abortController();
-            else externalSignal?.addEventListener('abort', abortController, { once: true });
+            else externalSignal?.addEventListener('abort', abortController, {once:true});
             const promise = runSupabaseReadTask(() => runSupabaseReadWithBackoff(cooldownKey, async () => {
                 if (controller.signal.aborted) throw Object.assign(new Error('Data read cancelled.'), { code: 'REQUEST_ABORTED' });
                 if ((!retainOnGenerationChange && generation !== productionLiveSyncReadGeneration) || identityScope !== getSupabaseReadIdentityScope()) throw staleSupabaseReadScopeError();
-                const result = await taskFn({ signal: controller.signal });
+                const result = await execute({ signal: controller.signal });
                 if ((!retainOnGenerationChange && generation !== productionLiveSyncReadGeneration) || identityScope !== getSupabaseReadIdentityScope()) throw staleSupabaseReadScopeError();
                 return redactEvalSensitiveData(result);
             }, controller.signal, Math.max(1, Math.min(3, Number(options.maxAttempts) || 3))), controller.signal).finally(() => {
                 externalSignal?.removeEventListener('abort', abortController);
                 if (supabaseReadInFlight.get(safeKey) === promise) supabaseReadInFlight.delete(safeKey);
-                if (supabaseReadLatestByKey.get(cooldownKey)?.promise === promise) supabaseReadLatestByKey.delete(cooldownKey);
+                if (supabaseReadLatestByKey.get(flightKey)?.promise === promise) supabaseReadLatestByKey.delete(flightKey);
             });
             supabaseReadInFlight.set(safeKey, promise);
-            supabaseReadLatestByKey.set(cooldownKey, { generation, promise, controller, identityScope, retainOnGenerationChange });
+            supabaseReadLatestByKey.set(flightKey, { generation, promise, controller, identityScope, retainOnGenerationChange });
             return promise;
         }
 
@@ -23313,7 +23298,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.35';
+        const APP_VERSION = '3.1.36';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -25172,83 +25157,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
                 seen.add(key);
                 return true;
             });
-        }
-
-        function createProductionCoreLiveAdapter(key, requestedMode = 'browse', stageOptions = {}) {
-            // AV is a projection of the same all-season master already needed by
-            // its joined views. Read it once, then derive AV in processAndLoadData.
-            key = canonicalizeProductionCoreLiveKeys([key])[0] || key;
-            const definition = DATASET_DEFINITIONS[key];
-            if (!definition) throw new Error(`Unknown live dataset: ${key}`);
-            const projection = requestedMode === 'full' ? 'full' : 'browse';
-            // Navigation and direct ensures share the same bounded Eval2 snapshot reader.
-            const pageConcurrency = key === 'master' && projection === 'full'
-                && typeof getCurrentVisibleViewId === 'function'
-                && getCurrentVisibleViewId() === 'managers' && activeHomeTab === MANAGER_EVAL_REPORTS_2_VIEW
-                ? 2 : key === 'master'
-                    ? coldSourceHydrations.has('master')
-                        ? Math.min(8, Math.max(1, Math.floor(Number(stageOptions.pageConcurrency) || 8)))
-                        : Math.min(2, Math.max(1, Math.floor(Number(stageOptions.pageConcurrency) || 1)))
-                    : stageOptions.pageConcurrency;
-            const querySource = projection === 'full' ? definition.fullQuery || definition.initialQuery || 'select=*' : definition.initialQuery || 'select=*';
-            const query = typeof querySource === 'function' ? querySource(projection, {}) : querySource;
-            const season = key === 'master' ? getCurrentAppSeasonSettings() : null;
-            return {
-                // An off-screen settings refresh may not have a master revision
-                // to validate. Re-entering inventory must then recheck its
-                // season-derived collections even if physical stock is unchanged.
-                id: `core:${key}`, projection, cacheKey: JSON.stringify([key, definition.table, query, projection, season && [season.seasonCode, season.salesYear], ...(key === 'master' ? ['complete-identity-v3'] : [])]),
-                // Both master projections read the same complete all-season rows.
-                // Full adds fields; it may retain same-revision browse proof without
-                // authorizing reuse across another season or filtered side adapter.
-                projectionFamily: key === 'master' ? JSON.stringify([key, definition.table, season && [season.seasonCode, season.salesYear], 'complete-identity-v3']) : '',
-                sourceKeys: window.AgMetricLiveSyncRegistry.getSourceKeys([`core:${key}`]),
-                stage: (options = {}) => withProductionLiveSyncSignal(options.signal, async (signal) => {
-                    const preparationScope = key === 'master' ? getSupabaseReadIdentityScope() : '';
-                    const preparationPermission = key === 'master'
-                        ? String(appAccessSnapshotState.snapshot?.dataPermissionVersion || '') : '';
-                    const preparationSeason = key === 'master' ? currentMasterPreparationSeasonKey() : '';
-                    const isAvOpenPreview = key === 'master' && typeof getCurrentVisibleViewId === 'function'
-                        && getCurrentVisibleViewId() === 'av' && activeAVTab === 'open';
-                    const readOptions = {
-                        signal,
-                        onFirstPage: options.preview ? async (rows, meta) => {
-                            const previewRows = isAvOpenPreview ? rows.slice(0, 200) : rows;
-                            const previewSnapshot = key === 'master'
-                                ? await prepareProductionMasterSnapshot(previewRows, { signal, identity: preparationScope,
-                                    permissionVersion: preparationPermission, seasonKey: preparationSeason, includeRawRows: false })
-                                : { payload: buildDatasetPayload(key, JSON.parse(JSON.stringify(previewRows))), rowCount: previewRows.length };
-                            return options.preview({ key, payload: previewSnapshot.payload, rowCount: previewSnapshot.rowCount,
-                                partial: true, rowCompleteness: 'partial', projection: meta.projection,
-                                fieldCoverage: meta.fieldCoverage, columns: meta.columns });
-                        } : null
-                    };
-                    const rows = key === 'master'
-                        ? await fetchAllInventoryReadRows('master_page', { dataset: 'master', projection }, {
-                            ...readOptions, requireComplete: true, limit: 1000,
-                            // Publish a bounded source preview large enough for the
-                            // initial card window while retaining partial/loading state.
-                            // Continuation reads every remaining 1,000-row page from the
-                            // exact offset; final counts/export wait for full hydration.
-                            ...(options.preview && isAvOpenPreview ? { firstPageLimit: 200 } : {}), pageConcurrency
-                        })
-                        : key === 'requests' ? await fetchActiveRequestLiveRows('*', readOptions)
-                        : await fetchAllSupabaseRows(definition.table, query, { ...readOptions,
-                            ...(key === 'suspendTag' ? { count: true, requireComplete: true } : {}) });
-                    if (!Array.isArray(rows)) throw new Error(`${key} returned an invalid data snapshot.`);
-                    const fieldCoverage = key === 'master' ? String(rows.readMeta?.fieldCoverage || '') : 'full';
-                    const columns = key === 'master' ? (rows.readMeta?.columns || []) : [];
-                    if (key === 'master') validateInventoryReadProjection({ projection, fieldCoverage, columns }, { projection });
-                    const snapshot = key === 'master'
-                        ? await prepareProductionMasterSnapshot(rows, { signal, identity: preparationScope,
-                            permissionVersion: preparationPermission, seasonKey: preparationSeason })
-                        : { rawRows: JSON.parse(JSON.stringify(rows)), payload: buildDatasetPayload(key, rows), rowCount: rows.length };
-                    return { key, rawRows: snapshot.rawRows, payload: snapshot.payload, rowCount: snapshot.rowCount, projection, fieldCoverage, columns,
-                        rowCompleteness: 'complete',
-                        hlOrderInventory: key === 'master' && canUseHlOrder()
-                            ? { rows, rowCompleteness: 'complete', owner: captureHlOrderOwnership() } : null };
-                })
-            };
         }
 
         const pendingMasterFullHydrations = new Map();
@@ -29774,106 +29682,11 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             const identityScopedOperationalRead = typeof hasAuthenticatedOperationalReadIdentity === 'function'
                 && hasAuthenticatedOperationalReadIdentity();
             const readKey = `all:${String(table || '').trim()}:${String(query || '').trim()}:${opts.requireComplete === true ? 'complete' : 'standard'}${forceFresh ? `:fresh:${Date.now()}:${Math.random()}` : ''}`;
-            return runDedupeSupabaseRead(readKey, async ({ signal: readSignal } = {}) => {
-                if (readSignal?.aborted) throw Object.assign(new Error('Queued data snapshot read cancelled.'), { code: 'REQUEST_ABORTED' });
-                const readOptions = { ...opts, signal: readSignal };
-                startGlobalProgress();
-                try {
-                const fetchStartedAt = beginInternalPerfMeasure();
-                const allData = [];
-                let pageCount = 0;
-                const onFirstPage = typeof opts.onFirstPage === 'function' ? opts.onFirstPage : null;
-                const requestedLimit = getFullDatasetPageLimit(table);
-                const pageConcurrency = getFullDatasetPageConcurrency(table);
-                const firstPage = await fetchSupabaseRowsPage(table, query, requestedLimit, 0, readOptions);
-                const firstRows = firstPage.rows || [];
-                const knownTotal = firstPage.total;
-                const verifyComplete = () => {
-                    if (!opts.requireComplete) return;
-                    const ids = allData.map(row => String(row.unique_id || '').trim());
-                    if (knownTotal == null || allData.length !== knownTotal || ids.some(id => !id) || new Set(ids).size !== ids.length) {
-                        throw new Error('Complete source rows could not be verified. Retry the report.');
-                    }
-                };
-                if (firstRows.length) {
-                    for (let dataIndex = 0; dataIndex < firstRows.length; dataIndex += 1) allData.push(firstRows[dataIndex]);
-                    pageCount += 1;
-                    if (onFirstPage) {
-                        try {
-                            await onFirstPage(firstRows.slice(), {
-                                table,
-                                query,
-                                total: knownTotal,
-                                limit: requestedLimit,
-                                loaded: firstRows.length
-                            });
-                        } catch (callbackError) {
-                            console.warn('First page render hydration failed.', callbackError);
-                        }
-                    }
-                    await yieldToUiFrame();
-                }
-                if (!firstRows.length) {
-                    incrementInternalPerfCounter(`datasetFetchPages:${table}`, pageCount);
-                    recordInternalPerfDuration('datasetFetchDurations', fetchStartedAt, table);
-                    verifyComplete();
-                    return allData;
-                }
-                const detectedLimit = firstRows.length > 0 && firstRows.length < requestedLimit && ((knownTotal != null && knownTotal > firstRows.length) || firstRows.length >= 1000)
-                    ? firstRows.length
-                    : requestedLimit;
-                const limit = Math.max(1, detectedLimit);
-                const shouldVerifyShortMasterPage = String(table || '').trim() === 'ph_master_inventory' && firstRows.length > 0 && firstRows.length < limit;
-                if (knownTotal != null && knownTotal <= allData.length) {
-                    incrementInternalPerfCounter(`datasetFetchPages:${table}`, pageCount);
-                    recordInternalPerfDuration('datasetFetchDurations', fetchStartedAt, table);
-                    verifyComplete();
-                    return allData;
-                }
-                if (knownTotal != null && knownTotal > allData.length) {
-                    const offsets = [];
-                    for (let nextOffset = limit; nextOffset < knownTotal; nextOffset += limit) offsets.push(nextOffset);
-                    const pages = await fetchSupabaseRowsPageBatch(table, query, limit, offsets, pageConcurrency, readOptions);
-                    pages.forEach((page) => {
-                        const pageRows = page.rows || [];
-                        if (!pageRows.length) return;
-                        for (let dataIndex = 0; dataIndex < pageRows.length; dataIndex += 1) allData.push(pageRows[dataIndex]);
-                        pageCount += 1;
-                    });
-                } else {
-                    let offset = firstRows.length >= limit ? limit : (shouldVerifyShortMasterPage ? firstRows.length : 0);
-                    let hasMore = firstRows.length >= limit || shouldVerifyShortMasterPage;
-                    while (hasMore) {
-                        const offsets = [];
-                        for (let batchIndex = 0; batchIndex < pageConcurrency; batchIndex += 1) offsets.push(offset + (batchIndex * limit));
-                        const pages = await fetchSupabaseRowsPageBatch(table, query, limit, offsets, pageConcurrency, readOptions);
-                        hasMore = false;
-                        for (let pageIndex = 0; pageIndex < pages.length; pageIndex += 1) {
-                            const pageRows = pages[pageIndex].rows || [];
-                            if (pageRows.length) {
-                                for (let dataIndex = 0; dataIndex < pageRows.length; dataIndex += 1) allData.push(pageRows[dataIndex]);
-                                pageCount += 1;
-                            }
-                            if (pageRows.length >= limit) {
-                                hasMore = true;
-                                offset = pages[pageIndex].offset + limit;
-                            } else {
-                                hasMore = false;
-                                break;
-                            }
-                        }
-                    }
-                }
-                incrementInternalPerfCounter(`datasetFetchPages:${table}`, pageCount);
-                recordInternalPerfDuration('datasetFetchDurations', fetchStartedAt, table);
-                verifyComplete();
-                return allData;
-                } finally {
-                    stopGlobalProgress();
-                }
-            }, {
+            return runDedupeSupabaseRead(readKey, ({signal})=>readWholeSupabaseTable(table,query,{...opts,signal}), {
+                docksVisit:opts.docksVisit,
                 signal: identityScopedAssignmentRead || identityScopedOperationalRead || opts.retainOnGenerationChange === true ? null : (opts.signal || null),
                 retainOnGenerationChange: identityScopedAssignmentRead || identityScopedOperationalRead || opts.retainOnGenerationChange === true,
+                ...(opts.docksVisit ? {signal:opts.signal} : {}),
             });
         }
 

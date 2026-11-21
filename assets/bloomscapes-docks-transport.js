@@ -1,3 +1,65 @@
+function currentDocksReadVisit() {
+    if (typeof getCurrentVisibleViewId !== 'function' || getCurrentVisibleViewId() !== 'docks') return null;
+    return window.AgMetricLifecycle.getSignal('view');
+}
+
+function docksReadSignal(visit,parent) {
+    return parent && parent !== visit ? AbortSignal.any([visit,parent]) : visit;
+}
+
+function bindDocksAdapterVisit(adapters,visit) {
+    return adapters.map(adapter=>({...adapter,stage:(options={})=>{
+        visit.throwIfAborted();
+        return adapter.stage({...options,docksVisit:visit,signal:docksReadSignal(visit,options.signal)});
+    }}));
+}
+
+function waitForDocksRead(signal,read) {
+    signal.throwIfAborted();
+    let onAbort;
+    const cancellation = new Promise((_resolve,reject) => {
+        onAbort = () => reject(signal.reason);
+        signal.addEventListener('abort',onAbort,{once:true});
+    });
+    return Promise.race([Promise.resolve().then(()=>{ signal.throwIfAborted(); return read(); }),cancellation])
+        .finally(()=>signal.removeEventListener('abort',onAbort));
+}
+
+function docksFarmReadContext(visit,background) {
+    const governor = window.BloomscapesBatteryGovernor;
+    const signals = new Map();
+    return {
+        isSpeculative:()=>background?.isSpeculative() === true,
+        signal:()=>{
+            const parent = background ? background.signal() : governor.viewSignal();
+            if (!signals.has(parent)) signals.set(parent,AbortSignal.any([visit,parent]));
+            return signals.get(parent);
+        },
+        checkpoint:async()=>{
+            visit.throwIfAborted();
+            if (background) await waitForDocksRead(visit,background.checkpoint);
+            visit.throwIfAborted();
+        }
+    };
+}
+
+function applicableSupabaseReadDenial(key,options,cooldownKey,terminalKey,denial) {
+    if (options.explicitRetry === true && key.startsWith('aura_inventory_v2:')) {
+        supabaseReadTerminalDenials.delete(terminalKey);
+        supabaseReadFailureCooldowns.delete(cooldownKey);
+        return null;
+    }
+    if (denial?.until > Date.now()) return denial.error;
+    if (denial) supabaseReadTerminalDenials.delete(terminalKey);
+    return null;
+}
+
+function retireSupersededRead(key,previous,identity) {
+    if (previous.retainOnGenerationChange && previous.identityScope === identity) return;
+    previous.controller.abort();
+    supabaseReadLatestByKey.delete(key);
+}
+
 const bloomscapesDockBoardLists = ['tags','drops','trips','suspend','people','borrows','traffic'];
 
 async function readBloomscapesDockBoard(farm, identity) {

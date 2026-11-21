@@ -19,15 +19,19 @@ function loadOwnedDataset(key, definition, state, wantsFull, options) {
     const owner = getSupabaseReadIdentityScope();
     const slot = wantsFull ? 'fullPromise' : 'initialPromise';
     const current = state[slot];
-    if (current?.ownerIdentity === owner) return current;
-    const initial = wantsFull && state.initialPromise?.ownerIdentity === owner ? state.initialPromise : null;
-    const isCurrent = () => state[slot] === task && getDatasetState(key) === state && getSupabaseReadIdentityScope() === owner;
+    if (options.docksVisit?.aborted) return false;
+    const canJoin = candidate => candidate?.ownerIdentity === owner && (!candidate.docksVisit || candidate.docksVisit === options.docksVisit);
+    if (canJoin(current)) return current;
+    const initial = wantsFull && canJoin(state.initialPromise) ? state.initialPromise : null;
+    const isCurrent = () => !options.docksVisit?.aborted && state[slot] === task
+        && getDatasetState(key) === state && getSupabaseReadIdentityScope() === owner;
     const task = Promise.resolve(initial).catch(() => false)
         .then(() => runDatasetLoadWithRetry(key, definition, state, wantsFull, options, isCurrent))
         .finally(() => {
             if (state[slot] === task) state[slot] = null;
         });
     Object.defineProperty(task, 'ownerIdentity', { value: owner });
+    Object.defineProperty(task, 'docksVisit', { value: options.docksVisit });
     state[slot] = task;
     return task;
 }
@@ -36,7 +40,8 @@ function getOwnedColdDatasetLoad(key, mode) {
     if (mode !== 'full' || !coldSourceHydrations.has(key)) return null;
     const owner = getSupabaseReadIdentityScope();
     const state = getDatasetState(key);
-    if (coldSourceHydrations.get(key)?.ownerIdentity !== owner || !state.fullPromise) return null;
+    const cold = coldSourceHydrations.get(key);
+    if (cold?.ownerIdentity !== owner || cold.docksVisit || !state.fullPromise) return null;
     return state.fullPromise.then(loaded => owner === getSupabaseReadIdentityScope() ? loaded : false);
 }
 
@@ -76,7 +81,7 @@ function createDatasetReadPlan(key, definition, wantsFull, options, isCurrent) {
     const limit = typeof initialLimitSource === 'function' ? initialLimitSource(modeLabel,options) : initialLimitSource || INITIAL_PAGE_LIMIT;
     const fetchAll = !wantsFull && definition.initialFetchAll === true && options.fastInitialPage !== true;
     const owner = getSupabaseReadIdentityScope();
-    const firstPage = {};
+    const firstPage = options.docksVisit ? { docksVisit:options.docksVisit, signal:options.docksVisit } : {};
     return {key,definition,wantsFull,options,modeLabel,query,limit,fetchAll,owner,firstPage,isCurrent};
 }
 
@@ -85,7 +90,7 @@ async function fetchLegacyDatasetRows(plan) {
     if (key === 'master' || key === 'avOpen') {
         const params = {dataset:key,projection:wantsFull ? 'full' : 'browse'};
         if (wantsFull || fetchAll) return fetchAllInventoryReadRows('master_page',params,{...firstPage,limit:5000,pageConcurrency:8,requireComplete:true});
-        const page = await fetchInventoryReadPage('master_page',params,Math.min(limit,500),0,{label:'Inventory rows'});
+        const page = await fetchInventoryReadPage('master_page',params,Math.min(limit,500),0,{...firstPage,label:'Inventory rows'});
         Object.defineProperty(page.rows,'readMeta',{value:{projection:page.projection,fieldCoverage:page.fieldCoverage,columns:page.columns},enumerable:false});
         return page.rows;
     }
@@ -93,7 +98,7 @@ async function fetchLegacyDatasetRows(plan) {
     if (wantsFull || fetchAll) return fetchAllSupabaseRows(definition.table,query,{
         ...firstPage,...(options.retainOnGenerationChange === true ? {retainOnGenerationChange:true} : {})
     });
-    return fetchSupabasePage(definition.table,query,limit,0);
+    return fetchSupabasePage(definition.table,query,limit,0,firstPage);
 }
 
 async function retryFullLegacyMasterRead(plan, error) {
@@ -103,7 +108,7 @@ async function retryFullLegacyMasterRead(plan, error) {
     } catch (fallbackError) {
         if (!plan.isCurrent()) return null;
         console.warn('Full master retry failed; showing first master page while background sync retries.',fallbackError);
-        return (await fetchInventoryReadPage('master_page',{dataset:'master',projection:'full'},Math.min(plan.limit,500),0,{label:'Inventory rows'})).rows;
+        return (await fetchInventoryReadPage('master_page',{dataset:'master',projection:'full'},Math.min(plan.limit,500),0,{...plan.firstPage,label:'Inventory rows'})).rows;
     }
 }
 
@@ -111,7 +116,7 @@ function recoverLegacyDatasetRows(plan, error) {
     const {key,definition,wantsFull,modeLabel,fetchAll,firstPage} = plan;
     const failure = classifyDatasetLoadFailureCode(error);
     if (failure === null) {
-        if (error?.code === 'DATASET_READ_RETAINED' && !error.retryOnViewChange) queueDatasetLoad(key,modeLabel,3000);
+        if (!plan.options.docksVisit && error?.code === 'DATASET_READ_RETAINED' && !error.retryOnViewChange) queueDatasetLoad(key,modeLabel,3000);
         return null;
     }
     if (isInventorySourceReadinessError(error)) {
@@ -124,7 +129,7 @@ function recoverLegacyDatasetRows(plan, error) {
     }
     if (key === 'master' && fetchAll) return retryFullLegacyMasterRead(plan,error);
     if (key === 'requests' && isRequestQueueLiveRowsViewMissingError(error)) {
-        return fetchAllSupabaseRows(ACTIVE_REQUEST_TABLE,'select=*&date_completed=is.null&order=unique_id.desc');
+        return fetchAllSupabaseRows(ACTIVE_REQUEST_TABLE,'select=*&date_completed=is.null&order=unique_id.desc',firstPage);
     }
     if (key === 'flyerRows' && isOptionalFlyerRowsMissingError(error)) return handleMissingOptionalFlyerRowsTable(error);
     if (['requestHistory','flyerHistory'].includes(key) && isOptionalTableMissingError(error,definition.table)) return handleMissingOptionalHistoryTable(key,error);
@@ -227,8 +232,8 @@ async function runLegacyDatasetLoad(key, definition, state, wantsFull, options, 
     if (key === 'master' && state.fullLoaded && (wantsFull || plan.fetchAll)) persistCurrentCache(true,'master-full');
     else persistCurrentCache();
     touchSyncTimestamp();
-    if (partial) {
-        state.lastLoadedAt = '';
+    if (partial) state.lastLoadedAt = '';
+    if (partial && !options.docksVisit) {
         setTimeout(() => queueDatasetLoad('master','full',isTouchConstrainedDevice() ? 2200 : 900),80);
     }
     reportPerformanceHealthEvent('dataset_load','data_sync',getAdaptivePerfElapsedMs(startedAt),{

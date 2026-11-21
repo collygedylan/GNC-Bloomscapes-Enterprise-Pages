@@ -1,18 +1,25 @@
 const coldOperationalDisplayReads = new Map();
 const coldOperationalDisplayKeys = new Set(['master', 'requests', 'suspendTag', 'soc']);
 
-async function hydrateColdSource(key = '') {
+function ensureColdOperationalHydration(viewId = '', docksVisit = null) {
+    if (!canUseProductionLiveSync() || !['home', 'drive', 'av', 'docks', 'request', 'managers', 'detail'].includes(viewId)) return;
+    const keys = ['master', 'soc', 'requests', 'suspendTag', 'warehouseAssignedItems'];
+    keys.forEach(key => { void hydrateColdSource(key, docksVisit); });
+}
+
+async function hydrateColdSource(key = '', docksVisit = null) {
     const owner = resetPendingRowPatchesForOwner();
-    if (!key || !canUseProductionLiveSync()) return false;
+    if (!key || docksVisit?.aborted || !canUseProductionLiveSync()) return false;
     const state = getDatasetState(key);
     if (state.fullLoaded && state.rowCompleteness === 'complete'
         && (state.expectedRowCount === 0 || getDatasetRenderRowCount(key) > 0)) return true;
-    if (coldSourceHydrations.has(key)) return coldSourceHydrations.get(key);
+    const current = coldSourceHydrations.get(key);
+    if (current && (!current.docksVisit || current.docksVisit === docksVisit)) return current;
     const promise = ensureDatasetLoaded(key, 'full', { bypassLiveSyncCoordinator: true,
         force: getDatasetRenderRowCount(key) === 0, preserveRequestedMode: true, retryOnCancellation: true,
-        retainOnGenerationChange: true })
+        retainOnGenerationChange: true, ...(docksVisit ? { docksVisit, signal: docksVisit } : {}) })
         .then(loaded => {
-            if (owner !== getSupabaseReadIdentityScope()) return false;
+            if (docksVisit?.aborted || owner !== getSupabaseReadIdentityScope()) return false;
             if (loaded) {
                 replayHydratedRowPatches();
                 rebuildMasterInventoryIndexes();
@@ -26,6 +33,7 @@ async function hydrateColdSource(key = '') {
             if (coldSourceHydrations.get(key) === promise) coldSourceHydrations.delete(key);
         });
     Object.defineProperty(promise, 'ownerIdentity', { value: owner, configurable: true });
+    Object.defineProperty(promise, 'docksVisit', { value: docksVisit });
     coldSourceHydrations.set(key, promise);
     return promise;
 }

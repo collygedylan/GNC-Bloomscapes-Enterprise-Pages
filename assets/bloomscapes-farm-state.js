@@ -30,11 +30,12 @@ function selectBloomscapesFarm(farm) {
     const selector = document.getElementById('bloomscapes-farm-selector');
     if (selector) selector.value = farm;
     if (previous!==farm) resetBloomscapesFarmNavigation();
-    state.selection = hydrateBloomscapesChosenFarm(state,farm,previous);
+    const visit = typeof getCurrentVisibleViewId==='function' ? currentDocksReadVisit() : null;
+    state.selection = hydrateBloomscapesChosenFarm(state,farm,previous,visit);
     return state.selection;
 }
 
-async function hydrateBloomscapesChosenFarm(state,farm,previous) {
+async function hydrateBloomscapesChosenFarm(state,farm,previous,visit) {
     try {
         const snapshot = getBloomscapesWarmFarm(farm) || await ensureBloomscapesWarmFarm(farm);
         if (state!==bloomscapesFarmState || state.farm!==farm) throw new Error('Signed-in account changed.');
@@ -44,7 +45,7 @@ async function hydrateBloomscapesChosenFarm(state,farm,previous) {
         globalThis.dispatchEvent?.(new CustomEvent('bloomscapes-farm-ready'));
         renderBloomscapesFarmNavigation();
         globalThis.prepareBloomscapesFarmAvBrowse?.(farm);
-        scheduleBloomscapesFarmRevalidation(state,farm);
+        scheduleBloomscapesFarmRevalidation(state,farm,visit);
         return farm;
     } catch (error) {
         if (state===bloomscapesFarmState && state.readyFarm!==farm) {
@@ -57,10 +58,10 @@ async function hydrateBloomscapesChosenFarm(state,farm,previous) {
     }
 }
 
-function scheduleBloomscapesFarmRevalidation(state,farm) {
+function scheduleBloomscapesFarmRevalidation(state,farm,visit) {
     const refresh = () => {
         if (state!==bloomscapesFarmState || state.farm!==farm || state.readyFarm!==farm) return;
-        void refreshBloomscapesWarmFarm(farm);
+        if (!visit?.aborted) void refreshBloomscapesWarmFarm(farm,visit);
         void prewarmBloomscapesFarms();
         if (typeof ensureBloomscapesFieldQueue==='function') void ensureBloomscapesFieldQueue(true).catch(error=>
             globalThis.reportHandledRuntimeIssue?.('field_work_queue',error.code || 'FIELD_WORK_READ_FAILED'));

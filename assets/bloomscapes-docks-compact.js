@@ -1,3 +1,38 @@
+const bloomscapesDockBrowseMetadata={owner:'',visit:null,checkedAt:0};
+
+function bloomscapesDockBrowseMetadataOwner() {
+    return JSON.stringify([getSupabaseReadIdentityScope(),getBloomscapesFarm()]);
+}
+
+function bloomscapesDockBrowseMetadataRevision() {
+    return [dockWorkflowStateEpoch,dockTeamStatusRenderVersion,dockTeamStatusLoaded,dockItemProgressLoaded,
+        dockIssueDataLoaded,dockTeamSchemaReady,dockItemSchemaReady,dockIssueStatusSchemaReady,dockIssueAllocationSchemaReady].join('|');
+}
+
+function requestBloomscapesDockBrowseMetadata() {
+    const visit=currentDocksReadVisit();
+    if (!visit || visit.aborted) return;
+    const owner=bloomscapesDockBrowseMetadataOwner();
+    const state=bloomscapesDockBrowseMetadata;
+    if (state.owner===owner && state.visit===visit && Date.now()-state.checkedAt<45000) return;
+    const jobs=[];
+    if (!dockTeamStatusLoaded && !dockTeamStatusPromise && dockTeamSchemaReady!==false) jobs.push(ensureDockTeamStatusLoaded);
+    if (!dockItemProgressLoaded && !dockItemProgressPromise && dockItemSchemaReady!==false) jobs.push(ensureDockItemStatusLoaded);
+    if (!dockIssueDataLoaded && !dockIssueDataPromise && dockIssueStatusSchemaReady!==false && dockIssueAllocationSchemaReady!==false) {
+        jobs.push(ensureDockIssueDataLoaded);
+    }
+    if (!jobs.length) return;
+    state.owner=owner;
+    state.visit=visit;
+    state.checkedAt=Date.now();
+    const revision=bloomscapesDockBrowseMetadataRevision();
+    const current=()=>!visit.aborted && owner===bloomscapesDockBrowseMetadataOwner();
+    const dispatch=read=>Promise.resolve().then(()=>current() ? read() : undefined);
+    void Promise.allSettled(jobs.map(dispatch)).then(()=>{
+        if (!current()) return;
+        if (revision!==bloomscapesDockBrowseMetadataRevision()) scheduleDocksRender(0);
+    });
+}
 
 const dockCompactTripTeam = [
     ['checker','Checker'],['inspector','Inspector'],['mistake','Mistake Guy']

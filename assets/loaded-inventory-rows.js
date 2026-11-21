@@ -59,6 +59,7 @@ function publishLoadedOfficeInventory(res, hasMaster) {
 }
 
 let suspendSocDisplayIdentity = null;
+const loadedSocHydrationReceipts = new WeakMap();
 
 function getSuspendSocDisplayIdentity() {
     return JSON.stringify([getSupabaseReadIdentityScope(), appAccessSnapshotState.snapshot?.dataPermissionVersion || '']);
@@ -69,16 +70,38 @@ function getSuspendSocDisplayRows() {
     return socInventory;
 }
 
+function loadedSocHydrationKey(res) {
+    if (!res._verifiedLiveSync || res._fromCache || !res._locOnHandReceiptRevision) return '';
+    const owner=getSupabaseReadIdentityScope(), permission=res._locOnHandReceiptPermission;
+    if (!permission || owner!==res._locOnHandReceiptScope || permission!==appAccessSnapshotState.snapshot?.dataPermissionVersion
+        || hasProductionLiveSyncDraft() || confirmedDriveEvidenceRows.size || Object.keys(getPendingEditsCache()).length) return '';
+    const master=getDatasetState('master'), revision=String(res._locOnHandReceiptRevision);
+    if (!/^[1-9]\d*$/.test(revision) || master.fieldCoverage!=='full' || !master.fullLoaded
+        || master.rowCompleteness!=='complete' || !master.liveVerifiedScope || master.liveVerifiedPermission!==permission
+        || String(master.liveVerifiedRevision)!==revision) return '';
+    return JSON.stringify([owner,permission,master.liveVerifiedScope,currentMasterPreparationSeasonKey(),revision]);
+}
+
+function publishLoadedSocRows(res,key) {
+    const previous=loadedSocHydrationReceipts.get(socInventory);
+    const incoming=Object.hasOwn(res,'socData');
+    if (!incoming && key && previous?.key===key && previous.raw===socRawSourceRows
+        && previous.count===socInventory.length) return;
+    if (incoming) {
+        socRawSourceRows = cloneDockSourceRows(res.socData || []);
+        socRawSourceRowsReady = true;
+        suspendSocDisplayIdentity = getSuspendSocDisplayIdentity();
+    }
+    const source = incoming ? cloneDockSourceRows(socRawSourceRows)
+        : buildDockSourceRowsForMasterRefresh(socRawSourceRows,socInventory);
+    socInventory = hydrateDockSourceRows(source);
+}
+
 function publishLoadedDockInventory(res, hasMaster) {
+    const hasSoc=Object.hasOwn(res,'socData');
+    const key=(hasSoc || hasMaster) ? loadedSocHydrationKey(res) : '';
     if (Object.hasOwn(res,'socData') || (hasMaster && socRawSourceRowsReady)) {
-        if (Object.hasOwn(res,'socData')) {
-            socRawSourceRows = cloneDockSourceRows(res.socData || []);
-            socRawSourceRowsReady = true;
-            suspendSocDisplayIdentity = getSuspendSocDisplayIdentity();
-        }
-        const socSource = Object.hasOwn(res,'socData') ? cloneDockSourceRows(socRawSourceRows)
-            : buildDockSourceRowsForMasterRefresh(socRawSourceRows, socInventory);
-        socInventory = hydrateDockSourceRows(socSource);
+        publishLoadedSocRows(res,key);
     }
     if (Object.hasOwn(res,'suspendTagData') || (hasMaster && suspendTagRawSourceRowsReady && suspendTagInventoryScope === getSupabaseReadIdentityScope())) {
         if (Object.hasOwn(res,'suspendTagData')) {
@@ -93,7 +116,12 @@ function publishLoadedDockInventory(res, hasMaster) {
     }
     suspendTagRawSourceRows = filterBloomscapesSuspendSnapshot(suspendTagRawSourceRows || [],res);
     suspendTagInventory = filterBloomscapesSuspendSnapshot(suspendTagInventory || [],res);
+    const unfilteredCount=socInventory.length;
     socInventory = filterBloomscapesSuspendSnapshot(socInventory,res);
+    if (key && socRawSourceRowsReady && socInventory.length===unfilteredCount
+        && suspendSocDisplayIdentity===getSuspendSocDisplayIdentity()) {
+        loadedSocHydrationReceipts.set(socInventory,{key,raw:socRawSourceRows,count:unfilteredCount});
+    }
 }
 
 function publishLoadedReserveInventory(res, hasMaster) {
