@@ -60,6 +60,13 @@ function canRetryBloomscapesFarmSnapshot(error,cache,farm,flight) {
     return identity(cache.owner)===identity(bloomscapesFarmCacheOwner());
 }
 
+function hasVerifiedBloomscapesFarmPermission() {
+    const access = appAccessSnapshotState;
+    return access.status==='ready' && !access.stale && access.snapshot?.dataPermissionVersion
+        && access.profileId===nativeAuthProfile?.id && access.authEpoch===productionLiveSyncReadAuthEpoch
+        && access.username===getRequestCapabilityUsernameKey(currentUser);
+}
+
 async function ensureBloomscapesWarmFarm(farm,refresh=false,attempt=0,speculative=false) {
     const cache = getBloomscapesFarmCache();
     assertBloomscapesFarmCache(cache,farm);
@@ -81,7 +88,8 @@ async function ensureBloomscapesWarmFarm(farm,refresh=false,attempt=0,speculativ
     flight.promise = loadBloomscapesWarmFarm(cache,farm,refresh,flight).catch(error=>{
         if (!attempt && canRetryBloomscapesFarmSnapshot(error,cache,farm,flight)) {
             cache.pending.delete(farm);
-            return ensureBloomscapesWarmFarm(farm,refresh || error.code==='DATASET_READ_SCOPE_CHANGED',1);
+            const freshRead = error.code==='DATASET_READ_SCOPE_CHANGED' && !hasVerifiedBloomscapesFarmPermission();
+            return ensureBloomscapesWarmFarm(farm,refresh || freshRead,1);
         }
         throw error;
     }).finally(()=>{
