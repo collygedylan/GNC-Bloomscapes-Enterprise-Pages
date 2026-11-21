@@ -17,7 +17,7 @@ function resolveEvaluationProjectionTarget(row, source) {
 }
 
 function buildMissingEvaluationMasterRow(row, uid) {
-    const master = {UNIQUE_ID:uid,unique_id:uid,SOURCE_TABLE:'ph_master_inventory',source_table:'ph_master_inventory'};
+    const master = {UNIQUE_ID:uid,unique_id:uid,SOURCE_TABLE:'ph_master_inventory',source_table:'ph_master_inventory',warehouse_id:bloomscapesRowFarm(row)};
     for (const key of ['ITEMCODE','LOCATIONCODE','LOTCODE','SEASON','SALEYEAR','PRIORITY','COMMONNAME','CONTSIZE',
         'DESIGITEM','DESIGCUST','DESIGLOC','PTRONHAND','PTRREVIEWED','PTRAVAILABLE','S_LTS']) {
         const value = row[key] ?? row[key.toLowerCase()];
@@ -96,18 +96,15 @@ function isMutableRequestEvidenceRow(row) {
         && row?.REQ_ARCHIVED !== true && row?.req_archived !== true;
 }
 
-function collectEvaluationProjectionRows(target, context) {
+function collectEvaluationProjectionRows(target, context, state = getManagerAssignedColumnState(), provisional = false) {
     const {source,suspendUid,uploadRows = []} = context;
-    const uid = canonicalInventoryRowUid(target);
     const code = String(target.ITEMCODE || target.itemcode || '').trim().toUpperCase();
     const indexed = masterInventoryByItemCode.get(code) || fullInventory;
-    const match = createCanonicalEvidenceGroupMatcher(target,indexed);
-    const state = getManagerAssignedColumnState();
-    const exactMaster = row => match(row);
+    const {master:exactMaster,mirror:match} = createCanonicalEvidenceGroupMatcher(target,indexed,{source,provisional,pending:state.rowEvaluationMemoryOwners});
     const extra = state.fullInventory && state.fullInventory!==fullInventory ? state.fullInventory : [];
-    const masters = canonicalEvidencePhysicalRows([target,masterInventoryById.get(uid),...indexed,...extra]);
-    const groups = [[new Set(masters.filter(exactMaster)),'master']];
-    if (typeof avOpenInventory !== 'undefined') groups.push([avOpenInventory.filter(match),'master']);
+    const masters = canonicalEvidencePhysicalRows([target,masterInventoryById.get(canonicalInventoryRowUid(target)),...indexed,...extra]);
+    const groups = [[masters.filter(exactMaster),'master']];
+    if (typeof avOpenInventory !== 'undefined') groups.push([avOpenInventory.filter(exactMaster),'master']);
     const requests = typeof requestsInventory === 'undefined' ? [] : requestsInventory;
     const suspend = typeof suspendTagInventory === 'undefined' ? [] : suspendTagInventory;
     if (suspendUid) groups.push([collectEvaluationSuspendRows(suspendUid,[source,...uploadRows,...requests,...suspend],target),'tag']);
@@ -119,6 +116,9 @@ function collectEvaluationProjectionRows(target, context) {
     if (typeof socInventory !== 'undefined') groups.push([socInventory.filter(match),'suspend']);
     if (typeof flyerFolderInventory !== 'undefined') groups.push([flyerFolderInventory.filter(match),'flyer']);
     if (source && source !== target && match(source)) groups.push([[source],context.prefix === 'flyer-' ? 'flyer' : 'source']);
+    if (state.locationSalesNotes && state.noteScope === getSupabaseReadIdentityScope()) {
+        groups.push([(state.locationSalesNotes.get(getRequestItemCodeOptionItemCode(target)) || []).filter(exactMaster),'note']);
+    }
     return groups;
 }
 
@@ -147,9 +147,6 @@ function syncEvaluationProjectionNotes(target, owner, state, scope) {
     state.noteScope = scope;
     const notes = state.locationSalesNotes ||= new Map(), code = getRequestItemCodeOptionItemCode(target);
     const rows = notes.get(code) || [], uid = canonicalInventoryRowUid(target);
-    for (const row of rows.filter(row => canonicalEvidenceGroupMatches(row,target))) {
-        writeEvaluationProjectionRow(owner,row,{...owner.evidence,__pendingEvaluationOwner:owner.token});
-    }
     let note = rows.find(row => (canonicalInventoryLinkedUid(row) || canonicalInventoryRowUid(row)) === uid && canonicalInventorySameLot(row,target,true));
     if (!note) {
         note = {...target,unique_id:uid};
@@ -213,10 +210,12 @@ function upsertEvaluationProjectionMaster(target, owner) {
 }
 
 function projectEvaluationOwner(owner) {
-    const {target,context,evidence,state,scope} = owner;
+    const {target,context,evidence,state,scope,provisional} = owner;
+    const groups = collectEvaluationProjectionRows(target,context,state,provisional);
     upsertEvaluationProjectionMaster(target,owner);
-    for (const [rows,kind] of collectEvaluationProjectionRows(target,context)) {
-        const fields = ['master','source'].includes(kind) ? evidence : buildEvaluationMirrorFields(evidence,kind === 'tag' ? 'suspend' : kind);
+    const directFields = {master:evidence,source:evidence,note:{...evidence,__pendingEvaluationOwner:owner.token}};
+    for (const [rows,kind] of groups) {
+        const fields = directFields[kind] || buildEvaluationMirrorFields(evidence,kind === 'tag' ? 'suspend' : kind);
         if (kind === 'tag') fields.DOCK_NOTE=fields.dock_note=context.dockNote;
         for (const row of rows) writeEvaluationProjectionRow(owner,row,fields);
     }
@@ -245,7 +244,9 @@ function beginRowEvaluationMemoryPublication(target, input, scope, context = {})
     if (!uid || scope !== getSupabaseReadIdentityScope()) return () => {};
     const state = getManagerAssignedColumnState(), owners = state.rowEvaluationMemoryOwners ||= new Map();
     const patch = input || {};
-    const owner = {target,uid,state,scope,owners,prior:owners.get(uid),rows:new Map(),cleanups:[],
+    const prior = owners.get(uid);
+    const provisional = target.__queuePhotoOnly || !masterInventoryById.has(uid) || prior?.provisional;
+    const owner = {target,uid,state,scope,owners,prior,rows:new Map(),cleanups:[],provisional,
         context,patch,token:Symbol(uid),evidence:buildEvaluationProjectionFields(target,patch)};
     owners.set(uid,owner);
     try {

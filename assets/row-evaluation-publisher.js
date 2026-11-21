@@ -1,3 +1,4 @@
+
 function applySuspendTagInventoryReceipt(result, scope, identity = null) {
             if (scope !== getSupabaseReadIdentityScope()) return false;
             const rows = Array.isArray(result?.inventoryRows) ? result.inventoryRows : result?.inventoryRow ? [result.inventoryRow] : [];
@@ -70,8 +71,10 @@ async function publishRowEvaluationToMasterAndNotes(item, patch, options = null)
 
 function prepareInventoryRowEvaluation(item,patch,options) {
     const scope = options.scope || getSupabaseReadIdentityScope();
-    const target = options.photoOnly === true ? item : findLinkedMasterRow(item) || item;
-    const uid = String(target.UNIQUE_ID || target.unique_id || '').trim();
+    const linked = options.photoOnly === true ? null : findLinkedMasterRow(item);
+    const expectedUid = canonicalInventoryLinkedUid(item) || canonicalInventoryRowUid(item);
+    const target = linked && canonicalInventoryRowUid(linked) === expectedUid ? linked : item;
+    const uid = canonicalInventoryRowUid(target);
     if (!uid || !['','ph_master_inventory'].includes(String(target.SOURCE_TABLE || target.source_table || ''))) throw new Error('Exact inventory row is required.');
     if (options.receipt?.row && String(options.receipt.row.UNIQUE_ID || options.receipt.row.unique_id || '') !== uid) throw new Error('EVALUATION_RECEIPT_IDENTITY_MISMATCH');
     if (!options.receipt) patch = withCanonicalEvaluationMatchQuantity(target,patch);
