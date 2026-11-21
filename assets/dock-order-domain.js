@@ -1,4 +1,3 @@
-
 function normalizeDockViewDockKey(dockNum = '') {
     const normalized = String(dockNum ?? '').trim().replace(/^dock\s*/i, '').replace(/[.]0+$/, '');
     return /^[0-9]+$/.test(normalized) && /[1-9]/.test(normalized)
@@ -8,147 +7,6 @@ function normalizeDockViewDockKey(dockNum = '') {
 function normalizeDockViewStopKey(stopNum = '') {
     const normalized = String(stopNum || '').trim().replace(/^(?:drop|stop)\s*/i, '').replace(/^(-?\d+)\.0+$/, '$1');
     return normalized || 'Unassigned';
-}
-
-function firstDockValue(row, keys) {
-    return firstDockNonEmpty(...keys.map(key => row[key]));
-}
-
-function getDockOrderBusinessKey(row = {}) {
-    const value = (...keys) => firstDockValue(row, keys);
-    const code = String(value('ITEMCODE','itemcode')).trim().toUpperCase().replace(/[.]+$/, '');
-    const dock = normalizeDockViewDockKey(value('DOCK','dock','DOCK_NUM','dock_num'));
-    const drop = normalizeDockViewStopKey(value('STOPNUMBER','stopnumber','STOP','stop','DROP_NUMBER','drop_number','DROP','drop'));
-    const location = String(value('LOCATIONCODE','locationcode','LOCATION','location')).trim().toUpperCase();
-    if (!code || dock === 'Unassigned' || drop === 'Unassigned') return '';
-    const quantity = Number(String(value('QUANTITYORDERED','quantityordered','QTY','qty','ORDERED_QTY','ordered_qty') || 0).replace(/,/g,''));
-    return JSON.stringify([dock,drop,code,location,String(value('CONSIGNEENAME','consigneename','CONSIGNEE','consignee')).trim(),Number.isFinite(quantity)?quantity:0]);
-}
-
-function normalizeDockSuspendRequestValue(value = '') {
-    return String(value || '').trim().toUpperCase().replace(/[\s_-]+/g, ' ');
-}
-
-function getDockSuspendValue(item = null) {
-    return normalizeDockSuspendRequestValue(firstDockValue(item || {}, ['SUSPEND', 'suspend', 'Suspend']));
-}
-
-function isDockSuspendDcRequestSource(item = null) {
-    if (!item || !['SUSPEND', 'SUSPENDED'].includes(getDockSuspendValue(item))) return false;
-    const dock = firstDockValue(item, ['DOCK_NUM', 'dock_num', 'DOCK', 'dock']);
-    const closed = item.suspend_completed === true || item.SUSPEND_COMPLETED === true || item.completed === true;
-    const candidate = String(item.suspend_candidate_state || item.SUSPEND_CANDIDATE_STATE || '').toLowerCase();
-    const status = String(item.status || item.STATUS || '').toLowerCase();
-    return normalizeDockViewDockKey(dock) !== 'Unassigned' && !closed
-        && !['approved', 'rejected', 'replaced', 'denied', 'canceled', 'cancelled'].includes(candidate)
-        && !['complete', 'completed', 'deleted'].includes(status);
-}
-
-function isDockSuspendDcRequestMirrorRow(item = null) {
-    if (!item) return false;
-    const text = (...keys) => String(firstDockValue(item, keys) || '').trim().toLowerCase();
-    const isSuspendTag = item.IS_SUSPEND_TAG === true || item.is_suspend_tag === true
-        || ['true', '1', 'yes'].includes(text('IS_SUSPEND_TAG', 'is_suspend_tag'));
-    const uniqueId = String(firstDockValue(item, ['UNIQUE_ID', 'unique_id']) || '').trim();
-    return isSuspendTag || text('REQUEST_TYPE', 'request_type') === 'suspend_tag' || isDockSuspendDcRequestSource(item)
-        || item.DOCK_SUSPEND_DC_REQUEST === true
-        || String(item.DOCK_SUSPEND_DC_REQUEST || '').trim().toLowerCase() === 'true'
-        || /^dock_suspend_dc_/i.test(uniqueId) || !!(item.DOCK_SUSPEND_SOURCE_UID || item.dock_suspend_source_uid)
-        || (text('SOURCE_TABLE', 'source_table') === 'ph_soc_master' && text('REQUEST_SOURCE', 'request_source') === 'docks');
-}
-
-function liveInventoryCardValue(row, ...keys) {
-    for (const key of keys) for (const alias of [key, key.toLowerCase()]) {
-        const value = row?.[alias];
-        if (value != null && String(value).trim() !== '') return value;
-    }
-    return '';
-}
-
-function resolveLiveInventoryCardPhotoMatch(primary, note, canonical, number, calculateMatch) {
-    const evidence = {...primary,...(note || {})};
-    const noteStored = number(note,'LOC_PHOTO_MATCH','LOC_MATCH_QTY');
-    const depleted = liveInventoryCardValue(evidence,
-        'EVAL_BASELINE_AVAILABLE','INITIAL_LOC_PHOTO_MATCH','INITIAL_PHOTO_MATCH_QTY') !== '';
-    if (noteStored > 0) return noteStored;
-    const photos = liveInventoryCardValue(evidence,'PHOTO_LINK','PHOTO_URL','PHOTOS');
-    const photoTimestamp = liveInventoryCardValue(evidence,'AV_RULE_PHOTO_UPDATED_AT','PHOTO_DATE');
-    if (!photos || !photoTimestamp) return null;
-    if (depleted) return calculateMatch(primary,note);
-    const quantity = liveInventoryCardValue(canonical,'LOC_PHOTO_MATCH','LOC_MATCH_QTY');
-    return quantity === '' ? null : quantity;
-}
-
-function hydrateLiveInventoryCardDisplay(primary, selected, atLocation, rows, options) {
-    const text = value => String(value || '').trim().toUpperCase();
-    const location = value => options.normalizeLocation(value) || text(value);
-    const lot = value => text(value).replace(/^(?:\d{2}|\d{4})[.\s-]*/, '');
-    const number = (item,...keys) => Math.max(0,Number(String(liveInventoryCardValue(item,...keys)).replace(/[, %]/g,'')) || 0);
-    const onHand = item => number(item,'PTRONHAND','ON_HAND','ONHAND');
-    const available = item => number(item,'PTRAVAILABLE','AVAILABLE','AVAILABLE_QTY');
-    const review = item => number(item,'PTRREVIEWED','PTRREVIEW','REVIEW','REVIEW_QTY');
-    const loc = location(liveInventoryCardValue(primary,'LOCATIONCODE'));
-    const result = {...options.canonical, __liveInventoryCardDisplay:true};
-    const uid = String(primary.UNIQUE_ID || primary.unique_id || '');
-    const notes = options.notes;
-    const note = notes.find(item => {
-        const noteUid = String(item.MASTER_UNIQUE_ID || item.master_unique_id || item.MASTER_ID || item.master_id || item.UNIQUE_ID || item.unique_id || '');
-        return location(liveInventoryCardValue(item,'LOCATIONCODE')) === loc && noteUid === uid && canonicalInventorySameLot(item,primary);
-    });
-    const fields = [['SPEC'],['CALIPER'],['AV_NOTE','AVNOTE'],['PIC_NOTE','PICK_NOTE','PICKNOTE'],['SALES_NOTE','COMMENTS'],['PHOTO_LINK','PHOTO_URL','PHOTOS'],['PHOTO_NAME'],['PHOTO_DATE'],['DATE_COMPLETED'],['AV_RULE_PHOTO_UPDATED_AT'],['MATCH_PCT','LOC_MATCH_PCT','MATCH'],['LOC_PHOTO_MATCH','LOC_MATCH_QTY'],['HOLDSTOPCODE','HOLD_STOP_CODE'],['HOLDSTOPREASON','HOLDREASON','HOLD_STOP_REASON'],['HOLDSTOPBEGINDATE']];
-    for (const keys of fields) {
-        const hold = keys[0].startsWith('HOLD');
-        const noteValue = hold ? '' : liveInventoryCardValue(note,...keys);
-        const value = noteValue !== '' ? noteValue : liveInventoryCardValue(primary,...keys);
-        for (const key of keys) result[key] = result[key.toLowerCase()] = value;
-    }
-    const set = (value,...keys) => { for (const key of keys) result[key] = result[key.toLowerCase()] = value; };
-    set(selected.reduce((sum,item)=>sum+onHand(item),0),'PTRONHAND','ON_HAND');
-    set(selected.reduce((sum,item)=>sum+review(item),0),'PTRREVIEWED','REVIEW');
-    set(selected.reduce((sum,item)=>sum+available(item),0),'PTRAVAILABLE','AVAILABLE');
-    set(atLocation.reduce((sum,item)=>sum+onHand(item),0),'LOC_ON_HAND');
-    const summedOpenStock = rows.filter(item=>/^(F1|S1)$/.test(lot(liveInventoryCardValue(item,'LOTCODE','LOT'))))
-        .reduce((sum,item)=>sum+available(item),0);
-    set(liveInventoryCardValue(primary,'S_LTS','OPEN_STOCK') || summedOpenStock,'S_LTS','OPEN_STOCK');
-    const quantity = resolveLiveInventoryCardPhotoMatch(primary,note,options.canonical,number,options.calculateMatch);
-    set(quantity,'LOC_PHOTO_MATCH','LOC_MATCH_QTY');
-    if (result.SNAPSHOT) result.SNAPSHOT = {...result.SNAPSHOT, LOC_PHOTO_MATCH:quantity, loc_photo_match:quantity,
-        LOC_MATCH_QTY:quantity, loc_match_qty:quantity};
-    return result;
-}
-
-
-function mergeLiveInventoryCardPair(prior, row, getPhotos) {
-    const merged = {...prior};
-    merged.__physicalInventoryRows = [...(prior.__physicalInventoryRows || [prior]), ...(row.__physicalInventoryRows || [row])];
-    for (const [field,value] of Object.entries(row)) {
-        if (value != null && String(value).trim() !== '' && (merged[field] == null || String(merged[field]).trim() === '')) merged[field] = value;
-    }
-    for (const keys of [['SPEC'],['AV_NOTE','AVNOTE'],['LOC_PHOTO_MATCH','LOC_MATCH_QTY'],['PHOTO_DATE'],['PIC_NOTE','PICK_NOTE'],['SALES_NOTE','COMMENTS']]) {
-        const value = liveInventoryCardValue(prior,...keys) || liveInventoryCardValue(row,...keys);
-        if (value === '') continue;
-        for (const key of keys) merged[key] = merged[key.toLowerCase()] = value;
-    }
-    const photos = [...new Set([prior,row].flatMap(value => getPhotos(liveInventoryCardValue(value,'PHOTO_LINK','PHOTO_URL','PHOTOS'))))];
-    if (photos.length) merged.PHOTO_LINK = merged.photo_link = merged.PHOTOS = merged.photos = photos.join(',');
-    return merged;
-}
-
-function mergeLiveInventoryCardRows(rows = [], getPhotos = parsePhotoCsvValues) {
-    if (rows.length && rows.every(row => !row || /^fi_\d+$/.test(String(row.DOM_ID || '')))) return rows;
-    const groups = new Map();
-    let mergedAny = false;
-    for (const row of rows) {
-        if (!row) continue;
-        const tuple = ['ITEMCODE','LOCATIONCODE','LOTCODE'].map(key => String(liveInventoryCardValue(row,key)).trim().toUpperCase());
-        if (bloomscapesRowFarm(row) === '60-HL') tuple.push('60-HL');
-        const key = tuple.every(Boolean) ? JSON.stringify(tuple) : row;
-        const prior = groups.get(key);
-        if (!prior) { groups.set(key,row); continue; }
-        mergedAny = true;
-        groups.set(key, mergeLiveInventoryCardPair(prior, row, getPhotos));
-    }
-    return mergedAny ? [...groups.values()] : rows;
 }
 
 function firstDockNonEmpty(...values) {
@@ -358,6 +216,147 @@ function applyDockSuspendAvailableQuantities(row, source, sourceSnapshot, rowSna
         rowSnapshot.s_lts,
         ''
     ));
+}
+
+function firstDockValue(row, keys) {
+    return firstDockNonEmpty(...keys.map(key => row[key]));
+}
+
+function getDockOrderBusinessKey(row = {}) {
+    const value = (...keys) => firstDockValue(row, keys);
+    const code = String(value('ITEMCODE','itemcode')).trim().toUpperCase().replace(/[.]+$/, '');
+    const dock = normalizeDockViewDockKey(value('DOCK','dock','DOCK_NUM','dock_num'));
+    const drop = normalizeDockViewStopKey(value('STOPNUMBER','stopnumber','STOP','stop','DROP_NUMBER','drop_number','DROP','drop'));
+    const location = String(value('LOCATIONCODE','locationcode','LOCATION','location')).trim().toUpperCase();
+    if (!code || dock === 'Unassigned' || drop === 'Unassigned') return '';
+    const quantity = Number(String(value('QUANTITYORDERED','quantityordered','QTY','qty','ORDERED_QTY','ordered_qty') || 0).replace(/,/g,''));
+    return JSON.stringify([dock,drop,code,location,String(value('CONSIGNEENAME','consigneename','CONSIGNEE','consignee')).trim(),Number.isFinite(quantity)?quantity:0]);
+}
+
+function normalizeDockSuspendRequestValue(value = '') {
+    return String(value || '').trim().toUpperCase().replace(/[\s_-]+/g, ' ');
+}
+
+function getDockSuspendValue(item = null) {
+    return normalizeDockSuspendRequestValue(firstDockValue(item || {}, ['SUSPEND', 'suspend', 'Suspend']));
+}
+
+function isDockSuspendDcRequestSource(item = null) {
+    if (!item || !['SUSPEND', 'SUSPENDED'].includes(getDockSuspendValue(item))) return false;
+    const dock = firstDockValue(item, ['DOCK_NUM', 'dock_num', 'DOCK', 'dock']);
+    const closed = item.suspend_completed === true || item.SUSPEND_COMPLETED === true || item.completed === true;
+    const candidate = String(item.suspend_candidate_state || item.SUSPEND_CANDIDATE_STATE || '').toLowerCase();
+    const status = String(item.status || item.STATUS || '').toLowerCase();
+    return normalizeDockViewDockKey(dock) !== 'Unassigned' && !closed
+        && !['approved', 'rejected', 'replaced', 'denied', 'canceled', 'cancelled'].includes(candidate)
+        && !['complete', 'completed', 'deleted'].includes(status);
+}
+
+function isDockSuspendDcRequestMirrorRow(item = null) {
+    if (!item) return false;
+    const text = (...keys) => String(firstDockValue(item, keys) || '').trim().toLowerCase();
+    const isSuspendTag = item.IS_SUSPEND_TAG === true || item.is_suspend_tag === true
+        || ['true', '1', 'yes'].includes(text('IS_SUSPEND_TAG', 'is_suspend_tag'));
+    const uniqueId = String(firstDockValue(item, ['UNIQUE_ID', 'unique_id']) || '').trim();
+    return isSuspendTag || text('REQUEST_TYPE', 'request_type') === 'suspend_tag' || isDockSuspendDcRequestSource(item)
+        || item.DOCK_SUSPEND_DC_REQUEST === true
+        || String(item.DOCK_SUSPEND_DC_REQUEST || '').trim().toLowerCase() === 'true'
+        || /^dock_suspend_dc_/i.test(uniqueId) || !!(item.DOCK_SUSPEND_SOURCE_UID || item.dock_suspend_source_uid)
+        || (text('SOURCE_TABLE', 'source_table') === 'ph_soc_master' && text('REQUEST_SOURCE', 'request_source') === 'docks');
+}
+
+function liveInventoryCardValue(row, ...keys) {
+    for (const key of keys) for (const alias of [key, key.toLowerCase()]) {
+        const value = row?.[alias];
+        if (value != null && String(value).trim() !== '') return value;
+    }
+    return '';
+}
+
+function resolveLiveInventoryCardPhotoMatch(primary, note, canonical, number, calculateMatch) {
+    const evidence = {...primary,...(note || {})};
+    const noteStored = number(note,'LOC_PHOTO_MATCH','LOC_MATCH_QTY');
+    const depleted = liveInventoryCardValue(evidence,
+        'EVAL_BASELINE_AVAILABLE','INITIAL_LOC_PHOTO_MATCH','INITIAL_PHOTO_MATCH_QTY') !== '';
+    if (noteStored > 0) return noteStored;
+    const photos = liveInventoryCardValue(evidence,'PHOTO_LINK','PHOTO_URL','PHOTOS');
+    const photoTimestamp = liveInventoryCardValue(evidence,'AV_RULE_PHOTO_UPDATED_AT','PHOTO_DATE');
+    if (!photos || !photoTimestamp) return null;
+    if (depleted) return calculateMatch(primary,note);
+    const quantity = liveInventoryCardValue(canonical,'LOC_PHOTO_MATCH','LOC_MATCH_QTY');
+    return quantity === '' ? null : quantity;
+}
+
+function hydrateLiveInventoryCardDisplay(primary, selected, atLocation, rows, options) {
+    const text = value => String(value || '').trim().toUpperCase();
+    const location = value => options.normalizeLocation(value) || text(value);
+    const lot = value => text(value).replace(/^(?:\d{2}|\d{4})[.\s-]*/, '');
+    const number = (item,...keys) => Math.max(0,Number(String(liveInventoryCardValue(item,...keys)).replace(/[, %]/g,'')) || 0);
+    const onHand = item => number(item,'PTRONHAND','ON_HAND','ONHAND');
+    const available = item => number(item,'PTRAVAILABLE','AVAILABLE','AVAILABLE_QTY');
+    const review = item => number(item,'PTRREVIEWED','PTRREVIEW','REVIEW','REVIEW_QTY');
+    const loc = location(liveInventoryCardValue(primary,'LOCATIONCODE'));
+    const result = {...options.canonical, __liveInventoryCardDisplay:true};
+    const uid = String(primary.UNIQUE_ID || primary.unique_id || '');
+    const notes = options.notes;
+    const note = notes.find(item => {
+        const noteUid = String(item.MASTER_UNIQUE_ID || item.master_unique_id || item.MASTER_ID || item.master_id || item.UNIQUE_ID || item.unique_id || '');
+        return location(liveInventoryCardValue(item,'LOCATIONCODE')) === loc && noteUid === uid && canonicalInventorySameLot(item,primary);
+    });
+    const fields = [['SPEC'],['CALIPER'],['AV_NOTE','AVNOTE'],['PIC_NOTE','PICK_NOTE','PICKNOTE'],['SALES_NOTE','COMMENTS'],['PHOTO_LINK','PHOTO_URL','PHOTOS'],['PHOTO_NAME'],['PHOTO_DATE'],['DATE_COMPLETED'],['AV_RULE_PHOTO_UPDATED_AT'],['MATCH_PCT','LOC_MATCH_PCT','MATCH'],['LOC_PHOTO_MATCH','LOC_MATCH_QTY'],['HOLDSTOPCODE','HOLD_STOP_CODE'],['HOLDSTOPREASON','HOLDREASON','HOLD_STOP_REASON'],['HOLDSTOPBEGINDATE']];
+    for (const keys of fields) {
+        const hold = keys[0].startsWith('HOLD');
+        const noteValue = hold ? '' : liveInventoryCardValue(note,...keys);
+        const value = noteValue !== '' ? noteValue : liveInventoryCardValue(primary,...keys);
+        for (const key of keys) result[key] = result[key.toLowerCase()] = value;
+    }
+    const set = (value,...keys) => { for (const key of keys) result[key] = result[key.toLowerCase()] = value; };
+    set(selected.reduce((sum,item)=>sum+onHand(item),0),'PTRONHAND','ON_HAND');
+    set(selected.reduce((sum,item)=>sum+review(item),0),'PTRREVIEWED','REVIEW');
+    set(selected.reduce((sum,item)=>sum+available(item),0),'PTRAVAILABLE','AVAILABLE');
+    set(atLocation.reduce((sum,item)=>sum+onHand(item),0),'LOC_ON_HAND');
+    const summedOpenStock = rows.filter(item=>/^(F1|S1)$/.test(lot(liveInventoryCardValue(item,'LOTCODE','LOT'))))
+        .reduce((sum,item)=>sum+available(item),0);
+    set(liveInventoryCardValue(primary,'S_LTS','OPEN_STOCK') || summedOpenStock,'S_LTS','OPEN_STOCK');
+    const quantity = resolveLiveInventoryCardPhotoMatch(primary,note,options.canonical,number,options.calculateMatch);
+    set(quantity,'LOC_PHOTO_MATCH','LOC_MATCH_QTY');
+    if (result.SNAPSHOT) result.SNAPSHOT = {...result.SNAPSHOT, LOC_PHOTO_MATCH:quantity, loc_photo_match:quantity,
+        LOC_MATCH_QTY:quantity, loc_match_qty:quantity};
+    return result;
+}
+
+
+function mergeLiveInventoryCardPair(prior, row, getPhotos) {
+    const merged = {...prior};
+    merged.__physicalInventoryRows = [...(prior.__physicalInventoryRows || [prior]), ...(row.__physicalInventoryRows || [row])];
+    for (const [field,value] of Object.entries(row)) {
+        if (value != null && String(value).trim() !== '' && (merged[field] == null || String(merged[field]).trim() === '')) merged[field] = value;
+    }
+    for (const keys of [['SPEC'],['AV_NOTE','AVNOTE'],['LOC_PHOTO_MATCH','LOC_MATCH_QTY'],['PHOTO_DATE'],['PIC_NOTE','PICK_NOTE'],['SALES_NOTE','COMMENTS']]) {
+        const value = liveInventoryCardValue(prior,...keys) || liveInventoryCardValue(row,...keys);
+        if (value === '') continue;
+        for (const key of keys) merged[key] = merged[key.toLowerCase()] = value;
+    }
+    const photos = [...new Set([prior,row].flatMap(value => getPhotos(liveInventoryCardValue(value,'PHOTO_LINK','PHOTO_URL','PHOTOS'))))];
+    if (photos.length) merged.PHOTO_LINK = merged.photo_link = merged.PHOTOS = merged.photos = photos.join(',');
+    return merged;
+}
+
+function mergeLiveInventoryCardRows(rows = [], getPhotos = parsePhotoCsvValues) {
+    if (rows.length && rows.every(row => !row || /^fi_\d+$/.test(String(row.DOM_ID || '')))) return rows;
+    const groups = new Map();
+    let mergedAny = false;
+    for (const row of rows) {
+        if (!row) continue;
+        const tuple = ['ITEMCODE','LOCATIONCODE','LOTCODE'].map(key => String(liveInventoryCardValue(row,key)).trim().toUpperCase());
+        if (bloomscapesRowFarm(row) === '60-HL') tuple.push('60-HL');
+        const key = tuple.every(Boolean) ? JSON.stringify(tuple) : row;
+        const prior = groups.get(key);
+        if (!prior) { groups.set(key,row); continue; }
+        mergedAny = true;
+        groups.set(key, mergeLiveInventoryCardPair(prior, row, getPhotos));
+    }
+    return mergedAny ? [...groups.values()] : rows;
 }
 
 function getDefaultDockTeamInfo() {

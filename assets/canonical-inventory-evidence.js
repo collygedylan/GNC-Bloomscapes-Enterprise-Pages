@@ -1,4 +1,3 @@
-
 function canonicalInventoryValue(row, key) {
     return row?.[key] ?? row?.[key.toLowerCase()] ?? '';
 }

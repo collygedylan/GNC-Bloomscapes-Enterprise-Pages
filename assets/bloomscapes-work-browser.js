@@ -8,24 +8,6 @@ function bloomscapesWorkViewForPanel(tab) {
         'bloomscapes-shearing':'SHEARING','bloomscapes-field-jobs':'BUNCH_NOTES'})[tab];
 }
 
-function bloomscapesWorkBrowserRows(search='',filters={}) {
-    const terms = search.toLowerCase().trim().split(/\s+/).filter(Boolean);
-    const source = bloomscapesWorkBrowserDataset();
-    if (!terms.length && !Object.values(filters).some(Boolean)) return source.rows;
-    return source.rows.filter(row=>{
-        const values = bloomscapesWorkBrowserIdentity(row);
-        return Object.entries(filters).every(([key,value])=>!value || values[key]===value)
-            && terms.every(term=>Object.values(values).join(' ').toLowerCase().includes(term));
-    });
-}
-
-function bloomscapesWorkBrowserIdentity(row) {
-    return {common:row.COMMONNAME || row.commonname || '',size:row.CONTSIZE || row.contsize || '',
-        season:row.SEASON || row.season || '',location:row.LOCATIONCODE || row.locationcode || '',
-        item:row.ITEMCODE || row.itemcode || '',lot:row.LOTCODE || row.lotcode || '',
-        year:String(row.SALEYEAR || row.saleyear || ''),hold:String(row.HOLDSTOPCODE || row.holdstopcode || 'None')};
-}
-
 const bloomscapesWorkBrowserControllers=new WeakMap();
 
 function mountBloomscapesWorkBrowser(host,onSelect,options={}) {
@@ -243,6 +225,34 @@ function mountBloomscapesWorkFilters(host,state) {
     });
 }
 
+function refreshBloomscapesWorkBrowser(host) {
+    bloomscapesWorkBrowserControllers.get(host)?.refresh();
+}
+
+function backBloomscapesActiveWorkBrowser() {
+    const root=document.querySelector('dialog[open]') || document.getElementById('view-'+getCurrentVisibleViewId());
+    const host=root?.querySelector('[data-work-browser]:not([hidden])');
+    return bloomscapesWorkBrowserControllers.get(host)?.back() || false;
+}
+
+function bloomscapesWorkBrowserRows(search='',filters={}) {
+    const terms = search.toLowerCase().trim().split(/\s+/).filter(Boolean);
+    const source = bloomscapesWorkBrowserDataset();
+    if (!terms.length && !Object.values(filters).some(Boolean)) return source.rows;
+    return source.rows.filter(row=>{
+        const values = bloomscapesWorkBrowserIdentity(row);
+        return Object.entries(filters).every(([key,value])=>!value || values[key]===value)
+            && terms.every(term=>Object.values(values).join(' ').toLowerCase().includes(term));
+    });
+}
+
+function bloomscapesWorkBrowserIdentity(row) {
+    return {common:row.COMMONNAME || row.commonname || '',size:row.CONTSIZE || row.contsize || '',
+        season:row.SEASON || row.season || '',location:row.LOCATIONCODE || row.locationcode || '',
+        item:row.ITEMCODE || row.itemcode || '',lot:row.LOTCODE || row.lotcode || '',
+        year:String(row.SALEYEAR || row.saleyear || ''),hold:String(row.HOLDSTOPCODE || row.holdstopcode || 'None')};
+}
+
 function bloomscapesWorkSourceCard(row,onSelect,options={}) {
     const card=document.createElement('article');
     if (options.browseOnly) {
@@ -259,16 +269,6 @@ function bloomscapesWorkSourceCard(row,onSelect,options={}) {
     });
     appendBloomscapesStudioRowActions(card,row,onSelect);
     return card;
-}
-
-function refreshBloomscapesWorkBrowser(host) {
-    bloomscapesWorkBrowserControllers.get(host)?.refresh();
-}
-
-function backBloomscapesActiveWorkBrowser() {
-    const root=document.querySelector('dialog[open]') || document.getElementById('view-'+getCurrentVisibleViewId());
-    const host=root?.querySelector('[data-work-browser]:not([hidden])');
-    return bloomscapesWorkBrowserControllers.get(host)?.back() || false;
 }
 
 function appendBloomscapesStudioRowActions(card,row,onSelect) {

@@ -1,90 +1,3 @@
-const warmAvInventoryOwners = new WeakMap();
-const NAVIGATION_REVISION_TTL_MS = 45000;
-const NAVIGATION_REVISION_RETRY_MS = 2000;
-let navigationRevisionCache = null;
-
-function getNavigationRevisionScope() {
-    return JSON.stringify([getSupabaseReadIdentityScope(), appAccessSnapshotState.snapshot?.dataPermissionVersion || '']);
-}
-
-function startNavigationRevisionBatch(scope, datasetKeys) {
-    const keys = new Set([...datasetKeys, ...window.AgMetricLiveSyncRegistry.sourceKeys]);
-    const batch = { scope, keys, expiresAt: Infinity };
-    batch.promise = supabaseRpc('get_my_dataset_revisions_v1', { p_dataset_keys: [...keys].sort() },
-        { navigationBatch: true, timeoutMs: 15000 }).then(metadata => {
-        if (!Array.isArray(metadata?.sources)) throw new Error('Dataset revisions response was incomplete.');
-        batch.expiresAt = Date.now() + NAVIGATION_REVISION_TTL_MS;
-        return metadata;
-    }).catch(error => {
-        batch.expiresAt = Date.now() + NAVIGATION_REVISION_RETRY_MS;
-        throw error;
-    });
-    return batch;
-}
-
-async function readNavigationRevisionWindow(datasetKeys, requestOptions = {}) {
-    if (document.visibilityState !== 'visible' || requestOptions.signal?.aborted) throw staleSupabaseReadScopeError();
-    const scope = getNavigationRevisionScope();
-    const current = navigationRevisionCache;
-    const batch = current?.scope === scope && Date.now() < current.expiresAt && datasetKeys.every(key => current.keys.has(key))
-        ? current : startNavigationRevisionBatch(scope, datasetKeys);
-    navigationRevisionCache = batch;
-    const metadata = await batch.promise;
-    if (requestOptions.signal?.aborted || document.visibilityState !== 'visible'
-        || navigationRevisionCache !== batch || scope !== getNavigationRevisionScope()) throw staleSupabaseReadScopeError();
-    const wanted = new Set(datasetKeys);
-    return { ...metadata, sources: metadata.sources.filter(source => wanted.has(source.key)) };
-}
-
-async function readDatasetRevisionRpc(body, requestOptions) {
-    if (requestOptions.signal?.aborted) throw Object.assign(new Error('Dataset revision read cancelled.'), { code: 'REQUEST_ABORTED' });
-    const datasetKeys = Array.from(new Set((Array.isArray(body.p_dataset_keys) ? body.p_dataset_keys : [])
-        .map(key => String(key || '').trim()).filter(Boolean))).sort();
-    if (!datasetKeys.length) throw new Error('At least one dataset key is required.');
-    if (window.AgMetricLiveSyncRegistry?.sourceKeys && !requestOptions.navigationBatch) return readNavigationRevisionWindow(datasetKeys, requestOptions);
-    const identityScope = getSupabaseReadIdentityScope();
-    const result = await runDedupeSupabaseRead(`dataset-revisions:${JSON.stringify(datasetKeys)}`,
-        async ({ signal }) => {
-            const headers = getPassiveNativeAuthRequestHeaders();
-            if (!headers?.Authorization) throw nativeSessionRecoveryError();
-            const send = headers => window.GncDatabase.fetchRpc(SUPABASE_URL, 'get_my_dataset_revisions_v1', {
-                method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ p_dataset_keys: datasetKeys }), signal
-            }, Math.max(1000, Number(requestOptions.timeoutMs) || 15000), 'Dataset revisions');
-            const response = await sendPassiveNativeRead(send,headers,signal);
-            if (!response.ok) throw await createSupabaseReadResponseError(response, 'Dataset revisions unavailable');
-            return { ok: true, data: await response.json() };
-        },
-        { signal: null, retainOnGenerationChange: true });
-    if (identityScope !== getSupabaseReadIdentityScope()) throw staleSupabaseReadScopeError();
-    if (!result || result.ok !== true || !result.data) throw new Error(String(result && result.code || 'DATASET_REVISIONS_UNAVAILABLE'));
-    return result.data;
-}
-
-function canRenderNavigationSnapshot(viewId) {
-    if (getCurrentVisibleViewId() !== viewId || !canUseProductionLiveSync()) return false;
-    const context = getProductionLiveSyncContext();
-    if (context.view !== viewId || !context.authenticated || context.accessDeniedConfirmed) return false;
-    return hasProgressiveViewData(context) || hasCurrentProductionReadStatus(productionLiveSyncCoordinator?.getStatus(), context);
-}
-
-function rememberWarmAvInventoryRows(rows) {
-    if (rows.length && hasAuthenticatedOperationalReadIdentity()) {
-        warmAvInventoryOwners.set(rows, getSupabaseReadIdentityScope());
-    }
-}
-
-function canRenderWarmAvInventory() {
-    if (activeAVTab !== 'open' || !canAccessView('av') || hasConfirmedCurrentAccountRevocation()) return false;
-    const owner = getSupabaseReadIdentityScope();
-    return [fullInventory, avOpenInventory].some(rows => rows.length && warmAvInventoryOwners.get(rows) === owner);
-}
-
-function retainPendingRequestDisplayOnReadFailure(viewId) {
-    return viewId === 'request' && activeReqTab === 'pending' && canAccessView('request')
-        && hasAuthenticatedOperationalReadIdentity() && !hasConfirmedCurrentAccountRevocation();
-}
-
 function getViewLoadingConfig(viewId) {
     const nativeKeys=getBloomscapesNativeBrowseKeys(viewId);
     if (nativeKeys) return {required:nativeKeys.map(key=>({key,mode:'full'})),background:[],label:'Loading inventory cards…'};
@@ -221,6 +134,93 @@ function getLegacyWorkflowViewLoading(viewId) {
     if (viewId === 'grower') return { required: [{ key: 'master', mode: 'full' }], background: [{ key: 'growerScoutReports', mode: 'full' }, { key: 'growerScoutAssets', mode: 'full' }], label: 'Loading verified Grower inventory...' };
     if (viewId === 'pest-management') return { required: [{ key: 'growerScoutReports', mode: 'full' }, { key: 'growerScoutAssets', mode: 'full' }], background: [], label: 'Loading verified pest management...' };
     if (viewId === 'reports') return { required: [{ key: 'master', mode: 'full' }, { key: 'requests', mode: 'full' }, { key: 'requestHistory', mode: 'full' }, { key: 'salesCredits', mode: 'full' }, { key: 'reserves', mode: 'full' }, { key: 'soc', mode: 'full' }], background: [], label: 'Loading verified reports...' };
+}
+
+const warmAvInventoryOwners = new WeakMap();
+const NAVIGATION_REVISION_TTL_MS = 45000;
+const NAVIGATION_REVISION_RETRY_MS = 2000;
+let navigationRevisionCache = null;
+
+function getNavigationRevisionScope() {
+    return JSON.stringify([getSupabaseReadIdentityScope(), appAccessSnapshotState.snapshot?.dataPermissionVersion || '']);
+}
+
+function startNavigationRevisionBatch(scope, datasetKeys) {
+    const keys = new Set([...datasetKeys, ...window.AgMetricLiveSyncRegistry.sourceKeys]);
+    const batch = { scope, keys, expiresAt: Infinity };
+    batch.promise = supabaseRpc('get_my_dataset_revisions_v1', { p_dataset_keys: [...keys].sort() },
+        { navigationBatch: true, timeoutMs: 15000 }).then(metadata => {
+        if (!Array.isArray(metadata?.sources)) throw new Error('Dataset revisions response was incomplete.');
+        batch.expiresAt = Date.now() + NAVIGATION_REVISION_TTL_MS;
+        return metadata;
+    }).catch(error => {
+        batch.expiresAt = Date.now() + NAVIGATION_REVISION_RETRY_MS;
+        throw error;
+    });
+    return batch;
+}
+
+async function readNavigationRevisionWindow(datasetKeys, requestOptions = {}) {
+    if (document.visibilityState !== 'visible' || requestOptions.signal?.aborted) throw staleSupabaseReadScopeError();
+    const scope = getNavigationRevisionScope();
+    const current = navigationRevisionCache;
+    const batch = current?.scope === scope && Date.now() < current.expiresAt && datasetKeys.every(key => current.keys.has(key))
+        ? current : startNavigationRevisionBatch(scope, datasetKeys);
+    navigationRevisionCache = batch;
+    const metadata = await batch.promise;
+    if (requestOptions.signal?.aborted || document.visibilityState !== 'visible'
+        || navigationRevisionCache !== batch || scope !== getNavigationRevisionScope()) throw staleSupabaseReadScopeError();
+    const wanted = new Set(datasetKeys);
+    return { ...metadata, sources: metadata.sources.filter(source => wanted.has(source.key)) };
+}
+
+async function readDatasetRevisionRpc(body, requestOptions) {
+    if (requestOptions.signal?.aborted) throw Object.assign(new Error('Dataset revision read cancelled.'), { code: 'REQUEST_ABORTED' });
+    const datasetKeys = Array.from(new Set((Array.isArray(body.p_dataset_keys) ? body.p_dataset_keys : [])
+        .map(key => String(key || '').trim()).filter(Boolean))).sort();
+    if (!datasetKeys.length) throw new Error('At least one dataset key is required.');
+    if (window.AgMetricLiveSyncRegistry?.sourceKeys && !requestOptions.navigationBatch) return readNavigationRevisionWindow(datasetKeys, requestOptions);
+    const identityScope = getSupabaseReadIdentityScope();
+    const result = await runDedupeSupabaseRead(`dataset-revisions:${JSON.stringify(datasetKeys)}`,
+        async ({ signal }) => {
+            const headers = getPassiveNativeAuthRequestHeaders();
+            if (!headers?.Authorization) throw nativeSessionRecoveryError();
+            const send = headers => window.GncDatabase.fetchRpc(SUPABASE_URL, 'get_my_dataset_revisions_v1', {
+                method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ p_dataset_keys: datasetKeys }), signal
+            }, Math.max(1000, Number(requestOptions.timeoutMs) || 15000), 'Dataset revisions');
+            const response = await sendPassiveNativeRead(send,headers,signal);
+            if (!response.ok) throw await createSupabaseReadResponseError(response, 'Dataset revisions unavailable');
+            return { ok: true, data: await response.json() };
+        },
+        { signal: null, retainOnGenerationChange: true });
+    if (identityScope !== getSupabaseReadIdentityScope()) throw staleSupabaseReadScopeError();
+    if (!result || result.ok !== true || !result.data) throw new Error(String(result && result.code || 'DATASET_REVISIONS_UNAVAILABLE'));
+    return result.data;
+}
+
+function canRenderNavigationSnapshot(viewId) {
+    if (getCurrentVisibleViewId() !== viewId || !canUseProductionLiveSync()) return false;
+    const context = getProductionLiveSyncContext();
+    if (context.view !== viewId || !context.authenticated || context.accessDeniedConfirmed) return false;
+    return hasProgressiveViewData(context) || hasCurrentProductionReadStatus(productionLiveSyncCoordinator?.getStatus(), context);
+}
+
+function rememberWarmAvInventoryRows(rows) {
+    if (rows.length && hasAuthenticatedOperationalReadIdentity()) {
+        warmAvInventoryOwners.set(rows, getSupabaseReadIdentityScope());
+    }
+}
+
+function canRenderWarmAvInventory() {
+    if (activeAVTab !== 'open' || !canAccessView('av') || hasConfirmedCurrentAccountRevocation()) return false;
+    const owner = getSupabaseReadIdentityScope();
+    return [fullInventory, avOpenInventory].some(rows => rows.length && warmAvInventoryOwners.get(rows) === owner);
+}
+
+function retainPendingRequestDisplayOnReadFailure(viewId) {
+    return viewId === 'request' && activeReqTab === 'pending' && canAccessView('request')
+        && hasAuthenticatedOperationalReadIdentity() && !hasConfirmedCurrentAccountRevocation();
 }
 
 function ensureViewDataForRender(viewId) {

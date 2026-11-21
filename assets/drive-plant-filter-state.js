@@ -51,16 +51,6 @@ function prepareBloomscapesDriveProjection(inventory) {
     return {rows,names:buildDriveCommonNameGroups(rows),options:buildDrivePlantOptionLists(rows),fields,assignedFields};
 }
 
-function preparedDriveProjection() {
-    const snapshot = typeof getBloomscapesWarmFarm === 'function' && typeof nativeAuthSessionActive !== 'undefined' && nativeAuthSessionActive
-        ? getBloomscapesWarmFarm(getBloomscapesFarm()) : null;
-    return snapshot?.inventory === fullInventory && canonicalPreparedDriveIsCurrent(fullInventory) ? snapshot.driveProjection : null;
-}
-
-function matchesPreparedDriveRows(items, prepared) {
-    return prepared && (items === prepared.rows || items.length === prepared.rows.length && items.every((row, i) => row === prepared.rows[i]));
-}
-
 function getDrivePlantOptionLists(items) {
     const prepared = preparedDriveProjection();
     return getCanonicalDriveProjection(items, 'plant-options', () => matchesPreparedDriveRows(items, prepared) ? prepared.options : buildDrivePlantOptionLists(items));
@@ -175,6 +165,38 @@ function getDriveColumnFilterFields(items = []) {
     const exposeAssignedTo = activeDriveTab==='season-sales-notes';
     return getCanonicalDriveProjection(items, 'column-fields:' + exposeAssignedTo, () => matchesPreparedDriveRows(items, prepared)
         ? (exposeAssignedTo ? prepared.assignedFields : prepared.fields) : buildDriveColumnFilterFields(items, exposeAssignedTo));
+}
+
+function getDriveQuickFilterStateKey(contextKey) {
+    return [
+        contextKey,
+        String(driveQuickFilterName || '').toLowerCase().trim(),
+        String(driveQuickFilterLocation || '').trim(),
+        String(driveQuickFilterLot || '').trim(),
+        String(driveQuickFilterSize || '').trim(),
+        getDriveQuickPriorityValues().join('|'),
+        String(driveQuickFilterLtsMode || '').trim(),
+        String(driveQuickFilterLtsValue || '').trim(),
+        buildDriveColumnFilterStateKey()
+    ].join('::');
+}
+
+function getDrivePlantGenusValue(item) {
+    return String(getTaskGenusName(item) || '').trim() || '(Blank)';
+}
+
+function getDrivePlantCommonName(item) {
+    return String(firstNonEmptyValue(item && item.COMMONNAME, item && item.DESCRIPTION, item && item.PLANT_NAME, item && item.ITEMCODE, '')).trim();
+}
+
+function preparedDriveProjection() {
+    const snapshot = typeof getBloomscapesWarmFarm === 'function' && typeof nativeAuthSessionActive !== 'undefined' && nativeAuthSessionActive
+        ? getBloomscapesWarmFarm(getBloomscapesFarm()) : null;
+    return snapshot?.inventory === fullInventory && canonicalPreparedDriveIsCurrent(fullInventory) ? snapshot.driveProjection : null;
+}
+
+function matchesPreparedDriveRows(items, prepared) {
+    return prepared && (items === prepared.rows || items.length === prepared.rows.length && items.every((row, i) => row === prepared.rows[i]));
 }
 
 function renderDriveCommonNameDrill(container, crumb, driveModeLabel = '', viewStateOverride = null) {
@@ -337,27 +359,4 @@ function syncDriveCrumb(crumb, crumbText = '') {
     if (!crumb) return;
     const nextText = String(crumbText || '');
     if (crumb.textContent !== nextText) crumb.textContent = nextText;
-}
-
-
-function getDriveQuickFilterStateKey(contextKey) {
-    return [
-        contextKey,
-        String(driveQuickFilterName || '').toLowerCase().trim(),
-        String(driveQuickFilterLocation || '').trim(),
-        String(driveQuickFilterLot || '').trim(),
-        String(driveQuickFilterSize || '').trim(),
-        getDriveQuickPriorityValues().join('|'),
-        String(driveQuickFilterLtsMode || '').trim(),
-        String(driveQuickFilterLtsValue || '').trim(),
-        buildDriveColumnFilterStateKey()
-    ].join('::');
-}
-
-function getDrivePlantGenusValue(item) {
-    return String(getTaskGenusName(item) || '').trim() || '(Blank)';
-}
-
-function getDrivePlantCommonName(item) {
-    return String(firstNonEmptyValue(item && item.COMMONNAME, item && item.DESCRIPTION, item && item.PLANT_NAME, item && item.ITEMCODE, '')).trim();
 }

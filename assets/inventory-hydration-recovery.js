@@ -13,7 +13,6 @@ const inventoryRecoveryTerminalMessages = new Set([
     'Full inventory field coverage was missing or invalid; the partial snapshot was discarded.',
     'Direct inventory projection is unavailable.'
 ]);
-const inventoryRecoveryDecorators = new WeakSet();
 
 function createSnapshotError(kind, detail = {}) {
     const code = inventoryRecoveryCodes[kind];
@@ -225,6 +224,8 @@ function createRecoveryScheduler(options) {
     return { schedule: (lane, error) => inventoryRecoverySchedule(scheduler, lane, error),
         success: reset, reset, cancel: reset, getState: lane => inventoryRecoveryState(scheduler, lane) };
 }
+
+const inventoryRecoveryDecorators = new WeakSet();
 
 function inventoryCoordinatorTransient(error) {
     if (inventoryRecoveryTerminalError(error)) return false;

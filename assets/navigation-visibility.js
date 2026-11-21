@@ -194,6 +194,10 @@ function canShowFooterViewButton(viewId = '', access = getRoleAccessState()) {
     return canDisplayNavigationView(targetView);
 }
 
+function canUseBloomscapesWorkStudio() {
+    return nativeAuthSessionActive && nativeAuthProfile?.username==='dylan_collyge' && currentUser==='dylan_collyge';
+}
+
 function applyNavigationElementVisibility(element, visible) {
     if (!element) return;
     element.classList.toggle('hidden', !visible);
@@ -277,9 +281,6 @@ function syncNavigationVisibilityUi(access, userOverride, grid) {
     scheduleHomeDashboardFitSettle('role-access-ui');
 }
 
-function canUseBloomscapesWorkStudio() {
-    return nativeAuthSessionActive && nativeAuthProfile?.username==='dylan_collyge' && currentUser==='dylan_collyge';
-}
 const bloomscapesDormantBodies = new WeakMap();
 const bloomscapesDormantBodyIds = [
     'view-detail', 'view-advertisement', 'view-sales-inventory',

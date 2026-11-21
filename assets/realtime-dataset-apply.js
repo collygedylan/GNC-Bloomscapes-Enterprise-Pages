@@ -1,43 +1,3 @@
-function applyRealtimeChange(tableName = '', payload = null, deferVisualSync = false) {
-    if (!payload || !payload.eventType) return false;
-    if (getUniversalLiveSyncTables().includes(tableName) && bufferRowPatchUntilHydrated(tableName, { kind: 'realtime', payload })) return false;
-    const realtimeApplyStartedAt = beginInternalPerfMeasure();
-    const eventType = String(payload.eventType || '').toUpperCase();
-    const special = applyRealtimeDockStatusRows(tableName, payload, eventType, realtimeApplyStartedAt)
-        ?? applyRealtimeFieldWorkflowRows(tableName, payload, eventType, realtimeApplyStartedAt)
-        ?? applyRealtimeCountAndMessageRows(tableName, payload, eventType, realtimeApplyStartedAt)
-        ?? applyRealtimeCalendarRows(tableName, payload, realtimeApplyStartedAt);
-    if (special !== undefined) return special;
-    const oldRow = payload.old || {};
-    const nextRow = payload.new ? formatFetchedRows([payload.new], tableName)[0] : null;
-    const uniqueId = String((nextRow && (nextRow.UNIQUE_ID || nextRow.ROW_ID)) || oldRow.unique_id || oldRow.UNIQUE_ID || oldRow.row_id || oldRow.ROW_ID || '');
-    if (!uniqueId) return false;
-    const isLocalEcho = eventType !== 'DELETE' && nextRow ? consumeMatchingLocalRealtimeEcho(tableName, nextRow) : false;
-    const changed = applyRealtimeMasterAndRequestRows(tableName, eventType, nextRow, uniqueId)
-        ?? applyRealtimeSalesAndOrderRows(tableName, payload, eventType, nextRow, uniqueId)
-        ?? applyRealtimeFlyerAndScoutRows(tableName, payload, eventType, nextRow, uniqueId)
-        ?? applyRealtimeSettingsAndLookupRows(tableName, eventType, nextRow, uniqueId)
-        ?? applyRealtimeCoverageRows(tableName, payload, eventType, nextRow, uniqueId) ?? false;
-    if (changed) refreshRealtimeDetailLookupIndexes(tableName);
-    if (isLocalEcho) {
-        if (tableName === ACTIVE_REQUEST_TABLE) requestViewLiveSyncSignature = buildRequestLiveSyncSignature(requestsInventory);
-        recordInternalPerfDuration('realtimeApplyDurations', realtimeApplyStartedAt, `${tableName}:echo`);
-        return false;
-    }
-    if (!changed) {
-        recordInternalPerfDuration('realtimeApplyDurations', realtimeApplyStartedAt, `${tableName}:noop`);
-        return false;
-    }
-    trackRealtimeDirtyRowId(tableName, uniqueId);
-    refreshRealtimeMasterViews(tableName, eventType, nextRow, oldRow, uniqueId)
-        || refreshRealtimeRequestAndOrderViews(tableName)
-        || refreshRealtimeFlyerViews(tableName, eventType, nextRow)
-        || refreshRealtimeScoutAndAssignmentViews(tableName);
-    if (!deferVisualSync) flushRealtimeDatasetUpdates([tableName]);
-    recordInternalPerfDuration('realtimeApplyDurations', realtimeApplyStartedAt, tableName || 'unknown');
-    return true;
-}
-
 function applyRealtimeDockStatusRows(tableName, payload, eventType, realtimeApplyStartedAt) {
     if (tableName === APP_LIVE_EVENTS_TABLE) {
         handleAppLiveEventRealtimeChange(payload);
@@ -183,6 +143,46 @@ function applyRealtimeCalendarRows(tableName, payload, realtimeApplyStartedAt) {
         recordInternalPerfDuration('realtimeApplyDurations', realtimeApplyStartedAt, tableName || 'department-calendar');
         return true;
     }
+}
+
+function applyRealtimeChange(tableName = '', payload = null, deferVisualSync = false) {
+    if (!payload || !payload.eventType) return false;
+    if (getUniversalLiveSyncTables().includes(tableName) && bufferRowPatchUntilHydrated(tableName, { kind: 'realtime', payload })) return false;
+    const realtimeApplyStartedAt = beginInternalPerfMeasure();
+    const eventType = String(payload.eventType || '').toUpperCase();
+    const special = applyRealtimeDockStatusRows(tableName, payload, eventType, realtimeApplyStartedAt)
+        ?? applyRealtimeFieldWorkflowRows(tableName, payload, eventType, realtimeApplyStartedAt)
+        ?? applyRealtimeCountAndMessageRows(tableName, payload, eventType, realtimeApplyStartedAt)
+        ?? applyRealtimeCalendarRows(tableName, payload, realtimeApplyStartedAt);
+    if (special !== undefined) return special;
+    const oldRow = payload.old || {};
+    const nextRow = payload.new ? formatFetchedRows([payload.new], tableName)[0] : null;
+    const uniqueId = String((nextRow && (nextRow.UNIQUE_ID || nextRow.ROW_ID)) || oldRow.unique_id || oldRow.UNIQUE_ID || oldRow.row_id || oldRow.ROW_ID || '');
+    if (!uniqueId) return false;
+    const isLocalEcho = eventType !== 'DELETE' && nextRow ? consumeMatchingLocalRealtimeEcho(tableName, nextRow) : false;
+    const changed = applyRealtimeMasterAndRequestRows(tableName, eventType, nextRow, uniqueId)
+        ?? applyRealtimeSalesAndOrderRows(tableName, payload, eventType, nextRow, uniqueId)
+        ?? applyRealtimeFlyerAndScoutRows(tableName, payload, eventType, nextRow, uniqueId)
+        ?? applyRealtimeSettingsAndLookupRows(tableName, eventType, nextRow, uniqueId)
+        ?? applyRealtimeCoverageRows(tableName, payload, eventType, nextRow, uniqueId) ?? false;
+    if (changed) refreshRealtimeDetailLookupIndexes(tableName);
+    if (isLocalEcho) {
+        if (tableName === ACTIVE_REQUEST_TABLE) requestViewLiveSyncSignature = buildRequestLiveSyncSignature(requestsInventory);
+        recordInternalPerfDuration('realtimeApplyDurations', realtimeApplyStartedAt, `${tableName}:echo`);
+        return false;
+    }
+    if (!changed) {
+        recordInternalPerfDuration('realtimeApplyDurations', realtimeApplyStartedAt, `${tableName}:noop`);
+        return false;
+    }
+    trackRealtimeDirtyRowId(tableName, uniqueId);
+    refreshRealtimeMasterViews(tableName, eventType, nextRow, oldRow, uniqueId)
+        || refreshRealtimeRequestAndOrderViews(tableName)
+        || refreshRealtimeFlyerViews(tableName, eventType, nextRow)
+        || refreshRealtimeScoutAndAssignmentViews(tableName);
+    if (!deferVisualSync) flushRealtimeDatasetUpdates([tableName]);
+    recordInternalPerfDuration('realtimeApplyDurations', realtimeApplyStartedAt, tableName || 'unknown');
+    return true;
 }
 
 function applyRealtimeMasterAndRequestRows(tableName, eventType, nextRow, uniqueId) {
