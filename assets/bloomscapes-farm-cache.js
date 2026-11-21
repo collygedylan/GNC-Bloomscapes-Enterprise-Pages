@@ -48,6 +48,18 @@ function getBloomscapesWarmFarm(farm) {
     return snapshot?.indexes?.byItemCode && snapshot.indexes.byId ? snapshot : null;
 }
 
+function canRetryBloomscapesFarmSnapshot(error,cache,farm,flight) {
+    if (flight.speculative || !nativeAuthSessionActive || flight.epoch!==nativeAuthRecoveryEpoch) return false;
+    if (error.code==='DATASET_READ_SCOPE_CHANGED') {
+        const permission = appAccessSnapshotState.snapshot?.dataPermissionVersion;
+        return Boolean(permission && permission!==flight.permission && farm===getBloomscapesFarm()
+            && flight.scope===getSupabaseReadIdentityScope() && getBloomscapesAllowedFarms().includes(farm));
+    }
+    if (!['FARM_SNAPSHOT_SCOPE_CHANGED','FARM_SNAPSHOT_REVISION_CHANGED'].includes(error.code)) return false;
+    const identity = owner=>JSON.stringify(JSON.parse(owner).slice(0,2));
+    return identity(cache.owner)===identity(bloomscapesFarmCacheOwner());
+}
+
 async function ensureBloomscapesWarmFarm(farm,refresh=false,attempt=0,speculative=false) {
     const cache = getBloomscapesFarmCache();
     assertBloomscapesFarmCache(cache,farm);
@@ -64,12 +76,12 @@ async function ensureBloomscapesWarmFarm(farm,refresh=false,attempt=0,speculativ
         scheduleBloomscapesWarmAssignments(snapshot);
         return snapshot;
     }
-    const flight = {speculative,resume:null,promise:null};
+    const flight = {speculative,resume:null,promise:null,scope:getSupabaseReadIdentityScope(),
+        epoch:nativeAuthRecoveryEpoch,permission:appAccessSnapshotState.snapshot?.dataPermissionVersion || ''};
     flight.promise = loadBloomscapesWarmFarm(cache,farm,refresh,flight).catch(error=>{
-        const sameAccount = JSON.stringify(JSON.parse(cache.owner).slice(0,2))===JSON.stringify(JSON.parse(bloomscapesFarmCacheOwner()).slice(0,2));
-        if (!attempt && sameAccount && !flight.speculative && ['FARM_SNAPSHOT_SCOPE_CHANGED','FARM_SNAPSHOT_REVISION_CHANGED'].includes(error.code)) {
+        if (!attempt && canRetryBloomscapesFarmSnapshot(error,cache,farm,flight)) {
             cache.pending.delete(farm);
-            return ensureBloomscapesWarmFarm(farm,refresh,1);
+            return ensureBloomscapesWarmFarm(farm,refresh || error.code==='DATASET_READ_SCOPE_CHANGED',1);
         }
         throw error;
     }).finally(()=>{
