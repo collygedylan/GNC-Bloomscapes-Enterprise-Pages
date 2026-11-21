@@ -76,6 +76,7 @@ function publishLoadedMasterInventory(res, preparedMasterAtEntry) {
     else rebuildMasterInventoryIndexes();
     rebindLoadedMasterDisplayReceipt(res, priorDisplayRows);
     rememberWarmAvInventoryRows(fullInventory);
+    scheduleCanonicalInventoryPrewarm();
     const inheritanceCandidates = preparedIndexes ? prepared.inheritanceCandidates : null;
     hydrateNcrCurrentCropRowsFromSources({ remote: false, maxRemote: 12, candidates: inheritanceCandidates?.ncr });
     hydrateMovedSeasonCurrentRowsFromSources({ remote: false, maxRemote: 12, candidates: inheritanceCandidates?.moved });

@@ -45,7 +45,7 @@
     background: var(--drive-report-2-surface);
 }
 .drive-custom-reports-v2-grid-dense { max-height: min(56vh, 405px); }
-.drive-custom-reports-v2-grid table { border-spacing: 0; table-layout: fixed; font-size: 12px; }
+.drive-custom-reports-v2-grid table { width: 100%; border-spacing: 0; table-layout: fixed; font-size: 12px; }
 .drive-custom-reports-v2-grid thead { position: sticky; top: 0; z-index: 3; }
 .drive-custom-reports-v2-grid :is(th, td) {
     height: 34px;

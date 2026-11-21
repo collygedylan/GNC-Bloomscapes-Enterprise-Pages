@@ -63,8 +63,17 @@ function projectCanonicalInventoryRow(row) {
     const target = resolveCanonicalInventoryTarget(row, masterInventoryById, masterInventoryByItemCode) || row;
     const state = getManagerAssignedColumnState(), scope = getSupabaseReadIdentityScope();
     const code = normalizeCanonicalInventoryPart(val(target, 'ITEMCODE'));
-    const notes = state.noteScope === scope ? state.locationSalesNotes?.get(code) || [] : [];
-    const ranked = rankCanonicalInventoryNotes(target, notes);
+    const notes = state.noteScope === scope ? state.locationSalesNotes?.get(code) : null;
+    const base = readCanonicalInventoryBase(row, target, notes, () => projectCanonicalInventoryEvidence(row, target, notes));
+    const display = { ...base };
+    if (base.SNAPSHOT) display.SNAPSHOT = { ...base.SNAPSHOT };
+    if (Array.isArray(base.PHOTOS)) display.photos = display.PHOTOS = base.PHOTOS.slice();
+    return applyActiveDetailEvaluationDraft(display, row);
+}
+
+function projectCanonicalInventoryEvidence(row, target, notes) {
+    const val = canonicalInventoryValue;
+    const ranked = rankCanonicalInventoryNotes(target, notes || []);
     const result = {...row,...target,__canonicalInventoryResolved:true};
     const stored = val(target,'LOC_PHOTO_MATCH') !== '' ? val(target,'LOC_PHOTO_MATCH') : val(target,'LOC_MATCH_QTY');
     applyCanonicalInventoryNotes(result, target, ranked);
@@ -73,7 +82,7 @@ function projectCanonicalInventoryRow(row) {
     const photos = collectCanonicalInventoryPhotos(target, ranked, depleted, {val, getPhotoUrlList, getPhotoEntryDateMs});
     applyCanonicalInventoryPhotos(result, photos, {val, getPhotoRetentionFallbackDateMs});
     applyCanonicalInventoryMetricAliases(row, target, result, liveQuantity ?? undefined);
-    return applyActiveDetailEvaluationDraft(result,row);
+    return result;
 }
 
 function canonicalAvLotNumber(row, keys) {
@@ -337,6 +346,7 @@ function updateConfirmedDriveEvidenceState(master, masterUid, raw, scope) {
     state.locationSalesNotes.set(code,notes.filter(note => note.unique_id !== masterUid).concat(raw));
     state.fullInventory = fullInventory;
     state.photoGeneration = (state.photoGeneration || 0) + 1;
+    dirtyCanonicalInventoryRows([master]);
 }
 
 function preserveDriveEvidenceEditor(item, options) {

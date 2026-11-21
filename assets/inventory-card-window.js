@@ -82,16 +82,14 @@ if (!window.GncCardWindow) {
             const footer = this.accessory(options.footerHtml,'footer');
             const estimate = Math.max(48,Number(options.estimatedHeight)||320)+this.gap;
             const firstIndex = Math.min(rows.length-1,Math.max(0,Math.floor(this.scrollRoot.scrollTop/estimate)*this.columns));
-            const first = firstIndex >= 0 ? this.makeNode(firstIndex) : null;
-            if (first) {
-                this.nodes.set(firstIndex,first);
-                this.start = firstIndex;
-                this.end = firstIndex+1;
-            }
-            container.replaceChildren(...[this.prefix,this.top,first,this.bottom,footer].filter(Boolean));
+            const limit = Math.min(maximumCards, Math.max(1, options.progressive ? 1 : Number(options.initialRows) || 1));
+            this.start = Math.max(0, Math.min(firstIndex, rows.length - limit));
+            this.end = Math.min(rows.length, this.start + limit);
+            for (let index = this.start; index < this.end; index++) this.nodes.set(index, this.makeNode(index));
+            container.replaceChildren(...[this.prefix,this.top,...this.nodes.values(),this.bottom,footer].filter(Boolean));
             container.style.overflowAnchor = 'none';
             this.setSpacers();
-            if (first) this.observeMounted(first,firstIndex);
+            this.nodes.forEach((node,index) => this.observeMounted(node,index));
             this.resize?.observe(container);
             this.scrollRoot.addEventListener('scroll',this.onScroll,{passive:true});
             container.addEventListener('focusout',this.onFocusOut,{passive:true});
@@ -246,7 +244,9 @@ if (!window.GncCardWindow) {
             const first = this.stickBottom ? Math.max(0,this.heights.count-bands) :
                 Math.min(firstVisible,Math.max(this.heights.at(Math.max(0,top-margin)),lastVisible-bands+1));
             const start = first*this.columns;
-            const end = Math.min(this.rows.length,(first+bands)*this.columns,(this.heights.at(top+viewport+margin)+1)*this.columns,start+limit);
+            const viewportEnd = (this.heights.at(top+viewport+margin)+1)*this.columns;
+            const bufferedEnd = Math.max(viewportEnd,start+(this.options.initialRows || 1));
+            const end = Math.min(this.rows.length,(first+bands)*this.columns,bufferedEnd,start+limit);
             return {start,end};
         }
 
@@ -261,7 +261,10 @@ if (!window.GncCardWindow) {
             for (let index=range.start;index<range.end;index++) {
                 if (this.nodes.has(index) || this.pending.has(index)) continue;
                 this.pending.set(index,this.makeNode(index));
-                if (frameTime()-started>=4 && index+1<range.end) return false;
+                if (frameTime()-started<4 || index+1>=range.end) continue;
+                if (!this.options.progressive || range.start!==this.start || index<this.end) return false;
+                this.desiredEnd=index+1;
+                return true;
             }
             return true;
         }

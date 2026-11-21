@@ -99,12 +99,13 @@ async function ensureBloomscapesFarmAccess() {
 }
 
 async function readBloomscapesFarmAccess(state) {
-    const client = getSupabaseBrowserClient();
-    if (!nativeAuthSessionActive || !client || !state.owner) throw new Error('Sign in to choose your farm.');
-    const {data,error} = await client.rpc('get_my_app_permissions_v1');
-    if (state !== bloomscapesFarmState) throw new Error('Signed-in account changed.');
+    const { owner } = await requireBloomscapesSession();
+    const current = () => state === bloomscapesFarmState && currentUser === state.owner && nativeAuthProfile?.id === owner;
+    if (!current()) throw new Error('Signed-in account changed.');
+    const data = await supabaseRpc('get_my_app_permissions_v1', {}, { timeoutMs: 10000 });
+    if (!current()) throw new Error('Signed-in account changed.');
     const allowed = data?.allowed_farms;
-    if (error || !Array.isArray(allowed) || !allowed.length
+    if (!Array.isArray(allowed) || !allowed.length
         || allowed.some(farm=>!BLOOMSCAPES_FARM_SCOPES.includes(farm))) throw new Error('Farm permissions could not load.');
     state.allowed = [...new Set(allowed)];
     const savedFarm = readBloomscapesSessionFarm(state);

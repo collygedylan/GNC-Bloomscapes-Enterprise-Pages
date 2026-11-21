@@ -36,7 +36,7 @@ function getAvDisplayLotGroupKey(row) {
     return getCanonicalAvLotKey(row) || (uid ? 'uid:' + uid : row);
 }
 
-function collapseCanonicalAvLotRows(rows, resolve = resolveCanonicalInventoryRow) {
+function indexCanonicalAvLotRows(rows) {
     const groups = new Map();
     for (const row of rows) {
         if (!row) continue;
@@ -45,13 +45,18 @@ function collapseCanonicalAvLotRows(rows, resolve = resolveCanonicalInventoryRow
         if (group) group.push(row);
         else groups.set(key, [row]);
     }
-    return [...groups.values()].map(group => groupAvLotCard(group, resolve));
+    return Array.from(groups.values());
+}
+
+function collapseCanonicalAvLotRows(rows, resolve = resolveCanonicalInventoryRow) {
+    const groups = getCanonicalDriveProjection(rows, 'av-physical-lots', () => indexCanonicalAvLotRows(rows));
+    return groups.map(group => groupAvLotCard(group, resolve));
 }
 
 
 function getAvResolvedCardCacheKey({term,safeTab,liveCatalogIncomplete,usePreparedSalesRows,preparedIdentity}) {
     return [
-        resolvedViewStateEpoch,
+        resolvedViewStateEpoch, getCanonicalInventoryRevision(),
         usePreparedSalesRows ? 'prepared-sales-rows' : 'synchronous-sales-rows',
         liveCatalogIncomplete ? 'live-catalog-pending' : 'live-catalog-complete',
         preparedIdentity ? preparedIdentity.signature : '',

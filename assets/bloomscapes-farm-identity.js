@@ -1,3 +1,4 @@
+
 function bloomscapesRowFarm(row) {
     const raw = row?.warehouse_id || row?.WAREHOUSE_ID || row?.WAREHOUSEI || row?.warehousei || row?.WAREHOUSEID || row?.warehouseid || '10';
     const code = String(raw).split('-')[0];
@@ -49,6 +50,10 @@ function rememberBloomscapesAssignment(index,row) {
 
 function resolveBloomscapesAssignedOwner(row,index) {
     if (!index || bloomscapesRowFarm(row)!==index.farm) return '';
+    return readCanonicalAssignedOwner(row, index, () => resolveIndexedBloomscapesOwner(row, index));
+}
+
+function resolveIndexedBloomscapesOwner(row, index) {
     const code = bloomscapesOwnerCode(row.ITEMCODE || row.itemcode);
     const normalized = buildManagerEvalAssignmentKey(code);
     const location = bloomscapesOwnerCode(row.LOCATIONCODE || row.locationcode);

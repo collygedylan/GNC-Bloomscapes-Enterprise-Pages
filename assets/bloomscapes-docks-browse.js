@@ -73,11 +73,7 @@ function renderBloomscapesLegacyDockExceptions(container, crumb, term) {
 }
 
 function getBloomscapesDockBrowseRows(term) {
-    const snapshot = dockIssueDataLoaded ? getDockResolvedState() : {
-        rows:Array.isArray(socInventory) ? socInventory : [],
-        cacheKey:`dock-fast:${getDatasetLoadSignature('soc')}:${dockWorkflowStateEpoch}`
-    };
-    const scopedRows = getScopedDocksItems(snapshot.rows,`dock-display:${snapshot.cacheKey}`);
+    const scopedRows = getBloomscapesDockBrowseSource();
     syncDockFilterControls(scopedRows);
     let items = applyDockStructuredFilters(scopedRows);
     if (term) items = filterBySearch(items,term,'docks');
@@ -91,7 +87,8 @@ function showEmptyBloomscapesDockBrowse(container, crumb, awaitingProgress) {
         awaitingProgress && dockItemSchemaReady === false ? 'Dock item status' : ''
     ].filter(Boolean);
     const message = missing.length ? `${missing.join(' and ')} unavailable. Refresh after the current release finishes deploying.` : 'No dock items found.';
-    container.innerHTML = `<div class="p-8 text-center text-gray-400">${message}</div>`;
+    setContainerHtml(container,`<div class="p-8 text-center text-gray-400">${message}</div>`);
+    setContainerUiState(container,'empty');
     crumb.innerText = missing.length ? 'Dock Setup Required' : 'No Results';
 }
 
@@ -227,9 +224,9 @@ function renderBloomscapesDockDropCard(card, label) {
     return `<button type="button" class="mb-2 block w-full space-y-1 rounded-xl border border-gray-200 bg-white p-3 text-left shadow-sm"
         data-docks-drop-card="${pullHtml(stop)}" ${buildFastInvokeAttrs('selectDockStop',[stop],`Open Drop ${stop}`)}>
         <span class="flex items-center justify-between"><strong class="text-[#007a4d]">Drop ${pullHtml(stop)}</strong><span class="text-xs">${done}/${items.length} Done</span></span>
-        <span class="block text-xs">${pullHtml(label)} · ${items.length} Rows · Qty ${pullHtml(summary.quantity)}</span>
-        <strong class="block text-sm">${pullHtml(identity.cust)}${identity.cons && identity.cons !== identity.cust ? ' · '+pullHtml(identity.cons) : ''}</strong>
-        <span class="flex flex-wrap items-center gap-2 text-xs"><span>${pullHtml(identity.rep)} · ${pullHtml(identity.state)}</span>${badges}${planStarts.map(renderBloomscapesDockDropStart).join('')}</span></button>`;
+        <span class="block text-xs">${pullHtml(label)} Ã‚Â· ${items.length} Rows Ã‚Â· Qty ${pullHtml(summary.quantity)}</span>
+        <strong class="block text-sm">${pullHtml(identity.cust)}${identity.cons && identity.cons !== identity.cust ? ' Ã‚Â· '+pullHtml(identity.cons) : ''}</strong>
+        <span class="flex flex-wrap items-center gap-2 text-xs"><span>${pullHtml(identity.rep)} Ã‚Â· ${pullHtml(identity.state)}</span>${badges}${planStarts.map(renderBloomscapesDockDropStart).join('')}</span></button>`;
 }
 
 function renderBloomscapesDockDropHeader(label, stop, rows) {
@@ -237,9 +234,9 @@ function renderBloomscapesDockDropHeader(label, stop, rows) {
     const summary = buildDockBrowseSummary(rows);
     const done = countBloomscapesCompletedDockRows(rows);
     return `<div class="mb-2 space-y-1 rounded-xl border border-emerald-700 bg-emerald-950 p-3 text-white">
-        <div class="flex items-center justify-between"><strong>${pullHtml(label)} · Drop ${pullHtml(stop)}</strong><span class="text-xs">${done}/${rows.length} Done</span></div>
-        <div class="text-sm font-semibold">${pullHtml(cust)}${cons && cons !== cust ? ' · '+pullHtml(cons) : ''}</div>
-        <div class="text-xs">${rows.length} Rows · Qty ${pullHtml(summary.quantity)} · ${pullHtml(rep)} · ${pullHtml(state)}</div></div>`;
+        <div class="flex items-center justify-between"><strong>${pullHtml(label)} Ã‚Â· Drop ${pullHtml(stop)}</strong><span class="text-xs">${done}/${rows.length} Done</span></div>
+        <div class="text-sm font-semibold">${pullHtml(cust)}${cons && cons !== cust ? ' Ã‚Â· '+pullHtml(cons) : ''}</div>
+        <div class="text-xs">${rows.length} Rows Ã‚Â· Qty ${pullHtml(summary.quantity)} Ã‚Â· ${pullHtml(rep)} Ã‚Â· ${pullHtml(state)}</div></div>`;
 }
 
 function getBloomscapesDockRowEvidenceSignature(rows) {
@@ -276,8 +273,7 @@ function renderBloomscapesDockDropRows(container, crumb, label, dockRows) {
 
 function renderBloomscapesDockPage(key,container,crumb,rows,label,render,options) {
     const search = document.getElementById('docks-search').value.trim().toLowerCase();
-    const limit = {'docks-main':4,'docks-stops':16,'docks-stop-items':8}[key];
-    const page = getClientBrowsePage('docks',[key,label,getBloomscapesFarm(),search].join('|'),rows,limit);
+    const page = getClientBrowsePage('docks',dockBrowsePageKey(key,label,search),rows,dockBrowsePageLimit(key));
     const pager = renderClientBrowsePageFooter('docks',page.key,rows.length,page);
     const prefixHtml = (options.prefixHtml || '')+pager;
     const renderSignature = (options.renderSignature || buildRowsRenderSignature(key,rows))+':'+page.pageIndex;

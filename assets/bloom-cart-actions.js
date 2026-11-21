@@ -31,21 +31,58 @@ function confirmBloomCartClearAfterEmail(owner, rows) {
     }
 }
 
+function isCurrentDriveCardOptionsContext(sourceView = '') {
+    const explicitSourceView = String(sourceView || '').trim().toLowerCase();
+    if (explicitSourceView) return explicitSourceView === 'drive';
+    const visibleView = typeof getCurrentVisibleViewId === 'function' ? getCurrentVisibleViewId() : '';
+    const currentView = String(firstNonEmptyValue(visibleView, currentPrimaryViewId, '') || '').trim().toLowerCase();
+    if (currentView) return currentView === 'drive';
+    return String(firstNonEmptyValue(activeDetailSourceView, lastView, '') || '').trim().toLowerCase() === 'drive';
+}
+
+function prepareDriveCardOptionsReader(access,userOverride,displayOverride) {
+    if (!access || access.isAdmin || isAlwaysDriveCardOptionsUser(userOverride,displayOverride)) return () => true;
+    if (!access.isEval && !access.isRepLike) return () => true;
+    const actor = firstNonEmptyValue(userOverride,displayOverride,currentUser,currentUserDisplay,'');
+    return row => canUserMakeLiveChangesOnRow(actor,row)
+        || (!access.isEval && isWarehouseAssignedDriveCardForCurrentUser(row,userOverride,displayOverride));
+}
+
+function canCurrentUserUseDriveCardOptions(item=null,sourceView='drive',roleOverride='',userOverride='',displayOverride='') {
+    if (String(sourceView || '').trim().toLowerCase() !== 'drive') return true;
+    const access = getRoleAccessState(roleOverride,userOverride);
+    return prepareDriveCardOptionsReader(access,userOverride,displayOverride)(item);
+}
+
+function prepareDriveWorkflowSelection(access,userOverride='',displayOverride='') {
+    if (canUseFullDriveBloomPickerWorkflow(userOverride,displayOverride)) return () => true;
+    if (access?.isRep && !access.isCsr) return () => false;
+    if (access?.isRepLike && canUseDriveQuickRequest()) return () => true;
+    return prepareDriveCardOptionsReader(access,userOverride,displayOverride);
+}
+
+function canCurrentUserSelectDriveWorkflowRow(item=null,sourceView='drive',roleOverride='',userOverride='',displayOverride='') {
+    if (String(sourceView || '').trim().toLowerCase() !== 'drive') return true;
+    const access = getRoleAccessState(roleOverride,userOverride);
+    return prepareDriveWorkflowSelection(access,userOverride,displayOverride)(item);
+}
+
 function prepareBloomPickerEligibility(sourceView='') {
     const access=getRoleAccessState();
     const view=String(sourceView || '').trim().toLowerCase();
     const isDriveContext=view==='drive-bloom' || isCurrentDriveCardOptionsContext(view);
-    return {access,isDriveContext,fullDrive:isDriveContext && canUseFullDriveBloomPickerWorkflow()};
+    return {access,driveSelect:isDriveContext ? prepareDriveWorkflowSelection(access) : null,
+        foremanDrive:!access.isForeman || canAccessView('drive')};
 }
 
 function canAddItemToBloomPicker(item=null,sourceView='',eligibility=null) {
     if (!item || !canUseCartInventoryActions([item])) return false;
-    const {access,isDriveContext,fullDrive}=eligibility || prepareBloomPickerEligibility(sourceView);
-    if (isDriveContext && !fullDrive && !canCurrentUserSelectDriveWorkflowRow(item,'drive')) {
+    const {access,driveSelect,foremanDrive}=eligibility || prepareBloomPickerEligibility(sourceView);
+    if (driveSelect && !driveSelect(item)) {
         const canRepAddBloomPickerRow=!!(access && access.isRep && !access.isCsr && isBloomPickerEligibleItem(item));
         if (!canRepAddBloomPickerRow) return false;
     }
-    if (access.isForeman) return canAccessView('drive') && hasPriorityColumnData(item);
+    if (access.isForeman) return foremanDrive && hasPriorityColumnData(item);
     return true;
 }
 

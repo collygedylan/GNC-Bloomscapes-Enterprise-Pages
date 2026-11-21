@@ -192,9 +192,10 @@ function retainUnchangedEvaluationBaseline(prior, next) {
     }
 }
 
-function refreshEvaluationProjectionViews(state) {
+function refreshEvaluationProjectionViews(state, target) {
     invalidateResolvedViewStateCaches();
     state.photoGeneration = (state.photoGeneration || 0) + 1;
+    dirtyCanonicalInventoryRows([target]);
     for (const view of ['drive','av','request','docks','tasks']) markViewDirty(view);
 }
 
@@ -221,7 +222,7 @@ function projectEvaluationOwner(owner) {
     }
     syncEvaluationProjectionNotes(target,owner,state,scope);
     state.fullInventory = fullInventory;
-    refreshEvaluationProjectionViews(state);
+    refreshEvaluationProjectionViews(state, target);
 }
 
 function rollbackEvaluationOwner(owner) {
@@ -236,7 +237,7 @@ function rollbackEvaluationOwner(owner) {
         if (prior) clearEvaluationNoteOwner(prior);
     }
     if (prior?.failed) rollbackEvaluationOwner(prior);
-    refreshEvaluationProjectionViews(state);
+    refreshEvaluationProjectionViews(state, owner.target);
 }
 
 function beginRowEvaluationMemoryPublication(target, input, scope, context = {}) {

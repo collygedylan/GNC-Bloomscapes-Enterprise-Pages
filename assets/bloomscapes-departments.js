@@ -64,10 +64,7 @@ function openBloomscapesDepartmentModule(view,tab) {
     if (view==='managers') return openBloomscapesHomeModule(module);
     bloomscapesDepartmentTabs.set(bloomscapesDepartmentKey(view),module);
     markViewDirty(view);
-    switchView(view);
-    renderViewContent(view,false,true);
-    syncGlobalHeaderChrome({reason:'department-module',force:true});
-    return false;
+    return switchView(view);
 }
 
 function mountBloomscapesDepartmentShortcuts(view) {

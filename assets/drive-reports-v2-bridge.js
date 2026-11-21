@@ -63,15 +63,16 @@ function renderDriveRecordResults(tokenKey, container, crumb, rows, crumbText, r
     const safeRows = tokenKey === 'drive-loc-card' && driveHasSeasonCardSort() ? sortDriveSeasonCards(input) : input;
     const nextOptions = options && typeof options === 'object' ? options : {};
     const browsePage = getClientBrowsePage('drive', renderKey || `${tokenKey}:${crumbText}`, safeRows);
-    const renderedRows = browsePage.rows;
-    const pageFooter = renderClientBrowsePageFooter('drive', browsePage.key, safeRows.length, browsePage);
-    const prefixHtml = String(nextOptions.prefixHtml || '');
     const useSpreadsheet = isDriveSpreadsheetGridMode();
+    const continuous = tokenKey === 'drive-main-card' && !useSpreadsheet && !!window.GncCardWindow;
+    const renderedRows = continuous ? safeRows : browsePage.rows;
+    const pageFooter = continuous ? '' : renderClientBrowsePageFooter('drive', browsePage.key, safeRows.length, browsePage);
+    const prefixHtml = String(nextOptions.prefixHtml || '');
     if (container && container.dataset) {
         container.dataset.driveDetailedRecords = 'true';
         container.dataset.driveDisplay = useSpreadsheet ? 'grid' : 'cards';
     }
-    const evidenceKey = buildDriveRenderKey('drive:visible-card-evidence','',renderedRows);
+    const evidenceKey = continuous ? getCanonicalInventoryRevision() : buildDriveRenderKey('drive:visible-card-evidence','',renderedRows);
     const displayRenderKey = `${String(renderKey || tokenKey)}::page:${browsePage.pageIndex}::${useSpreadsheet ? 'spreadsheet-v2' : 'cards-v1'}::${evidenceKey}`;
     if (useSpreadsheet) {
         cancelChunkRenderWorkForContainer(container, String(tokenKey || 'drive-grid'));
@@ -83,7 +84,7 @@ function renderDriveRecordResults(tokenKey, container, crumb, rows, crumbText, r
         : ((item) => generateCard(item, 'drive', getDriveCardStatusClass(item, nextOptions.fallbackStatusClass || 'status-green')));
     if (renderInventoryCardWindow(container, renderedRows, renderRow, {
         view:'drive', signature:displayRenderKey, estimatedHeight:Number(nextOptions.approxCardHeight)||310,
-        prefixHtml, footerHtml:pageFooter
+        prefixHtml, footerHtml:pageFooter, progressive:continuous
     })) { if(getCurrentVisibleViewId()==='drive'){syncDriveCrumb(crumb,crumbText);container.dataset.driveRenderKey=displayRenderKey;}return true; }
     if (shouldUseChunkedCardRender(renderedRows.length, 90, 170)) {
         syncDriveCrumb(crumb, crumbText);

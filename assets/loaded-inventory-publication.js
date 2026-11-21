@@ -155,6 +155,7 @@ function publishPreparedBloomscapesFarm(snapshot) {
         permission:String(appAccessSnapshotState.snapshot?.dataPermissionVersion || '')};
     snapshot.reportEpoch = resolvedViewStateEpoch;
     pruneBloomscapesFarmInventoryCaches();
+    scheduleCanonicalInventoryPrewarm();
 }
 
 function captureBloomscapesFarmPublication(snapshot,invalidateDrive=false) {

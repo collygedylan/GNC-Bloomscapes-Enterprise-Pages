@@ -6,7 +6,7 @@ function getDrivePlantFilterScopeKey(baseItems) {
     const source = baseItems === driveBaseFilterCacheItems || baseItems === drivePlantFilterItemsCache
         ? driveBaseFilterCacheKey : activeDriveTab;
     return JSON.stringify([getInventoryExcelState('drive').revision, String(driveBaseFilterCacheKey || ''),
-        getInventoryExcelState('drive').owner,resolvedViewStateEpoch,source,baseItems.length,
+        getInventoryExcelState('drive').owner,source,baseItems.length,
         drivePlantDimensionKey(driveGenusSelectionMode,selectedDriveGenusNames,driveGenusSearchTerm),
         drivePlantDimensionKey(driveContSizeSelectionMode,selectedDriveContSizes,driveContSizeSearchTerm),
         drivePlantDimensionKey(driveLocationSelectionMode,selectedDriveLocationCodes,driveLocationSearchTerm),
@@ -20,8 +20,10 @@ function buildDriveModeRows(items) {
 
 function getDriveModeItems() {
     if (activeDriveMode!=='ok') return [];
-    const snapshot = typeof getBloomscapesWarmFarm==='function' && typeof nativeAuthSessionActive!=='undefined' && nativeAuthSessionActive ? getBloomscapesWarmFarm(getBloomscapesFarm()) : null;
-    return snapshot?.inventory===fullInventory && snapshot.driveProjection ? snapshot.driveProjection.rows : buildDriveModeRows(fullInventory);
+    const prepared = preparedDriveProjection();
+    if (prepared) return prepared.rows;
+    const scope = [getRepU3VisibilityScopeKey(), getRoleAccessState().isForeman].join('|');
+    return getCanonicalDriveProjection(fullInventory, 'drive-rows:' + scope, () => buildDriveModeRows(fullInventory));
 }
 
 function buildDrivePlantOptionLists(items) {
@@ -49,11 +51,19 @@ function prepareBloomscapesDriveProjection(inventory) {
     return {rows,names:buildDriveCommonNameGroups(rows),options:buildDrivePlantOptionLists(rows),fields,assignedFields};
 }
 
+function preparedDriveProjection() {
+    const snapshot = typeof getBloomscapesWarmFarm === 'function' && typeof nativeAuthSessionActive !== 'undefined' && nativeAuthSessionActive
+        ? getBloomscapesWarmFarm(getBloomscapesFarm()) : null;
+    return snapshot?.inventory === fullInventory && canonicalPreparedDriveIsCurrent(fullInventory) ? snapshot.driveProjection : null;
+}
+
+function matchesPreparedDriveRows(items, prepared) {
+    return prepared && (items === prepared.rows || items.length === prepared.rows.length && items.every((row, i) => row === prepared.rows[i]));
+}
+
 function getDrivePlantOptionLists(items) {
-    const snapshot = typeof getBloomscapesWarmFarm==='function' && typeof nativeAuthSessionActive!=='undefined' && nativeAuthSessionActive ? getBloomscapesWarmFarm(getBloomscapesFarm()) : null;
-    const prepared = snapshot?.inventory===fullInventory ? snapshot.driveProjection : null;
-    if (prepared && (items===prepared.rows || items.length===prepared.rows.length && items.every((row,index)=>row===prepared.rows[index]))) return prepared.options;
-    return buildDrivePlantOptionLists(items);
+    const prepared = preparedDriveProjection();
+    return getCanonicalDriveProjection(items, 'plant-options', () => matchesPreparedDriveRows(items, prepared) ? prepared.options : buildDrivePlantOptionLists(items));
 }
 
 function filteredDrivePlantOptions(options,term) {
@@ -161,11 +171,10 @@ function sortDriveCardItems(items) {
 
 
 function getDriveColumnFilterFields(items = []) {
-    const snapshot = typeof getBloomscapesWarmFarm==='function' && typeof nativeAuthSessionActive!=='undefined' && nativeAuthSessionActive ? getBloomscapesWarmFarm(getBloomscapesFarm()) : null;
-    const prepared = snapshot?.inventory===fullInventory ? snapshot.driveProjection : null;
+    const prepared = preparedDriveProjection();
     const exposeAssignedTo = activeDriveTab==='season-sales-notes';
-    if (prepared && items.length===prepared.rows.length && items.every((row,index)=>row===prepared.rows[index])) return exposeAssignedTo ? prepared.assignedFields : prepared.fields;
-    return buildDriveColumnFilterFields(items,exposeAssignedTo);
+    return getCanonicalDriveProjection(items, 'column-fields:' + exposeAssignedTo, () => matchesPreparedDriveRows(items, prepared)
+        ? (exposeAssignedTo ? prepared.assignedFields : prepared.fields) : buildDriveColumnFilterFields(items, exposeAssignedTo));
 }
 
 function renderDriveCommonNameDrill(container, crumb, driveModeLabel = '', viewStateOverride = null) {
@@ -174,7 +183,7 @@ function renderDriveCommonNameDrill(container, crumb, driveModeLabel = '', viewS
     const driveViewState = viewStateOverride && typeof viewStateOverride === 'object'
         ? viewStateOverride
         : buildDriveVisibleItemsState();
-    const { visibleItems, resolvedStateKey } = driveViewState;
+    const { visibleItems } = driveViewState;
     const forceTopLevelSearchResults = shouldLockDriveSearchToTopLevel();
     if (!visibleItems.length) {
         applyDriveRenderMarkup(container, crumb, `${resolvedDriveModeLabel} > Common Name`, `<div class="p-8 text-center text-gray-400">No rows match the current Drive filters.</div>`, 'drive:name:empty');
@@ -182,7 +191,7 @@ function renderDriveCommonNameDrill(container, crumb, driveModeLabel = '', viewS
         return;
     }
     if (driveViewLevel <= 0 || !selectedDriveName || forceTopLevelSearchResults) {
-        renderDriveCommonNameList(container,crumb,resolvedDriveModeLabel,visibleItems,resolvedStateKey);
+        renderDriveCommonNameList(container,crumb,resolvedDriveModeLabel,visibleItems);
         return;
     }
     const selectedNameItems = visibleItems.filter((item) => getDrivePlantCommonName(item) === selectedDriveName);
@@ -208,24 +217,10 @@ function renderDriveCommonNameDrill(container, crumb, driveModeLabel = '', viewS
     renderDriveCommonNameRows(container,crumb,resolvedDriveModeLabel,selectedSizeItems,selectedSizeLabel);
 }
 
-function renderDriveCommonNameList(container,crumb,resolvedDriveModeLabel,visibleItems,resolvedStateKey) {
-    const groupCacheKey = `drive:name:list:${resolvedStateKey || ''}`;
-    let groups = driveDrillGroupStateCache instanceof Map ? driveDrillGroupStateCache.get(groupCacheKey) : null;
-    if (Array.isArray(groups)) {
-        incrementInternalPerfCounter('viewStateCacheHits');
-    } else {
-        const snapshot = typeof getBloomscapesWarmFarm==='function' && nativeAuthSessionActive ? getBloomscapesWarmFarm(getBloomscapesFarm()) : null;
-        const prepared = snapshot?.inventory===fullInventory ? snapshot.driveProjection : null;
-        groups = prepared && visibleItems.length===prepared.rows.length && visibleItems.every((row,index)=>row===prepared.rows[index])
-            ? prepared.names : buildDriveCommonNameGroups(visibleItems);
-        if (!(driveDrillGroupStateCache instanceof Map)) driveDrillGroupStateCache = new Map();
-        driveDrillGroupStateCache.set(groupCacheKey, groups);
-        while (driveDrillGroupStateCache.size > 16) {
-            const oldest = driveDrillGroupStateCache.keys().next();
-            if (oldest && !oldest.done) driveDrillGroupStateCache.delete(oldest.value);
-            else break;
-        }
-    }
+function renderDriveCommonNameList(container,crumb,resolvedDriveModeLabel,visibleItems) {
+    const prepared = preparedDriveProjection();
+    const groups = getCanonicalDriveProjection(visibleItems, 'common-names', () => matchesPreparedDriveRows(visibleItems, prepared)
+        ? prepared.names : buildDriveCommonNameGroups(visibleItems));
     renderDriveDrillEntries(container, crumb, `${resolvedDriveModeLabel} > Select Common Name (${groups.length} names)`, groups, 'drive:name:list', renderDriveCommonNameGroupCard, {
         emptyMessage: 'No common names match the current Drive search.',
         approxCardHeight: 84
@@ -321,13 +316,19 @@ function renderDriveCommonNameRows(container,crumb,resolvedDriveModeLabel,select
 
 function buildDriveCommonNameGroups(visibleItems) {
     const nameMap = new Map();
-    visibleItems.forEach((item) => {
-        const commonName = getDrivePlantCommonName(item) || 'Unknown';
-        if (!nameMap.has(commonName)) nameMap.set(commonName, { name: commonName, rowCount: 0, sizes: new Set(), __driveRenderKeyValue: '' });
-        const entry = nameMap.get(commonName);
-        entry.rowCount += 1;
-        entry.sizes.add(getDrivePlantContSize(item) || '-');
-    });
+    for (const item of visibleItems) addDriveCommonNameGroup(nameMap, item);
+    return finishDriveCommonNameGroups(nameMap);
+}
+
+function addDriveCommonNameGroup(nameMap, item) {
+    const commonName = getDrivePlantCommonName(item) || 'Unknown';
+    if (!nameMap.has(commonName)) nameMap.set(commonName, { name: commonName, rowCount: 0, sizes: new Set() });
+    const entry = nameMap.get(commonName);
+    entry.rowCount += 1;
+    entry.sizes.add(getDrivePlantContSize(item) || '-');
+}
+
+function finishDriveCommonNameGroups(nameMap) {
     return [...nameMap.values()]
         .map((entry) => ({
             name: entry.name,

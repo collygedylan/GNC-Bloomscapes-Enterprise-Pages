@@ -67,7 +67,7 @@ function renderDriveReport2Grid(scroll, rows, fields, layout) {
     const width = columns.reduce((sum, column) => sum + column.width, 0);
     const compact = columns.length > 34;
     scroll.classList.toggle('drive-custom-reports-v2-grid-dense', compact);
-    scroll.innerHTML = `<table aria-label="Drive Reports #2" aria-rowcount="${rows.length + 1}" style="width:${width}px"><colgroup>${sizes}</colgroup><thead><tr>${labels}</tr></thead><tbody></tbody></table>${rows.length ? '' : '<p>No matching rows</p>'}`;
+    scroll.innerHTML = `<table aria-label="Drive Reports #2" aria-rowcount="${rows.length + 1}" style="min-width:${width}px"><colgroup>${sizes}</colgroup><thead><tr>${labels}</tr></thead><tbody></tbody></table>${rows.length ? '' : '<p>No matching rows</p>'}`;
     const grid = { body: scroll.querySelector('tbody'), scroll, rows, columns };
     scroll.driveReport2Grid = grid;
     driveReport2PaintGridBody(grid);

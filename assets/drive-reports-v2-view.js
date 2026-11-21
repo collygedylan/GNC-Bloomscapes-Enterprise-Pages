@@ -35,15 +35,50 @@ function driveReport2FilteredRows(state, ignored = '') {
     return driveReport2FilterRows(state.rows, state.layout.filters, state.fields, ignored);
 }
 
+function driveReport2Result(state) {
+    const signature = JSON.stringify([state.layout.filters, state.layout.sorting]);
+    if (state.result?.rows === state.rows && state.result.signature === signature) return state.result;
+    const filtered = driveReport2SortRows(driveReport2FilteredRows(state), state.layout.sorting, state.fields);
+    state.result = { rows: state.rows, signature, filtered, offset: 0, totals: driveReport2Totals([]) };
+    return state.result;
+}
+
+function displayDriveReport2Totals(output, result) {
+    const { filtered, offset, totals } = result;
+    const parts = [[filtered.length, 'Rows']];
+    if (offset === filtered.length) parts.push([totals.PTRONHAND, 'On Hand'], [totals.PTRAVAILABLE, 'Avail'], [totals.LOC_MATCH_QTY, 'Photo Match']);
+    output.textContent = parts.map(([value, label]) => `${label} ${value === null ? '–' : value.toLocaleString()}`).join(' · ');
+}
+
+async function updateDriveReport2Totals(state, result) {
+    const output = state.root.querySelector('[data-drive-custom-reports-v2-totals]');
+    displayDriveReport2Totals(output, result);
+    if (result.pending || result.offset === result.filtered.length) return;
+    result.pending = true;
+    try {
+        while (result.offset < result.filtered.length) {
+            await new Promise(resolve => requestAnimationFrame(resolve));
+            if (state.result !== result || !state.root.isConnected || !driveReport2StateCurrent(state)) return;
+            const until = performance.now() + 4;
+            do {
+                const end = Math.min(result.filtered.length, result.offset + 16);
+                driveReport2Totals(result.filtered, result.totals, result.offset, end);
+                result.offset = end;
+            } while (result.offset < result.filtered.length && performance.now() < until);
+        }
+        displayDriveReport2Totals(state.root.querySelector('[data-drive-custom-reports-v2-totals]'), result);
+    } finally {
+        result.pending = false;
+    }
+}
+
 function paintDriveReport2(state) {
     const root = state.root;
     const scroll = root.querySelector('.drive-custom-reports-v2-grid');
     const cards = root.querySelector('.drive-custom-reports-v2-cards');
-    state.filtered = driveReport2SortRows(driveReport2FilteredRows(state), state.layout.sorting, state.fields);
+    const result = driveReport2Result(state);
+    state.filtered = result.filtered;
     state.generation++;
-    const totals = driveReport2Totals(state.filtered);
-    const parts = [[state.filtered.length, 'Rows'], [totals.PTRONHAND, 'On Hand'], [totals.PTRAVAILABLE, 'Avail'], [totals.LOC_MATCH_QTY, 'Photo Match']];
-    root.querySelector('[data-drive-custom-reports-v2-totals]').textContent = parts.map(([value, label]) => `${label} ${value === null ? '–' : value.toLocaleString()}`).join(' · ');
     root.querySelector('[data-drive-custom-reports-v2-cards]').setAttribute('aria-pressed', String(state.cards));
     scroll.hidden = state.cards;
     cards.hidden = !state.cards;
@@ -56,17 +91,22 @@ function paintDriveReport2(state) {
         renderDriveReport2Grid(scroll, state.filtered, state.fields, state.layout);
     }
     paintDriveReport2Saved(root, state);
+    void updateDriveReport2Totals(state, result);
 }
 
 async function loadDriveReport2Saved(state) {
     if (state.loadingSaved || !driveReport2StateCurrent(state)) return;
     state.loadingSaved = true;
-    state.savedLoadFailed = false;
-    state.savedMessage = '';
-    paintDriveReport2Saved(state.root, state);
+    const revision = state.savedRevision;
+    const hadFailure = state.savedLoadFailed;
     try {
         const saved = await listDriveSavedReports(state.farm);
-        if (!driveReport2StateCurrent(state)) return;
+        if (!driveReport2StateCurrent(state) || revision !== state.savedRevision) return;
+        state.savedLoadFailed = false;
+        const signature = JSON.stringify(saved);
+        if (signature === state.savedSignature && !hadFailure) return;
+        state.savedMessage = '';
+        state.savedSignature = signature;
         state.saved = saved;
         paintDriveReport2Saved(state.root, state);
     } catch (error) {
@@ -152,6 +192,8 @@ async function driveReport2SaveCommand(state, dialog, form, deleting = false) {
         const id = String(deleting ? receipt : receipt.id);
         state.saved.reports = state.saved.reports.filter(entry => String(entry.id) !== id);
         if (!deleting) state.saved.reports.push(receipt);
+        state.savedRevision = (state.savedRevision || 0) + 1;
+        state.savedSignature = JSON.stringify(state.saved);
         state.savedId = deleting ? '' : id;
         state.savedMessage = deleting ? 'Report deleted.' : 'Report saved.';
         paintDriveReport2Saved(state.root, state);
@@ -226,11 +268,13 @@ function mountDriveReport2(container, context) {
     if (changed) {
         state.rawRows = context.rows;
         state.sourceKey = context.sourceKey;
-        state.rows = context.rows.map(context.projectRow);
+        state.rows = getCanonicalDriveProjection(context.rows, 'reports-v2:rows', () => context.rows.map(context.projectRow));
     }
     if (remount || changed) paintDriveReport2(state);
-    if (!state.requested && context.authenticated) {
-        state.requested = true;
-        loadDriveReport2Saved(state);
+    if (context.authenticated && (remount || !state.savedRequestedAt) && Date.now() - (state.savedRequestedAt || 0) >= 60000) {
+        state.savedRequestedAt = Date.now();
+        requestAnimationFrame(() => {
+            if (state.root.isConnected && driveReport2StateCurrent(state)) void loadDriveReport2Saved(state);
+        });
     }
 }

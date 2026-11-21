@@ -1,3 +1,10 @@
+const appFilterNumericCollator = new Intl.Collator(undefined, { numeric: true });
+
+function appFilterSetToArray(value) {
+    const source = value instanceof Set ? Array.from(value) : (Array.isArray(value) ? value : []);
+    return source.map((entry) => String(entry || '').trim()).filter(Boolean).sort(appFilterNumericCollator.compare);
+}
+
 function captureAppFilterState() {
     let visibleView = currentPrimaryViewId || 'home';
     try { visibleView = getCurrentVisibleViewId() || visibleView; } catch { globalThis.reportHandledRuntimeIssue?.("captureAppFilterState", 'HANDLED_OPERATION_FAILURE'); }

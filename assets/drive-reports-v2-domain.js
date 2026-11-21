@@ -127,9 +127,9 @@ function driveReport2SortRows(rows, sorting, fields) {
     return rows.slice().sort((left, right) => compareDriveReport2Rows(left, right, sorting, fields));
 }
 
-function driveReport2Totals(rows) {
-    const totals = { PTRONHAND: null, PTRAVAILABLE: null, LOC_MATCH_QTY: null };
-    for (const row of rows) {
+function driveReport2Totals(rows, totals = { PTRONHAND: null, PTRAVAILABLE: null, LOC_MATCH_QTY: null }, start = 0, end = rows.length) {
+    for (let i = start; i < end; i++) {
+        const row = rows[i];
         for (const key of Object.keys(totals)) {
             const amount = driveCardSortNumber(row.value(key));
             if (amount !== null) totals[key] = (totals[key] ?? 0) + amount;

@@ -27,13 +27,35 @@ function readDockSuspendAuditTotals() {
     return totals;
 }
 
-function countExpectedDockGroups() {
-    const snapshot=dockIssueDataLoaded ? getDockResolvedState() : null;
-    const scoped=snapshot ? getScopedDocksItems(snapshot.rows,'dock-display:'+snapshot.cacheKey) : getScopedDocksItems(socInventory);
-    const source=applyDockStructuredFilters(scoped);
-    if (dockViewLevel===0) return new Set(source.map(row=>normalizeDockViewDockKey(row.DOCK_NUM))).size;
+function dockBrowsePageLimit(key) {
+    return {'docks-main':4,'docks-stops':16,'docks-stop-items':8}[key];
+}
+
+function dockBrowsePageKey(key,label,search) {
+    return [key,label,getBloomscapesFarm(),search].join('|');
+}
+
+function getBloomscapesDockBrowseSource() {
+    const snapshot = dockIssueDataLoaded ? getDockResolvedState() : {
+        rows:Array.isArray(socInventory) ? socInventory : [],
+        cacheKey:`dock-fast:${getDatasetLoadSignature('soc')}:${dockWorkflowStateEpoch}`
+    };
+    return getScopedDocksItems(snapshot.rows,`dock-display:${snapshot.cacheKey}`);
+}
+
+function expectedDockPageGroups() {
+    const rows=applyDockStructuredFilters(getBloomscapesDockBrowseSource());
+    const root=dockViewLevel===0;
     const selected=normalizeDockViewDockKey(selectedDockNum);
-    return new Set(source.filter(row=>normalizeDockViewDockKey(row.DOCK_NUM)===selected).map(row=>normalizeDockViewStopKey(row.STOPNUMBER))).size;
+    const groups=root ? rows.map(row=>normalizeDockViewDockKey(row.DOCK_NUM))
+        : rows.filter(row=>normalizeDockViewDockKey(row.DOCK_NUM)===selected).map(row=>normalizeDockViewStopKey(row.STOPNUMBER));
+    const ids=new Set(groups);
+    const key=root ? 'docks-main' : 'docks-stops';
+    const limit=dockBrowsePageLimit(key);
+    if (ids.size<=limit) return ids;
+    const label=root ? 'Select a Dock' : formatDockViewDockLabel(selectedDockNum);
+    const sorted=[...ids].sort((a,b)=>root ? sortBloomscapesDockLabels(a,b) : sortBloomscapesDockLabels(b,a));
+    return new Set(getClientBrowsePage('docks',dockBrowsePageKey(key,label,''),sorted,limit).rows);
 }
 
 function getDocksSuspendSyncAudit() {
@@ -45,9 +67,10 @@ function getDocksSuspendSyncAudit() {
     const selector=dockViewLevel===0?'data-docks-dock-card':dockViewLevel===1?'data-docks-drop-card':'data-docks-stop-card';
     const nodes=mounted ? [...container.querySelectorAll('['+selector+']')] : [];
     const shown=nodes.map(node=>node.getAttribute(selector));
-    const expected=mounted && !pending && dockViewLevel<2 ? countExpectedDockGroups() : null;
-    return {...readDockSuspendAuditTotals(),duplicateCards:shown.length-new Set(shown).size,
-        hierarchyMismatch:expected!==null && shown.length!==expected,pending};
+    const uniqueShown=new Set(shown);
+    const expected=mounted && !pending && dockViewLevel<2 ? expectedDockPageGroups() : null;
+    return {...readDockSuspendAuditTotals(),duplicateCards:shown.length-uniqueShown.size,
+        hierarchyMismatch:expected!==null && (uniqueShown.size!==expected.size || shown.some(id=>!expected.has(id))),pending};
 }
 
 function readLegacyDockItemProgress(uniqueId = '') {

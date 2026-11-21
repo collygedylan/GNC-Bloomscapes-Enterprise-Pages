@@ -17,7 +17,7 @@ function openDisplayOnlyNavigation(viewId, options = {}) {
     if (previous === 'managers') cancelManagerModuleReads();
     showOnlyPrimaryView(viewId);
     const host = getViewElementById(viewId);
-    syncNavigationDisplayStatus(host, ensureViewRenderState(viewId).initialized ? '' : 'Loading module access…');
+    syncNavigationDisplayStatus(host, ensureViewRenderState(viewId).initialized ? '' : 'Loading module accessâ€¦');
     updateFooterNavState(viewId);
     syncGlobalHeaderChrome({ reason: `view-display:${viewId}`, force: true });
     repairAppShellScrollState(`view-display:${viewId}`, { resetGestureState: previous !== viewId });
@@ -77,10 +77,14 @@ function switchView(viewId, options = {}) {
     preparePrimaryNavigationTarget(context);
     if (!preparePrimaryNavigationOrigin(context)) return false;
     mountPrimaryNavigation(context);
-    if (reusePrimaryNavigation(context)) return false;
-    renderPrimaryNavigation(context);
-    restorePrimaryNavigationScroll(context);
-    return activatePrimaryNavigation(context);
+    afterNavigationPaint(context.nextViewId, navigationSeq, () => {
+        if (context.nextViewId === 'home') scheduleCanonicalInventoryPrewarm();
+        if (reusePrimaryNavigation(context)) return;
+        renderPrimaryNavigation(context);
+        restorePrimaryNavigationScroll(context);
+        activatePrimaryNavigation(context);
+    });
+    return false;
 }
 
 function beginPrimaryViewNavigation(viewId, options, navigationSeq) {
@@ -133,7 +137,6 @@ function preparePrimaryNavigationTarget(context) {
             tab: String(switchOptions.quickAccessTab || '').trim().toLowerCase()
         };
     } else if (!fromHistory && currentViewId !== nextViewId) quickAccessNestedBackState = null;
-    if (nextViewId === 'smart-moves') warmSalesIntelligenceData();
     if (nextViewId === 'av' && currentViewId === 'home') clearAvSearchForHomeEntry();
     if (!['historical-requests', 'request-history'].includes(nextViewId)) destroyHistoricalRequestsIsland();
     else markViewDirty('historical-requests');
@@ -323,6 +326,7 @@ function activatePrimaryNavigation(context) {
         skipStickySync: false,
         skipHeaderSync: false
     });
+    if (nextViewId === 'smart-moves') warmSalesIntelligenceData();
     if (nextViewId === 'request') scheduleRequestNavigationLiveWake('request-switch');
     if (shouldActivateImmediately) {
         scheduleViewActivationWork(nextViewId);
