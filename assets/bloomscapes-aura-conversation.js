@@ -11,7 +11,7 @@ function auraCloudPanelState() {
     badge.setAttribute('role', 'status');
     badge.textContent = '🟡 SQL Fallback';
     panel.querySelector('.aura-title').after(badge);
-    const state = {badge, history: []};
+    const state = {badge, model: mountAuraModelPicker(panel), history: []};
     auraPanelSessions.set(panel, state);
     return state;
 }
@@ -44,7 +44,7 @@ async function auraScopedRpc(name, body, headers, signal) {
 async function auraCloudAnswer(body, state, sql, headers, signal) {
     const payload = {action: 'AURA_GEMINI_QUERY', app_id: 'gnc-bloomscapes-enterprise',
         username: normalizeNativeAuthAlias(nativeAuthProfile?.username).split('@')[0], farm_code: sql.source.filters?.farm || 'ALL',
-        query: body.text, authorization: headers.Authorization,
+        requested_model: state?.model?.value || 'auto', query: body.text, authorization: headers.Authorization,
         history: state?.history || [], context_snapshot: {source: sql.source, summary: sql.reply, ...auraSupplementalContext(body.text)}};
     if (sql.data) payload.context_snapshot.records = sql.data.rows.slice(0, 8);
     if (sql.source.dataset === 'inventory') payload.context_snapshot.inventorySample = auraInventorySample(sql.data?.rows);
@@ -54,7 +54,7 @@ async function auraCloudAnswer(body, state, sql, headers, signal) {
         const response = await fetch(AURA_SHEET_URL, {method: 'POST', headers: {'Content-Type': 'text/plain;charset=utf-8'},
             credentials: 'omit', redirect: 'follow', referrerPolicy: 'no-referrer', body: encoded, signal});
         const reply = response.ok && await response.json();
-        return reply?.ok && /^gemini-\d+(?:\.\d+)?-flash(?:-lite)?$/.test(reply.provider) && typeof reply.answer === 'string' && reply.answer.trim() ? reply : null;
+        return reply?.ok && typeof reply.provider === 'string' && reply.provider.length > 0 && typeof reply.answer === 'string' && reply.answer.trim() ? reply : null;
     } catch (error) {
         if (signal.aborted) throw error;
         return null;
@@ -92,7 +92,7 @@ async function callAuraLlmRouter(body, options = {}, cachedAnswer = buildAuraDet
     signal.throwIfAborted();
     const answer = reply?.answer || sql.reply;
     if (state) {
-        state.badge.textContent = reply ? '🟢 ' + reply.provider.replace('gemini-', 'Gemini ').replace('-flash', ' Flash').replace('-lite', '-Lite') + ' Live' : '🟡 SQL Fallback';
+        state.badge.textContent = reply ? '🟢 ' + auraModelLabel(reply.provider) + ' Live' : '🟡 SQL Fallback';
         state.history = [...state.history, {question: body.text.slice(0, 1000), answer: answer.slice(0, 1000)}].slice(-4);
     }
     return {...sql, reply: answer, speech: answer, provider: reply?.provider || 'sql', requestId: options.requestId,
@@ -155,4 +155,47 @@ function auraInventorySample(matches) {
             locPhotoMatch: row.LOC_PHOTO_MATCH ?? row.loc_photo_match});
     }
     return sample;
+}
+
+function auraModelLabel(id) {
+    if (id === 'auto') return 'Auto';
+    return id.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+}
+
+function mountAuraModelPicker(panel) {
+    const picker = document.createElement('select');
+    picker.setAttribute('aria-label', 'Model');
+    picker.style.maxWidth = '15em';
+    const label = document.createElement('label');
+    label.append('Model ', picker);
+    panel.querySelector('.aura-title').parentElement.append(label);
+    const storageKey = 'bloomscapes.aura.model';
+    let preferred;
+    try { preferred = localStorage.getItem(storageKey); } catch { preferred = null; }
+    const pinned = ['auto', 'gemini-4-hydrogen', 'gemini-4-carbon', 'gemini-4-neon', 'gemini-3.8-flash', 'gemini-3.5-flash-lite'];
+    const values = new Set(pinned);
+    if (preferred) values.add(preferred);
+    for (const id of values) picker.add(new Option(auraModelLabel(id), id));
+    picker.value = preferred || 'auto';
+    picker.addEventListener('change', () => {
+        try { localStorage.setItem(storageKey, picker.value); } catch { /* Session selection still applies. */ }
+    });
+    void loadAuraPickerOptions(picker, values);
+    return picker;
+}
+
+async function loadAuraPickerOptions(picker, values) {
+    const headers = getPassiveNativeAuthRequestHeaders();
+    if (!headers?.Authorization || !isAuraRouterWidgetAuthorized()) return;
+    try {
+        const response = await fetch(AURA_SHEET_URL, {method: 'POST', headers: {'Content-Type': 'text/plain;charset=utf-8'},
+            redirect: 'follow', credentials: 'omit', referrerPolicy: 'no-referrer', signal: AbortSignal.timeout(30000),
+            body: JSON.stringify({action: 'AURA_LIST_MODELS', app_id: 'gnc-bloomscapes-enterprise',
+                username: normalizeNativeAuthAlias(nativeAuthProfile.username).split('@')[0], authorization: headers.Authorization})});
+        const catalog = response.ok && await response.json();
+        if (!picker.isConnected || !catalog?.ok || !Array.isArray(catalog.models)) return;
+        for (const id of catalog.models) {
+            if (!values.has(id)) picker.add(new Option(auraModelLabel(id), id));
+        }
+    } catch { /* The pinned choices remain available when discovery is offline. */ }
 }

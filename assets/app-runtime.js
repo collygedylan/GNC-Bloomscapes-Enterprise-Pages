@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.25';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.26';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -23398,7 +23398,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.25';
+        const APP_VERSION = '3.1.26';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -34431,16 +34431,15 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
 
         async function initializeAppAccessSnapshot(options = {}) {
             const safeOptions = options && typeof options === 'object' ? options : {};
-            const force = safeOptions.force === true;
             const usernameKey = getRequestCapabilityUsernameKey(currentUser);
-            if (!usernameKey) return null;
+            if (!usernameKey || !nativeAuthSessionActive || !readCachedNativeAuthSession()) return null;
             const profileId = String(nativeAuthProfile?.id || '');
             const authEpoch = productionLiveSyncReadAuthEpoch;
             const isCurrentAccount = () => getRequestCapabilityUsernameKey(currentUser) === usernameKey
                 && String(nativeAuthProfile?.id || '') === profileId && productionLiveSyncReadAuthEpoch === authEpoch;
             if (appAccessSnapshotLoadPromise && appAccessSnapshotState.username === usernameKey
                 && appAccessSnapshotState.profileId === profileId && appAccessSnapshotState.authEpoch === authEpoch) return appAccessSnapshotLoadPromise;
-            if (!force && appAccessSnapshotState.username === usernameKey && appAccessSnapshotState.profileId === profileId
+            if (safeOptions.force !== true && appAccessSnapshotState.username === usernameKey && appAccessSnapshotState.profileId === profileId
                 && appAccessSnapshotState.authEpoch === authEpoch && appAccessSnapshotState.snapshot
                 && appAccessSnapshotState.status === 'ready' && !appAccessSnapshotState.stale) {
                 return appAccessSnapshotState.snapshot;

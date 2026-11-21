@@ -252,7 +252,7 @@ if (!window.GncRuntimeWatchdog) {
   }
 
   function durableWatchdogEvent(event) {
-    if (!state.memoryOnly || FIELD_TYPES.has(event.event_type)) return event;
+    if (!state.memoryOnly || FIELD_TYPES.has(event.event_type) || global.GncWatchdogLocalDiagnostics.isHandledWatchdogEvent(event)) return event;
     state.diagnostics.push({event_type:event.event_type, view_id:event.view_id, timestamp:Date.now()});
     if (state.diagnostics.length > 100) state.diagnostics.shift();
     if (isDurableRuntimeEvent(event)) return event;
@@ -295,7 +295,7 @@ if (!window.GncRuntimeWatchdog) {
     sendWatchdogEvent(event); return event;
   }
   function capture(error, operation = 'unknown') {
-    return captureWatchdogOperation({document,state,isIgnorableRuntimeNoise,FIELD_CODES,reportField,record},error,operation);
+    return global.GncWatchdogLocalDiagnostics.routeWatchdogCapture({document,state,isIgnorableRuntimeNoise,FIELD_CODES,reportField,record},error,operation,HANDLED_CODES,runtimeSource,captureWatchdogOperation);
   }
   function isVisibleParityNode(node) { return !!node && !node.hidden && !node.closest?.('.hidden, [hidden], [aria-hidden="true"]'); }
   function hasEvalLoadingText(root) {
