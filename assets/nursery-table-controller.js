@@ -45,20 +45,6 @@ function createNurseryTableController(context) {
     return methods;
 }
 
-function nurseryTable_back(context) {
-    if (!context.isNurseryWorkspace()) return false;
-    if (!['table','planting'].includes(context.state.subview)) {
-        context.state.subview = 'table';
-        context.draw();
-        return true;
-    }
-    if (context.state.bunchSimulatorDrillLevel === 'alpha') return false;
-    context.state.bunchSimulatorDrillLevel = {cards:'location',location:'number',number:'alpha'}[context.state.bunchSimulatorDrillLevel] || 'alpha';
-    context.state.q = '';
-    context.drawBunchDrill(context.state.bunchData);
-    return true;
-}
-
 function startNurseryInventoryObserver(context) {
     let inventory = context.options.inventory(), revision = context.options.revision?.();
     let inFlight = false, retryNotBefore = 0;
@@ -123,8 +109,6 @@ function nurseryTable_showBunchIssue(context, uid){
       validate();if(dialog.showModal)dialog.showModal();else dialog.setAttribute('open','');dialog.querySelector('textarea').focus();
     }
 
-
-
 async function nurseryTable_persistBunch(context, payload){if(context.activeBunchWrites>=4)await new Promise(resolve=>context.bunchWriteWaiters.push(resolve));else context.activeBunchWrites++;try{return await context.options.request({table:'ph_dylan_decisions_store',operation:'save',payload});}finally{const next=context.bunchWriteWaiters.shift();if(next)next();else context.activeBunchWrites--;}}
 
 function nurseryTable_approveBunchIssue(context, dialog,p,checked,batchDraft){
@@ -183,10 +167,6 @@ function nurseryTable_plantingCard(context, p){
       return '<article class="bunch-review-card app-smart-card app-drive-compact-card" data-planting-card="'+context.escape(p.plan_id)+'"><div class="bunch-card-heading"><div class="bunch-card-photo">🌱</div><div class="bunch-card-identity"><strong>'+context.escape(p.commonname)+' '+context.escape(p.contsize)+'</strong><p><u>'+context.escape(p.itemcode)+'</u></p><p>'+context.escape(target||'UNASSIGNED')+' · Target Plant: '+context.escape(p.lot||'Unverified')+' · Can Fill: '+context.escape(p.can_fill_date||'Unverified')+' · Source: '+context.escape(p.source)+'</p></div></div>'+context.metricStrip([['Plan Qty',p.final_qty],['Beds Needed',context.roundBeds(p.final_beds)],['CPB',p.cpb||'Unverified'],['Water mL/day',check.water??'Unverified'],['Source Stock (.Y)',shiftSource?sourceLots.reduce((sum,x)=>sum+x.qty,0):'—'],['Compatibility',check.score+'%']])+'<section class="bunch-how-panel"><h3>🌱 WHERE TO PLANT &amp; WHY (Gem Recommendation)</h3><p>'+context.escape(p.tier)+' · '+context.escape(check.reasons.join(' · '))+'</p><p>Media / fertilizer can-fill batch: '+context.escape(p.media||'verify production schedule before can fill')+'</p><label>Target Location<select data-planting-target="'+context.escape(p.plan_id)+'">'+[...new Set([target,...compatible])].filter(Boolean).map(loc=>'<option '+(loc===target?'selected':'')+'>'+context.escape(loc)+'</option>').join('')+'</select></label><h3>🤝 HAND-IN-HAND BUNCH NOTE LINK</h3><p>Clearance window: '+context.escape(p.clearance_date||'Unverified')+' to '+context.escape(p.can_fill_date||'Unverified')+'. Approved plans require field clearance confirmation.</p>'+clearing.map(x=>'<p>'+context.escape(x.itemcode)+' · '+context.escape(x.location)+' · '+context.escape(context.readRow(x.row,'lotcode'))+' → '+context.escape(x.target)+' · '+(x.approved?'Approved haul plan':'Haul awaiting approval')+'</p>').join('')+(!clearing.length?'<p>No verified outbound haul plan; occupied beds remain occupied.</p>':'')+sourceLots.map(x=>'<button data-planting-source="'+context.escape(x.uid)+'">RHETT / SHIFT TAPE · '+context.escape(x.itemcode)+' · '+context.escape(x.location)+' · '+context.escape(context.readRow(x.row,'lotcode'))+'</button>').join('')+'</section><button class="bunch-send-primary" data-planting-approve="'+context.escape(p.plan_id)+'" '+(!check.ok||context.state.pending.has(token)?'disabled':'')+'>'+(saved&&context.model.DECISIONS.slice(0,2).includes(saved.decision)?'✅ Approved Planting Location'+(context.state.pending.has(token)?' · Saving…':' — Re-Save'):'✅ Approve Planting Location &amp; Sync With Bunch Notes')+'</button></article>';
     }
 
-
-
-
-
 function nurseryTable_approvePlanting(context, id){
       const p=context.plantingRows().find(p=>p.plan_id===id),target=context.state.plantDrafts.get(id)||p?.final_target,token='ph_dylan_decisions_store:'+id;
       if(!p||context.state.pending.has(token)||context.state.loading||!context.cache.loaded||context.options.authorized?.()===false||context.options.inventoryReady?.()===false||!context.plantingCheck(p,target).ok)return;
@@ -238,7 +218,7 @@ async function nurseryTable_approveLocation(context){
 
 function nurseryTable_handleBunchDrillClick(context, el){
       if(!el||!context.isNurseryWorkspace())return false;
-      if(el.hasAttribute('data-bunch-reset')){context.state.alpha='';context.state.blockNumber='';context.state.bunchSimulatorDrillLevel='alpha';context.state.q='';context.drawBunchDrill(context.state.bunchData);return true;}
+      if(el.hasAttribute('data-bunch-reset'))return resetNurseryReportDrill(context);
       if(el.dataset.bunchNumber){context.state.blockNumber=el.dataset.bunchNumber;context.state.bunchSimulatorDrillLevel='location';context.drawBunchDrill(context.state.bunchData);return true;}
       if(el.dataset.plantingApprove){context.approvePlanting(el.dataset.plantingApprove);return true;}
       if(el.dataset.plantingSource){const p=context.state.currentIssues.find(p=>p.uid===el.dataset.plantingSource);if(p){context.state.subview='table';context.state.alpha=p.location[0];context.state.blockNumber=p.location.slice(0,4);context.state.location=p.location;context.state.bunchSimulatorDrillLevel='cards';context.drawBunchDrill(context.state.bunchData);}return true;}
@@ -251,8 +231,6 @@ function nurseryTable_handleBunchDrillClick(context, el){
       if(el.hasAttribute('data-bunch-pdf')){void context.downloadBunchPdf(context.state.location,context.locationCards(),context.blockMetrics(context.state.location)).catch(error=>{context.state.error=error.message;context.root.querySelector('[data-nursery-status]').textContent=context.state.error;});return true;}
       if(el.hasAttribute('data-bunch-send')){void context.approveLocation();return true;}return false;
     }
-
-
 
 async function nurseryTable_load(context){
       context.state.loading=true;context.state.error='';context.draw();
@@ -280,13 +258,9 @@ function nurseryTable_preparePlantingChoices(context, event){const el=event.targ
 
 function nurseryTable_change(context, event){const el=event.target;if(el.dataset.plantingTarget){context.state.plantDrafts.set(el.dataset.plantingTarget,el.value);context.drawBunchDrill(context.state.bunchData);return;}if(el.dataset.bunchSelect){context.state.selectedCards||=new Set(context.locationCards().map(p=>p.uid));if(el.checked)context.state.selectedCards.add(el.dataset.bunchSelect);else context.state.selectedCards.delete(el.dataset.bunchSelect);const status=context.root.querySelector('[data-nursery-status]');if(status)status.textContent=context.state.selectedCards.size+' cards selected for approval and PDF email.';return;}if(el.dataset.nurseryEdit){void context.save(el);return;}if(el.dataset.nurseryFilter){if(el.dataset.nurseryFilter==='view'&&context.options.selectView){context.options.selectView(el.value);return;}context.state[el.dataset.nurseryFilter]=el.value;context.state.page=0;context.draw();}if(el.dataset.nurseryBlock){const alpha=el.dataset.nurseryBlock==='alpha'?el.value:context.state.location[0],n=el.dataset.nurseryBlock==='number'?el.value:context.state.location.split('.')[1];context.state.location=alpha+'.'+String(n).padStart(2,'0')+'.000';context.state.page=0;context.draw();}}
 
-function nurseryTable_click(context, event){const el=event.target.closest('button');if(context.handleBunchDrillClick(el))return;if(!el){const card=event.target.closest('[data-bunch-card]');if(card)context.showBunchIssue(card.dataset.bunchCard);return;}if(el.dataset.bunchSubview){context.state.subview=el.dataset.bunchSubview;context.state.page=0;context.draw();return;}if(el.dataset.bunchFilter){context.state.issueFilter=el.dataset.bunchFilter;context.state.page=0;context.draw();return;}if(el.dataset.bunchOpen){context.showBunchIssue(el.dataset.bunchOpen);return;}if(el.hasAttribute('data-nursery-back'))context.options.back();if(el.hasAttribute('data-nursery-refresh'))void context.load();if(el.dataset.nurseryPage){context.state.page+=Number(el.dataset.nurseryPage);context.draw();}}
-
 function nurseryTable_onSearchInput(context, event){if(event.target.matches('[data-bunch-inline-note],[data-bunch-inline-target]')){const card=event.target.closest('[data-bunch-card]'),p=context.state.currentIssues.find(p=>p.uid===card.dataset.bunchCard),draft=context.cardDraft(p);if(event.target.hasAttribute('data-bunch-inline-note'))draft.note=event.target.value;else {draft.choices.target=event.target.value;draft.note=context.model.evaluateBunchNoteRowAndIssues(p.row,context.state.bunchContext,draft.choices).autoSuggestedBunchNote;card.querySelector('[data-bunch-inline-note]').value=draft.note;}return;}if(event.target.hasAttribute('data-nursery-search')){context.state.q=event.target.value;context.state.page=0;clearTimeout(context.state.searchTimer);context.state.searchTimer=setTimeout(()=>{const pos=event.target.selectionStart;context.draw();const search=context.root.querySelector('[data-nursery-search]');search?.focus();search?.setSelectionRange(pos,pos);},180);}}
 
 function nurseryTable_onBunchSettled(context, event){if(context.state.destroyed||event.detail?.identity!==context.options.identity||context.options.authorized?.()===false)return;const p=context.state.currentIssues.find(p=>p.uid===event.detail.uid);if(!p)return;if(event.detail.rollback){context.draw();return;}const saved=(context.state.refs.ph_dylan_decisions_store||[]).find(r=>r.plan_id===p.plan_id);if(saved){p.saved=saved;p.approved=true;p.rawBunchNote=saved.notes;context.state.error='✅ Approved Bunch Note Created';context.patchBunchApproval(p);}}
-
-
 
 function nurseryTable_keyFor(table, row) { return table==='ph_nursery_locations'?row.location_code:table==='ph_nursery_items_cpb'?row.itemcode:table==='ph_dylan_decisions_store'?row.plan_id:row.id; }
 
@@ -305,10 +279,6 @@ function nurseryTable_roundBeds(value) { return Number(value||0).toFixed(2); }
 function nurseryTable_isNurseryWorkspace(context) { return ['bunch-notes-simulator','prod-schedule'].includes(context.state.view); }
 
 function nurseryTable_metricStrip(context, values) { return '<div class="bunch-card-metrics">'+values.map(([label,value])=>'<span>'+context.escape(label)+'<b>'+context.escape(value??'Unverified')+'</b></span>').join('')+'</div>'; }
-
-
-
-
 
 async function nurseryTable_loadReference(context, table) {
     const rows = [];

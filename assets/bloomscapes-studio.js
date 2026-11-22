@@ -1,3 +1,10 @@
+const bloomscapesStudioDestinations = [
+    ['smart-moves','Smart Sales &amp; Move Intelligence','ph-chart-line'],
+    ['lab','Plant Health &amp; Lab Reports','ph-flask'],
+    ['vault','My Work &amp; Inquiry PDF Vault','ph-folder'],
+    ['sales-vault','Sales Rep Vault','ph-address-book']
+];
+
 const bloomscapesStudioModules = [
     ['bunch','Bunch Notes'],['cans','Can Filling'],['grading','Shift Grading'],['haul','Hauling'],
     ['shear','Shear List'],['spring','Spring Spreading'],['winter','Over Wintering'],
@@ -8,6 +15,8 @@ function renderBloomscapesWorkStudio() {
     if (!canUseBloomscapesWorkStudio()) return '';
     return '<section data-bloomscapes-studio><h2>Build Work Studio</h2><nav data-studio-modules>'
         +bloomscapesStudioModules.map(([key,label],index)=>'<button type="button" data-open-module="'+key+'"><i aria-hidden="true" class="ph '+bloomStudioIcons[index]+'"></i><span>'+label+'</span></button>').join('')
+        +bloomscapesStudioDestinations.filter(([key])=>canAccessView(key==='smart-moves' ? key : 'managers'))
+            .map(([key,label,icon])=>'<button type="button" data-studio-destination="'+key+'"><i aria-hidden="true" class="ph '+icon+'"></i><span>'+label+'</span></button>').join('')
         +'</nav><div data-studio-module></div></section>';
 }
 
@@ -16,6 +25,8 @@ function mountBloomscapesWorkStudio(host) {
     const panel=host.querySelector('[data-studio-module]');
     if (!menu || !panel || !canUseBloomscapesWorkStudio()) return;
     menu.addEventListener('click',event=>{
+        const destination=event.target.closest('[data-studio-destination]')?.dataset.studioDestination;
+        if (destination) return destination==='smart-moves' ? switchView(destination) : openBloomscapesDepartmentModule('managers',destination);
         const key=event.target.closest('[data-open-module]')?.dataset.openModule;
         if (key) void openBloomscapesStudioModule(menu,panel,key).catch(error=>studioFailure(panel,error));
     });

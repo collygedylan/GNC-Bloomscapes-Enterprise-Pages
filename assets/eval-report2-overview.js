@@ -98,7 +98,9 @@ function showEvalAggregateDashboard() {
 }
 
 function backEvalAggregateDashboard() {
-    const { selected } = evalAggregateDashboardState();
+    const state=evalAggregateDashboardState();
+    if (backNurseryPlanningReport(state)) return true;
+    const { selected } = state;
     if (!selected) return false;
     if (selected === 'field-audit') {
         const audit = fieldAuditState();

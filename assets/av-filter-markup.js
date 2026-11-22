@@ -1,7 +1,7 @@
 function ensureAvTopControlsShell(container) {
     if (!container) return false;
     ensureAvControlsVisible(container);
-    const shellSignature = 'av-top-controls-shell:v19';
+    const shellSignature = 'av-top-controls-shell:v20';
     if (container.dataset.avTopControlsShell === shellSignature) {
         ensureAvControlsVisible(container);
         return false;
@@ -50,7 +50,7 @@ function toggleAvToolbarKioskMode(button) {
 }
 
 function buildAvRailViewFields() {
-    return '<label class="bloomscapes-compact-select av-filter-shell" data-av-filter-shell="season">View'
+    return '<label class="bloomscapes-compact-select av-filter-shell" data-av-filter-shell="season"><span>View</span>'
         +'<select data-av-view-select aria-label="AV View" onchange="return setAvPhotoMode(this.value)">'
         +'<option value="all">All Rows</option><option value="valid_photos">Photos</option></select></label>';
 }

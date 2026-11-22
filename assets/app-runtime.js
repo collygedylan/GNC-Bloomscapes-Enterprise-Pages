@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.37';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.38';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -23298,7 +23298,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.37';
+        const APP_VERSION = '3.1.38';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -109161,16 +109161,10 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             if (!canViewAssignedItemsExport()) {
                 return '<div class="rounded-2xl border border-dashed border-slate-200 bg-white/80 p-8 text-center text-sm font-bold text-slate-400">AssignedTo export is available to managers only.</div>';
             }
-            const paged = false;
-            const allRows = paged ? [] : getManagerAssignedItemsDisplayRows();
+            const allRows = getManagerAssignedItemsDisplayRows();
             const filteredRows = getFilteredManagerAssignedItemsExportRows(allRows);
-            const ui = getManagerAssignedColumnState();
-            const owners = getManagerAssignableOwnerUsers();
-            const keys = new Set(filteredRows.map(row => buildManagerEvalAssignmentKey(row.ITEMCODE)).filter(Boolean));
-            const allSelected = keys.size > 0 && [...keys].every(code => managerEvalAssignmentSelection.has(code));
-            const pending = [...managerEvalAssignmentSelection].some(code => ui.defaultPending?.has(code));
             return '<div class="assigned-items-workspace"><div data-manager-assigned-chrome><div class="assigned-items-toolbar" role="region" aria-label="Assigned Items controls">'
-                + (canManageEvalItemcodeAssignments() ? '<label class="assigned-select-all"><input type="checkbox" data-assigned-select-all-visible aria-label="Select all filtered items"' + (allSelected ? ' checked' : '') + ' onchange="selectAllFilteredManagerAssignedItems(this.checked)">Select All Filtered (' + filteredRows.length + ')</label><label><span>Select User to Assign</span><select id="manager-eval-bulk-assignee" aria-label="Assign To" onchange="getManagerAssignedColumnState().bulkAssignee=this.value">' + getManagerEvalAssigneeOptionsHtml(ui.bulkAssignee || '', owners) + '</select></label><button type="button" data-manager-assign-selected onclick="return assignSelectedEvalItemcodes(!managerEvalAssignmentSelection.size)"' + (pending || !keys.size ? ' disabled' : '') + '>✓ Reassign (' + (managerEvalAssignmentSelection.size || keys.size) + ')</button>' : '')
+                + renderAssignedItemActions(filteredRows) + renderAssignmentCsvToolbar()
                 + '</div></div>'
                 + renderManagerAssignedItemsPreviewTable(filteredRows, allRows.length) + '</div>';
         }
@@ -111430,36 +111424,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return `Search ${getManagerModuleMeta(tab).label}...`;
         }
 
-        function syncManagersHeaderChrome() {
-            const tab = String(activeHomeTab || 'dashboard').trim().toLowerCase();
-            const driveAroundLayout = tab === MANAGER_EVAL_REPORTS_2_VIEW;
-            const blockClearingLayout = tab === MANAGER_BLOCK_CLEARING_VIEW;
-            const meta = tab === 'dashboard'
-                ? { label: 'Manager Modules', description: 'Managers' }
-                : getManagerModuleMeta(tab);
-            const managersView = document.getElementById('view-managers');
-            const moduleFreeze = managersView ? managersView.querySelector('.manager-module-freeze') : null;
-            const eyebrow = document.getElementById('manager-module-eyebrow');
-            const title = document.getElementById('manager-module-title');
-            const modulesButton = document.getElementById('manager-module-picker-btn');
-            const input = document.getElementById('managers-search');
-            const clearBtn = document.getElementById('managers-search-clear');
-            const searchContainer = document.getElementById('managers-search-container');
-            if (managersView) managersView.classList.toggle('manager-eval2-drive-shell', driveAroundLayout);
-            if (managersView) managersView.classList.toggle('manager-block-clearing-shell', blockClearingLayout);
-            if (moduleFreeze) moduleFreeze.classList.toggle('hidden', driveAroundLayout || blockClearingLayout || tab === MANAGER_PRODUCTION_SCHEDULE_VIEW || tab === MANAGER_HR_COMMAND_VIEW || tab === MANAGER_ASSIGNED_ITEMS_EXPORT_VIEW);
-            if (eyebrow) eyebrow.hidden = tab !== 'dashboard';
-            if (title) title.innerText = meta.label || 'Managers';
-            if (modulesButton) modulesButton.classList.toggle('hidden', tab === 'dashboard');
-            if (searchContainer) searchContainer.classList.toggle('hidden', tab === MANAGER_ORDERS_VIEW || tab === MANAGER_PRODUCTION_SCHEDULE_VIEW || tab === MANAGER_HR_COMMAND_VIEW || tab === MANAGER_COMPANY_DIRECTORY_VIEW);
-            if (input) {
-                input.placeholder = getManagersSearchPlaceholder();
-                if (document.activeElement !== input && input.value !== managersSearchTerm) input.value = managersSearchTerm;
-            }
-            if (clearBtn) clearBtn.classList.toggle('hidden', !String(managersSearchTerm || '').trim());
-            return false;
-        }
-
         function handleManagersSearch() {
             const input = document.getElementById('managers-search');
             const searchHadFocus = !!input && document.activeElement === input;
@@ -113157,6 +113121,8 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             </div>`;
         }
         globalThis.renderManagerMovesPanel = renderManagerMovesPanel;
+        globalThis.renderManagerAssignedItemsExportPanel = renderManagerAssignedItemsExportPanel;
+        globalThis.handleManagersSearch = handleManagersSearch;
 
         const BUILDING_LOW_STOCK_LIMIT = 150;
         const BUILDING_LOW_STOCK_TARGET_SEASONS = Object.freeze(['U1', 'U2', 'U3']);

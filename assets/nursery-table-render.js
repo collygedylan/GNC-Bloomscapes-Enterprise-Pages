@@ -29,7 +29,7 @@ function nurseryTable_drawBunchDrill(context, data){
       context.state.bunchData=data;const all=context.state.currentIssues,q=context.state.q.toLowerCase(),level=context.state.bunchSimulatorDrillLevel,planting=context.state.subview==='planting',plans=context.plantingRows(),issues=all.filter(p=>!p.approved&&p.bunchNoteIssues.length),cards=context.locationCards();
       const rows=planting?plans.map(p=>({...p,location:p.final_target||'UNASSIGNED'})):all;
       const locations=[...new Set(planting?rows.map(p=>p.location):[...data.locations.keys(),...all.map(p=>p.location)])].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
-      const tabs='<nav class="bunch-drill-line bunch-subviews" aria-label="Nursery workspace">'+[['table','BUNCH NOTES'],['planting','PLANTING'],['issues','ISSUES ('+issues.length+')'],['rules','RULES (13)']].map(([key,label])=>'<button data-bunch-subview="'+key+'" aria-pressed="'+(context.state.subview===key)+'">'+label+'</button>').join('')+'</nav>';
+      const tabs='<nav class="bunch-drill-line bunch-subviews" aria-label="Nursery workspace">'+[['table','BUNCH NOTES'],['planting','PLANTINGS'],['issues','ISSUES ('+issues.length+')'],['saved','SAVED'],['rules','RULES (13)']].map(([key,label])=>'<button data-bunch-subview="'+key+'" aria-pressed="'+(context.state.subview===key)+'">'+label+'</button>').join('')+'</nav>';
       const crumbs='<div class="bunch-drill-line"><button data-bunch-shell-back aria-label="Global Back">←</button><button data-bunch-reset>LOCATION</button>'+(context.state.alpha?' &gt; BLOCK '+context.escape(context.state.alpha):'')+(level==='location'||level==='cards'?' &gt; '+context.escape(context.state.blockNumber):'')+(level==='cards'?' &gt; '+context.escape(context.state.location):'')+'<button data-bunch-reset>RESET FILTERS</button></div>';
       let body='',actions='';
       const rowButton=(attrs,title,detail)=>'<button class="bunch-drill-card app-drive-compact-card" '+attrs+'><strong>'+context.escape(title)+'</strong><span>'+context.escape(detail)+'</span><b aria-hidden="true">›</b></button>';
@@ -76,6 +76,15 @@ headers=context.president;rows=data.visible;render=p=>[context.escape(p.plan_id)
 
 function nurseryTable_drillProjection(context, all, q, level, planting, plans, rows, locations, cards, rowButton) {
     let body = '', actions = '';
+    if (context.state.subview==='saved') {
+        const saved=all.filter(row=>row.approved && !row.saved?._optimistic);
+        publishNurseryIssueExcelSnapshot(context,saved);
+        const page=Math.min(context.state.page,Math.max(0,Math.ceil(saved.length/100)-1));
+        const cards=saved.slice(page*100,page*100+100).map(context.issueCard).join('');
+        const previous=page>0 ? '<button type="button" data-nursery-page="-1">Previous</button>' : '';
+        const next=(page+1)*100<saved.length ? '<button type="button" data-nursery-page="1">Next</button>' : '';
+        return {body:cards || '<p>No saved bunch notes.</p>',actions:previous+next};
+    }
     if (['issues','rules'].includes(context.state.subview)) {
 body=context.bunchPanel(all)
         return {body, actions};
@@ -106,7 +115,7 @@ function nurseryTable_patchApprovedCard(context, card, p) {
         if (badge) badge.textContent = nurseryTable_approvalLabel(p);
         return;
     }
-    if (p.approved && context.state.issueFilter !== 'approved') card.remove();
+    if (p.approved && context.state.subview==='issues' && context.state.issueFilter !== 'approved') card.remove();
     else card.outerHTML = context.issueCard(p);
 }
 

@@ -29,6 +29,7 @@ function buildSalesWorkspaceSideBindings(array, read, stateReady) {
             commit: (value) => { takeBackRows = value.rows; takeBackRowsById = value.byId; takeBackDataLoaded = true; takeBackSchemaReady = true; }
         },
         'side:po': {
+            enabled: () => !nativeAuthSessionActive,
             scope: (ctx) => ctx.poSeason || '27F1',
             stage: async (ctx) => array(await fetchPoManagementRows(ctx.poSeason), 'PO Management'),
             commit: (rows, ctx) => { if ((ctx.poSeason || '27F1') === (poManagementState.season || '27F1')) stateReady(poManagementState, { rows }); }

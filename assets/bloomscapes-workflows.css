@@ -140,8 +140,8 @@ html body #app-wrapper #view-request #request-filter-toolbar > #request-pending-
 .bloomscapes-work-dialog::backdrop { background: #000a; }
 .bloomscapes-work-dialog :is(input,select,textarea,button) { min-height: 44px; max-width: 100%; color: #e9f7ed; background: #081c12; border: 1px solid #35654a; border-radius: .5rem; padding: .4rem; }
 
-.bloomscapes-department-shortcuts,[data-work-modes],[data-studio-work-types],.bloomscapes-drive-dispatch { display:flex; flex-wrap:wrap; gap:8px; padding:8px; }
-.bloomscapes-department-shortcuts button,[data-work-modes] button,[data-studio-work-types] button,.bloomscapes-drive-dispatch button,[data-work-source-cards] > article > button,.bloomscapes-work-group {
+[data-work-modes],[data-studio-work-types],.bloomscapes-drive-dispatch { display:flex; flex-wrap:wrap; gap:8px; padding:8px; }
+[data-work-modes] button,[data-studio-work-types] button,.bloomscapes-drive-dispatch button,[data-work-source-cards] > article > button,.bloomscapes-work-group {
   min-height:44px; padding:8px 12px; border:1px solid #35654a; border-radius:10px; background:#103220; color:#e9f7ed;
 }
 [data-work-modes] [aria-pressed=true],[data-studio-work-types] [aria-pressed=true] { background:#007a4d; border-color:#38d88e; }
@@ -173,7 +173,6 @@ html body #app-wrapper #view-request #request-filter-toolbar [data-job-board-too
 @media (max-width:900px) {
   html body #app-wrapper #view-request #request-filter-toolbar [data-job-board-tools] { grid-template-columns:repeat(2,minmax(0,1fr)); gap:4px !important; }
 }
-#view-managers .manager-module-freeze {background:#0b2417 !important;z-index:30 !important;opacity:1;isolation:isolate;}
 
 @layer bloomscapes-battery {
 html body #app-wrapper :is(.inventory-card,.drive-card,.app-smart-card,.bloomscapes-field-work-card,.bloomscapes-transfer-card,
@@ -343,7 +342,6 @@ html body .bloomscapes-detail-action-row {
 }
 html body .bloomscapes-detail-action-row > button { flex:1 1 0; min-width:0; white-space:normal; padding:6px; font-size:clamp(10px,1.2vw,14px); }
 html body #bloomscapes-detail-dispatch:empty { display:none!important; }
-html body [data-department-shortcuts] [data-department-module="studio"] { display:none; }
 @media (max-width:639px) {
   html body input,html body select,html body textarea { font-size:16px; }
   html body.ops-precision-pilot.current-view-home.home-dashboard-mode #app-wrapper #view-home #home-dashboard-grid[data-bloomscapes-home] .home-module-tile span { font-size:13px !important; font-weight:600!important; }

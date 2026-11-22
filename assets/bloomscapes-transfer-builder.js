@@ -2,20 +2,6 @@ const bloomscapesTransferMounts = new WeakMap();
 
 const BLOOMSCAPES_PO_PAGE_SIZE=12;
 
-function renderBloomscapesTransferBuilder() {
-    const pairs=[['ALL','ALL'],...['60-HL','20-TX','40-NC'].flatMap(origin=>['F1','S1'].map(season=>[origin,season]))];
-    const groups=pairs.map(([origin,season])=>`<option value="${origin}:${season}">${bloomscapesPoGroupLabel(origin,season)}</option>`).join('');
-    return `<section data-bloomscapes-workflow="bloomscapes-replenishment" class="bloomscapes-transfer-builder">
-        <nav data-transfer-filter-bar aria-label="Purchase orders">
-          <select aria-label="PO Group" data-po-group>${groups}</select>
-          <select aria-label="Container / Genus" data-po-facet><option value="">Container / Genus</option></select>
-          <div data-transfer-carts><button type="button" disabled>Submit to Que</button></div>
-        </nav>
-        <div data-transfer-summary><p role="status" aria-live="polite"></p>
-          <label data-po-history-option><input type="checkbox" data-po-history> History</label>
-        </div><div data-transfer-cards></div></section>`;
-}
-
 async function mountBloomscapesTransferBuilder(host,selection) {
     const root=host.querySelector('[data-bloomscapes-workflow="bloomscapes-replenishment"]');
     if (!root) return;
@@ -29,6 +15,7 @@ async function mountBloomscapesTransferBuilder(host,selection) {
     syncGlobalHeaderChrome({reason:'purchase-order-search',force:true});
     bindBloomscapesTransferFilters(state);
     root.addEventListener('toggle',event=>toggleBloomscapesTransferDrawer(state,event.target),true);
+    root.addEventListener('click',event=>openBloomscapesTargetSelector(state,event,mountBloomscapesTransferDrawer));
     await loadBloomscapesTransferCards(state);
 }
 
@@ -66,16 +53,6 @@ function paintBloomscapesTransferCards(state) {
     state.painted=true;
 }
 
-function restoreBloomscapesTransferCards(state,cards) {
-    for (const entry of cards) {
-        const draft=state.drafts.get(entry.po.po_id);
-        if (!draft) continue;
-        entry.drawerDraft=draft;
-        entry.card.open=draft.open;
-        if (draft.open) mountBloomscapesTransferDrawer(entry,state);
-    }
-}
-
 function toggleBloomscapesTransferDrawer(state,card) {
     const entry=state.cardByNode.get(card);
     if (!entry || !card.isConnected || state.owner!==bloomscapesTransferOwner()) return;
@@ -96,7 +73,10 @@ function mountBloomscapesTransferDrawer(entry,state) {
         +'<form novalidate><label>Transfer Qty <input name="quantity" type="number" min="1" step="1" required></label>'
         +'<button type="button" data-action="add-transfer-line"></button><p data-transfer-message role="status"></p></form>';
     const select=entry.select=drawer.querySelector('select');
-    select.replaceChildren(...po.targets.map(target=>new Option(`${target.locationcode} · ${target.lotcode}`,target.row_id)));
+    const options=po.targets.map(target=>new Option(`${target.locationcode} · ${target.lotcode}`,target.row_id));
+    select.replaceChildren(...options);
+    if (!options.length) select.add(new Option('No matching receiving locations',''));
+    select.disabled=!options.length;
     const draft=entry.drawerDraft;
     if (draft && entry.targetById.has(draft.target)) entry.targetId=draft.target;
     if (entry.targetId) select.value=entry.targetId;
@@ -155,7 +135,7 @@ function mountBloomscapesTransferChunk(state,chunk,rows) {
     const cards=rows.map(po=>createBloomscapesTransferCard(chunk,po,state));
     state.cards.push(...cards);
     cards.forEach(entry=>updateBloomscapesTransferCard(entry));
-    restoreBloomscapesTransferCards(state,cards);
+    restoreBloomscapesTransferCards(state,cards,mountBloomscapesTransferDrawer);
 }
 
 function bindBloomscapesTransferFilters(state) {
@@ -242,6 +222,20 @@ function bloomscapesPoGroupLabel(origin,season) {
     return origin==='ALL' ? 'All POs' : origin.slice(3)+' '+season;
 }
 
+function renderBloomscapesTransferBuilder() {
+    const pairs=[['ALL','ALL'],...['60-HL','20-TX','40-NC'].flatMap(origin=>['F1','S1'].map(season=>[origin,season]))];
+    const groups=pairs.map(([origin,season])=>`<option value="${origin}:${season}">${bloomscapesPoGroupLabel(origin,season)}</option>`).join('');
+    return `<section data-bloomscapes-workflow="bloomscapes-replenishment" class="bloomscapes-transfer-builder">
+        <nav data-transfer-filter-bar aria-label="Purchase orders">
+          <select aria-label="PO Group" data-po-group>${groups}</select>
+          <select aria-label="Container / Genus" data-po-facet><option value="">Container / Genus</option></select>
+          <div data-transfer-carts><button type="button" disabled>Submit to Que</button></div>
+        </nav>
+        <div data-transfer-summary><p role="status" aria-live="polite"></p>
+          <label data-po-history-option><input type="checkbox" data-po-history> History</label>
+        </div><div data-transfer-cards></div></section>`;
+}
+
 function bloomscapesTransferVisible(state) {
     const view=state.root.closest('[id^="view-"]');
     return state.root.isConnected && !view?.classList.contains('hidden') && !state.root.closest('[hidden]');
@@ -280,8 +274,11 @@ function paintBloomscapesTransferFace(card,po,target,p) {
     const remaining=p?.remaining ?? po.remaining_on_po;
     const metrics=[['PO REM',remaining],['10-PH ON HAND',target?.current_ptronhand],['ORIGIN AVAIL',p?.available ?? po.origin_on_hand],
         ['TARGET LOC',target?.locationcode],['STATUS',remaining<=0?'Complete':!target?'Needs target':p?.suggested?'Ready':'Review']];
-    card.querySelector('[data-transfer-metrics]').innerHTML=metrics.map(([label,value])=>
-        '<span class="app-card-qty-chip"><small class="app-card-qty-label">'+label+'</small><strong class="app-card-qty-value">'+escapeHtml(String(value ?? '—'))+'</strong></span>').join('');
+    card.querySelector('[data-transfer-metrics]').innerHTML=metrics.map(([label,value])=>{
+        const metric='<small class="app-card-qty-label">'+label+'</small><strong class="app-card-qty-value">'+escapeHtml(String(value ?? '—'))+'</strong>';
+        if (label==='TARGET LOC') return '<button type="button" class="app-card-qty-chip" data-open-transfer-target>'+metric+'</button>';
+        return '<span class="app-card-qty-chip">'+metric+'</span>';
+    }).join('');
 }
 
 function updateBloomscapesTransferCard(entry,reset=false) {
@@ -377,4 +374,27 @@ function scopeBloomscapesTransferTargets(rows,selection) {
         if (targets.length) scoped.push({...po,targets});
     }
     return scoped;
+}
+
+function openBloomscapesTargetSelector(state,event,mountDrawer) {
+    const trigger=event.target.closest('[data-open-transfer-target]');
+    if (!trigger) return;
+    event.preventDefault();
+    const card=trigger.closest('[data-po-id]');
+    const entry=state.cardByNode.get(card);
+    if (!entry || !card.isConnected || state.owner!==bloomscapesTransferOwner()) return;
+    card.open=true;
+    mountDrawer(entry,state);
+    if (entry.select.disabled) entry.card.querySelector('summary').focus();
+    else entry.select.focus();
+}
+
+function restoreBloomscapesTransferCards(state,cards,mountDrawer) {
+    for (const entry of cards) {
+        const draft=state.drafts.get(entry.po.po_id);
+        if (!draft) continue;
+        entry.drawerDraft=draft;
+        entry.card.open=draft.open;
+        if (draft.open) mountDrawer(entry,state);
+    }
 }

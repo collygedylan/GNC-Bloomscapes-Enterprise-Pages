@@ -1,7 +1,7 @@
 
 const borrowedFieldRoute = 'borrowed-work';
 const borrowedFieldDepartments = {'inventory':'156','qc':'161'};
-const borrowedFieldModules = {'sales-inventory':'inventory','qc':'qc','drive':'inventory','av':'qc'};
+const borrowedFieldModules = {'sales-inventory':'inventory','qc':'qc','drive':'inventory'};
 const borrowedFieldLabels = {'inventory':'Inventory Count','qc':'QC Inspection'};
 let borrowedFieldState = null;
 
@@ -118,10 +118,10 @@ function handleBorrowedFieldAssignmentSubmit(event) {
 
 function mountBloomscapesFieldBorrowing(view) {
     const route = borrowedFieldModules[view];
-    if (!route || !nativeAuthSessionActive) return;
+    if (!nativeAuthSessionActive || (!route && view !== 'av')) return;
     const host = document.querySelector('#view-'+view+' .freeze-panel');
     if (!host) return;
-    mountBorrowedFieldTrigger(host,[route]);
+    if (route) mountBorrowedFieldTrigger(host,[route]);
     mountBloomscapesTimeCardLink(host);
 }
 

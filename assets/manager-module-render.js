@@ -1,3 +1,27 @@
+function syncManagersHeaderChrome() {
+    const tab = String(activeHomeTab || 'dashboard').trim().toLowerCase();
+    const driveAroundLayout = tab === MANAGER_EVAL_REPORTS_2_VIEW;
+    const blockClearingLayout = tab === MANAGER_BLOCK_CLEARING_VIEW;
+    const meta = tab === 'dashboard'
+        ? { label: 'Manager Modules', description: 'Managers' }
+        : getManagerModuleMeta(tab);
+    const managersView = document.getElementById('view-managers');
+    const title = document.getElementById('manager-module-title');
+    const input = document.getElementById('managers-search');
+    const clearBtn = document.getElementById('managers-search-clear');
+    const searchContainer = document.getElementById('managers-search-container');
+    if (managersView) managersView.classList.toggle('manager-eval2-drive-shell', driveAroundLayout);
+    if (managersView) managersView.classList.toggle('manager-block-clearing-shell', blockClearingLayout);
+    if (title) title.innerText = meta.label || 'Managers';
+    if (searchContainer) searchContainer.classList.toggle('hidden', tab === MANAGER_ORDERS_VIEW || tab === MANAGER_PRODUCTION_SCHEDULE_VIEW || tab === MANAGER_HR_COMMAND_VIEW || tab === MANAGER_COMPANY_DIRECTORY_VIEW);
+    if (input) {
+        input.placeholder = getManagersSearchPlaceholder();
+        if (document.activeElement !== input && input.value !== managersSearchTerm) input.value = managersSearchTerm;
+    }
+    if (clearBtn) clearBtn.classList.toggle('hidden', !String(managersSearchTerm || '').trim());
+    return false;
+}
+
 function renderManagers() {
     if(typeof syncInventoryExcelBars==='function') syncInventoryExcelBars();
     if (getCurrentVisibleViewId() !== 'managers') return;
@@ -156,7 +180,7 @@ function buildManagerRenderHtml({ access, managerApprovalTabs, managerToolTabs, 
     if (activeHomeTab === MANAGER_TRANSACTIONS_KEYED_VIEW) return renderTransactionsKeyedPanel();
     if (activeHomeTab === MANAGER_ORDERS_VIEW) return renderManagerOrdersPanel();
     if (activeHomeTab === MANAGER_TABLE_MANAGEMENT_VIEW) return renderManagerTableManagementPanel();
-    if (activeHomeTab === MANAGER_ASSIGNED_ITEMS_EXPORT_VIEW) return renderManagerAssignedItemsExportPanel();
+    if (activeHomeTab === MANAGER_ASSIGNED_ITEMS_EXPORT_VIEW) return globalThis.renderManagerAssignedItemsExportPanel();
     if (activeHomeTab === MANAGER_CUSTOMER_REP_MAP_VIEW) return '<div id="manager-customer-rep-map-root" role="region" aria-label="Customer assignment management"></div>';
     if (activeHomeTab === MANAGER_EVAL_REPORTS_VIEW) return renderManagerEvalReportsPanel();
     if (activeHomeTab === MANAGER_EVAL_REPORTS_2_VIEW) return renderManagerEvalReports2Panel();
@@ -204,6 +228,10 @@ function patchManagerRenderedSurface(container, html) {
 }
 
 function mountManagerPrimarySurfaces(container, canViewRuntimeWatchdog) {
+    if ((activeHomeTab==='dashboard' || activeHomeTab===MANAGER_TABLE_MANAGEMENT_VIEW && !managerTableManagementSelection)
+        && currentUser==='dylan_collyge' && getManagersToolAccess().canManageAccessControl) {
+        void warmBloomscapesDirectoryRoster();
+    }
     if (bloomscapesFarmWorkspaceSelection()) {
         mountBloomscapesFarmWorkspace(container.querySelector('#bloomscapes-native-farm-root'),bloomscapesFarmWorkspaceSelection());
         return;

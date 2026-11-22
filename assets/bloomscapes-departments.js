@@ -29,18 +29,7 @@ const BLOOMSCAPES_LEGACY_COMMUNICATION=`                    <div class="freeze-p
                     </div>
                     <div id="alpha-communications-root" class="hidden"></div>
                 `;
-const BLOOMSCAPES_DEPARTMENT_LINKS = {
-    managers:[['studio','Build Work Studio'],['smart-moves','Smart Sales & Move Intelligence'],
-        ['bunch-notes','Bunch Notes'],['can-filling','Can Filling'],['grading','Shift Grading'],
-        ['hauling','Hauling'],['shearing','Shear List'],['replenishment','Intercompany & CPB'],
-        ['lab','Plant Health & Lab Reports'],['vault','My Work & Inquiry PDF Vault'],['sales-vault','Sales Rep Vault']],
-    production:[['studio','Build Work Studio'],['bunch-notes','Bunch Notes'],['can-filling','Can Filling'],
-        ['grading','Shift Grading'],['hauling','Hauling'],['shearing','Shear List'],['vault','My Work & Inquiry PDF Vault']],
-    'hl-order':[['replenishment','PO Management']],
-    'po-management':[['replenishment','PO Management']],
-    sales:[['sales-vault','Sales Rep Vault'],['smart-moves','Smart Sales & Move Intelligence']],
-    qc:[['lab','Plant Health & Lab Reports']], 'disease-pest':[['lab','Plant Health & Lab Review']], communication:[]
-};
+const bloomscapesDepartmentViews = new Set(['production','hl-order','po-management','sales','qc','disease-pest','communication']);
 const bloomscapesDepartmentTabs = new Map();
 const bloomscapesDepartmentFrames = new Map();
 const BLOOMSCAPES_DEPARTMENT_DEFAULTS={production:'bloomscapes-studio','hl-order':'bloomscapes-replenishment','po-management':'bloomscapes-replenishment','disease-pest':'bloomscapes-lab',communication:'bloomscapes-radio'};
@@ -68,39 +57,11 @@ function openBloomscapesDepartmentModule(view,tab) {
 }
 
 function mountBloomscapesDepartmentShortcuts(view) {
-    const links = BLOOMSCAPES_DEPARTMENT_LINKS[view];
-    const root = document.getElementById('view-'+view);
-    if (!links || !root || !nativeAuthSessionActive || !canAccessView(view)) return;
-    if (view==='sales' || view==='production' || view==='hl-order' || view==='po-management' || view==='managers' && activeHomeTab===MANAGER_EVAL_REPORTS_2_VIEW
-        || view==='communication' || view==='disease-pest' || (view==='managers' && activeHomeTab===MANAGER_ASSIGNED_ITEMS_EXPORT_VIEW)
-        || bloomscapesDepartmentTabs.get(bloomscapesDepartmentKey(view))==='bloomscapes-studio') {
-        root.querySelector(':scope > [data-department-shortcuts]')?.remove();
-        return;
-    }
-    let nav = root.querySelector(':scope > [data-department-shortcuts]');
-    if (!nav) {
-        nav = document.createElement('nav');
-        nav.dataset.departmentShortcuts = view;
-        nav.className = 'bloomscapes-department-shortcuts';
-        nav.setAttribute('aria-label',view+' department modules');
-        root.prepend(nav);
-    }
-    if (nav.dataset.owner===getSupabaseReadIdentityScope()) return;
-    nav.replaceChildren(...links.filter(([id])=>id!=='studio')
-        .map(([id,title])=>bloomscapesDepartmentButton(view,id,title)));
-    nav.dataset.owner = getSupabaseReadIdentityScope();
-}
-
-function bloomscapesDepartmentButton(view,id,title) {
-    const button = document.createElement('button');
-    button.type = 'button';button.textContent = title;
-    button.dataset.departmentModule = id;
-    button.addEventListener('click',()=>openBloomscapesDepartmentModule(view,id));
-    return button;
+    document.getElementById('view-'+view)?.querySelector(':scope > [data-department-shortcuts]')?.remove();
 }
 
 function renderBloomscapesDepartmentWorkspace(view) {
-    if (!BLOOMSCAPES_DEPARTMENT_LINKS[view] || view==='managers' || !nativeAuthSessionActive) return false;
+    if (!bloomscapesDepartmentViews.has(view) || !nativeAuthSessionActive) return false;
     const root = document.getElementById('view-'+view);
     if (!root) return false;
     const key = bloomscapesDepartmentKey(view);
@@ -116,7 +77,7 @@ function renderBloomscapesDepartmentWorkspace(view) {
     }
     mounted?.remove();
     for (const child of root.children) {
-        if (child.hidden || child.dataset.departmentShortcuts) continue;
+        if (child.hidden) continue;
         child.dataset.departmentHidden = 'true';child.hidden = true;
     }
     let frame = bloomscapesDepartmentFrames.get(key+':'+tab);
@@ -164,7 +125,6 @@ function renderCommunicationHub() {
     if (nativeAuthSessionActive) {
         if (getCurrentVisibleViewId()==='communication') {
             renderBloomscapesDepartmentWorkspace('communication');
-            mountBloomscapesDepartmentShortcuts('communication');
         }
         return;
     }

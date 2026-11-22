@@ -322,27 +322,17 @@ function mergeActiveItemDetailPhotoFields(row, prefix = '') {
             if (options.ownerOnly && state.viewProps && state.view && state.viewHost?.isConnected) {
                 state.view.update({...state.viewProps,ownerDrafts:{...state.defaultDrafts},pendingCodes:new Set(state.defaultPending||[]),selectedCodes:new Set(managerEvalAssignmentSelection)});
                 clearTimeout(state.ownerPaintTimer);
-                const settle = () => { if(state!==getManagerAssignedColumnState())return;if(state.defaultPending?.size){state.ownerPaintTimer=setTimeout(settle,350);return;}updateManagerAssignedItemsView();scheduleManagersRender(true); };
-                state.ownerPaintTimer=setTimeout(settle,350);
+                state.ownerPaintTimer=setTimeout(()=>{
+                    if (state!==getManagerAssignedColumnState() || state.defaultPending?.size || !state.viewHost?.isConnected) return;
+                    updateManagerAssignedItemsView();
+                    scheduleManagersRender(true);
+                },350);
                 return;
             }
             if (state.view && state.viewHost?.isConnected) state.view.update(getManagerAssignedItemsViewProps());
             const snapshot = getManagerAssignedSelectionSnapshot();
-            const checkbox = document.querySelector('[data-assigned-select-all-visible]');
-            if (checkbox) {
-                checkbox.checked = snapshot.rows.length > 0 && snapshot.selectedRows.length === snapshot.rows.length;
-                checkbox.indeterminate = snapshot.selectedRows.length > 0 && snapshot.selectedRows.length < snapshot.rows.length;
-                const label = checkbox.parentElement;
-                if (label?.lastChild?.nodeType === 3) label.lastChild.textContent = 'Select All Filtered (' + snapshot.rows.length + ')';
-            }
-            const bulk = document.querySelector('[data-manager-assign-selected]');
-            if (bulk) {
-                const count = snapshot.selectedRows.length;
-                bulk.textContent = '✓ Reassign (' + (count || snapshot.rows.length) + ')';
-                bulk.disabled = !snapshot.rows.length || [...snapshot.codes].some(code => state.defaultPending?.has(code));
-            }
-            const all = document.querySelector('[data-manager-assign-filtered]');
-            if (all) { all.textContent = 'Assign All Filtered (' + snapshot.rows.length + ')'; all.disabled = !snapshot.rows.length || [...snapshot.codes].some(code => state.defaultPending?.has(code)); }
+            refreshAssignedItemSelection(snapshot);
+            refreshAssignedItemBulkActions(snapshot,state);
         }
 
         function applyOptimisticItemcodeOwners(codes, assignee) {

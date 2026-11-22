@@ -1,3 +1,28 @@
+const tableDirectoryDetails = {
+    'assigned-items':['Assigned Items','Set default owners for inventory items.'],
+    'user-controls':['User Controls','Manage user profiles, farm access and permissions.'],
+    'ph-job-codes':['10-PH Job Codes','Park Hill job codes and departments.'],
+    'tx-job-codes':['20-TX Job Codes','El Campo job codes and descriptions.'],
+    'user-role-access':['User & Role Access','Review individual permissions and role defaults.'],
+    'company-directory':['Company Directory','Find people and manage their farm access.'],
+    'customer-assignments':['Customer Assignments','Manage customer and consignee rep assignments.'],
+    'action-discrepancy':['Action Discrepancy','Review discrepancies in recorded actions.'],
+    'inquiry-coverage':['Inquiry Coverage','Manage primary and backup inquiry recipients.'],
+    'av-note-users':['AV Note Users','Manage access to availability notes.'],
+    season:['Season','Manage season settings.'],
+    'season-priority':['Season Priority','Review priorities by season.'],
+    'production-schedule':['Production Schedule','Review the production plan.'],
+    'prod-schedule':['Production Schedule','Review the production plan.'],
+    'president-command-center':['President Command Center','Review nursery planning decisions.'],
+    'approved-execution-plan':['Approved Execution Plan','View approved work and planting plans.'],
+    'bunch-notes-simulator':['Bunch Notes Simulator','Review proposed bunch notes and issues.'],
+    'header-control':['Header Control','Map imported column headings to standard fields.'],
+    'water-rating':['Water Rating','Review nursery water requirements.'],
+    'nursery-items':['Items','Review nursery item references.'],
+    'nursery-locations':['Locations','Review nursery blocks and locations.'],
+    'scientific-evidence':['Scientific Evidence Log','Review evidence for nursery water ratings.']
+};
+
 function getManagerTableManagementItems(access = getManagersToolAccess()) {
     return [
         ...(globalThis.GncNurseryModel?.TABLES || []).map(item => ({...item,visible:canViewNurseryCommandTables()})),
@@ -19,7 +44,7 @@ function getManagerTableManagementItems(access = getManagersToolAccess()) {
         { id:'historical-soc-reserves', label:'Historical SOC Reserves', section:'archive', visible:canUseHistoricalRequests() },
         { id:'historical-requests', label:'Historical Requests', section:'archive', visible:canUseHistoricalRequests() },
         { id:'photo-history', label:'Photo History', section:'archive', visible:canOpenPhotoHistory() }
-    ].filter(item => item.visible);
+    ].filter(item => item.visible).map(item => ({...item,label:tableDirectoryDetails[item.id]?.[0] || item.label}));
 }
 
 function managerTableDirectoryItems(items) {
@@ -45,7 +70,6 @@ function renderManagerTableWorkspaceMarkup(content, selected, items, query, esca
             <select data-table-switch aria-label="Switch Table" onchange="return openManagerTableManagement(this.value)">
                 <option value="" selected disabled>Switch Table ▾</option>${options}
             </select>
-            ${selected === 'assigned-items' ? renderAssignmentCsvToolbar() : ''}
         </nav>
         <div class="table-management-workspace" data-table-workspace>${content}</div>
     </section>`;
@@ -65,11 +89,12 @@ function renderManagerTableDirectoryMarkup(directory, query, escape) {
 }
 
 function renderManagerTableChoice(item,search,escape) {
-    const hidden = search && !item.label.toLowerCase().includes(search) ? 'hidden' : '';
-    return `<button type="button" class="manager-module-card" data-manager-table-card="${escape(item.id)}" ${hidden}
+    const description = tableDirectoryDetails[item.id]?.[1] || item.description || '';
+    const hidden = search && !(item.label+' '+description).toLowerCase().includes(search) ? 'hidden' : '';
+    return `<button type="button" class="admin-directory-card" data-manager-table-card="${escape(item.id)}" ${hidden}
         onclick="return openManagerTableManagement(this.dataset.managerTableCard)">
-        <span class="manager-module-icon" aria-hidden="true"><i class="ph-bold ph-table"></i></span>
-        <span class="manager-module-title">${escape(item.label)}</span>
+        <span class="admin-directory-copy"><strong>${escape(item.label)}</strong><small>${escape(description)}</small></span>
+        <span class="admin-directory-chevron" aria-hidden="true">›</span>
     </button>`;
 }
 function indexAssignedPlantGroupSources(sources, index, indexRow) {

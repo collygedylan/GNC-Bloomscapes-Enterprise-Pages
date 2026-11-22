@@ -1,4 +1,5 @@
 function renderViewContent(viewId, forceReset = false, forceRender = false, syncHeader = false) {
+    mountBloomscapesDepartmentShortcuts(viewId);
     refreshModulePickersOnEntry(viewId);
     mountBloomscapesCalendarShell(viewId);
     syncBloomscapesCommLifecycle(viewId);
@@ -29,7 +30,6 @@ function renderViewContent(viewId, forceReset = false, forceRender = false, sync
 
     if (viewId==='docks') mountBloomscapesDockLinks();
     if (viewId==='office') mountBloomscapesOrderDocuments(document.getElementById('view-office'),'office');
-    mountBloomscapesDepartmentShortcuts(viewId);
     mountBloomscapesFieldBorrowing(viewId);
     mountBloomscapesInventoryBrowse(viewId);
     syncGlobalHeaderChrome({reason:syncHeader ? 'view-switch:'+viewId : 'view-content-ready',force:syncHeader});
