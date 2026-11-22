@@ -139,10 +139,12 @@ function canDisplayNavigationView(viewId = '', userOverride = '') {
     if (window.__agdataSessionBoundary === true || hasExplicitLogoutMarker() || hasConfirmedCurrentAccountRevocation()) return false;
     const identity = getNavigationVisibilityIdentity(userOverride);
     if (!identity || !view || ['crop-roll', 'manager-crop-roll'].includes(view)) return false;
+    if (view === 'inventory-office') return canAccessView('moves', userOverride);
     if (['messages','push-to-talk'].includes(view)) return canOpenCommunicationView(view,userOverride);
     if (isBloomscapesDockRoute(view)) return canOpenBloomscapesDocksWorkspace(view,userOverride);
     const row = window.GncUserAccessControl?.state?.userAccess?.find(value => normalizeNavigationVisibilityUsername(value.username) === identity.username);
     const staleProfile = row?.profile_id && row.profile_id !== identity.id;
+    if (!staleProfile && (view === 'sales' || view === 'sales-office') && resolveBloomscapesSalesStudioView(userOverride)) return true;
     if (!staleProfile && canAccessView(view, userOverride)) return true;
     if (hasFullNavigationVisibility(userOverride)) {
         return view === 'home' || view === 'smart-moves' || ROLE_ACCESS_VIEWS.includes(view)
@@ -175,14 +177,6 @@ function navigateDisplayedQuickAccessView(view = '') {
 function getNavigationDisplayChoices() {
     const choices = [...getHomeModuleRegistry().map(module => module.view), 'tasks', 'take-back', 'weather-hold'];
     return [...new Set(choices)].filter(view => canDisplayNavigationView(view));
-}
-
-function getNavigationHomeModuleRegistry(base, smartMoves) {
-    const modules = hasFullNavigationVisibility() || isAuthenticatedExecutiveUser('view_smart_moves') ? [...base, smartMoves] : base;
-    const role = getNavigationVisibilityIdentity()?.role;
-    const dockRole = window.GncUserAccessControl?.normalizeRole?.(String(role || '').toLowerCase() === 'docks' ? 'dock' : role) === 'dock_office';
-    if (!dockRole || hasFullNavigationVisibility()) return modules;
-    return [...modules, { view: 'docks', label: 'Docks', icon: 'ph-truck', action: "switchView('docks')" }];
 }
 
 function canShowFooterViewButton(viewId = '', access = getRoleAccessState()) {

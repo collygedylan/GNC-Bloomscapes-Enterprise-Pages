@@ -37,7 +37,7 @@ function openBloomPickerFlyerFolders() {
         return false;
     }
     toggleCartPanel(false);
-    const view=['sales','sales-office'].find(view=>canAccessView(view));
+    const view=resolveBloomscapesSalesStudioView();
     if (!view) {switchView('tasks');return setTaskTab('flyer');}
     openBloomscapesSalesFlyerStudio(view);
     return false;
@@ -73,7 +73,8 @@ function updateGlobalActionBar() {
     const anyAction = !!(share || visibility.showAssign || visibility.showEvalTask || visibility.showNcr
         || visibility.showRequest || visibility.showMove || visibility.showFlyer || visibility.showTakeBack
         || visibility.showEndCap || visibility.showShear || visibility.showBloomOrder || visibility.showProject);
-    if (!hasItems || !cartPanelOpen || !anyAction) {
+    const canExport = !!getHeaderExcelExportCommand(getCurrentVisibleViewId());
+    if (!cartPanelOpen || (!anyAction && !canExport)) {
         bloomPickerActionsOpen = false;
         bloomShareMenuOpen = false;
     }
@@ -92,16 +93,25 @@ function updateGlobalActionBar() {
         badge.innerText = selectedItems.size > 99 ? '99+' : String(selectedItems.size);
         badge.classList.toggle('hidden', !hasItems);
     }
-    syncBloomPickerActions(visibility, {hasItems, share, anyAction});
+    syncBloomPickerActions(visibility, {hasItems, share, anyAction: canExport || anyAction});
     mountBloomPickerDrawer(document.getElementById('global-action-bar'), hasItems);
     syncBloomShareMenuUi(visibility);
     syncGlobalHeaderChrome({reason: 'selection'});
 }
 
+function toggleBloomPickerActionDropdown() {
+    if (!cartPanelOpen) return false;
+    if (selectedItems.size) return toggleBloomPickerActions();
+    bloomPickerActionsOpen = !bloomPickerActionsOpen;
+    if (!bloomPickerActionsOpen) bloomShareMenuOpen = false;
+    updateGlobalActionBar();
+    return false;
+}
+
 function syncBloomPickerActions(visibility, {hasItems, share, anyAction}) {
     const toggle = document.getElementById('bloom-picker-actions-toggle');
     if (toggle) {
-        const visible = hasItems && cartPanelOpen && anyAction;
+        const visible = cartPanelOpen && anyAction;
         toggle.classList.toggle('hidden', !visible);
         toggle.classList.toggle('flex', visible);
         toggle.setAttribute('aria-expanded', String(bloomPickerActionsOpen));
@@ -114,7 +124,7 @@ function syncBloomPickerActions(visibility, {hasItems, share, anyAction}) {
         'request':'showRequest', 'move':'showMove', 'flyer':'showFlyer', 'take-back':'showTakeBack',
         'endcap':'showEndCap', 'shear':'showShear', 'bloom-order':'showBloomOrder', 'project':'showProject'};
     for (const [id, key] of Object.entries(actions)) {
-        document.getElementById('batch-btn-' + id)?.classList.toggle('hidden', !bloomPickerActionsOpen || !visibility[key]);
+        document.getElementById('batch-btn-' + id)?.classList.toggle('hidden', !bloomPickerActionsOpen || !hasItems || !visibility[key]);
     }
     document.getElementById('bloom-picker-actions-list')?.classList.toggle('hidden', !bloomPickerActionsOpen);
     document.getElementById('batch-share-menu-wrap')?.classList.toggle('hidden', !bloomPickerActionsOpen || !hasItems || !share);

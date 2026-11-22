@@ -28,14 +28,6 @@ function openDisplayOnlyNavigation(viewId, options = {}) {
     return false;
 }
 
-function isNavigationDisplayPromotionCurrent(pending) {
-    const identity = getNavigationVisibilityIdentity();
-    return pendingNavigationDisplay === pending && identity
-        && pending.owner === `${identity.id}:${identity.username}`
-        && pending.sequence === navTransitionSeq && getCurrentVisibleViewId() === pending.viewId
-        && pending.viewId !== 'detail' && canAccessView(pending.viewId);
-}
-
 function promoteNavigationDisplayAfterAccess() {
     const pending = pendingNavigationDisplay;
     if (!pending || !isNavigationDisplayPromotionCurrent(pending)) return false;
@@ -44,22 +36,29 @@ function promoteNavigationDisplayAfterAccess() {
 }
 
 function switchView(viewId, options = {}) {
-    const target = String(nativeAuthSessionActive && currentUser==='dylan_collyge' && (
-        viewId==='field-work-studio' || BLOOMSCAPES_STUDIO_LEGACY_ROUTES[viewId]!==undefined
-        || viewId==='production-workflow' && productionWorkflowActive==='can-filling')
-        ? 'production' : viewId==='chat' && nativeAuthSessionActive ? 'messages' : viewId || 'home').trim();
+    const target = String(BLOOMSCAPES_SHELL_ROUTE_ALIASES[viewId]
+        || (nativeAuthSessionActive && viewId === 'sales-office' && 'sales')
+        || (nativeAuthSessionActive && viewId === 'production' && currentUser !== 'dylan_collyge' && 'drive')
+        || (nativeAuthSessionActive && currentUser==='dylan_collyge' && (
+            viewId==='field-work-studio' || BLOOMSCAPES_STUDIO_LEGACY_ROUTES[viewId]!==undefined
+            || viewId==='production-workflow' && productionWorkflowActive==='can-filling')
+            ? 'production' : viewId==='chat' && nativeAuthSessionActive ? 'messages' : viewId || 'home')).trim();
     if (!canDisplayNavigationView(target)) {
         showToast('Access unavailable', 'You do not have permission to open this view.', true);
         return false;
     }
     if (!canAccessView(target)) return openDisplayOnlyNavigation(target, options);
+    if (typeof closeActiveModuleSubview === 'function') closeActiveModuleSubview();
+    if (viewId === 'office' || viewId === 'inventory-office') return openInventoryOfficeView();
     if (nativeAuthSessionActive && target==='communication') {
         bloomscapesCommState.mode='voice';markViewDirty('communication');
     }
     pendingNavigationDisplay = null;
     syncNavigationDisplayStatus(getViewElementById(target));
     if (options.boot === true && shouldPreserveMountedBootView()) return false;
-    if (target==='production' && canUseBloomscapesWorkStudio()) prepareBloomscapesStudioNavigation(viewId,options);
+    if (target==='production' && canUseBloomscapesWorkStudio()) {
+        prepareBloomscapesStudioNavigation(viewId==='production' && !options.fromHistory ? 'field-work-studio' : viewId, options);
+    }
     if (options.boot !== true && currentUser) getAppBootViewState().userHasNavigated = true;
     const navigationSeq = ++navTransitionSeq;
     if (viewId === 'home' && restoreCameraDetailSession()) return;
@@ -175,6 +174,7 @@ function mountPrimaryNavigation(context) {
     if (targetView) {
         showOnlyPrimaryView(nextViewId);
         if (nextViewId === 'request') mountQueCategoryControl();
+        if (nextViewId === 'drive') mountInventoryExcelFilters('drive');
         updateFooterNavState(nextViewId);
         if (nextViewId === 'docks') mountDocksFilterDisclosure(targetView);
     }
@@ -201,17 +201,6 @@ function mountPrimaryNavigation(context) {
     lastViewSwitchAt = Date.now();
     if (nextViewId !== 'home') ensureNativeBackGuard();
     Object.assign(context, { targetView, nextState });
-}
-
-function mountDocksFilterDisclosure(view) {
-    const controls = view.querySelector('.freeze-panel #docks-filter-controls');
-    if (!controls || controls.parentElement.matches('.docks-filter-disclosure')) return;
-    const disclosure = document.createElement('details');
-    disclosure.className = 'docks-filter-disclosure';
-    const summary = document.createElement('summary');
-    summary.textContent = 'Filters';
-    controls.before(disclosure);
-    disclosure.append(summary, controls);
 }
 
 function reusePrimaryNavigation(context) {

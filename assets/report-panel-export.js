@@ -72,3 +72,57 @@ function exportManagerEvalReport2ToExcel() {
     showToast('Export Ready', `Downloading ${rows.length} ${meta.label} row${rows.length === 1 ? '' : 's'} as Excel.`);
     return false;
 }
+
+function hasCurrentInventoryExportReceipt(view) {
+    if (!canAccessView(view) || !isMasterFullProjectionReady() || hasConfirmedCurrentAccountRevocation()) return false;
+    if (hasCurrentProductionLiveSyncProof()) return true;
+    if (!nativeAuthSessionActive || !hasAuthenticatedOperationalReadIdentity()) return false;
+    const farm = getBloomscapesFarm();
+    if (!getBloomscapesAllowedFarms().includes(farm)) return false;
+    const receipt = productionDisplayMasterReceipt;
+    const permission = String(appAccessSnapshotState.snapshot?.dataPermissionVersion || '');
+    if (receipt?.rows !== fullInventory || receipt.readScope !== getSupabaseReadIdentityScope()
+        || receipt.permission !== permission || getDatasetState('master').rowCompleteness !== 'complete') return false;
+    if (view !== 'av' || activeAVTab === 'open') return true;
+    const snapshot = getBloomscapesWarmFarm(farm);
+    return !!(snapshot?.active && snapshot.reserves === reservesInventory);
+}
+
+function exportCurrentAVToExcel() {
+    if (ensureViewDataForRender('av')) return false;
+    if (!isMasterFullProjectionReady()) {
+        void ensureMasterFullProjection('exporting AV data').then((ready) => { if (ready) exportCurrentAVToExcel(); });
+        return false;
+    }
+    if (!hasCurrentInventoryExportReceipt('av') && !requireCurrentProductionLiveSyncProof('exporting AV data')) return false;
+    const { items, term } = getCurrentAVBaseItems();
+    const exportContext = buildAVExportContext(items, term);
+    updateAVExportButton(exportContext.rows.length);
+    if (!exportContext.rows.length) {
+        showToast('No Rows', 'There are no AV rows to export right now.', true);
+        return false;
+    }
+    const columns = getAVExportColumns();
+    downloadExcelWorkbook(columns, exportContext.rows, exportContext.title, exportContext.searchTerm, exportContext.fileLabel);
+    showToast('Export Ready', `Downloading ${exportContext.rows.length} AV row${exportContext.rows.length === 1 ? '' : 's'} as Excel.`);
+    return false;
+}
+
+function exportCurrentDriveModeToExcel() {
+    if (ensureViewDataForRender('drive')) return false;
+    if (!isMasterFullProjectionReady()) {
+        void ensureMasterFullProjection('exporting Drive Mode data').then((ready) => { if (ready) exportCurrentDriveModeToExcel(); });
+        return false;
+    }
+    if (!hasCurrentInventoryExportReceipt('drive') && !requireCurrentProductionLiveSyncProof('exporting Drive Mode data')) return false;
+    const context = buildDriveCurrentExportContext();
+    if (!context.rows.length) {
+        showToast('No Rows', 'There are no Drive Mode rows to export in this view.', true);
+        return false;
+    }
+    const columns = getDriveReportExportColumns();
+    const title = context.scopeLabel || 'Drive Mode';
+    downloadExcelWorkbook(columns, context.rows, title, getDriveSearchTerm(), getDriveCurrentExportFileLabel(context), buildDriveCurrentExportMetaRows(context), DRIVE_MODE_EXCEL_OPTIONS);
+    showToast('Export Ready', `Downloading ${context.rows.length} Drive Mode row${context.rows.length === 1 ? '' : 's'} as Excel.`);
+    return false;
+}

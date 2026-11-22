@@ -155,7 +155,7 @@ function syncQueCategoryControl(toolbar, counts) {
 
 function mountQueCategoryControl() {
     const toolbar = document.getElementById('request-filter-toolbar');
-    if (!toolbar || toolbar.querySelector('#que-view-select')) return;
+    if (!toolbar || toolbar.querySelector('[data-module-subview-trigger]')) return;
     syncQueCategoryControl(toolbar, getRequestTabQueueCounts());
 }
 
@@ -179,19 +179,12 @@ function syncQueCategoryCounts(counts, allCounts) {
 
 function syncQueCategoryButtons(group, categories) {
     if (!group) return;
-    const options = categories.map(({key,label,count}) =>
-        `<option value="${escapeHtml(key)}"${activeReqTab===key ? ' selected' : ''}>${escapeHtml(label)} (${escapeHtml(formatRequestTabCount(count))})</option>`).join('');
-    const markup = `<label class="bloomscapes-compact-select"><select id="que-view-select" aria-label="Queue" onchange="setReqTab(this.value)"${categories.length<=1 ? ' disabled' : ''}>${options}</select></label>`;
-    const focused = group.contains(document.activeElement);
-    if (syncRequestChromeMarkup(group,markup,requestCategoryToolbarMarkupByNode) && focused) {
-        group.querySelector('select')?.focus({preventScroll:true});
-    }
-    group.hidden = categories.length === 0;
+    const choices = categories.map(({key,label,count}) => [key, label + ' (' + formatRequestTabCount(count) + ')']);
+    const trigger = mountModuleSubviewDropdown(group, { choices, value:activeReqTab, select:setReqTab });
+    trigger.classList.add('request-category-chip');
+    group.hidden = choices.length === 0;
 }
 
 function syncQueActiveCategory(toolbar = document.getElementById('request-filter-toolbar')) {
-    if (!toolbar) return;
-    const select = toolbar.querySelector('#que-view-select');
-    if (select) select.value = activeReqTab;
+    if (toolbar) syncQueCategoryControl(toolbar, getRequestTabQueueCounts());
 }
-

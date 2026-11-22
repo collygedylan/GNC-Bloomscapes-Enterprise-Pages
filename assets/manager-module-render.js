@@ -35,7 +35,9 @@ function renderManagers() {
         return;
     }
     const tabs = resolveManagerRenderTabs();
-    if (!tabs || keepManagerModuleSurface(container)) return;
+    if (!tabs) return;
+    syncManagerModuleSubview(container, tabs);
+    if (keepManagerModuleSurface(container)) return;
     let html = buildManagerRenderHtml(tabs);
     if (usesManagerTableShell()) {
         const table=activeHomeTab===MANAGER_TABLE_MANAGEMENT_VIEW ? managerTableManagementSelection : getManagerTableManagementKey(activeHomeTab);
@@ -48,7 +50,6 @@ function renderManagers() {
     mountManagerPrimarySurfaces(container, tabs.canViewRuntimeWatchdog);
     mountManagerPagedApprovals(container);
     mountManagerAuxiliarySurfaces(container);
-
     restoreManagerRenderedViewport(container);
 }
 

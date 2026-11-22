@@ -41,45 +41,66 @@ function getHeaderExcelExportCommand(view) {
     if (activeHomeTab === MANAGER_EVAL_REPORTS_2_VIEW) return exportManagerEvalReport2ToExcel;
     if (activeHomeTab === MANAGER_EVAL_REPORTS_VIEW) return exportManagerEvalReportToExcel;
     if (activeHomeTab === MANAGER_ASSIGNED_ITEMS_EXPORT_VIEW) return exportManagerAssignedItemsToExcel;
-    if (activeHomeTab === MANAGER_TABLE_MANAGEMENT_VIEW) return exportSelectedManagerTable;
     if (isManagerApprovalTab(activeHomeTab)) return () => exportManagerReportSurface('approval',getManagerModuleMeta(activeHomeTab).label);
     return getManagerTableExcelCommand();
 }
 
-function exportSelectedManagerTable() {
-    return getManagerTableExcelCommand()?.() ?? false;
-}
-
 function syncHeaderExcelExport(view) {
     scheduleAssignedItemsPrewarm();
+    syncBloomscapesLegacySubview(view);
     const button = document.getElementById('global-excel-export');
     if (!button) return;
-    button.dataset.exportView = view || '';
-    button.hidden = !getHeaderExcelExportCommand(view);
+    if (button.dataset.exportView !== view) {
+        button.dataset.exportView = view || '';
+        setExcelExportFeedback('');
+    }
+    const command = getHeaderExcelExportCommand(view);
+    button.hidden = !command;
+    if (command?.source) command.source.dataset.bloomExportSource = '';
     if (view !== 'av') button.removeAttribute('title');
 }
 
 function exportActiveHeaderRows() {
-    const command = getHeaderExcelExportCommand(getCurrentVisibleViewId());
+    const view = getCurrentVisibleViewId();
+    const command = getHeaderExcelExportCommand(view);
     if (!command) {
         showToast('Export to Excel', 'Open a table or report to export.');
         return false;
     }
+    const owner = getSupabaseReadIdentityScope(), navigation = navTransitionSeq;
+    const current = () => getCurrentVisibleViewId() === view && getSupabaseReadIdentityScope() === owner
+        && navTransitionSeq === navigation;
     setExcelExportFeedback('Exporting…', true);
-    requestAnimationFrame(() => setTimeout(() => runActiveExcelExport(command), 0));
+    requestAnimationFrame(() => setTimeout(() => runActiveExcelExport(command, view, current), 0));
     return false;
 }
 
-async function runActiveExcelExport(command) {
+async function runActiveExcelExport(command, view, current) {
     try {
-        await command();
+        if (!current()) return;
+        if (view === 'drive' || view === 'av') {
+            if (!await prepareBloomInventoryExport(view, current)) return;
+        }
+        if (current()) await command();
     } catch (error) {
+        if (!current()) return;
         setExcelExportFeedback('Export failed — retry');
         showToast('Export Failed', String(error?.message || error), true);
     } finally {
         const button = document.getElementById('global-excel-export');
-        if (button) button.disabled = false;
+        if (button && current()) button.disabled = false;
     }
+}
+
+async function prepareBloomInventoryExport(view, current) {
+    if (!isMasterFullProjectionReady()) await ensureMasterFullProjection('exporting ' + view + ' data');
+    if (!current()) return false;
+    if (hasCurrentInventoryExportReceipt(view)) return true;
+    await getProductionLiveSyncCoordinator()?.check('bloom-excel-export');
+    if (!current()) return false;
+    if (hasCurrentInventoryExportReceipt(view)) return true;
+    setExcelExportFeedback('Current data is still syncing. Try export again when it is ready.');
+    return false;
 }
 
 function rememberOperationalExport(view, rows, compare = null) {
@@ -181,7 +202,10 @@ function getAdditionalViewExportCommand(view) {
     const control = Array.from(root?.querySelectorAll('button') || []).find(button =>
         button.id !== 'global-excel-export' && !button.closest('.hidden')
         && /export.*(?:excel|csv)|excel.*export/i.test(button.textContent));
-    return control ? () => control.click() : null;
+    if (!control || control.disabled) return null;
+    const command = () => control.click();
+    command.source = control;
+    return command;
 }
 
 async function exportManagerReportSurface(surface, title) {

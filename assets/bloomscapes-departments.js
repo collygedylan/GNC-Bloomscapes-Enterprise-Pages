@@ -113,10 +113,11 @@ function backBloomscapesDepartmentWorkspace(view) {
 
 function bloomscapesDepartmentTitle(view) {
     if (view==='hl-order' || view==='po-management') return 'PO Management';
-    if (view==='production' && canUseBloomscapesWorkStudio()) return 'Build Work Studio';
+    if (nativeAuthSessionActive && (view==='sales' || view==='sales-office')) return 'Sales & Marketing Studio';
+    if (view==='production' && canUseBloomscapesWorkStudio()) return 'Field Work Studio';
     if (view==='chat') return 'Messages';
     const tab=bloomscapesDepartmentTabs.get(bloomscapesDepartmentKey(view));
-    if (tab==='bloomscapes-studio') return 'Build Work Studio';
+    if (tab==='bloomscapes-studio') return 'Field Work Studio';
     if (tab==='bloomscapes-radio') return 'Push to Talk Walkie';
     return '';
 }

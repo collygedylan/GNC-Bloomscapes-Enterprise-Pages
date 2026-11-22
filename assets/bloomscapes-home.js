@@ -1,4 +1,4 @@
-const BLOOMSCAPES_BASE_HOME = "<button type=\"button\" id=\"home-tile-drive\" data-home-module-view=\"drive\" class=\"home-module-tile role-access hidden\" onclick=\"switchView('drive')\" aria-label=\"Open Drive Mode\"><i class=\"ph ph-car\" aria-hidden=\"true\"></i><span>Drive Mode</span></button>\n                                <button type=\"button\" id=\"home-tile-hl-order\" data-home-module-view=\"hl-order\" class=\"home-module-tile role-access hidden\" onclick=\"switchView('hl-order')\" aria-label=\"Open PO Management\"><i class=\"ph ph-truck\" aria-hidden=\"true\"></i><span>PO Management</span></button>\n                                <button type=\"button\" id=\"home-tile-av\" data-home-module-view=\"av\" class=\"home-module-tile role-access hidden\" onclick=\"switchView('av')\" aria-label=\"Open AV\"><i class=\"ph ph-notebook\" aria-hidden=\"true\"></i><span>AV</span></button>\n                                <button type=\"button\" id=\"home-tile-sales-office\" data-home-module-view=\"sales-office\" class=\"home-module-tile role-access hidden\" onclick=\"switchView('sales-office')\" aria-label=\"Open Sales Office\"><svg class=\"home-module-icon\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"M9 7V4h6v3M3 7h18v14H3zM3 12h18M10 12v3h4v-3\"/></svg><span>Sales Office</span></button>\n                                <button type=\"button\" id=\"home-tile-sales\" data-home-module-view=\"sales\" class=\"home-module-tile role-access hidden\" onclick=\"switchView('sales')\" aria-label=\"Open Sales\"><i class=\"ph ph-handshake\" aria-hidden=\"true\"></i><span>Sales</span></button>\n                                <button type=\"button\" id=\"home-tile-historical-requests\" data-home-module-view=\"historical-requests\" class=\"home-module-tile role-access hidden\" onclick=\"switchView('historical-requests')\" aria-label=\"Open Historical Requests\"><i class=\"ph ph-clock-counter-clockwise\" aria-hidden=\"true\"></i><span>Historical Requests</span></button>\n                                <button type=\"button\" id=\"home-tile-managers\" data-home-module-view=\"managers\" class=\"home-module-tile role-access hidden\" onclick=\"switchView('managers')\" aria-label=\"Open Managers\"><i class=\"ph ph-users-three\" aria-hidden=\"true\"></i><span>Managers</span></button>\n                                <button type=\"button\" id=\"home-tile-qc\" data-home-module-view=\"qc\" class=\"home-module-tile role-access hidden\" onclick=\"switchView('qc')\" aria-label=\"Open QC\"><i class=\"ph ph-shield-check\" aria-hidden=\"true\"></i><span>QC</span></button>\n                                <button type=\"button\" id=\"home-tile-office\" data-home-module-view=\"office\" class=\"home-module-tile role-access hidden\" onclick=\"switchView('office')\" aria-label=\"Open Office\"><i class=\"ph ph-buildings\" aria-hidden=\"true\"></i><span>Office</span></button>\n                                <button type=\"button\" id=\"home-tile-sales-inventory\" data-home-module-view=\"sales-inventory\" class=\"home-module-tile role-access hidden\" onclick=\"openInventoryHubView()\" aria-label=\"Open Inventory\"><i class=\"ph ph-storefront\" aria-hidden=\"true\"></i><span>Inventory</span></button>\n                                <button type=\"button\" id=\"home-tile-production\" data-home-module-view=\"production\" class=\"home-module-tile role-access hidden\" onclick=\"switchView('production')\" aria-label=\"Open Production\"><i class=\"ph ph-plant\" aria-hidden=\"true\"></i><span>Production</span></button>";
+const BLOOMSCAPES_BASE_HOME = "<button type=\"button\" id=\"home-tile-drive\" data-home-module-view=\"drive\" class=\"home-module-tile role-access hidden\" onclick=\"switchView('drive')\" aria-label=\"Open Drive Mode\"><i class=\"ph ph-car\" aria-hidden=\"true\"></i><span>Drive Mode</span></button>\n                                <button type=\"button\" id=\"home-tile-hl-order\" data-home-module-view=\"hl-order\" class=\"home-module-tile role-access hidden\" onclick=\"switchView('hl-order')\" aria-label=\"Open PO Management\"><i class=\"ph ph-truck\" aria-hidden=\"true\"></i><span>PO Management</span></button>\n                                <button type=\"button\" id=\"home-tile-av\" data-home-module-view=\"av\" class=\"home-module-tile role-access hidden\" onclick=\"switchView('av')\" aria-label=\"Open AV\"><i class=\"ph ph-notebook\" aria-hidden=\"true\"></i><span>AV</span></button>\n                                <button type=\"button\" id=\"home-tile-sales\" data-home-module-view=\"sales\" class=\"home-module-tile role-access hidden\" onclick=\"switchView('sales')\" aria-label=\"Open Sales &amp; Marketing Studio\"><i class=\"ph ph-handshake\" aria-hidden=\"true\"></i><span>Sales &amp; Marketing Studio</span></button>\n                                <button type=\"button\" id=\"home-tile-historical-requests\" data-home-module-view=\"historical-requests\" class=\"home-module-tile role-access hidden\" onclick=\"switchView('historical-requests')\" aria-label=\"Open Historical Requests\"><i class=\"ph ph-clock-counter-clockwise\" aria-hidden=\"true\"></i><span>Historical Requests</span></button>\n                                <button type=\"button\" id=\"home-tile-managers\" data-home-module-view=\"managers\" class=\"home-module-tile role-access hidden\" onclick=\"switchView('managers')\" aria-label=\"Open Managers\"><i class=\"ph ph-users-three\" aria-hidden=\"true\"></i><span>Managers</span></button>";
 
 function mountBloomscapesHomeModules(opening = false) {
     for (const id of ['header-version','app-release-version']) {
@@ -23,7 +23,7 @@ function mountBloomscapesHomeModules(opening = false) {
     if (drawerStudio) drawerStudio.hidden=studio.hidden;
     grid.querySelector('#home-tile-bloom')?.remove();
     mountBloomscapesCommunicationTiles(grid);
-    const order=['drive','hl-order','av','sales-office','sales','historical-requests','managers','qc','office','sales-inventory','production','studio','smart-moves','messages','walkie'];
+    const order=['drive','hl-order','av','sales','historical-requests','managers','inventory-office','studio','smart-moves','messages','walkie'];
     let previous = null;
     for (const id of order) {
         const tile = grid.querySelector('#home-tile-'+id);
@@ -63,62 +63,6 @@ function syncBloomscapesHomeBadges() {
     const menu=queryBloomscapesStaticBody('side-drawer','[data-menu-unread]');
     if (menu) {menu.hidden=!counts.messages;menu.textContent=String(counts.messages);}
     updateFooterChatBadge();
-}
-
-function mountBloomscapesFarmSelector() {
-    void ensureBloomscapesFarmAccess().then(() => {
-        syncBloomscapesFarmSelector();
-        mountDivisionWeather();
-        void resumeRequestPhotoGalleryDeepLink();
-    }).catch(error=>
-        globalThis.reportHandledRuntimeIssue?.('farm_access',error.code || 'FARM_ACCESS_UNAVAILABLE'));
-    const mounted = document.getElementById('bloomscapes-farm-selector');
-    if (mounted) { mounted.value = getBloomscapesFarm(); return; }
-    const header = document.getElementById('global-header-search-row');
-    if (!header) return;
-    const label = document.createElement('label');
-    label.className = 'bloomscapes-farm-selector';
-    const select = label.appendChild(document.createElement('select'));
-    select.id = 'bloomscapes-farm-selector';
-    select.setAttribute('aria-label','Farm');
-    const choices = getBloomscapesAllowedFarms().map(farm=>[farm,farm]);
-    for (const [farm,title] of choices) {
-        const option = select.appendChild(document.createElement('option'));
-        option.value = farm;
-        option.textContent = title;
-    }
-    select.value = getBloomscapesFarm();
-    select.addEventListener('change',()=>changeBloomscapesFarmSelection(select));
-    header.appendChild(label);
-    select.disabled = choices.length === 1;
-}
-
-
-async function changeBloomscapesFarmSelection(select) {
-    if (select.disabled) return;
-    const previous = getBloomscapesFarm();
-    const next = select.value;
-    select.value = previous;
-    if (next===previous || getBloomscapesAllowedFarms().length===1) return;
-    select.disabled = true;
-    try {
-        select.value = next;
-        select.value = await selectBloomscapesFarm(next);
-        refreshBloomscapesFarmPanel();
-        mountDivisionWeather();
-    } catch (error) {
-        showToast('Farm selection',error.message,true);
-    } finally {
-        select.value = getBloomscapesFarm();
-        select.disabled = getBloomscapesAllowedFarms().length <= 1;
-    }
-}
-
-function refreshBloomscapesFarmPanel() {
-    const container = document.getElementById('managers-content');
-    const panel = container?.querySelector('[data-bloomscapes-workflow]');
-    if (!panel || document.getElementById('view-managers')?.classList.contains('hidden')) return;
-    panel.dispatchEvent(new Event('bloomscapes-farm-change'));
 }
 
 function openBloomscapesHomeModule(tab) {

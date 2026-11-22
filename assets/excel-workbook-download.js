@@ -8,10 +8,12 @@ function buildFilteredWorkbookFile(columns, rows, title, searchTerm, fileLabel, 
 function setExcelExportFeedback(message, pending = false) {
     const button = document.getElementById('global-excel-export');
     if (!button) return;
-    const label = button.querySelector('span');
-    if (label) label.textContent = message;
+    const status = document.getElementById('bloom-export-feedback');
+    if (status) {
+        status.hidden = !message;
+        status.textContent = message;
+    }
     button.disabled = pending;
-    button.setAttribute('aria-live', 'polite');
 }
 
 function downloadExcelWorkbook(columns, rows, title, searchTerm = '', fileLabel = 'export', metaRows = null, options = {}) {

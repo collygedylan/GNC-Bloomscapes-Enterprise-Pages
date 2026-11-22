@@ -1,4 +1,5 @@
 function goBackUniversal() {
+    if (typeof closeActiveModuleSubview === 'function' && closeActiveModuleSubview()) return false;
     const modalBack=getVisibleSecondaryBack(true);
     if (modalBack) { modalBack.click(); syncGlobalModalBack(); return false; }
     if (getManagerAssignedColumnState().editor) return closeManagerAssignedColumnFilter();

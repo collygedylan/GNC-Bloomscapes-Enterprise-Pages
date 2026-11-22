@@ -305,3 +305,32 @@ html body.ops-precision-pilot #view-detail button[aria-label="Delete photo"] {
 html body.ops-precision-pilot #view-detail button[aria-label="Delete photo"] > span {
   display: none;
 }
+
+html body #app-wrapper :is(#view-drive, #view-av, #view-docks, #view-request, #view-moves, #view-reports) > .freeze-panel,
+html body #app-wrapper [data-module-subview-rail]:not([hidden]) {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 30 !important;
+  background: #0b2417 !important;
+}
+
+[data-module-subview-rail]:not([hidden]) { padding: 3px 0; }
+html body #app-wrapper #view-moves:has(#moves-office-tab-strip:not(.hidden)) #moves-tab-strip { display: none; }
+
+html body #app-wrapper :is([data-studio-excel], [data-sales-content] > input[type="search"], .historical-archive__search) {
+  position: sticky;
+  top: 42px;
+  z-index: 30;
+  background: #0b2417;
+}
+
+html body #app-wrapper #request-filter-toolbar .request-category-options:has([data-module-subview]) {
+  overflow: visible !important;
+}
+
+html body #app-wrapper #view-request #request-filter-toolbar .request-category-chip[data-module-subview-trigger] {
+  max-width: 100% !important;
+  min-height: 36px !important;
+  width: max-content;
+  white-space: nowrap;
+}

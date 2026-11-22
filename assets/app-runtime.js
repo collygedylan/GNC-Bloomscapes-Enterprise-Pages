@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.41';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.42';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -23298,7 +23298,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.41';
+        const APP_VERSION = '3.1.42';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -25198,15 +25198,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
                 backgroundAdapters.push(createAdapter());
             }
             return backgroundAdapters;
-        }
-
-        function partitionSalesOfficeLiveAdapters(adapters = [], view = '', surfaces = []) {
-            const source = Array.isArray(adapters) ? adapters : [];
-            const hasDialog = (Array.isArray(surfaces) ? surfaces : []).some(surface => String(surface || '').startsWith('dialog:'));
-            if (view !== 'sales-office' || hasDialog) return { foreground: source, background: [] };
-            const foreground = source.filter(adapter => adapter?.id === 'core:salesOffice');
-            if (!foreground.length) return { foreground: source, background: [] };
-            return { foreground, background: source.filter(adapter => adapter?.id !== 'core:salesOffice') };
         }
 
         /* @runtime-fragment assets/bloomscapes-live-context.js */
@@ -53456,6 +53447,7 @@ function toggleDriveQuickRequestItem(domId) {
             if (isBloomscapesDockRoute(targetView)) return canOpenBloomscapesDocksWorkspace(targetView,userOverride);
             if (!targetView || targetView === 'home') return true;
             if (targetView === 'crop-roll' || targetView === 'manager-crop-roll') return false;
+            if (targetView === 'sales' && nativeAuthSessionActive && canAccessView('sales-office', userOverride)) return true;
             if (!isFullAppAdministrator(userOverride) && !hasExplicitViewPermission(targetView,userOverride)) return false;
             if (targetView === 'smart-moves') return isAuthenticatedExecutiveUser('view_smart_moves', userOverride);
             if (targetView === 'request-sales-impact') {
@@ -71059,7 +71051,9 @@ function toggleDriveQuickRequestItem(domId) {
             });
         }
 
-        /* @runtime-fragment assets/navigation-routing.js */ /* @runtime-fragment assets/navigation-routing-promotion.js */
+        /* @runtime-fragment assets/navigation-routing.js */ /* @runtime-fragment assets/navigation-routing-home.js */
+        /* @runtime-fragment assets/module-subview-dropdown.js */
+        /* @runtime-fragment assets/navigation-routing-promotion.js */
         function syncGlobalModalBack() {
             updateGlobalBackButton();
         }
@@ -77819,25 +77813,6 @@ function toggleDriveQuickRequestItem(domId) {
             return downloadExcelWorkbook(columns, rows, title, '', 'table-management', null, { filenameBase: title, exactColumns: true });
         };
 
-        function exportCurrentAVToExcel() {
-            if (ensureViewDataForRender('av')) return false;
-            if (!isMasterFullProjectionReady()) {
-                void ensureMasterFullProjection('exporting AV data').then((ready) => { if (ready) exportCurrentAVToExcel(); });
-                return false;
-            }
-            if (!requireCurrentProductionLiveSyncProof('exporting AV data')) return false;
-            const { items, term } = getCurrentAVBaseItems();
-            const exportContext = buildAVExportContext(items, term);
-            updateAVExportButton(exportContext.rows.length);
-            if (!exportContext.rows.length) {
-                showToast('No Rows', 'There are no AV rows to export right now.', true);
-                return false;
-            }
-            const columns = getAVExportColumns();
-            downloadExcelWorkbook(columns, exportContext.rows, exportContext.title, exportContext.searchTerm, exportContext.fileLabel);
-            showToast('Export Ready', `Downloading ${exportContext.rows.length} AV row${exportContext.rows.length === 1 ? '' : 's'} as Excel.`);
-            return false;
-        }
         const chunkRenderTokensByKey = Object.create(null);
         const DEFAULT_RENDER_SIGNATURE_FIELDS = ['UNIQUE_ID','DOM_ID','COMMONNAME','CONTSIZE','LOCATIONCODE','LOTCODE','ITEMCODE','PRIORITY','PTRONHAND','ptronhand','PTRAVAILABLE','S_LTS','LOCATIONNOTE','LOCATIONNOTEDATE','SEASON','AV_NOTE','HOLDSTOPCODE','HOLDSTOPREASON','HOLDSTOPBEGINDATE','HOLD_RELEASE_APPROVED_AT','EVAL_TASK_TYPE','EVAL_TASK_STATUS','EVAL_TASK_INSTRUCTIONS','EVAL_TASK_ASSIGNED_AT','EVAL_TASK_COMPLETED_AT','EVAL_TASK_RECOUNT_QTY','EVAL_TASK_MOVED_UP_QTY','EVAL_TASK_HOLD_ACTION','EVAL_TASK_HOLD_CODE','EVAL_TASK_HOLD_REASON','EVAL_TASK_RESULT_NOTE','LISTPRICE','HOT_PRICE','HOTPRICE','REQ_STATUS','REQ_QTY','REQ_MATCH','REQ_SPEC','REQ_CALIPER','REQ_DESIRED_SPEC','REQ_DESIRED_CALIPER','DESIRED_SPEC','DESIRED_CALIPER','REQ_PICK','REQUEST_NOTE','request_note','REQUEST_NOTES','request_notes','REQ_NOTE','req_note','REQ_ROW_NOTE','req_row_note','ROW_NOTE','row_note','ROWNOTE','rownote','REQUEST_ROW_NOTE','request_row_note','REQUEST_MESSAGE','request_message','NOTE','note','REQ_COMMENTS','NCR_APPROVAL_MESSAGE','ncr_approval_message','ORDER_STATUS','ORDER_QTY','ORDER_RESERVE','SALES_NOTE','sales_note','PIC_NOTE','pic_note','MOVE_BATCH_ID','MOVE_APPROVAL_STAGE','MOVE_STATUS','MOVE_GROUP_KEY','MOVE_FROM_LOCATIONCODE','MOVE_TO_LOCATIONCODE','MOVE_PLANNED_QTY','MOVE_ACTUAL_QTY','MOVE_TA_QTY','MOVE_RECOUNT_REQUIRED','MOVE_RECOUNT_LOCATIONCODE','MOVE_DESTINATION_NEEDS_ROW','MOVE_DYLAN_APPROVED_AT','MOVE_JD_APPROVED_AT','MOVE_COMPLETED_AT','MOVE_COMPLETED_BY','DOCK_NUM','STOPNUMBER','CUSTOMERNAME','SALESREPNAME','FOLDERNAME','COUNT','LABEL','NAME','LOCATIONBUCKET','BLOCKALPHA','STATUS','LINECOUNT','TOTALQTY','ROW_PHOTO_LINK','REQ_PHOTO_LINK','DOCK_PHOTO_LINK','FLYER_PHOTO_LINK','DOCK_NOTE','DOCK_ISSUE_NOTE','DOCK_ISSUE_STATE','DOCK_ISSUE_SOURCE_UID','DOCK_ISSUE_SOURCE_MATCH_KEY','issueSourceUniqueId','issueState','issueNote','sourceQty','remainingQty','sourceMatchKey','currentSourceUniqueId'];
 
@@ -122844,24 +122819,6 @@ ${folderNote ? `Folder Note: ${folderNote}
             return `drive-mode-${tab}${scope ? `-${scope}` : ''}`;
         }
 
-        function exportCurrentDriveModeToExcel() {
-            if (ensureViewDataForRender('drive')) return false;
-            if (!isMasterFullProjectionReady()) {
-                void ensureMasterFullProjection('exporting Drive Mode data').then((ready) => { if (ready) exportCurrentDriveModeToExcel(); });
-                return false;
-            }
-            if (!requireCurrentProductionLiveSyncProof('exporting Drive Mode data')) return false;
-            const context = buildDriveCurrentExportContext();
-            if (!context.rows.length) {
-                showToast('No Rows', 'There are no Drive Mode rows to export in this view.', true);
-                return false;
-            }
-            const columns = getDriveReportExportColumns();
-            const title = context.scopeLabel || 'Drive Mode';
-            downloadExcelWorkbook(columns, context.rows, title, getDriveSearchTerm(), getDriveCurrentExportFileLabel(context), buildDriveCurrentExportMetaRows(context), DRIVE_MODE_EXCEL_OPTIONS);
-            showToast('Export Ready', `Downloading ${context.rows.length} Drive Mode row${context.rows.length === 1 ? '' : 's'} as Excel.`);
-            return false;
-        }
 
         function exportCurrentDriveReportToExcel() {
             if (ensureViewDataForRender('drive')) return false;

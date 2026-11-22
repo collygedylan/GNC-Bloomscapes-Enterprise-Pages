@@ -189,3 +189,83 @@ button.card-eval-owner[data-owner-item] { pointer-events: auto; cursor: pointer;
 .nursery-report-tabs,.nursery-report-blocks{display:flex;flex-wrap:wrap;gap:6px;padding-block:6px;}
 .inventory-reports .nursery-report-tabs button[aria-pressed=true]{background:#17452c;color:#e8fff0;border-color:#63df94;}
 .nursery-report-blocks button{border:1px solid var(--bloom-border);border-radius:10px;background:var(--bloom-pill);color:var(--bloom-ink);padding:8px 14px;}
+
+[data-module-subview-source], [data-bloom-export-source] {
+  display: none !important;
+}
+
+[data-module-subview] { min-width: 0; }
+[data-module-subview-trigger], [data-module-subview-options] > button {
+  box-sizing: border-box;
+  min-height: 36px;
+  max-width: 100%;
+  padding: 6px 12px;
+  border: 1px solid #407b5c;
+  border-radius: 8px;
+  background: #103220;
+  color: #ecfdf3;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  touch-action: manipulation;
+  cursor: pointer;
+}
+
+#app-wrapper [data-module-subview-options] {
+  position: fixed;
+  inset: auto;
+  z-index: 31;
+  max-height: min(50vh, 330px);
+  overflow: auto;
+  margin: 0;
+  padding: 5px;
+  border: 1px solid #407b5c;
+  border-radius: 10px;
+  background: #0b2417 !important;
+  color: #ecfdf3;
+  box-shadow: 0 8px 24px #0007;
+}
+
+[data-module-subview-options] > button { display: block; width: 100%; margin-bottom: 3px; }
+[data-module-subview-options] > button:last-child { margin-bottom: 0; }
+[data-module-subview-options] > button[aria-current="true"] { background: #215738; }
+[data-module-subview] button:focus-visible { outline: 2px solid #93e9ba; outline-offset: -3px; }
+[data-module-subview-trigger]:disabled { cursor: default; opacity: .6; }
+
+#global-action-bar #bloom-picker-actions-toggle:not(.hidden),
+#global-action-bar #bloom-picker-actions-list:not(.hidden) {
+  background: #0b2417;
+  border: 1px solid #407b5c;
+  color: #ecfdf3;
+  border-radius: 10px;
+  touch-action: manipulation;
+}
+
+#global-action-bar #bloom-picker-actions-list:not(.hidden) {
+  display: grid;
+  gap: 4px;
+  max-height: min(42dvh, 360px);
+  overflow: auto;
+  padding: 6px;
+}
+
+#bloom-picker-actions-list button:not(.hidden, [hidden]) {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 38px;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid #407b5c;
+  border-radius: 8px;
+  background: #103220;
+  color: #ecfdf3;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+  touch-action: manipulation;
+}
+
+#bloom-picker-actions-list button > i { margin: 0; }
+#bloom-picker-actions-list button:focus-visible { outline: 2px solid #93e9ba; outline-offset: -3px; }
+#bloom-export-feedback { padding-inline: 10px; font-size: .85rem; }

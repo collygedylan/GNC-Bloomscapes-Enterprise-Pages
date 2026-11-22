@@ -11,3 +11,11 @@ function applyNavigationDisplayPromotion(pending) {
     scheduleViewActivationWork(pending.viewId);
     schedulePostRenderMainAreaScrollRestore(pending.viewId, 'navigation-access-ready', scrollTop);
 }
+
+function isNavigationDisplayPromotionCurrent(pending) {
+    const identity = getNavigationVisibilityIdentity();
+    return pendingNavigationDisplay === pending && identity
+        && pending.owner === `${identity.id}:${identity.username}`
+        && pending.sequence === navTransitionSeq && getCurrentVisibleViewId() === pending.viewId
+        && pending.viewId !== 'detail' && canAccessView(pending.viewId);
+}
