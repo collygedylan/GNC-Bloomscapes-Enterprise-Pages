@@ -56,9 +56,18 @@ function normalizeDetailEvidenceText(value = '') {
 }
 
 function closeCustomKeyboardForNativeInput(event) {
-    const input = event.target?.closest?.('input, textarea');
-    if (!input || !/(?:av-note|pick|comments)/i.test(input.id || '')) return;
-    if (detailMeasurementKeyboardTarget) closeDetailMeasurementKeyboard(true,{blur:true});
+    const target = event.target;
+    if (!target?.closest?.('#view-detail')) return;
+    const input = target.closest('input, textarea');
+    const nativeText = input && isRequestDetailNativeTypingInput(input);
+    const command = event.type === 'pointerdown'
+        && target.closest('button, a, label, select, [role="button"]');
+    if (detailMeasurementKeyboardTarget && (nativeText || command)) {
+        if (!command?.contains(detailMeasurementKeyboardTarget)) {
+            closeDetailMeasurementKeyboard(false,{blur:true});
+        }
+    }
+    if (!nativeText || input.disabled || !canEditRowDetails(extractDetailPrefixFromInputId(input.id))) return;
     input.readOnly = false;
     input.inputMode = 'text';
 }
@@ -89,4 +98,3 @@ function getDockSuspendDcRequestFormValues(item = activeItem) {
                 comments: valueOf('req-comments')
             };
         }
-

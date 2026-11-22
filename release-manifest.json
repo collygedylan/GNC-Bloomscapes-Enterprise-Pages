@@ -1,7 +1,7 @@
 {
   "schemaVersion": "gnc-release-artifact-v1",
-  "commit": "6e65f6a5fd1c7444829189931e86ffc0ba5aad66",
-  "release": "AgData v3.1.39",
+  "commit": "bae8e91ca2b10cad3dc8eed55027e411eace63e6",
+  "release": "AgData v3.1.40",
   "files": [
     {
       "path": ".nojekyll",
@@ -236,7 +236,7 @@
     {
       "path": "assets/app-runtime.js",
       "bytes": 9347280,
-      "sha256": "c81f7059acab3aef1b191c146c6236d54222e875cbd0904811ced7d3f59ab64e"
+      "sha256": "da4f813f7ab2667a8e656006bcf332f5e6f93b3fda546049bc6ecc4d0985c1cd"
     },
     {
       "path": "assets/app-shell-prepaint.css",
@@ -700,13 +700,13 @@
     },
     {
       "path": "assets/bloomscapes-farm-snapshot.js",
-      "bytes": 4779,
-      "sha256": "6d7e53e495267ce230cb56a0e468b84ee621436f0f28421a67e8a51e9253cdf8"
+      "bytes": 4756,
+      "sha256": "6a8240c55c15bb64c7e2cc9c9f63f5e68fa2b417f425fec6a793853c3e69f56b"
     },
     {
       "path": "assets/bloomscapes-farm-state.js",
-      "bytes": 11324,
-      "sha256": "d81f0c5dae5932e70a2309fb81bbb07616ecce9f2e5e167796ab8b30fff7578a"
+      "bytes": 11511,
+      "sha256": "8ac1b707ab6f466f4c6f976c09ff04146bc45c285c10b3ccd875589a5643a765"
     },
     {
       "path": "assets/bloomscapes-field-controls.js",
@@ -1320,8 +1320,8 @@
     },
     {
       "path": "assets/detail-av-note-picker.js",
-      "bytes": 8465,
-      "sha256": "3f709ae5206a8c06cce57adad1b0ce3c6de2bfe33e133b4c845456538e5c2c25"
+      "bytes": 8833,
+      "sha256": "82cfb0df9243f9d3e6913ce56e4bb08f9718a6ca30f6a44f7162d6a7dba7172f"
     },
     {
       "path": "assets/detail-completion-summary.js",
@@ -1330,13 +1330,13 @@
     },
     {
       "path": "assets/detail-field-inputs.js",
-      "bytes": 3899,
-      "sha256": "c2d30d9fbe84e069ed0976f16b967472b5b0ab6dfde89015c10be689f293487e"
+      "bytes": 4326,
+      "sha256": "765f7192fd1070e33cbb99664881303fda2c6b65c9d8f1e627ea805c53030f80"
     },
     {
       "path": "assets/detail-field-walkthrough.js",
-      "bytes": 6423,
-      "sha256": "68e5a2c07c472fe13d6efafe8e162285ef2e08d82effe183eea44a104fa36365"
+      "bytes": 7536,
+      "sha256": "2bd1c5c373078a6c3a9793b8a05e342475a1cac86cfa42c7f5f9e1607e4b8468"
     },
     {
       "path": "assets/detail-item-share.js",
@@ -1345,8 +1345,8 @@
     },
     {
       "path": "assets/detail-keypad-insertion.js",
-      "bytes": 4594,
-      "sha256": "fc81794c82c274e61945a3d1a7495a0883f553ad3d777ffdc9c62ca59cfaef32"
+      "bytes": 4756,
+      "sha256": "428ddc01490304eee281a575280c453022b8f15380d047d7dcd490e1f74cec5a"
     },
     {
       "path": "assets/detail-photo-attachments.js",
@@ -1745,8 +1745,8 @@
     },
     {
       "path": "assets/live-app-runtime-v2026082010.min.js",
-      "bytes": 9649382,
-      "sha256": "45128bf6e3e2c796c23181ac74be524e7290894c07a1a6be3c16bd7eac11409b"
+      "bytes": 9652660,
+      "sha256": "31b1bb2c4e68a9beafef3f2ab3e244fd5b3e37549659dbe7f831290c4ea580fc"
     },
     {
       "path": "assets/live-app-styles-authority-v2026090503.css",
@@ -1966,7 +1966,7 @@
     {
       "path": "assets/ops-precision-pilot.js",
       "bytes": 49542,
-      "sha256": "4d9c04714e1fd86dd1f526b550ee74d0ee342cb0da05308535fb6d3f10a643fb"
+      "sha256": "09af31c9ac8be895f67fb2d5343392f438bbe7a6c381c3f97860fe8b11efed0f"
     },
     {
       "path": "assets/photo-bitmap-decoder.js",
@@ -2005,8 +2005,8 @@
     },
     {
       "path": "assets/photo-workflow-controls.css",
-      "bytes": 3083,
-      "sha256": "cef3ffd32968e9915ee92687ca86252f2cc7adb5b2540cd211072866ff1f9a53"
+      "bytes": 4506,
+      "sha256": "cd3c55093d0e30f507bdf142cc3b52bf756ef9813b8d6e37fc4ce2e1d112dc61"
     },
     {
       "path": "assets/photo-workflow-controls.js",
@@ -3205,18 +3205,18 @@
     },
     {
       "path": "assets/request-photo-gallery-deep-link.js",
-      "bytes": 8031,
-      "sha256": "f69621bc16557b37f8005e6719ce6cff4070a870679423ece23790425bff883e"
+      "bytes": 8262,
+      "sha256": "4fa443b8da76b689e26af306a3abddc28391de4ae2405d5e9876ba1657e05ba0"
     },
     {
       "path": "assets/request-photo-gallery-modal.js",
-      "bytes": 9111,
-      "sha256": "60ac4804cb8197155c4139cd42459ff6531ccf79f486649591a00384c7ca5267"
+      "bytes": 9131,
+      "sha256": "2615f2d4cd19c4f55b9f979ff65d7e7bbb798f2fc13bcd5615a470b6359806a2"
     },
     {
       "path": "assets/request-photo-gallery-read.js",
-      "bytes": 3811,
-      "sha256": "98b5fcf6e3067b0fa60080c27a7aa7b731ef25a53c250a4978c6279554d2169d"
+      "bytes": 5332,
+      "sha256": "8d29327e9f8e79db295b2752892b192df2152f797e40fe5d848c9a9c6c991bb0"
     },
     {
       "path": "assets/request-prompt-dialogs.js",
@@ -3521,17 +3521,17 @@
     {
       "path": "components/common/auraVoiceWidget.js",
       "bytes": 89161,
-      "sha256": "198874d2cccc815fd6d8f557820c81008bd774181759490cfe0867f0e1c6ef7f"
+      "sha256": "344ec81f4ce67d597d35fe86dcd76c6f1d84baabaf6fc16bd52422e092298cf2"
     },
     {
       "path": "deployment-fingerprint.json",
       "bytes": 187,
-      "sha256": "dc608d3c90f36b79b563610a496680d96c2daa0baa17b0dd7f969a9ab7de1b63"
+      "sha256": "1c23dc3bc4d496ffece94e2b6656a2fe8f928827fe1efc417ccc3c2bd2db768e"
     },
     {
       "path": "deployment.json",
       "bytes": 187,
-      "sha256": "dc608d3c90f36b79b563610a496680d96c2daa0baa17b0dd7f969a9ab7de1b63"
+      "sha256": "1c23dc3bc4d496ffece94e2b6656a2fe8f928827fe1efc417ccc3c2bd2db768e"
     },
     {
       "path": "deployments/00605449467180cae09703db28b9c9aeb53f25a8.json",
@@ -3760,8 +3760,8 @@
     },
     {
       "path": "deployments/6e65f6a5fd1c7444829189931e86ffc0ba5aad66.json",
-      "bytes": 187,
-      "sha256": "dc608d3c90f36b79b563610a496680d96c2daa0baa17b0dd7f969a9ab7de1b63"
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
       "path": "deployments/6f04e6c17fb64b06a5a8512b6c57176a35e1c290.json",
@@ -3934,6 +3934,11 @@
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
+      "path": "deployments/bae8e91ca2b10cad3dc8eed55027e411eace63e6.json",
+      "bytes": 187,
+      "sha256": "1c23dc3bc4d496ffece94e2b6656a2fe8f928827fe1efc417ccc3c2bd2db768e"
+    },
+    {
       "path": "deployments/bb82a6a1d8397e06ad3c0c75fea565af9212e511.json",
       "bytes": 0,
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
@@ -4021,12 +4026,12 @@
     {
       "path": "index.html",
       "bytes": 343279,
-      "sha256": "f745abfe0e89b5d51e9f74f39630190b90a512ddd097145fea83c391893fd80a"
+      "sha256": "2c5f52e20d08e0d70f26372536642821a69151a702d20e6d54a3b91a70e61315"
     },
     {
       "path": "manifest.json",
       "bytes": 764,
-      "sha256": "c442b670cede9efdc7c08edd1f1b2859de766ed2b93949a7a10c3d68e3a9b9b5"
+      "sha256": "3573b152ff9ff9b22c23b46b7b8310a8f9989cd8433fd35f139e83a78e7c4818"
     },
     {
       "path": "reports/index.html",
@@ -4116,12 +4121,12 @@
     {
       "path": "sw.js",
       "bytes": 37146,
-      "sha256": "9587091a677fe06ba3ca9cb032c74babbd2d2e990292a37f6839e86af9c5b555"
+      "sha256": "8ed8c662de961690d34e5308dbeb00932b6b026ba7793a81557b256fcf438c83"
     },
     {
       "path": "utils/auraIntentParser.js",
       "bytes": 10961,
-      "sha256": "28c92b856b92f11f8a26ae27e924bf4f3ebe8b7f46673ecf5d5fa1bcd14269a7"
+      "sha256": "0442150d912b8dbd2481255f97413ed901594d2d9da9c6c1ecd23e9642da0cae"
     },
     {
       "path": "utils/auraLingo.js",
@@ -4186,7 +4191,7 @@
     {
       "path": "v2/manifest.webmanifest",
       "bytes": 624,
-      "sha256": "6763d03fc91750b135335792dbe83a73fe0c36382fe07b0a387b80e2b295efb4"
+      "sha256": "20415a4508fac6e584c13ecf89382d779b8dedf9a709b3f7009d08a019c8305c"
     },
     {
       "path": "v2/partner/.gitattributes",
@@ -4366,21 +4371,21 @@
     {
       "path": "version-parity.json",
       "bytes": 132,
-      "sha256": "f456851f44ad476663446222437b2461c3e0b951bb087bfdb0645012e6cb0c88"
+      "sha256": "fc3c5762758896f68da4dbadf882b373c7217e0a7762953830010ef3d9597074"
     },
     {
       "path": "version.json",
       "bytes": 134,
-      "sha256": "4c6a3f74c70da4556304a74899b903930f6b8e3cd7a0b9ceea4e1a36877c81c8"
+      "sha256": "0b1cc2661249b0524e164b91fe1ff43943b2d4fbe3377d1026ad239528326acd"
     }
   ],
   "sourceInputs": {
     "counts": {
       "packages": 2,
-      "docs": 223,
+      "docs": 224,
       "v2": 85,
       "assets": 650
     },
-    "sha256": "7afef5239c650618bf512eebdadb2261869841ebfe202818b2b3d20653209261"
+    "sha256": "7237cc43f668cc03176cc6e3fe4cd3b829835bb8a007cef10ef0c335cd28ab3d"
   }
 }

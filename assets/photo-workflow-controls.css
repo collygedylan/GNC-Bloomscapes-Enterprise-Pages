@@ -76,3 +76,50 @@ html body #view-detail input[type="file"] {
   width:0!important; height:0!important; min-width:0!important; min-height:0!important;
   border:0!important; padding:0!important; margin:0!important; opacity:0!important; pointer-events:none!important;
 }
+
+#view-detail :is(button, input, select, textarea, label, a, [role="button"], [data-photo-slot]),
+#detail-measurement-keyboard button {
+  touch-action: manipulation;
+}
+
+html body #app-wrapper #view-detail [data-photo-slot] .photo-reorder-pair {
+  display: flex;
+  width: 100%;
+  max-width: 100%;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+html body #app-wrapper #main-scroll-area #view-detail .photo-reorder-pair > button {
+  min-width: 0 !important;
+  min-height: 30px !important;
+  max-height: 30px !important;
+  flex: 1 1 0 !important;
+  height: 30px !important;
+  overflow: hidden;
+  white-space: nowrap;
+  border-radius: 999px;
+  padding: 0 !important;
+  font-size: 0;
+}
+
+body.detail-measurement-keyboard-open #view-detail.detail-request-mode
+  #det-request-content:not(.hidden) #req-save-action-wrap {
+  display: block !important;
+}
+
+#view-detail .photo-reorder-pair button::after {
+  font-size: 15px;
+  line-height: 1;
+}
+
+#view-detail .photo-reorder-pair button:first-child::after { content: "\2190" / ""; }
+#view-detail .photo-reorder-pair button:last-child::after { content: "\2192" / ""; }
+
+body.detail-measurement-keyboard-open #main-scroll-area #view-detail:not(.hidden)::after {
+  content: "";
+  display: block;
+  flex: none;
+  height: var(--detail-keyboard-height, 0px);
+  pointer-events: none;
+}

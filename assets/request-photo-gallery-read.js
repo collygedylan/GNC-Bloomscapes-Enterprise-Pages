@@ -43,6 +43,7 @@ function normalizeRequestGalleryRow(row) {
 }
 
 async function readRequestPhotoGallery(folderId, rowId = '', options = {}) {
+    if (!folderId || !rowId) throw new Error('Request gallery requires an exact completed row.');
     const owner = requireRequestGalleryAccount();
     const session = await getNativeAuthSession();
     if (owner !== requestGalleryReadOwner() || session?.user?.id !== nativeAuthProfile?.id) {
@@ -50,7 +51,8 @@ async function readRequestPhotoGallery(folderId, rowId = '', options = {}) {
     }
     const client = getSupabaseBrowserClient();
     if (!client || options.signal?.aborted) throw new Error('Request gallery cancelled.');
-    const {data, error} = await readRequestGalleryRpc(client, folderId, rowId, options.signal);
+    const farm = getBloomscapesFarm();
+    const {data, error} = await readRequestGalleryEvidence(client, folderId, rowId, farm, options);
     if (options.signal?.aborted || owner !== requireRequestGalleryAccount()) throw new Error('Request gallery cancelled.');
     if (error) throw new Error(error.message || 'This Request gallery is unavailable for your account.');
     if (data?.folder_id !== folderId || data.farm_code !== getBloomscapesFarm() || !Array.isArray(data.rows)) {
@@ -62,15 +64,40 @@ async function readRequestPhotoGallery(folderId, rowId = '', options = {}) {
     return {folderId, farm:data.farm_code, rows};
 }
 
-async function readRequestGalleryRpc(client, folderId, rowId, signal) {
+async function readRequestGalleryEvidence(client, folderId, rowId, farm, {signal,legacy}) {
+    const request = await readRequestGalleryRows(client,folderId,farm,signal);
+    if (request.error) return request;
+    if (request.data?.length || !legacy) {
+        return {data:{folder_id:folderId,farm_code:farm,rows:request.data}};
+    }
+    return withRequestGallerySignal(signal,deadline =>
+        client.rpc('gnc_request_photo_gallery',{p_folder_id:folderId,p_row_id:rowId}).abortSignal(deadline));
+}
+
+const REQUEST_GALLERY_COLUMNS = 'unique_id,commonname,contsize,locationcode,req_spec,spec,req_match,'
+    + 'av_note,photos,req_photo_link,photo_link,warehouse_id,client_batch_id';
+
+async function readRequestGalleryRows(client,folderId,farm,signal) {
+    const request = client.from('gnc_field_jobs_y_grading').select(REQUEST_GALLERY_COLUMNS)
+        .eq('client_batch_id',folderId).eq('warehouse_id',farm).eq('record_kind','REQUEST_COMPLETED')
+        .order('unique_id').limit(201);
+    const result = await withRequestGallerySignal(signal,deadline=>request.abortSignal(deadline));
+    if (result.error) return result;
+    if (!Array.isArray(result.data) || result.data.length > 200
+        || result.data.some(row=>row.client_batch_id!==folderId || row.warehouse_id!==farm)) {
+        throw new Error('The completed Request gallery could not be verified.');
+    }
+    return result;
+}
+
+async function withRequestGallerySignal(signal,read) {
     const abort = new AbortController();
     const cancel = () => abort.abort();
     const deadline = setTimeout(cancel, 12000);
     signal?.addEventListener('abort', cancel, {once:true});
     try {
         if (signal?.aborted) throw new Error('Request gallery cancelled.');
-        return await client.rpc('gnc_request_photo_gallery', {p_folder_id:folderId, p_row_id:rowId})
-            .abortSignal(abort.signal);
+        return await read(abort.signal);
     } finally {
         clearTimeout(deadline);
         signal?.removeEventListener('abort', cancel);

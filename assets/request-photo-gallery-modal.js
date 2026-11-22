@@ -1,5 +1,5 @@
 const REQUEST_GALLERY_STYLES = `
-#request-photo-gallery-modal{box-sizing:border-box;position:fixed;inset:0;margin:0;width:100%;max-width:none;height:100dvh;max-height:none;padding:12px;border:0;color:#eef9f2;background:linear-gradient(#103220,#081c12);display:grid;grid-template-rows:auto minmax(120px,1fr) auto auto;gap:10px;font:16px system-ui}
+#request-photo-gallery-modal{box-sizing:border-box;position:fixed;inset:0;margin:0;width:100%;max-width:none!important;height:100dvh;max-height:none!important;padding:12px;border:0;color:#eef9f2;background:linear-gradient(#103220,#081c12);display:grid;grid-template-rows:auto minmax(120px,1fr) auto auto;gap:10px;font:16px system-ui}
 #request-photo-gallery-modal::backdrop{background:#081c12}
 #request-photo-gallery-modal header{display:flex;align-items:center;gap:10px;min-width:0}
 #request-photo-gallery-modal h2{font-size:18px;margin:0;flex:1;overflow-wrap:anywhere}

@@ -1,4 +1,3 @@
-
 let requestPhotoGalleryState = null;
 let requestPhotoGalleryAuthSubscription = null;
 let requestPhotoGalleryConsumed = '';
@@ -6,10 +5,11 @@ let requestPhotoGalleryPendingIntent = null;
 
 function requestPhotoGalleryIntent(search = window.location.search) {
     const query = new URLSearchParams(search);
-    const folderId = String(query.get('request_gallery') || '').trim();
-    const rowId = String(query.get('row_id') || '').trim();
-    if (!folderId || folderId.length > 512 || rowId.length > 512) return null;
-    return {folderId, rowId, key:JSON.stringify([folderId,rowId])};
+    const gallery = query.get('request_gallery');
+    const folderId = String(gallery === '1' ? query.get('batch_id') || '' : gallery || '').trim().toLowerCase();
+    const rowId = String(query.get(gallery === '1' ? 'unique_id' : 'row_id') || '').trim();
+    if (!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(folderId) || !rowId || rowId.length > 512) return null;
+    return {folderId, rowId, legacy:gallery !== '1', key:JSON.stringify([folderId,rowId])};
 }
 
 function requestPhotoGalleryOwner() {
@@ -77,7 +77,9 @@ async function resumeRequestPhotoGalleryDeepLink() {
         photo:index => moveRequestPhotoGalleryPhoto(state, index),
         row:rowId => moveRequestPhotoGalleryRow(state, rowId)});
     try {
-        const gallery = await readRequestPhotoGallery(intent.folderId, intent.rowId, {signal:state.abort.signal});
+        const gallery = await readRequestPhotoGallery(intent.folderId, intent.rowId, {
+            signal:state.abort.signal, legacy:intent.legacy
+        });
         if (!requestPhotoGalleryCurrent(state)) return false;
         state.gallery = gallery;
         state.rowIndex = Math.max(0, gallery.rows.findIndex(row => row.id === intent.rowId));

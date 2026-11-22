@@ -20,7 +20,6 @@ function resolveDetailKeypadInsertion(type, { value, start, end }, key) {
 function updateDetailMeasurementKeyboardTargetValue(nextValue = '', nextCursor = null) {
     const input = detailMeasurementKeyboardTarget;
     if (!input) return false;
-    markDetailMeasurementKeyboardInteraction(1300);
     const rawValue = String(nextValue || '');
     input.value = normalizeDetailMeasurementKeyboardValueForInput(input,rawValue);
     const cursor = Math.min(input.value.length,Math.max(0,getNormalizedDetailMeasurementCursor(input,rawValue,nextCursor)));
@@ -31,12 +30,16 @@ function updateDetailMeasurementKeyboardTargetValue(nextValue = '', nextCursor =
     const preview = document.getElementById('detail-measurement-keyboard-value-preview');
     if (preview) preview.textContent = input.value || 'Type value...';
     clearTimeout(input.__measurementDispatchTimer);
-    const owner = getSupabaseReadIdentityScope(), rowUid = getCompletedRowUnlockKey(activeItem);
+    const owner = getSupabaseReadIdentityScope(), rowKey = getDetailEvaluationDraftIdentity(activeItem);
     input.__measurementDispatchTimer = setTimeout(() => {
-        if (!input.isConnected || owner !== getSupabaseReadIdentityScope() || rowUid !== getCompletedRowUnlockKey(activeItem)) return;
-        if (document.activeElement === input && detailMeasurementKeyboardTarget === input) input.setSelectionRange?.(cursor,cursor);
-        dispatchDetailMeasurementKeyboardInput(input);
-    },0);
+        if (!input.isConnected || owner !== getSupabaseReadIdentityScope() || rowKey !== getDetailEvaluationDraftIdentity(activeItem)) return;
+        if (document.activeElement === input && detailMeasurementKeyboardTarget === input) {
+            input.setSelectionRange?.(cursor,cursor);
+        }
+        const prefix = extractDetailPrefixFromInputId(input.id);
+        if (shouldUseDebouncedDetailInputSave(input.id)) queueLagSensitiveInputSave(prefix,input.id);
+        else dispatchDetailMeasurementKeyboardInput(input);
+    },300);
     return false;
 }
 

@@ -34,15 +34,13 @@ function openAvNotePicker(prefix = '', event = null) {
 }
 
 function focusDetailMeasurementNextField(input = null) {
+    const prefix = String(input?.id || '').replace(/match$/, '');
+    if (input?.id.endsWith('-match') && AV_NOTE_DROPDOWN_PREFIXES.includes(prefix)) {
+        const avNote = document.getElementById(getAvNoteInputIdForPrefix(prefix));
+        if (avNote && !avNote.disabled) return openDetailAvNoteAfterMatch(input,avNote,prefix);
+    }
     const nextField = getNextDetailMeasurementField(input);
     if (!nextField) return false;
-    if (isAvNoteInput(nextField) && AV_NOTE_DROPDOWN_PREFIXES.includes(String(nextField.id).replace(/av-note$/, ''))) {
-        closeDetailMeasurementKeyboard(false, { blur:true });
-        defaultDetailSpecNote(nextField);
-        nextField.readOnly = false; nextField.inputMode = 'text';
-        openInlineAvNoteList(String(nextField.id).replace(/av-note$/, ''));
-        return true;
-    }
     if (isDetailMeasurementKeyboardInput(nextField)) {
         openDetailMeasurementKeyboard(nextField, getDetailMeasurementKeyboardTypeForInput(nextField));
         return true;
@@ -56,9 +54,34 @@ function focusDetailMeasurementNextField(input = null) {
     return true;
 }
 
+function openDetailAvNoteAfterMatch(input,avNote,prefix) {
+    closeDetailMeasurementKeyboard();
+    input.blur();
+    defaultDetailSpecNote(avNote);
+    openInlineAvNoteList(prefix,{showAll:true});
+    scrollDetailAvNoteAndAction(avNote,document.getElementById(prefix+'btn-save-complete'));
+    return true;
+}
+
+function scrollDetailAvNoteAndAction(input,action) {
+    input.scrollIntoView?.({block:'nearest',behavior:'instant'});
+    if (!action?.getBoundingClientRect) return;
+    const viewBottom = (window.visualViewport?.height || window.innerHeight) + (window.visualViewport?.offsetTop || 0);
+    const top = document.getElementById('app-top-chrome')?.getBoundingClientRect().bottom || 0;
+    const actionBottom = action.getBoundingClientRect().bottom;
+    const inputTop = input.getBoundingClientRect().top;
+    if (actionBottom > viewBottom - 32 && actionBottom - inputTop <= viewBottom - top - 48) {
+        const scroll = document.getElementById('main-scroll-area');
+        if (scroll) scroll.scrollTop += actionBottom - viewBottom + 44;
+        else action.scrollIntoView({block:'nearest',behavior:'instant'});
+    }
+}
+
 function selectAvNote(note, prefix, event = null, options = {}) {
     event?.preventDefault?.();
     event?.stopPropagation?.();
+    if (window.PointerEvent && ['pointerdown','touchstart','mousedown'].includes(event?.type)
+        && event.target?.closest?.('#view-detail')) return false;
     const normalizedPrefix = String(prefix || '').trim();
     const safeNote = String(note || '');
     const safeOptions = options && typeof options === 'object' ? options : {};
@@ -79,7 +102,7 @@ function selectAvNote(note, prefix, event = null, options = {}) {
     avNoteOptionLastPressAt = Date.now();
     avNoteOptionLastPressPrefix = normalizedPrefix;
     avNoteOptionLastPressNote = safeNote;
-    input.value = buildSelectedAvNote(safeNote, normalizedPrefix, safeOptions);
+    input.value = resolveExplicitDetailAvNote(safeNote,normalizedPrefix,safeOptions);
     input.dataset.explicitAvNote = '1';
     if (list) hideAvNoteDropdown(normalizedPrefix);
     closeDetailMeasurementKeyboard(false, { blur:true });
@@ -90,31 +113,28 @@ function selectAvNote(note, prefix, event = null, options = {}) {
         restoreAvNoteScrollState(scrollState);
         return false;
     }
-    const restoreAfterSave = () => {
-        if (!requestSheetWasOpen && scrollState) restoreAvNoteScrollState(scrollState);
+    saveSelectedDetailAvNote(normalizedPrefix,input.value,scrollState);
+    return false;
+}
+
+function saveSelectedDetailAvNote(prefix,value,scrollState) {
+    const restore = () => {
+        if (scrollState) restoreAvNoteScrollState(scrollState);
     };
     try {
-        const result = saveData(false, normalizedPrefix, true, null, { explicit_av_note:true, explicitAvNoteValue:input.value, explicitAvNoteOwner:String(activeItem?.UNIQUE_ID || activeItem?.unique_id || '') });
-        if (result && typeof result.finally === 'function') {
-            result.finally(restoreAfterSave);
-        } else {
-            restoreAfterSave();
-        }
-    } catch (error) {
-        restoreAfterSave();
-        throw error;
+        const owner = String(activeItem?.UNIQUE_ID || activeItem?.unique_id || '');
+        saveData(false,prefix,true,null,{
+            explicit_av_note:true,explicitAvNoteValue:value,explicitAvNoteOwner:owner
+        });
+    } finally {
+        restore();
     }
-    if (!requestSheetWasOpen && scrollState) restoreAvNoteScrollState(scrollState);
-    return false;
 }
 
 function defaultDetailSpecNote(input) {
     const prefix = input.id.replace(/av-note$/, '');
     const old = String(input.value || '').trim();
-    if (old && !/^SPEC\s*-\s*/i.test(old)) return;
+    if (input.dataset.explicitAvNote === '1' || (old && !/^SPEC\s*-\s*/i.test(old))) return;
     const next = buildSelectedAvNote('__SPEC_ONLY__', prefix);
-    if (input.value === next) return;
     input.value = next;
-    input.dataset.explicitAvNote = '1';
-    input.dispatchEvent(new Event('input', {bubbles:true}));
 }

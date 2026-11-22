@@ -1,4 +1,3 @@
-
 function bloomscapesFarmSnapshotSignal(background) {
     return background ? background.signal() : window.BloomscapesBatteryGovernor.viewSignal();
 }
@@ -22,7 +21,7 @@ async function readBloomscapesFarmSnapshot(farm,assertCurrent,background) {
     const entries = await readBloomscapesFarmSnapshotTables(farm,assertCurrent,background);
     assertCurrent();
     if (await readBloomscapesFarmRevision(farm,background)!==revision) throw Object.assign(
-        new Error('Farm changed during its snapshot read; previous inventory retained.'),{code:'FARM_SNAPSHOT_REVISION_CHANGED'});
+        new Error('Inventory was updated during the snapshot read.'),{code:'FARM_SNAPSHOT_REVISION_CHANGED'});
     return {farm,revision,lastSyncRevisionAt,...Object.fromEntries(entries)};
 }
 

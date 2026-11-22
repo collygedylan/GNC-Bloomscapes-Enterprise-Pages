@@ -52,6 +52,8 @@ async function hydrateBloomscapesChosenFarm(state,farm,previous,visit) {
             state.farm=previous;
             renderBloomscapesFarmNavigation();
         }
+        if (state===bloomscapesFarmState && previous===farm && state.farm===farm
+            && (error.name==='AbortError' || error.code==='FARM_SNAPSHOT_REVISION_CHANGED')) return farm;
         throw error;
     } finally {
         if (state===bloomscapesFarmState) { state.busy = false; state.selection = null; }

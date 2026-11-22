@@ -1,3 +1,10 @@
+function resolveExplicitDetailAvNote(note,prefix,options = {}) {
+    if (note === '__CLEAR_AV_NOTE__' || note === '__SPEC_ONLY__'
+        || !['req-','ssn-','lsn-','na-','flyer-'].includes(prefix)) {
+        return buildSelectedAvNote(note,prefix,options);
+    }
+    return options.customText === true ? String(note || '').trim() : getAvNotePickerLabel(note);
+}
 
 function prepareAvNotePicker(prefix, options = {}) {
     const safePrefix = String(prefix || '');
