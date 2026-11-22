@@ -104,3 +104,17 @@ html body #app-wrapper :is(#view-hl-order,#view-po-management,#view-production,#
     min-width: 0;
     text-overflow: ellipsis;
 }
+
+[data-bloomscapes-studio] [data-work-search],
+[data-bloomscapes-studio] form :is(select,textarea,input:not([type=checkbox])) {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+}
+[data-bloomscapes-studio] form label { min-width: 0; white-space: normal; }
+html body [data-bloomscapes-studio] [data-work-source-cards].inventory-block-tiles {
+    grid-template-columns: minmax(0, 1fr);
+}
+[data-bloomscapes-studio] [data-open-module] { min-width: 0; text-wrap: pretty; }
+[data-bloomscapes-studio] [data-open-module] span { font-weight: 400; }

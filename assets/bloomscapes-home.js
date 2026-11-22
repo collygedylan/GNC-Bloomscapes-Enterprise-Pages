@@ -15,10 +15,12 @@ function mountBloomscapesHomeModules(opening = false) {
     let studio=grid.querySelector('#home-tile-studio');
     if (!studio) {
         studio=document.createElement('button');studio.id='home-tile-studio';studio.type='button';
-        studio.className='home-module-tile';studio.innerHTML='<i class="ph ph-hammer" aria-hidden="true"></i><span>Build Work Studio</span>';
-        studio.addEventListener('click',()=>openBloomscapesDepartmentModule('production','studio'));grid.appendChild(studio);
+        studio.className='home-module-tile';studio.innerHTML='<i class="ph ph-hammer" aria-hidden="true"></i><span>Field Work Studio</span>';
+        studio.addEventListener('click',()=>openBloomscapesFieldWorkStudio());grid.appendChild(studio);
     }
     studio.hidden=!canUseBloomscapesWorkStudio();
+    const drawerStudio=queryBloomscapesStaticBody('side-drawer','#drawer-field-work-studio-btn');
+    if (drawerStudio) drawerStudio.hidden=studio.hidden;
     grid.querySelector('#home-tile-bloom')?.remove();
     mountBloomscapesCommunicationTiles(grid);
     const order=['drive','hl-order','av','sales-office','sales','historical-requests','managers','qc','office','sales-inventory','production','studio','smart-moves','messages','walkie'];
@@ -120,6 +122,8 @@ function refreshBloomscapesFarmPanel() {
 }
 
 function openBloomscapesHomeModule(tab) {
+    const phase=bloomscapesStudioRoute(tab);
+    if (phase!==undefined || tab==='bloomscapes-studio') return openBloomscapesFieldWorkStudio(phase);
     switchView('managers');
     return setHomeTab(tab);
 }

@@ -1,22 +1,34 @@
-const bloomscapesStudioDestinations = [
-    ['smart-moves','Smart Sales &amp; Move Intelligence','ph-chart-line'],
-    ['lab','Plant Health &amp; Lab Reports','ph-flask'],
-    ['vault','My Work &amp; Inquiry PDF Vault','ph-folder'],
-    ['sales-vault','Sales Rep Vault','ph-address-book']
-];
+let bloomscapesStudioEntry = '';
 
-const bloomscapesStudioModules = [
-    ['bunch','Bunch Notes'],['cans','Can Filling'],['grading','Shift Grading'],['haul','Hauling'],
-    ['shear','Shear List'],['spring','Spring Spreading'],['winter','Over Wintering'],
-    ['drape','Drape Varieties'],['pit','Short Pit'],['disease-pest','Pest & Disease'],['replenishment','Intercompany & CPB']
-];
+function openBloomscapesFieldWorkStudio(phase='') {
+    return switchView('field-work-studio',{studioPhase:phase});
+}
+
+function prepareBloomscapesStudioNavigation(requested,options) {
+    const route=requested==='production-workflow' ? productionWorkflowActive : requested;
+    const phase=route==='field-work-studio' ? options?.studioPhase || '' : bloomscapesStudioRoute(route);
+    delete BLOOMSCAPES_DEPARTMENT_DEFAULTS.production;
+    const key=bloomscapesDepartmentKey('production');
+    if (phase!==undefined) selectBloomscapesStudioEntry(key,phase);
+    else if (!options?.fromHistory && bloomscapesDepartmentTabs.delete(key)) markViewDirty('production');
+}
+
+function selectBloomscapesStudioEntry(key,phase) {
+    bloomscapesDepartmentTabs.set(key,'bloomscapes-studio');
+    const frame=bloomscapesDepartmentFrames.get(key+':bloomscapes-studio');
+    const panel=frame?.querySelector('[data-studio-module]');
+    if (!frame) bloomscapesStudioEntry=phase;
+    else if (phase && phase!==panel?.dataset.studioPhase) {
+        frame.querySelector('[data-open-module="'+phase+'"]')?.click();
+    }
+    markViewDirty('production');
+}
 
 function renderBloomscapesWorkStudio() {
     if (!canUseBloomscapesWorkStudio()) return '';
-    return '<section data-bloomscapes-studio><h2>Build Work Studio</h2><nav data-studio-modules>'
-        +bloomscapesStudioModules.map(([key,label],index)=>'<button type="button" data-open-module="'+key+'"><i aria-hidden="true" class="ph '+bloomStudioIcons[index]+'"></i><span>'+label+'</span></button>').join('')
-        +bloomscapesStudioDestinations.filter(([key])=>canAccessView(key==='smart-moves' ? key : 'managers'))
-            .map(([key,label,icon])=>'<button type="button" data-studio-destination="'+key+'"><i aria-hidden="true" class="ph '+icon+'"></i><span>'+label+'</span></button>').join('')
+    return '<section data-bloomscapes-studio><h2>Field Work Studio</h2><nav data-studio-modules aria-label="Work types">'
+        +BLOOMSCAPES_STUDIO_PHASES.map(([key,label,kind,,description])=>'<button type="button" data-open-module="'+key+'" data-work-type="'+(kind==='HAULING'?'CONSOLIDATE_INVENTORY':kind)+'"><strong>'+esc(label)+'</strong>'
+            +(description ? '<span>'+esc(description)+'</span>' : '')+'</button>').join('')
         +'</nav><div data-studio-module></div></section>';
 }
 
@@ -25,20 +37,22 @@ function mountBloomscapesWorkStudio(host) {
     const panel=host.querySelector('[data-studio-module]');
     if (!menu || !panel || !canUseBloomscapesWorkStudio()) return;
     menu.addEventListener('click',event=>{
-        const destination=event.target.closest('[data-studio-destination]')?.dataset.studioDestination;
-        if (destination) return destination==='smart-moves' ? switchView(destination) : openBloomscapesDepartmentModule('managers',destination);
         const key=event.target.closest('[data-open-module]')?.dataset.openModule;
         if (key) void openBloomscapesStudioModule(menu,panel,key).catch(error=>studioFailure(panel,error));
     });
+    const entry=bloomscapesStudioEntry;
+    bloomscapesStudioEntry='';
+    if (entry) menu.querySelector('[data-open-module="'+entry+'"]')?.click();
 }
 
 async function openBloomscapesStudioModule(menu,panel,key) {
     if (!canUseBloomscapesWorkStudio()) return;
+    panel.dataset.studioPhase=key;
     menu.hidden=true;
-    const title=bloomscapesStudioModules.find(([id])=>id===key)[1];
-    panel.innerHTML='<header class="studio-breadcrumb"><button type="button" data-module-back>← All Modules</button><h3>'+title+'</h3><span data-module-summary></span></header><div data-module-body></div>';
+    const title=BLOOMSCAPES_STUDIO_PHASES.find(([id])=>id===key)[1];
+    panel.innerHTML='<header class="studio-breadcrumb"><button type="button" data-module-back>← Work Types</button><h3>'+title+'</h3><span data-module-summary></span></header><div data-module-body></div>';
     const body=panel.querySelector('[data-module-body]');
-    panel.querySelector('[data-module-back]').addEventListener('click',()=>{panel.replaceChildren();menu.hidden=false;syncGlobalHeaderChrome({reason:'studio-modules',force:true});});
+    panel.querySelector('[data-module-back]').addEventListener('click',()=>{panel.replaceChildren();delete panel.dataset.studioPhase;menu.hidden=false;syncGlobalHeaderChrome({reason:'studio-modules',force:true});});
     body.appendChild(document.createElement('div')).dataset.studioExcel='true';
     const browser=body.appendChild(document.createElement('section'));
     browser.dataset.workBrowser='true';
@@ -50,7 +64,6 @@ async function openBloomscapesStudioModule(menu,panel,key) {
         work.replaceChildren(section);
         void openBloomscapesScopedWork(section,panel,key,row,selection);
     };
-    if (key==='disease-pest') return mountBloomscapesLabDiagnostics(work);
     mountBloomscapesWorkBrowser(browser,enter,{locationDrill:true,studioScopes:true,onPathChange:()=>work.replaceChildren()});
     mountInventoryExcelFilters('studio');
     if (!bloomscapesWorkBrowserRows().length) {
@@ -59,13 +72,7 @@ async function openBloomscapesStudioModule(menu,panel,key) {
     }
 }
 
-const bloomStudioIcons=['ph-tree','ph-plant','ph-arrows-left-right','ph-truck','ph-scissors','ph-sun','ph-snowflake','ph-leaf','ph-shovel','ph-bug','ph-warehouse'];
-
 async function openBloomscapesScopedWork(body,panel,key,source,selection) {
-    if (key==='replenishment') {
-        body.innerHTML=renderBloomscapesTransferBuilder();
-        return mountBloomscapesTransferBuilder(body,selection);
-    }
     try {
         const owner=getSupabaseReadIdentityScope(),farm=getBloomscapesFarm();
         await ensureBloomscapesFieldQueue();
@@ -77,7 +84,7 @@ async function openBloomscapesScopedWork(body,panel,key,source,selection) {
         }
         const work=bloomscapesFieldQueueState.rows.filter(row=>row.work_view===phase[2] && row.farm_code===farm);
         panel.querySelector('[data-module-summary]').textContent=work.length+' Lines · '+work.reduce((sum,row)=>sum+Number(row.quantity || 0),0).toLocaleString()+' Cans';
-        body.innerHTML=renderBloomscapesWorkCreator('bloomscapes-field-jobs',key);
+        body.innerHTML=renderBloomscapesWorkCreator('bloomscapes-field-jobs');
         await mountBloomscapesWorkCreator(body,{phase:key,quick:true,source,selection});
     } catch (error) { if (body.isConnected) body.textContent=error.message; }
 }
@@ -137,20 +144,10 @@ const bloomscapesProductionHub=`<div class="freeze-panel">
         <div class="text-lg font-black text-slate-900">Planting</div>
         <div class="mt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">Planting workflow</div>
     </button>
-    <button type="button" id="production-open-can-filling" class="rounded-2xl border border-emerald-100 bg-white p-4 text-left shadow-sm active:scale-[0.99]" onclick="return openProductionWorkflow('can-filling')">
-        <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-[#007a4d]"><i class="ph-bold ph-cylinder text-2xl"></i></div>
-        <div class="text-lg font-black text-slate-900">Can Filling</div>
-        <div class="mt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">Can fill runs</div>
-    </button>
     <button type="button" id="production-open-order-pulling" class="rounded-2xl border border-emerald-100 bg-white p-4 text-left shadow-sm active:scale-[0.99]" onclick="return openProductionWorkflow('order-pulling')">
         <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-[#007a4d]"><i class="ph-bold ph-package text-2xl"></i></div>
         <div class="text-lg font-black text-slate-900">Order Pulling</div>
         <div class="mt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">Pulling queues</div>
-    </button>
-    <button type="button" id="production-open-shear-list" class="rounded-2xl border border-lime-100 bg-white p-4 text-left shadow-sm active:scale-[0.99]" onclick="return switchView('shear-list')">
-        <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-lime-50 text-lime-700"><i class="ph-bold ph-scissors text-2xl"></i></div>
-        <div class="text-lg font-black text-slate-900">Shear List</div>
-        <div class="mt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">Rows to shear</div>
     </button>
     <button type="button" id="production-open-weather-hold" class="rounded-2xl border border-sky-100 bg-white p-4 text-left shadow-sm active:scale-[0.99]" onclick="return switchView('weather-hold')">
         <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-50 text-sky-700"><i class="ph-bold ph-cloud-sun text-2xl"></i></div>

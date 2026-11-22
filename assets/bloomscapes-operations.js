@@ -1,15 +1,8 @@
 const BLOOMSCAPES_WORKFLOW_TABS = [
-    {id:'bloomscapes-studio',label:'Field Work Studio'},
     {id:'bloomscapes-inventory',label:'Farm Inventory'},
     {id:'bloomscapes-replenishment',label:'Intercompany Replenishment & CPB'},
     {id:'bloomscapes-dock-approvals',label:'Dock Rep Approvals'},
     {id:'bloomscapes-hl-keying',label:'Park Hill Data Entry · Intercompany'},
-    {id:'bloomscapes-field-jobs',label:'Field Jobs and Can Fill'},
-    {id:'bloomscapes-bunch-notes',label:'Bunch Notes'},
-    {id:'bloomscapes-can-filling',label:'Can Filling'},
-    {id:'bloomscapes-grading',label:'Shift Grading & CF#'},
-    {id:'bloomscapes-hauling',label:'Hauling'},
-    {id:'bloomscapes-shearing',label:'Shear List & Crew Queue'},
     {id:'bloomscapes-lab',label:'Plant Health & Lab Review'},
     {id:'bloomscapes-vault',label:'My Work & Inquiry PDF Vault'},
     {id:'bloomscapes-sales-vault',label:'Sales Rep Vault'},
@@ -24,7 +17,6 @@ function workflowForm(tab) {
     if (tab === 'bloomscapes-inventory') {
         return '';
     }
-    if (bloomscapesFieldPanel(tab)) return renderBloomscapesWorkCreator(tab);
     if (tab === 'bloomscapes-vault') {
         return '<label>Search <input name="search" type="search"></label><label>User <input name="user"></label>'
             + '<label>Work type <input name="type"></label><label>Block <input name="block"></label>'
@@ -45,7 +37,7 @@ function renderBloomscapesWorkflowPanel(tab,{showLabForms=false}={}) {
     const form = workflowForm(tab);
     return `<section data-bloomscapes-workflow="${workflow.id}" class="space-y-3 p-3">
       <h2 class="text-lg font-bold">${workflow.label}</h2>
-      ${bloomscapesFieldPanel(tab) ? form : (form ? '<form class="space-x-2">' + form + '</form>' : '')}
+      ${form ? '<form class="space-x-2">' + form + '</form>' : ''}
       ${tab === 'bloomscapes-vault' ? bloomscapesInquiryPdfForm() : ''}
       <p role="status"></p><div data-bloomscapes-results></div>
     </section>`;
@@ -166,18 +158,11 @@ function mountBloomscapesWorkflowPanel(container, tab) {
     mountBloomscapesLabControls(host,tab);
     mountBloomscapesDockControls(host,tab,load);
     mountBloomscapesRowChoices(host);
-    if (bloomscapesFieldPanel(tab)) void mountBloomscapesWorkCreator(host,tab);
-    host.addEventListener('bloomscapes-farm-change',()=>{
-        if (bloomscapesFieldPanel(tab)) {
-            host.outerHTML = renderBloomscapesWorkflowPanel(tab);
-            mountBloomscapesWorkflowPanel(container,tab);
-        } else void load();
-    });
+    host.addEventListener('bloomscapes-farm-change',()=>void load());
     void load();
 }
 
 function bindBloomscapesPanelForm(host,tab,status,load) {
-    if (bloomscapesFieldPanel(tab)) return;
     if (tab==='bloomscapes-vault') return;
     const form=host.querySelector('form');
     const createSample=createBloomscapesLabSampleRunner(host,status,load);
@@ -231,29 +216,6 @@ async function runBloomscapesPdfCommand(status,button,input) {
         return false;
     } finally {button.disabled = false;}
 }
-
-function bloomscapesFieldPanel(tab) {
-    return Object.hasOwn(BLOOMSCAPES_FIELD_KINDS,tab);
-}
-
-async function runBloomscapesFieldCommand(status, button, load, command, input) {
-    if (button.disabled) return false;
-    button.disabled = true;
-    try {
-        const receipt = await submitBloomscapesCommand(command,input);
-        await load();
-        if (status.isConnected) {
-            status.textContent = receipt.location_note || 'Work recorded';
-        }
-        return receipt.status !== 'REVIEW_REQUIRED';
-    } catch (error) {
-        if (status.isConnected) status.textContent = error.message;
-        return false;
-    } finally {
-        button.disabled = false;
-    }
-}
-
 
 function createBloomscapesLabSampleRunner(host,status,load) {
     let labAttempt;

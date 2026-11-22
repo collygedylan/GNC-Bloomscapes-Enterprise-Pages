@@ -1,8 +1,8 @@
-async function readBloomscapesFieldWork() {
+async function readBloomscapesFieldWork(viewAll=false) {
     const {client,owner} = await requireBloomscapesSession();
     const farm = getBloomscapesFarm();
     const ownerScope = getSupabaseReadIdentityScope();
-    const result = await client.rpc('gnc_read_job_board',{p_farm:farm});
+    const result = await client.rpc('gnc_list_que_field_work',{p_farm:farm,p_view_all:viewAll});
     await requireBloomscapesOwner(owner);
     const data = bloomscapesData(result);
     if (data?.farm_code!==farm || !Array.isArray(data.rows) || !Array.isArray(data.views)
@@ -29,7 +29,7 @@ async function readBloomscapesFieldRoster() {
     const farm=getBloomscapesFarm();
     const [result]=await Promise.all([client.rpc('gnc_field_work_roster',{p_farm:farm}),readEligibleModuleDirectory(farm)]);
     await requireBloomscapesOwner(owner);
-    return eligiblePickerRows(bloomscapesData(result),'field');
+    return eligiblePickerRows(bloomscapesData(result),'queue');
 }
 
 async function createBloomscapesFieldWork(command) {
@@ -47,6 +47,20 @@ async function createBloomscapesFieldWork(command) {
     if (snapshot && (snapshot.source_record_kind!=='DRIVE' || snapshot.is_drive_row!==true
         || snapshot.warehouse_id!==command.farm || snapshot.unique_id!==command.input.sourceId)) {
         throw new Error('Work source snapshot did not match the exact Drive row.');
+    }
+    return receipt;
+}
+
+async function pickupBloomscapesFieldWork(job) {
+    const {client,owner}=await requireBloomscapesSession();
+    const actor=String(currentUser);
+    const result=await client.rpc('gnc_pickup_field_work',{p_job_id:job.id,p_farm:job.farm_code});
+    await requireBloomscapesOwner(owner);
+    const receipt=bloomscapesData(result);
+    if (receipt?.work_id!==job.id || receipt.farm_code!==job.farm_code
+        || receipt.assigned_to_username!==actor || receipt.picked_up_by_username!==actor
+        || !Number.isFinite(Date.parse(receipt.picked_up_at))) {
+        throw new Error('Crew pickup receipt did not match the active user and work.');
     }
     return receipt;
 }

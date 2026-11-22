@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.40';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.41';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -23298,7 +23298,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.40';
+        const APP_VERSION = '3.1.41';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -71059,7 +71059,7 @@ function toggleDriveQuickRequestItem(domId) {
             });
         }
 
-        /* @runtime-fragment assets/navigation-routing.js */
+        /* @runtime-fragment assets/navigation-routing.js */ /* @runtime-fragment assets/navigation-routing-promotion.js */
         function syncGlobalModalBack() {
             updateGlobalBackButton();
         }
@@ -113700,7 +113700,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
         /* @runtime-fragment assets/bloomscapes-field-work.js */
         /* @runtime-fragment assets/bloomscapes-work-browser.js */
         /* @runtime-fragment assets/bloomscapes-work-types.js */ /* @runtime-fragment assets/bloomscapes-work-siblings.js */ /* @runtime-fragment assets/bloomscapes-work-scope.js */ /* @runtime-fragment assets/bloomscapes-work-creator.js */
-        /* @runtime-fragment assets/bloomscapes-field-queue.js */
+        /* @runtime-fragment assets/bloomscapes-field-queue.js */ /* @runtime-fragment assets/bloomscapes-work-queue-cards.js */
         /* @runtime-fragment assets/bloomscapes-operations.js */ /* @runtime-fragment assets/bloomscapes-architecture.js */
         /* @runtime-fragment assets/manager-module-render.js */
         function updateSyncDiagnostics(modeOverride = '') {

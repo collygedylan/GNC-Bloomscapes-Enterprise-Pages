@@ -1,64 +1,28 @@
 const BLOOMSCAPES_STUDIO_PHASES=[
-    ['bunch','Bunch Notes','BUNCH_NOTES','Bunch & Tie','Block walk with a different action on every row'],
-    ['grading','Shift Grading','Y_GRADING','Shift Grading','Grade .Y stock, split the balance and stage its haul'],
-    ['haul','Hauling','HAULING','Haul','Move graded shift stock to its new planting location'],
-    ['consolidate','Consolidation','HAULING','Consolidate','Merge into a location already holding the same item'],
-    ['cans','Can Filling','CAN_FILLING','Can Filling','Batch by media and fertilizer for planting blocks'],
-    ['spring','Spring Spreading','BUNCH_NOTES','Spread Block (Spring)',''],
-    ['winter','Over Wintering','BUNCH_NOTES','Cover with Poly',''],
-    ['drape','Drape Varieties','BUNCH_NOTES','Custom Bunch Note',''],
-    ['pit','Short Pit','BUNCH_NOTES','Custom Bunch Note',''],
-    ['counts','Block Counts & Poly / Spread','BUNCH_NOTES','Bunch Count','Count, cover, uncover, spread and recount a block'],
-    ['shear','Shear List','SHEARING','Add to Shear List','Queue #? Needs Shear and confirm #✓ Sheared']
+    ['cans','Can Filling','CAN_FILLING','Can Filling',''],
+    ['bunch','Bunch Notes','BUNCH_NOTES','Bunch & Tie','Overwinter Process: Grade · Bunch · Consolidate'],
+    ['consolidate','Consolidate Inventory','HAULING','Consolidate',''],
+    ['shear','Shearing','SHEARING','Add to Shear List','']
 ];
 
-function bloomscapesWorkTypeBar(module) {
-    const modules=['spring','winter','drape','pit'];
-    const phases=BLOOMSCAPES_STUDIO_PHASES.filter(([id])=>id===module || !modules.includes(id));
-    return '<header data-work-type-bar><h3 data-phase-heading>Step 1: Select the Active Studio Phase</h3>'
-        +'<div data-studio-phase-cards>'+phases.map(([id,title,,,description])=>
-            '<button type="button" data-studio-phase="'+id+'"><strong>'+esc(title)+'</strong><span>'+esc(description)+'</span></button>').join('')+'</div>'
-        +'<label data-active-phase>Active Phase: <select data-active-work-type><option value="">Select phase…</option>'
-        +phases.map(([id,title,kind])=>'<option value="'+id+'" data-kind="'+kind+'">'+esc(title)+'</option>').join('')
-        +'</select></label><label data-chain-label><input type="checkbox" data-work-chain> Chain overwinter / spring steps</label></header>';
+const BLOOMSCAPES_STUDIO_LEGACY_ROUTES=Object.assign(Object.create(null),{
+    'field-jobs':'','bloomscapes-field-jobs':'','bunch-note':'bunch','bunch-notes':'bunch',
+    'bloomscapes-bunch-notes':'bunch','grading':'bunch','bloomscapes-grading':'bunch','shift-grading':'bunch',
+    'can-fill':'cans','can-filling':'cans','bloomscapes-can-filling':'cans','shear-list':'shear',
+    'shearing':'shear','bloomscapes-shearing':'shear','location-moves':'consolidate',
+    'location-work':'consolidate','hauling':'consolidate','bloomscapes-hauling':'consolidate'
+});
+
+function bloomscapesStudioRoute(route) {
+    return BLOOMSCAPES_STUDIO_LEGACY_ROUTES[route];
 }
 
 function bindBloomscapesWorkTypes(root,form,options) {
-    const select=root.querySelector('[data-active-work-type]');
-    const browser=root.querySelector('[data-work-browser]');
-    const chain=root.querySelector('[data-work-chain]');
-    const steps=form.querySelector('[data-work-steps]');
-    steps.hidden=true;browser.hidden=true;
-    for (const option of select.options) {
-        option.disabled=Boolean(option.dataset.kind) && !bloomscapesCanChooseWork(option.dataset.kind);
-    }
-    for (const button of root.querySelectorAll('[data-studio-phase]')) {
-        button.disabled=!bloomscapesCanChooseWork(BLOOMSCAPES_STUDIO_PHASES.find(([id])=>id===button.dataset.studioPhase)[2]);
-        button.addEventListener('click',()=>{select.value=button.dataset.studioPhase;select.dispatchEvent(new Event('change'));});
-    }
-    select.addEventListener('change',()=>{
-        const phase=BLOOMSCAPES_STUDIO_PHASES.find(([id])=>id===select.value);
-        browser.hidden=!phase;form.hidden=true;
-        root.querySelector('[data-work-row-editor]').hidden=true;
-        root.querySelector('[data-studio-phase-cards]').hidden=Boolean(phase);
-        root.querySelector('[data-phase-heading]').hidden=Boolean(phase);
-        root.querySelector('[data-active-phase]').hidden=false;
-        root.querySelector('[data-chain-label]').hidden=false;
-        if (!phase) return;
-        root.dataset.studioPhase=phase[0];
-        selectBloomscapesStudioAction(form,phase[3]);
-        refreshBloomscapesWorkBrowser(browser);
-    });
-    chain.addEventListener('change',()=>{
-        steps.hidden=!chain.checked;
-        if (!chain.checked) for (const input of steps.querySelectorAll('input')) input.checked=false;
-    });
-    steps.addEventListener('change',()=>syncBloomscapesWorkDetailFields(form));
-    if (options.phase || options.source) {
-        select.value=options.phase || BLOOMSCAPES_STUDIO_PHASES.find(([, ,kind])=>kind===root.dataset.workCreator)[0];
-        select.dispatchEvent(new Event('change'));
-        if (options.phase && !options.source) root.querySelector('[data-active-phase]').hidden=true;
-    }
+    const phase=BLOOMSCAPES_STUDIO_PHASES.find(([id])=>id===options.phase);
+    if (!phase) return;
+    root.dataset.studioPhase=phase[0];
+    selectBloomscapesStudioAction(form,phase[3]);
+    root.querySelector('[data-work-browser]').hidden=options.quick===true;
 }
 
 function placeBloomscapesWorkRowEditor(root,sourceId) {
@@ -85,7 +49,6 @@ function selectBloomscapesStudioAction(form,action) {
     if (!entry || !bloomscapesCanChooseWork(entry[1])) return false;
     form.elements.workView.value=entry[1];
     syncBloomscapesWorkCreatorKind(form);form.elements.actionType.value=action;
-    for (const input of form.querySelectorAll('[name=lifecycleStep]')) input.checked=false;
     syncBloomscapesWorkDetailFields(form);
     return true;
 }
@@ -95,9 +58,10 @@ function syncBloomscapesWorkDetailFields(form) {
     form.elements.targetLocation.closest('label').hidden=!['HAULING','Y_GRADING'].includes(kind);
     form.elements.targetLocation.required=['HAULING','Y_GRADING'].includes(kind);
     form.elements.actionType.closest('label').hidden=kind!=='BUNCH_NOTES';
-    const shift=form.querySelector('[data-shift-plan]');
-    if (shift) {shift.hidden=form.elements.actionType.value!=='Shift Grading';form.elements.plannedGradedQuantity.required=!shift.hidden;}
-    for (const name of ['media','fertilizer']) form.elements[name].closest('label').hidden=kind!=='CAN_FILLING';
+    form.elements.quantity.closest('label').hidden=kind==='SHEARING';
+    form.elements.quantity.disabled=kind==='SHEARING';
+    form.elements.percent.required=kind==='SHEARING';
+    for (const name of ['container','media','fertilizer']) form.elements[name].closest('label').hidden=kind!=='CAN_FILLING';
 }
 
 function syncBloomscapesWorkDestinations(root,form) {
@@ -152,36 +116,5 @@ async function hydrateBloomscapesConsolidationSpace(root,form,choices,source) {
         if (root.isConnected && root.dataset.destinationRevision===revision && form.elements.sourceId.value===id) {
             const status=choices.appendChild(document.createElement('p'));status.textContent=error.message;
         }
-    }
-}
-
-function bloomscapesShiftPlanFields() {
-    return '<fieldset data-shift-plan hidden><legend>Shift Grading</legend><p data-shift-scheduled></p>'
-        +'<label>Graded Qty <input name="plannedGradedQuantity" type="number" min="0" step="1"></label>'
-        +'<label>Short Qty / CF# Balance <input name="plannedShortQuantity" readonly></label></fieldset>';
-}
-
-function bindBloomscapesShiftPlan(form) {
-    for (const name of ['quantity','percent','plannedGradedQuantity']) {
-        form.elements[name].addEventListener('input',()=>syncBloomscapesShiftPlan(form));
-    }
-}
-
-function syncBloomscapesShiftPlan(form) {
-    const source=bloomscapesWorkBrowserRows().find(row=>String(row.UNIQUE_ID || row.unique_id)===form.elements.sourceId.value);
-    if (!source) return;
-    const stock=Number(source.PTRONHAND ?? source.ptronhand);
-    const scheduled=form.elements.quantity.value?Number(form.elements.quantity.value):Math.floor(stock*Number(form.elements.percent.value)/100);
-    const graded=form.elements.plannedGradedQuantity.value;
-    form.querySelector('[data-shift-scheduled]').textContent='Sch Total: '+scheduled;
-    form.elements.plannedGradedQuantity.max=String(scheduled);
-    form.elements.plannedShortQuantity.value=graded!==''?String(scheduled-Number(graded)):'';
-}
-
-function validateBloomscapesShiftPlan(form,input) {
-    if (input.actionType!=='Shift Grading') return;
-    const graded=Number(input.plannedGradedQuantity),short=Number(form.elements.plannedShortQuantity.value);
-    if (input.plannedGradedQuantity==='' || !Number.isInteger(graded) || graded<0 || !Number.isInteger(short) || short<0) {
-        throw new Error('Enter Graded Qty within Sch Total; Short is the remaining CF# balance.');
     }
 }

@@ -173,7 +173,7 @@ function navigateDisplayedQuickAccessView(view = '') {
 }
 
 function getNavigationDisplayChoices() {
-    const choices = [...getHomeModuleRegistry().map(module => module.view), 'tasks', 'take-back', 'weather-hold', 'shear-list', 'bunch-note'];
+    const choices = [...getHomeModuleRegistry().map(module => module.view), 'tasks', 'take-back', 'weather-hold'];
     return [...new Set(choices)].filter(view => canDisplayNavigationView(view));
 }
 

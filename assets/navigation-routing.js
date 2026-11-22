@@ -2,6 +2,7 @@ let pendingNavigationDisplay = null;
 
 function openDisplayOnlyNavigation(viewId, options = {}) {
     if (options.boot === true && shouldPreserveMountedBootView()) return false;
+    if (target==='production' && canUseBloomscapesWorkStudio()) prepareBloomscapesStudioNavigation(viewId,options);
     const previous = getCurrentVisibleViewId();
     if (options.boot !== true && currentUser) getAppBootViewState().userHasNavigated = true;
     navTransitionSeq += 1;
@@ -42,22 +43,11 @@ function promoteNavigationDisplayAfterAccess() {
     return true;
 }
 
-function applyNavigationDisplayPromotion(pending) {
-    if (!isNavigationDisplayPromotionCurrent(pending)) return;
-    const scrollTop = getMainAreaScrollTop();
-    const state = ensureViewRenderState(pending.viewId);
-    pendingNavigationDisplay = null;
-    if (!state.initialized) {
-        const token = prepareLatestViewRender(pending.viewId);
-        runPrimaryNavigationTargetRender({ nextViewId: pending.viewId, navigationSeq: pending.sequence }, token);
-    }
-    syncNavigationDisplayStatus(getViewElementById(pending.viewId));
-    scheduleViewActivationWork(pending.viewId);
-    schedulePostRenderMainAreaScrollRestore(pending.viewId, 'navigation-access-ready', scrollTop);
-}
-
 function switchView(viewId, options = {}) {
-    const target = String(viewId==='chat' && nativeAuthSessionActive?'messages':viewId || 'home').trim();
+    const target = String(nativeAuthSessionActive && currentUser==='dylan_collyge' && (
+        viewId==='field-work-studio' || BLOOMSCAPES_STUDIO_LEGACY_ROUTES[viewId]!==undefined
+        || viewId==='production-workflow' && productionWorkflowActive==='can-filling')
+        ? 'production' : viewId==='chat' && nativeAuthSessionActive ? 'messages' : viewId || 'home').trim();
     if (!canDisplayNavigationView(target)) {
         showToast('Access unavailable', 'You do not have permission to open this view.', true);
         return false;
@@ -69,6 +59,7 @@ function switchView(viewId, options = {}) {
     pendingNavigationDisplay = null;
     syncNavigationDisplayStatus(getViewElementById(target));
     if (options.boot === true && shouldPreserveMountedBootView()) return false;
+    if (target==='production' && canUseBloomscapesWorkStudio()) prepareBloomscapesStudioNavigation(viewId,options);
     if (options.boot !== true && currentUser) getAppBootViewState().userHasNavigated = true;
     const navigationSeq = ++navTransitionSeq;
     if (viewId === 'home' && restoreCameraDetailSession()) return;

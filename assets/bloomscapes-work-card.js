@@ -12,53 +12,17 @@ function bloomscapesWorkIdentityMarkup(source,options={}) {
         +bloomscapesWorkSiblingMarkup(row)+(options.summary?'':bloomscapesPlanningCardMarkup(row));
 }
 
-function renderBloomscapesDriveDispatchActions(row) {
-    if (!nativeAuthSessionActive || !bloomscapesFarmRowIsVisible(row)) return '';
-    const id=escapeHtml(escJsAttrValue(String(row.UNIQUE_ID || row.unique_id)));
-    const badge=(row.SHEAR_STATUS || row.shear_status)==='ADD_TO_SHEAR_LIST' ? '<span data-needs-shear>#? Needs Shear</span>' : '';
-    return badge+'<div class="bloomscapes-drive-dispatch" onclick="event.stopPropagation()">'
-        +'<button type="button" data-drive-dispatch="HAULING" onclick="event.stopPropagation();return openBloomscapesQuickWork(\'HAULING\',\''+id+'\')">🚜 Consolidate Inventory</button>'
-        +'<button type="button" data-drive-dispatch="SHEARING" onclick="event.stopPropagation();return openBloomscapesQuickWork(\'SHEARING\',\''+id+'\')">✂️ Add to Shear List</button></div>';
-}
-
 function renderBloomscapesDriveShearBadge(row,renderMeta,sourceView) {
     if (renderMeta.workBuilder || sourceView!=='drive' || !nativeAuthSessionActive || !bloomscapesFarmRowIsVisible(row)) return '';
     return (row.SHEAR_STATUS || row.shear_status)==='ADD_TO_SHEAR_LIST' ? '<span data-needs-shear>#? Needs Shear</span>' : '';
 }
 
-function renderBloomscapesDetailDispatch(item,sourceView) {
-    const parent = document.getElementById('view-detail')?.querySelector('[data-inline-detail-share]')?.parentElement;
-    if (!parent) return;
-    parent.querySelectorAll('[data-drive-dispatch]').forEach(button=>button.remove());
-    let host = document.getElementById('bloomscapes-detail-dispatch');
-    if (!host) {
-        host = document.createElement('section');
-        host.id = 'bloomscapes-detail-dispatch';
-        host.className = 'bloomscapes-detail-action-row';
-        parent.appendChild(host);
-    }
-    const source = sourceView || activeDetailSourceView || lastView;
-    const row=item && (findLinkedMasterRow(item) || item);
-    host.innerHTML = row && ['drive','request','suspend-tag'].includes(source) ? renderBloomscapesDriveDispatchActions(row) : '';
-    const actions = host.querySelector('.bloomscapes-drive-dispatch');
-    if (actions) {
-        parent.classList.add('bloomscapes-detail-action-row');
-        parent.append(...actions.children);host.replaceChildren();
-    }
-    host.hidden = !host.firstChild;
-    document.getElementById('view-detail').dataset.bloomscapesWorkActions = String(!!parent.querySelector('[data-drive-dispatch]'));
+function renderBloomscapesDetailDispatch() {
+    const detail=document.getElementById('view-detail');
+    detail?.querySelectorAll('[data-drive-dispatch],#bloomscapes-detail-dispatch').forEach(node=>node.remove());
+    if (detail) detail.dataset.bloomscapesWorkActions='false';
 }
 
 function bloomscapesDriveCardActivation(row,renderMeta,sourceView) {
     return renderMeta.workBuilder ? '' : buildExactInventoryCardActivationAttrs(row,renderMeta.originView || sourceView,'Open drive row');
-}
-
-async function openBloomscapesQuickWork(kind,id) {
-    try {
-        await ensureBloomscapesFieldQueue();
-        const source=findItemByUniqueId(id) || findItemByDomId(id);
-        if (!source || !bloomscapesFarmRowIsVisible(source)) throw new Error('Open a physical row in your active farm.');
-        await openBloomscapesJobBoardCreator(bloomscapesWorkTab(kind),{source,quick:true,phase:kind==='HAULING'?'consolidate':undefined});
-    } catch (error) { showToast('Work dispatch',error.message,true); }
-    return false;
 }

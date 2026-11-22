@@ -1,8 +1,7 @@
 let bloomscapesFieldQueueState = {owner:'',rows:[],views:[],roster:[],pending:null};
+const BLOOMSCAPES_FIELD_WORK_TAB = 'work-field-work';
 const BLOOMSCAPES_JOB_BOARD = [
-    ['pending','REQUEST'],['suspend-tag','SUSPEND'],['work-shearing','SHEAR LIST'],
-    ['work-bunch-notes','BUNCH NOTES'],['work-can-filling','CAN FILLING'],
-    ['work-hauling','HAULING & CONSOLIDATION'],['work-y-grading','.Y GRADING']
+    ['pending','REQUEST'],['suspend-tag','SUSPEND'],[BLOOMSCAPES_FIELD_WORK_TAB,'Field Work']
 ];
 
 function bloomscapesJobBoardCategories() {
@@ -16,23 +15,25 @@ function bloomscapesWorkTab(kind) {
 }
 
 function bloomscapesWorkKind(tab) {
+    if (tab===BLOOMSCAPES_FIELD_WORK_TAB) return 'FIELD_WORK';
     return Object.keys(BLOOMSCAPES_WORK_VIEWS).find(kind=>bloomscapesWorkTab(kind)===tab) || '';
 }
 
 function bloomscapesWorkQueueCategories() {
     const owner = getSupabaseReadIdentityScope();
-    if (bloomscapesFieldQueueState.owner===owner && bloomscapesFieldQueueState.loaded) return bloomscapesFieldQueueState.views.map(bloomscapesWorkTab);
-    return isFullAppAdministrator() ? Object.keys(BLOOMSCAPES_WORK_VIEWS).map(bloomscapesWorkTab) : [];
+    if (bloomscapesFieldQueueState.owner===owner && bloomscapesFieldQueueState.loaded) return bloomscapesFieldQueueState.views.length ? [BLOOMSCAPES_FIELD_WORK_TAB] : [];
+    return isFullAppAdministrator() ? [BLOOMSCAPES_FIELD_WORK_TAB] : [];
 }
 
 function bloomscapesWorkQueueLabel(tab) {
-    return BLOOMSCAPES_WORK_VIEWS[bloomscapesWorkKind(tab)] || '';
+    return tab===BLOOMSCAPES_FIELD_WORK_TAB ? 'Field Work' : BLOOMSCAPES_WORK_VIEWS[bloomscapesWorkKind(tab)] || '';
 }
 
 function bloomscapesWorkQueueCount(tab) {
     const kind = bloomscapesWorkKind(tab);
-    return bloomscapesFieldQueueState.owner===getSupabaseReadIdentityScope()
-        ? bloomscapesFieldQueueState.counts?.[kind] ?? bloomscapesFieldQueueState.rows.filter(row=>row.work_view===kind && row.status==='OPEN').length : 0;
+    if (bloomscapesFieldQueueState.owner!==getSupabaseReadIdentityScope()) return 0;
+    if (tab===BLOOMSCAPES_FIELD_WORK_TAB) return Object.values(bloomscapesFieldQueueState.counts || {}).reduce((sum,count)=>sum+Number(count),0);
+    return bloomscapesFieldQueueState.counts?.[kind] ?? bloomscapesFieldQueueState.rows.filter(row=>row.work_view===kind && row.status==='OPEN').length;
 }
 
 function applyBloomscapesFieldQueueSnapshot(data) {
@@ -68,8 +69,8 @@ async function ensureBloomscapesFieldQueue(force=false) {
     finally { state.pending = null; }
 }
 
-async function openBloomscapesWorkQueue(kind) {
-    const tab = bloomscapesWorkTab(kind);
+async function openBloomscapesWorkQueue() {
+    const tab = BLOOMSCAPES_FIELD_WORK_TAB;
     if (!bloomscapesWorkQueueCategories().includes(tab)) await ensureBloomscapesFieldQueue();
     if (!bloomscapesWorkQueueCategories().includes(tab)) throw new Error('Work View access is unavailable.');
     switchView('request');
@@ -84,90 +85,31 @@ async function renderBloomscapesFieldQueue(container,crumb,notice='') {
     const host = document.createElement('section');
     host.dataset.fieldWorkQueue = kind;
     container.replaceChildren(host);
-    if (crumb) crumb.textContent = `${getBloomscapesFarm()} · ${BLOOMSCAPES_WORK_VIEWS[kind]}`;
-    const status = host.appendChild(document.createElement('p'));
+    if (crumb) crumb.textContent = `${getBloomscapesFarm()} · ${bloomscapesWorkQueueLabel(tab)}`;
+    const list=host.appendChild(document.createElement('div'));
+    const status=list.appendChild(document.createElement('p'));
     status.setAttribute('role','status');
+    if (isBloomscapesFieldQueueReviewer()) mountBloomscapesFieldAudit(host,list,status,kind,owner);
     const cached=bloomscapesFieldQueueState;
     const projected=cached.loaded && cached.owner===owner && cached.farm===getBloomscapesFarm() ? cached.rows : null;
-    if (projected) paintBloomscapesFieldQueue(host,status,projected,kind,notice);
+    if (projected) paintBloomscapesFieldQueue(list,status,projected,kind,notice);
     try {
         const state = await ensureBloomscapesFieldQueue();
         if (!host.isConnected || owner!==getSupabaseReadIdentityScope() || tab!==activeReqTab) return;
-        if (projected!==state.rows && !host.contains(document.activeElement)) {
-            paintBloomscapesFieldQueue(host,status,state.rows,kind,notice);
+        if (!host.querySelector('[data-field-audit]:checked') && projected!==state.rows && !host.contains(document.activeElement)) {
+            paintBloomscapesFieldQueue(list,status,state.rows,kind,notice);
         }
     } catch (error) { if (host.isConnected) status.textContent = error.message; }
 }
 
-function paintBloomscapesFieldQueue(host,status,queue,kind,notice) {
-    const rows = queue.filter(row=>row.work_view===kind);
+function paintBloomscapesFieldQueue(host,status,queue,kind,notice,viewAll=false) {
+    const rows = queue.filter(row=>(kind==='FIELD_WORK' || row.work_view===kind) && bloomscapesFieldJobVisible(row,viewAll));
     prepareBloomscapesJobFacets(rows);
     const matches = rows.filter(matchesBloomscapesJobBoardFilters);
     status.textContent = `${matches.length} work cards · ${getBloomscapesFarm()}${notice ? ' · '+notice : ''}`;
     host.replaceChildren(status);
     const list = host.appendChild(document.createElement('div'));
     renderBloomscapesWorkGroups(list,matches,status,kind);
-}
-
-function renderBloomscapesFieldWorkCard(job,status) {
-    const card = document.createElement('article');
-    card.dataset.workId = job.id;
-    card.className = 'bloomscapes-field-work-card';
-    const source=findItemByUniqueId(job.source_id) || job.source_snapshot;
-    if (source && bloomscapesFarmRowIsVisible(source)) {
-        const identity=card.appendChild(document.createElement('div'));
-        identity.innerHTML=bloomscapesWorkIdentityMarkup(source,{assignedTo:job.assigned_to});
-    }
-    const command=job.workflow_command || job.command || {};
-    if (command.jobCode) {
-        const label=card.appendChild(document.createElement('label'));
-        label.textContent='Job Code / Project Description';
-        const select=label.appendChild(document.createElement('select'));
-        select.add(new Option(command.jobDescription || command.jobCode,command.jobCode));
-        select.disabled=true;
-    }
-    const heading = card.appendChild(document.createElement('h3'));
-    heading.textContent = `${job.work_view==='SHEARING' ? (job.status==='OPEN' ? '#? Needs Shear · ' : '#✓ Sheared · ') : ''}${job.action_type} · ${job.itemcode} · ${job.farm_code}`;
-    appendBloomscapesJobFacts(card,job);
-    const detail = card.appendChild(document.createElement('p'));
-    detail.textContent = [job.scope,`${job.source_rows.length} rows`,`Qty ${job.quantity}`,job.assigned_to,
-        job.due_on || 'No due date',job.instructions].join(' · ');
-    const form = card.appendChild(document.createElement('form'));
-    form.innerHTML = '<label>Actual Qty <input name="actualQuantity" type="number" min="1" step="1" required></label>'
-        + '<label>Completion Notes <input name="notes" maxlength="1000"></label>'
-        + '<label><input name="acknowledge" type="checkbox"> Confirm crew and outbound warnings reviewed</label>'
-        + '<button type="submit">MARK DONE · Complete Work</button>';
-    form.elements.actualQuantity.value = job.quantity;
-    form.querySelector('label').firstChild.textContent = job.work_view==='HAULING' ? 'Qty Hauled ' : job.work_view==='Y_GRADING' ? 'GRADED # ' : 'Actual Qty ';
-    if (job.work_view==='Y_GRADING') form.insertAdjacentHTML('afterbegin','<label>CF# <input name="canFillQuantity" type="number" min="0" step="1" value="0"></label>');
-    renderBloomscapesWorkAnswers(form,job);
-    configureBloomscapesCompletionForm(form,job);
-    form.addEventListener('submit',event=>{
-        event.preventDefault();
-        void completeBloomscapesFieldWorkCard(job,form,status);
-    });
-    return card;
-}
-
-async function completeBloomscapesFieldWorkCard(job,form,status) {
-    const button = form.querySelector('button');
-    if (button.disabled) return;
-    button.disabled = true;
-    const owner = getSupabaseReadIdentityScope();
-    const answers = job.completion_answers || readBloomscapesWorkAnswers(form,job);
-    try {
-        const receipt = await completeBloomscapesFieldWork(job,answers);
-        if (owner!==getSupabaseReadIdentityScope()) return;
-        status.textContent = 'Work saved · PDF '+receipt.pdf.archiveStatus;
-        await ensureBloomscapesFieldQueue(true);
-        await renderBloomscapesFieldQueue(document.getElementById('request-content'),document.getElementById('request-crumb'));
-    } catch (error) {
-        if (status.isConnected) status.textContent = error.message;
-        const saved = bloomscapesFieldQueueState.rows.find(row=>row.id===job.id && row.status==='DONE');
-        if (saved && owner===getSupabaseReadIdentityScope()) await renderBloomscapesFieldQueue(
-            document.getElementById('request-content'),document.getElementById('request-crumb'),error.message);
-    }
-    finally { button.disabled = false; }
 }
 
 function applyBloomscapesFieldWorkReceipt(job,answers,receipt) {
@@ -200,55 +142,6 @@ function applyBloomscapesBlockLifecycleReceipt(receipt) {
     if (index<0) rows.push(structuredClone(row));
     else rows[index]=structuredClone(row);
     return true;
-}
-
-function configureBloomscapesCompletionForm(form,job) {
-    const done = job.status==='DONE';
-    for (const input of form.querySelectorAll('input')) {
-        if (done && Object.hasOwn(job.completion_answers || {},input.name)) {
-            if (input.type==='checkbox') input.checked = job.completion_answers[input.name]===true;
-            else input.value = job.completion_answers[input.name];
-        }
-        input.disabled = done;
-    }
-    const editable = bloomscapesFieldQueueState.canCreate?.[job.work_view]===true || isFullAppAdministrator();
-    form.querySelector('button').textContent = done ? 'Work complete · Retry PDF archive' : 'MARK DONE · Complete Work';
-    form.querySelector('button').hidden = !editable;
-    if (job.blocked) {
-        form.querySelector('button').disabled=true;
-        form.querySelector('button').textContent='Waiting for previous workflow step';
-    }
-    if (done && isBloomscapesMeasuredWork(job)) restoreBloomscapesMeasuredAnswers(form,job);
-    if (!editable) form.querySelectorAll('input,select').forEach(input=>{input.disabled=true;});
-}
-
-function renderBloomscapesWorkGroups(list,rows,status,kind) {
-    const paint=pageIndex=>{
-        list.replaceChildren();
-        const page=bloomscapesListWindow(rows,pageIndex);
-        if (kind==='CAN_FILLING') renderBloomscapesCanGroups(list,page.rows,status);
-        else list.append(...page.rows.map(row=>renderBloomscapesFieldWorkCard(row,status)));
-        for (const [label,start] of [['Previous',page.index-1],['Next',page.index+1]]) {
-            if (start<0 || start>=page.pages) continue;
-            const button=list.appendChild(document.createElement('button'));
-            button.type='button';button.textContent=label;button.onclick=()=>paint(start);
-        }
-    };
-    paint(0);
-}
-
-function renderBloomscapesCanGroups(list,rows,status) {
-    const groups = new Map();
-    for (const row of rows) {
-        const key = [row.command?.media || 'Media not specified',row.command?.fertilizer || 'Fertilizer not specified',row.target_location || 'No target block'].join(' · ');
-        if (!groups.has(key)) groups.set(key,[]);
-        groups.get(key).push(row);
-    }
-    for (const [recipe,jobs] of groups) {
-        const section = list.appendChild(document.createElement('section'));
-        section.appendChild(document.createElement('h3')).textContent = recipe+' · '+jobs.reduce((sum,job)=>sum+Number(job.quantity),0)+' cans required';
-        section.append(...jobs.map(job=>renderBloomscapesFieldWorkCard(job,status)));
-    }
 }
 
 function getScopedRequestItems(items = requestsInventory, options = {}) {

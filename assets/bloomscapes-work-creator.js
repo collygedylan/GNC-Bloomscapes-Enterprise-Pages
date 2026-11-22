@@ -1,6 +1,6 @@
-function renderBloomscapesWorkCreator(tab,module) {
+function renderBloomscapesWorkCreator(tab) {
     const kind = bloomscapesWorkViewForPanel(tab);
-    return `<section data-work-creator="${kind}"><div data-studio-excel></div>${bloomscapesWorkTypeBar(module)}
+    return `<section data-work-creator="${kind}"><div data-studio-excel></div>
       <div data-work-browser hidden></div><section data-work-row-editor hidden>
       <p data-selected-source>Select a work type, then a Drive Mode row.</p>
       <form data-create-field-work hidden>
@@ -14,15 +14,17 @@ function renderBloomscapesWorkCreator(tab,module) {
         <option value="ITEM_FARM">Itemcode Across Farm</option><option value="SINGLE_ROW">Single Row</option>
         <option value="ITEM_LOT">Itemcode @ Lot</option></select></label>
       <label>Exact Qty <input name="quantity" type="number" min="1" step="1"></label>
-      <label>Or Percent <input name="percent" type="number" min="1" max="100" step="1"></label>
-      ${bloomscapesShiftPlanFields()}
+      <label>Percent <input name="percent" type="number" min="1" max="100" step="1"></label>
       <label>Target Location <select name="targetLocation"><option value="">No location move</option></select></label>
       <label>Job Code / Project Description <select name="jobCode"><option value="">Choose job code</option></select></label>
-      <label>Assigned Crew / User <select name="assignedTo" required></select></label>
+      <label>Assignment Mode <select name="assignmentMode" required>
+        <option value="">Choose assignment mode</option><option value="OPEN">Open for Crew Pickup (Unassigned)</option>
+        <option value="ASSIGNED">Assign to Specific User</option></select></label>
+      <label hidden>Assigned To <select name="assignedTo" disabled><option value="">Choose eligible user</option></select></label>
+      <label>Container <input name="container" maxlength="120"></label>
       <label>Media <input name="media" maxlength="120"></label><label>Fertilizer recipe <input name="fertilizer" maxlength="120"></label>
       <label>Due Date <input name="dueOn" type="date"></label>
-      <label>Field Instructions <textarea name="instructions" maxlength="4000"></textarea></label>
-      ${bloomscapesLifecyclePicker()}
+      <label>Crew Instructions <textarea name="instructions" maxlength="4000"></textarea></label>
       <label><input name="acknowledge" type="checkbox" value="true"> I reviewed the 14-day outbound SOC / hold warning for shear work</label>
       <button type="button" data-simulate-work>Simulate · 7 gates</button><button type="submit">💾 Save / Queue Row</button>
       <button type="button" data-clear-work>Clear draft</button>
@@ -39,18 +41,15 @@ async function mountBloomscapesWorkCreator(host,options={}) {
         option.disabled = !isFullAppAdministrator() && bloomscapesFieldQueueState.canCreate?.[option.value]!==true;
     }
     const browser=root.querySelector('[data-work-browser]');
-    if (!options.selection) mountBloomscapesCreatorBrowser(root,form,state,browser,options);
-    syncBloomscapesWorkCreatorKind(form);
+    if (!options.selection && !options.quick) mountBloomscapesCreatorBrowser(root,form,state,browser,options);
     bindBloomscapesWorkTypes(root,form,options);
-    bindBloomscapesShiftPlan(form);
     if (options.source) {
         selectBloomscapesWorkSource(root,form,state,options.source);
         form.elements.scope.value='SINGLE_ROW';form.elements.percent.value='100';
         browser.hidden=options.quick===true;
-        if (options.selection) form.elements.scope.closest('label').hidden=true;
     }
     bindBloomscapesWorkCreator(form,state);
-    bindBloomscapesLifecyclePicker(form);
+    form.elements.assignmentMode.addEventListener('change',()=>syncBloomscapesWorkAssignment(form));
     form.elements.actionType.addEventListener('change',()=>syncBloomscapesWorkDestinations(root,form));
     try {
         const farm=getBloomscapesFarm();
@@ -58,8 +57,8 @@ async function mountBloomscapesWorkCreator(host,options={}) {
         if (farm!==getBloomscapesFarm()) return;
         if (!root.isConnected || owner!==getSupabaseReadIdentityScope()) return;
         jobs.forEach(job=>form.elements.jobCode.appendChild(new Option(job.label,job.code)));
-        roster.forEach(user=>form.elements.assignedTo.appendChild(new Option(user.name,user.username)));
-        form.elements.assignedTo.value = currentUser;
+        roster.filter(user=>user.work_views?.includes(form.elements.workView.value))
+            .forEach(user=>form.elements.assignedTo.add(new Option(user.name,user.username)));
     } catch (error) { root.querySelector('[data-work-preview]').textContent = error.message; }
 }
 
@@ -76,16 +75,16 @@ function selectBloomscapesWorkSource(root,form,state,row,scope) {
     if (!preview) {preview=document.createElement('div');preview.dataset.selectedWorkIdentity='true';root.querySelector('form').before(preview);}
     preview.innerHTML=bloomscapesWorkIdentityMarkup(row);
     hydrateBloomscapesPlanningCards(preview,row);
+    form.elements.container.value=row.CONTSIZE || row.contsize || '';
     syncBloomscapesWorkDestinations(root,form);
-    syncBloomscapesShiftPlan(form);
 }
 
 function syncBloomscapesWorkCreatorKind(form) {
     const kind=form.elements.workView.value;
     const actions={SHEARING:['Add to Shear List','Shear %','Whole-group Shear'],HAULING:['Haul','Consolidate','Haul / Consolidate','Consolidate Inventory','Whole-group Consolidation','Block Haul'],
-        BUNCH_NOTES:['Bunch & Tie','Bunch Count','Cover with Poly','Remove Poly (Spring)','Spread Block (Spring)','Spread Count','Custom Field Instructions','Custom Bunch Note'],
+        BUNCH_NOTES:['Bunch & Tie','Bunch Count','Cover with Poly','Remove Poly (Spring)','Spread Block (Spring)','Spread Count','Custom Crew Instructions','Custom Bunch Note'],
         CAN_FILLING:['Can Filling','Can Fill Prep'],Y_GRADING:['Shift Grading','Grade & Haul','Grade & Shift']}[kind];
-    form.elements.actionType.replaceChildren(...actions.map(action=>new Option(action,action)));
+    form.elements.actionType.replaceChildren(...actions.map(action=>new Option(({'Bunch & Tie':'Bunch','Consolidate Bunches':'Consolidate'})[action] || action,action)));
     form.elements.targetLocation.required=kind==='HAULING';
 }
 
@@ -95,18 +94,20 @@ function readBloomscapesWorkCreatorInput(form,state) {
     input.studioModule=form.closest('[data-work-creator]').dataset.studioPhase;
     if (input.jobCode) input.jobDescription=form.elements.jobCode.selectedOptions[0].textContent;
     if (Boolean(input.quantity)===Boolean(input.percent)) throw new Error('Enter either an exact quantity or a percent.');
-    validateBloomscapesShiftPlan(form,input);
-    return readBloomscapesLifecycleSteps(form,{...input,sourceId:String(state.source.UNIQUE_ID || state.source.unique_id)});
+    if (!['OPEN','ASSIGNED'].includes(input.assignmentMode) || input.assignmentMode==='ASSIGNED' && !input.assignedTo) {
+        throw new Error('Choose a crew pickup or specific eligible user.');
+    }
+    if (input.workView==='SHEARING' && !input.percent) throw new Error('Enter the shear percentage.');
+    return {...input,sourceId:String(state.source.UNIQUE_ID || state.source.unique_id),assignedTo:input.assignedTo || null};
 }
 
 function bindBloomscapesWorkCreator(form,state) {
     const status = form.querySelector('[data-work-preview]');
     form.querySelector('[data-clear-work]').addEventListener('click',()=>{
         const kind=form.elements.workView.value,action=form.elements.actionType.value;
-        form.reset();form.elements.workView.value=kind;syncBloomscapesWorkCreatorKind(form);form.elements.actionType.value=action;
+        form.reset();syncBloomscapesWorkAssignment(form);form.elements.workView.value=kind;syncBloomscapesWorkCreatorKind(form);form.elements.actionType.value=action;
         form.closest('[data-work-creator]').querySelector('[data-selected-work-identity]')?.remove();
         form.elements.sourceId.value = '';
-        form.elements.assignedTo.value = currentUser;
         state.source = null;
         state.attempt = null;
         form.hidden=true;
@@ -118,7 +119,7 @@ function bindBloomscapesWorkCreator(form,state) {
         try {
             const input=readBloomscapesWorkCreatorInput(form,state);
             const previews=[];
-            for (const entry of planBloomscapesWorkSelection(input,state.source,state.selection)) previews.push(await previewBloomscapesFieldWork(entry));
+            for (const entry of planBloomscapesWorkSelection(input,state.source,preserveBloomscapesPickedRows(input,state))) previews.push(await previewBloomscapesFieldWork(entry));
             const preview={rows:previews.reduce((sum,row)=>sum+row.rows,0),quantity:previews.reduce((sum,row)=>sum+row.quantity,0),gates:previews.flatMap(row=>row.gates)};
             if (state.owner!==getSupabaseReadIdentityScope() || revision!==state.previewRevision || !form.isConnected) return;
             status.textContent = `${preview.rows} rows · Qty ${preview.quantity} · `
@@ -139,7 +140,7 @@ async function submitBloomscapesWorkCreator(form,state,status) {
     try {
         const input = readBloomscapesWorkCreatorInput(form,state);
         const farm = getBloomscapesFarm();
-        const selection=state.selection || await confirmBloomscapesWorkRowScope(state.source,input);
+        const selection=preserveBloomscapesPickedRows(input,state) || await confirmBloomscapesWorkRowScope(state.source,input);
         if (state.owner!==getSupabaseReadIdentityScope() || farm!==getBloomscapesFarm() || !form.isConnected) return;
         const inputs=planBloomscapesWorkSelection(input,state.source,selection);
         if (!inputs.length) return;
@@ -164,7 +165,20 @@ function mountBloomscapesCreatorBrowser(root,form,state,browser,options) {
         syncBloomscapesWorkCreatorKind(form);refreshBloomscapesWorkBrowser(browser);
     });
     const modes=browser.querySelector('[data-work-modes]');
-    root.querySelector('[data-work-type-bar]').appendChild(modes.closest('label'));
+    root.prepend(modes.closest('label'));
     applyInventoryExcelFilters('studio',bloomscapesWorkBrowserRows());
     mountInventoryExcelFilters('studio');
+}
+
+function syncBloomscapesWorkAssignment(form) {
+    const specific=form.elements.assignmentMode.value==='ASSIGNED';
+    const user=form.elements.assignedTo;
+    user.closest('label').hidden=!specific;
+    user.disabled=!specific;
+    user.required=specific;
+    if (!specific) user.value='';
+}
+
+function preserveBloomscapesPickedRows(input,state) {
+    return input.scope==='SINGLE_ROW' ? state.selection : null;
 }
