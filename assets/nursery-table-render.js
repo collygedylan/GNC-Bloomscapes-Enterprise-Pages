@@ -41,7 +41,8 @@ function nurseryTable_drawBunchDrill(context, data){
 
 function nurseryTable_draw(context){
       if(context.state.destroyed||!context.root.isConnected)return;
-      const view=context.model.TABLES.find(t=>t.id===context.state.view),isPlan=context.isNurseryWorkspace()||!view.relation,data=isPlan?context.model.compile(context.options.inventory(),context.state.refs,context.state):{plans:[],kpis:{}};
+      const view=context.model.TABLES.find(t=>t.id===context.state.view),isPlan=context.isNurseryWorkspace()||!view.relation;
+      const data=isPlan?compileNurseryTableProjection(context):{plans:[],kpis:{}};
       let rows,headers,render;
       if(['bunch-notes-simulator','prod-schedule','approved-execution-plan'].includes(context.state.view)){context.state.contextInventory=context.options.inventory();context.state.contextRevision=context.options.revision?.();context.state.bunchContext=context.model.buildBunchNoteContext(context.state.contextInventory,context.state.refs,data);context.state.currentIssues=[...context.state.bunchContext.byUid.values()].map(row=>context.model.evaluateBunchNoteRowAndIssues(row,context.state.bunchContext));}
 
@@ -58,10 +59,7 @@ function nurseryTable_draw(context){
 
 function nurseryTable_tableProjection(context, view, data) {
     let rows, headers, render;
-    if (view.relation) {
-headers=context.model.FIELDS[view.relation];rows=context.state.refs[view.relation]||[];render=row=>headers.map(field=>context.input(view.relation,row,field));
-        return {rows, headers, render};
-    }
+    if (view.relation) return nurseryReferenceTable(context,view.relation);
     if (context.state.view==='approved-execution-plan') {
 headers=context.execution;rows=data.execution.concat((context.state.currentIssues||[]).filter(p=>p.approved).map(p=>({...p,workflow:'BUNCH NOTE',decision:p.saved.decision,final_target:p.saved.override_loc||p.from,final_qty:p.saved.override_qty,final_beds:0,lot:context.readRow(p.row,'lotcode'),water:{},explanation:'Approved exact-row Bunch Note',notes:p.saved.notes}))).filter(p=>context.state.location==='ALL_LOCATIONS'||p.from===context.state.location||p.final_target===context.state.location);render = (p,i) => nurseryTable_executionCells(context,p,i);
         return {rows, headers, render};
@@ -132,6 +130,13 @@ function nurseryTable_patchCardNodes(scroll, template, key, previous) {
         if (old.outerHTML !== next.outerHTML && !old.contains(document.activeElement)) old.replaceWith(next);
     }
     for (const old of previous.values()) old.remove();
+}
+
+function nurseryReferenceTable(context,relation) {
+    const headers=context.model.FIELDS[relation],rows=context.state.refs[relation] || [];
+    const cell=context.options.request?.publishedReferences
+        ? (row,field)=>context.escape(row[field]??'') : (row,field)=>context.input(relation,row,field);
+    return {rows,headers,render:row=>headers.map(field=>cell(row,field))};
 }
 
 function nurseryTable_executionCells(context, p, i) {

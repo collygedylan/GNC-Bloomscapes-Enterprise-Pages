@@ -1,5 +1,18 @@
 let bloomscapesPlanningState={owner:'',rows:new Map(),scopes:new Map()};
 
+function compileNurseryTableProjection(context) {
+    const inventory=context.options.inventory();
+    const {refs}=context.state;
+    const initial=context.model.compile(inventory,refs,context.state);
+    if (!context.options.request?.publishedReferences) return initial;
+    const decisions=refs.ph_dylan_decisions_store || [];
+    const saved=new Set(decisions.map(row=>row.plan_id));
+    if (!initial.plans.some(plan=>plan.approved && !saved.has(plan.plan_id))) return initial;
+    const unreviewed=initial.plans.filter(plan=>!saved.has(plan.plan_id))
+        .map(plan=>({plan_id:plan.plan_id,decision:context.model.DECISIONS[4]}));
+    return context.model.compile(inventory,{...refs,ph_dylan_decisions_store:decisions.concat(unreviewed)},context.state);
+}
+
 function getBloomscapesPlanningState() {
     const owner=getSupabaseReadIdentityScope()+':'+getBloomscapesFarm();
     if (bloomscapesPlanningState.owner!==owner) bloomscapesPlanningState={owner,rows:new Map(),scopes:new Map()};

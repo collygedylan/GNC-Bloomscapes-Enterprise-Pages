@@ -147,6 +147,22 @@ async function fetchObservedSupabaseRequest(input, init) {
     }
 }
 
+async function postReclassRecoveryRpc(payload, options, scope, refresh = false) {
+    if (scope !== getSupabaseReadIdentityScope() || options.signal?.aborted) throw staleSupabaseReadScopeError();
+    const headers = await getNativeAuthRequestHeaders(refresh);
+    if (!headers?.Authorization || scope !== getSupabaseReadIdentityScope()) throw staleSupabaseReadScopeError();
+    const response = await fetchWithTimeout(SUPABASE_URL + '/rest/v1/rpc/reclass_transport_v1', {
+        method: 'POST', headers, body: JSON.stringify(payload), referrerPolicy: 'no-referrer',
+        signal: options.signal, detachedReclass: options.detachedReclass
+    }, 5000, 'Reclass recovery');
+    if (response.status === 401 && !refresh) return postReclassRecoveryRpc(payload, options, scope, true);
+    const result = await response.json();
+    if (!response.ok) {
+        throw Object.assign(new Error(result.message || 'Reclass recovery failed'), { status: response.status, code: result.code });
+    }
+    return result;
+}
+
 async function decodeAppFunctionResponse(response, signal) {
     const text = await response.text();
     if (signal?.aborted) throw Object.assign(new Error('App function response cancelled.'), {code:'REQUEST_ABORTED'});
@@ -207,22 +223,6 @@ async function fetchAppFunctionPayload(url, request, timeoutMs, label, detached)
         ({response, payload:await decodeAppFunctionResponse(response, signal)}));
 }
 
-async function postReclassRecoveryRpc(payload, options, scope, refresh = false) {
-    if (scope !== getSupabaseReadIdentityScope() || options.signal?.aborted) throw staleSupabaseReadScopeError();
-    const headers = await getNativeAuthRequestHeaders(refresh);
-    if (!headers?.Authorization || scope !== getSupabaseReadIdentityScope()) throw staleSupabaseReadScopeError();
-    const response = await fetchWithTimeout(SUPABASE_URL + '/rest/v1/rpc/reclass_transport_v1', {
-        method: 'POST', headers, body: JSON.stringify(payload), referrerPolicy: 'no-referrer',
-        signal: options.signal, detachedReclass: options.detachedReclass
-    }, 5000, 'Reclass recovery');
-    if (response.status === 401 && !refresh) return postReclassRecoveryRpc(payload, options, scope, true);
-    const result = await response.json();
-    if (!response.ok) {
-        throw Object.assign(new Error(result.message || 'Reclass recovery failed'), { status: response.status, code: result.code });
-    }
-    return result;
-}
-
 async function waitForReclassRecovery(body, options, scope) {
     let reply = await postReclassRecoveryRpc({ p_command: body }, options, scope);
     const ticket = reply.ticket;
@@ -240,6 +240,11 @@ async function waitForReclassRecovery(body, options, scope) {
 }
 
 async function postReclassCommand(body, options = {}) {
+    if (nativeAuthSessionActive && body.action === 'drive_reclass_inquiry'
+        && ['season_priority_list','season_priority_state'].includes(body.operation)) {
+        const filter = body.operation === 'season_priority_list' ? {assignedTo:body.assignedTo} : {itemcodes:body.itemcodes};
+        return requestBloomscapesManagerTable(body.operation, filter, options.signal);
+    }
     const scope = getSupabaseReadIdentityScope();
     const request = body.action === 'inventory_reclass_move' ? { ...options, signal: undefined, detachedReclass: true } : options;
     try {

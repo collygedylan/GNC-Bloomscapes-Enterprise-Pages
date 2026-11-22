@@ -117,7 +117,9 @@ function discrepancyClick(view, event) {
         view.state.page = Math.max(0, view.state.page + (command === 'next' ? 1 : -1));
         return drawDiscrepancies(view);
     }
-    return runDiscrepancyCommand(view, command, Number(button.closest('tr')?.dataset.id));
+    const rowId = button.closest('tr')?.dataset.id;
+    const id = view.entries.find(entry => String(entry.row.id) === rowId)?.row.id;
+    return runDiscrepancyCommand(view, command, id);
 }
 
 function mountActionDiscrepancies(root, source, escape) {

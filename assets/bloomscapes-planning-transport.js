@@ -1,3 +1,27 @@
+function createBloomscapesNurseryTransport(identity) {
+    const request=command=>requestBloomscapesNurseryCommand(identity,command);
+    return Object.assign(request,{publishedReferences:true});
+}
+
+async function requestBloomscapesNurseryCommand(identity, {table,operation,payload}) {
+    if (identity !== getSupabaseReadIdentityScope() || !canViewNurseryCommandTables()) throw new Error('NURSERY_ACCESS_DENIED');
+    const farm = getBloomscapesFarm();
+    const {client,owner}=await requireBloomscapesSession();
+    if (identity !== getSupabaseReadIdentityScope() || farm !== getBloomscapesFarm()) throw staleSupabaseReadScopeError();
+    const response = await client.rpc('nursery_command_v23127', {
+        p_operation:operation, p_payload:{...payload,table,farm}
+    }).abortSignal(AbortSignal.timeout(30000));
+    await requireBloomscapesOwner(owner);
+    if (identity !== getSupabaseReadIdentityScope() || farm !== getBloomscapesFarm()) throw staleSupabaseReadScopeError();
+    const result=bloomscapesData(response);
+    if (operation === 'read' && (result?.farm !== farm || result.table !== table || result.offset !== payload.offset
+        || !Array.isArray(result.rows))) throw new Error('Nursery reference scope was not confirmed.');
+    if (operation === 'read' && table === 'ph_prod_schedule_active') {
+        return {...result,rows:result.rows.map(row=>({...row,source:row.source ?? ''}))};
+    }
+    return result;
+}
+
 async function readBloomscapesPlanning(scope) {
     const {client,owner}=await requireBloomscapesSession();
     const rows=[];

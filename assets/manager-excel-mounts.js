@@ -1,3 +1,28 @@
+function getNurseryTableManagementOptions(identity) {
+    const authorized=()=>identity===getSupabaseReadIdentityScope() && canViewNurseryCommandTables();
+    return {
+        nurseryIdentity:identity, nurseryApprovedBy:String(currentUser || 'Reviewer'), nurseryAuthorized:authorized,
+        inventory:()=>fullInventory, inventoryReady:()=>getDatasetState('master').rowCompleteness==='complete',
+        inventoryRevision:()=>getDatasetLoadSignature('master')+':'+resolvedViewStateEpoch,
+        onBunchNoteSaved:(row,decision)=>{
+            const uid=String(row?.unique_id || row?.UNIQUE_ID || '');
+            const live=!row?.synthetic && fullInventory.find(item=>String(item.unique_id || item.UNIQUE_ID || '')===uid);
+            if (live) live.approved_bunch_note=decision?.notes || '';
+            invalidateDriveResolvedCardState();
+        },
+        onBunchNoteError:message=>showToast('Bunch Note save failed',message,true),
+        nurserySendPdf:async (payload,commandId)=>{
+            if (!authorized()) throw new Error('NURSERY_ACCESS_DENIED');
+            const result=await postAppFunctionJson(APP_API_FUNCTION_URL,
+                {action:'bunch_note',operation:'nursery_pdf',payload,commandId},{timeoutMs:45000,idempotencyKey:commandId});
+            if (identity!==getSupabaseReadIdentityScope()) throw staleSupabaseReadScopeError();
+            if (!result?.ok) throw new Error(result?.message || 'PDF email was not queued.');
+            return result.data;
+        },
+        nurseryRequest:createBloomscapesNurseryTransport(identity)
+    };
+}
+
 function mountCustomerRepMappingView(root) {
     if (!root || !canManageCustomerRepMappings()) { destroyCustomerRepMappingView(); return; }
     const identity = getSupabaseReadIdentityScope();
