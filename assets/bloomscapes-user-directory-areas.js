@@ -74,7 +74,7 @@ function renderDirectoryAreaFields(receipt, target, locked) {
     const role = target.id ? renderDirectoryAreaPills('Role Tier','role',roles,[receipt.role],locked,'radio') : '';
     const farms = target.id ? renderDirectoryAreaPills('Allowed Farms','farm',directoryFarms,receipt.allowed_farms || [],locked) : '';
     const scope = renderDirectoryAreaPills('Assigned Business Areas','area',areas,scopes,locked);
-    return role+farms+scope+renderDirectoryAreaOverrides(receipt.overrides || {},locked);
+    return role+farms+scope+renderDirectoryAreaOverrides(receipt.overrides || {},locked,Boolean(target.id));
 }
 
 function renderDirectoryAreaPills(legend,name,options,selected,locked,type='checkbox') {
@@ -84,10 +84,10 @@ function renderDirectoryAreaPills(legend,name,options,selected,locked,type='chec
     return '<fieldset><legend>'+legend+'</legend><div data-area-policy-pills>'+pills.join('')+'</div></fieldset>';
 }
 
-function renderDirectoryAreaOverrides(overrides,locked) {
+function renderDirectoryAreaOverrides(overrides,locked,userPolicy) {
     const groups = BLOOMSCAPES_BUSINESS_AREAS.map(area => {
         const views = area.id === 'PRODUCTION' ? [...area.views,...BLOOMSCAPES_STUDIO_PHASES.map(([key,label])=>[bloomscapesStudioPermission(key),label])] : area.views;
-        return '<fieldset><legend>'+area.id+'</legend>'+views.map(([key,label])=>renderDirectoryAreaOverride(key,label,overrides[key],locked)).join('')+'</fieldset>';
+        return '<fieldset><legend>'+area.id+'</legend>'+views.map(([key,label])=>renderDirectoryAreaOverride(key,label,overrides[key],locked || userPolicy && key==='inventory-office')).join('')+'</fieldset>';
     });
     return '<details><summary>Per-view access</summary>'+groups.join('')+'</details>';
 }

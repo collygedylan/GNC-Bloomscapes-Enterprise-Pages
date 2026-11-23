@@ -91,3 +91,56 @@ function resolveAccessSelfState(input) {
 }
 
 Object.assign(globalThis,{sameAccessSession,resolveVerifiedAccessSelf,resolveAccessSelfState});
+
+function reclassAccessKey(value) {
+    return String(value || '').trim().toLowerCase();
+}
+
+function getBloomscapesReclassAccess() {
+    if (typeof nativeAuthSessionActive === 'undefined' || !nativeAuthSessionActive) return null;
+    const identity = getCanonicalAccessSessionIdentity();
+    const user = reclassAccessKey(currentUser);
+    const farm = getBloomscapesFarm();
+    const preview = typeof borrowedHelpPreview === 'function' ? borrowedHelpPreview() : null;
+    const denied = {scope:'hidden',username:'',farm,preview:Boolean(preview)};
+    if (!identity?.authenticated || identity.legacy || identity.username !== user
+        || identity.id !== nativeAuthProfile?.id || !getBloomscapesAllowedFarms().includes(farm)) return denied;
+    if (preview) {
+        if (!preview.username || !preview.farm_scopes?.includes(farm)) return denied;
+        return {...denied,scope:preview.reclass_scope,username:reclassAccessKey(preview.username)};
+    }
+    const matrix = resolveUserAccessMatrix(user);
+    if (!matrix?.verified || matrix.profile_id !== identity.id) return denied;
+    return {...denied,scope:matrix.view_permissions?.reclass_scope,username:user};
+}
+
+function hasBloomscapesReclassScope(access = getBloomscapesReclassAccess()) {
+    return access?.scope === 'all' || access?.scope === 'assigned';
+}
+
+function exactBloomscapesReclassOwner(row,farm) {
+    const raw = row?.__reclassIdentityRaw || row;
+    if (!raw || (raw.farm_code || raw.FARM_CODE || bloomscapesRowFarm(raw)) !== farm) return '';
+    const code = String(raw.ITEMCODE || raw.itemcode || '').trim();
+    if (!code) return '';
+    const assignments = getManagerAssignedColumnState().defaultOwnersByCode;
+    const assignment = assignments?.get(code.toUpperCase()) || assignments?.get(buildManagerEvalAssignmentKey(code));
+    if (assignment?.farm_code !== farm || String(assignment.itemcode || '').trim() !== code) return '';
+    return reclassAccessKey(assignment.effective_worker_username) || reclassAccessKey(assignment.default_owner_username);
+}
+
+function canShowBloomscapesReclassRow(row, access = getBloomscapesReclassAccess()) {
+    if (!hasBloomscapesReclassScope(access) || !isArgosInventoryTransactionEligible(row)) return false;
+    const raw = row.__reclassIdentityRaw || row;
+    if ((raw.farm_code || raw.FARM_CODE || bloomscapesRowFarm(raw)) !== access.farm) return false;
+    return access.scope === 'all' || Boolean(access.username) && exactBloomscapesReclassOwner(raw,access.farm) === access.username;
+}
+
+function filterBloomscapesPreviewInventoryRows(rows) {
+    const preview = typeof borrowedHelpPreview === 'function' ? borrowedHelpPreview() : null;
+    if (!preview?.username || preview.reclass_scope !== 'assigned') return rows;
+    const username = reclassAccessKey(preview.username);
+    const farm = getBloomscapesFarm();
+    if (!preview.farm_scopes?.includes(farm)) return [];
+    return rows.filter(row => exactBloomscapesReclassOwner(row,farm) === username);
+}

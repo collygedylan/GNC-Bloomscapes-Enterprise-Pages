@@ -33,7 +33,9 @@ function watchdogOperationMetadata(operation, error) {
     const action = safe(detail.action || error?.action || operation);
     const parsedStatus = String(error?.message || error || '').match(/\bHTTP[\s=]+(\d{3})\b/i)?.[1];
     const status = Number(detail.httpStatus || error?.status || parsedStatus || 0);
-    return { rpcName, tableName, action, httpStatus: Number.isInteger(status) && status >= 100 && status <= 599 ? status : 0 };
+    const errorCode = String(detail.errorCode || '');
+    return { rpcName, tableName, action, errorCode: /^[A-Z0-9_]{1,64}$/.test(errorCode) ? errorCode : '',
+        httpStatus: Number.isInteger(status) && status >= 100 && status <= 599 ? status : 0 };
 }
 
 function reportWatchdogField(deps, type, scope, code, driveCommand, operation) {
@@ -45,12 +47,13 @@ function reportWatchdogField(deps, type, scope, code, driveCommand, operation) {
     const identifiers = [context.rpcName, context.tableName, context.action].filter(Boolean);
     const endpoint = identifiers.length ? ' rpcName=' + context.rpcName + ' tableName=' + context.tableName
         + ' action=' + context.action + ' HTTP=' + context.httpStatus : '';
-    const key = [state.username, current, scope, type, code, command, endpoint].join('|'), now = Date.now();
+    const diagnostic = context.errorCode ? ' errorCode=' + context.errorCode : '';
+    const key = [state.username, current, scope, type, code, command, endpoint, diagnostic].join('|'), now = Date.now();
     if (fieldSeen.has(key) && now - fieldSeen.get(key) < 60000) return false;
     fieldSeen.delete(key);
     fieldSeen.set(key, now);
     if (fieldSeen.size > MAX_QUEUED_REPORTS) fieldSeen.delete(fieldSeen.keys().next().value);
-    record(type, { view_id: current, sub_module: scope, error_message: [type, scope, code].join(':') + endpoint,
+    record(type, { view_id: current, sub_module: scope, error_message: [type, scope, code].join(':') + endpoint + diagnostic,
         driveCommand: command, suspected_functions: identifiers.length ? identifiers : [scope] });
     return true;
 }
@@ -63,7 +66,10 @@ function captureWatchdogOperation(deps, error, operation) {
     if (isIgnorableRuntimeNoise(error?.code || error?.message)) return false;
     const owner = metadata.rpcName || metadata.tableName || metadata.action || 'unknown';
     const code = String(error?.code || error?.name || 'Error').replace(/[^a-zA-Z0-9_.:-]/g, '').slice(0, 64);
-    if (state.memoryOnly && state.configured) return reportField('RPC_FAILURE', 'rpc', FIELD_CODES.has(code) ? code : 'ERROR', '', metadata);
+    if (state.memoryOnly && state.configured) {
+        if (metadata.action === 'docks_suspend_sync_guard' || /^gnc_pull_(board|command)$/.test(metadata.rpcName)) metadata.errorCode = code;
+        return reportField('RPC_FAILURE', 'rpc', FIELD_CODES.has(code) ? code : 'ERROR', '', metadata);
+    }
     record('OPERATIONAL_FAILURE', { severity: 'high', error_message: owner + ' failed (' + code + ') HTTP=' + metadata.httpStatus,
         suspected_functions: [owner] });
     return true;
@@ -120,6 +126,8 @@ function observeWatchdogError(deps, title, message, shown, kind, driveCommand) {
         || /REQUEST_ABORTED|AbortError|watchdog_(log|list|resolve)_event|resolve_runtime_watchdog_events_v23158/i.test(value)) return false;
     const code = watchdogFailureCode(value, shown);
     if (!code) return false;
+    if (kind === 'UI_ERROR_BANNER_SHOWN' && view() === 'docks' && ['OPERATION_FAILED','SAVE_FAILED','LOAD_FAILED'].includes(code)
+        && !/could not|cannot|unable|fail|\berror\b|not (?:saved|confirmed|available)/i.test(value)) return false;
     const scope = watchdogFailureScope(value, kind, view, FIELD_SCOPES);
     return reportField(kind, scope, code, driveCommand, metadata);
 }
@@ -165,7 +173,7 @@ function createWatchdogBannerInspector(selector,visible,report,owner) {
     const seen=new WeakMap();
     return function(node) {
         if (!node) return;
-        if (!visible(node) || !node.matches?.(selector) || ['success','input-guidance'].includes(node.dataset?.kind)) {
+        if (!visible(node) || !node.matches?.(selector) || ['success','input-guidance','info','loading','empty'].includes(node.dataset?.kind)) {
             seen.delete(node);
             return;
         }

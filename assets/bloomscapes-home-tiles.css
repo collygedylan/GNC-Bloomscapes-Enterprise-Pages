@@ -1,5 +1,21 @@
 #view-home #home-dashboard-modules {
   padding-block-start: 8px;
+  --home-tile-columns: 2;
+  --home-tile-row-height: 76px;
+}
+
+@media (min-width: 600px) {
+  #view-home #home-dashboard-modules {
+    --home-tile-columns: 3;
+    --home-tile-row-height: 80px;
+  }
+}
+
+@media (min-width: 900px), (min-width: 720px) and (orientation: landscape) {
+  #view-home #home-dashboard-modules {
+    --home-tile-columns: 4;
+    --home-tile-row-height: clamp(76px, 8.2vh, 92px);
+  }
 }
 
 html body #app-wrapper [data-superadmin-lens] > [data-lens-trigger] {
@@ -13,18 +29,53 @@ html body #app-wrapper [data-superadmin-lens] > [data-lens-trigger] {
   padding-inline: 8px;
 }
 
+#app-wrapper [data-superadmin-lens] {
+  position: relative;
+}
+
+#app-wrapper [data-lens-menu] {
+  position: absolute;
+  z-index: 80;
+  inset: calc(100% + 6px) 0 auto auto;
+  width: min(420px, calc(100vw - 24px));
+  padding: 12px;
+  border: 1px solid #38664f;
+  border-radius: 12px;
+  color: #effcf4;
+  background: #103220;
+  box-shadow: 0 12px 24px #081c1280;
+}
+
+#app-wrapper [data-lens-menu] input,
+#app-wrapper [data-lens-choices] button {
+  width: 100%;
+  min-height: 36px;
+  padding-inline: 8px;
+  text-align: start;
+}
+
+#app-wrapper [data-lens-choices] {
+  max-height: min(50vh, 390px);
+  overflow-y: auto;
+}
+
 html body.ops-precision-pilot.current-view-home.home-dashboard-mode #app-wrapper #view-home
 #home-dashboard-modules #home-dashboard-grid[data-bloomscapes-home="tiles"] {
-  --home-square-size: min(var(--home-fit-tile-height, 60px), var(--home-fit-card-width, 60px));
-  grid-template-columns: repeat(var(--home-fit-columns, 3), var(--home-square-size)) !important;
+  grid-template-columns: repeat(var(--home-tile-columns), minmax(0, 1fr)) !important;
   grid-template-rows: none !important;
-  grid-auto-rows: var(--home-square-size) !important;
-  justify-content: center !important;
+  grid-auto-rows: var(--home-tile-row-height) !important;
   align-content: start !important;
+  max-inline-size: 1080px;
+  margin-inline: auto !important;
+  gap: clamp(6px, 1vw, 12px) !important;
 }
 
 html body.ops-precision-pilot.current-view-home.home-dashboard-mode #app-wrapper #view-home
 #home-dashboard-modules #home-dashboard-grid[data-bloomscapes-home="tiles"] > .home-module-tile {
   width: 100% !important;
   height: 100% !important;
+  background: linear-gradient(150deg, #103220, #081c12) !important;
+  font-weight: 700;
 }
+
+[data-lens-self] > button { width: 100%; text-align: left; }

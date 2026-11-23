@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.45';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.46';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -23298,7 +23298,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.45';
+        const APP_VERSION = '3.1.46';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -35987,23 +35987,7 @@ let avTopControlsRenderToken = 0;
                 && ['REP', 'SALESREP', 'SALES'].includes(String(profile.role || '').trim().toUpperCase());
         }
 
-        function buildArgosInventoryTransactionRailHtml(item = null, sourceView = '', pressAttrs = '') {
-            const safeSourceView = String(sourceView || activeDetailSourceView || lastView || '').trim().toLowerCase();
-            if (!['drive', 'suspend-tag'].includes(safeSourceView)) return '';
-            if (safeSourceView === 'suspend-tag' && !canCurrentUserViewDockSuspendDcRequests(item)) return '';
-            const adminAccess = getSeasonYReclassAdministratorAccess(item, safeSourceView);
-            if (adminAccess === false) return '';
-            if (adminAccess !== true && !canCurrentUserUseDriveCardOptions(item, 'drive') && !canCurrentUserSubmitRepInventoryOperations()) return '';
-            if (!isArgosInventoryTransactionEligible(item)) return '';
-            const safeUid = escJsAttrValue(firstNonEmptyValue(item.UNIQUE_ID, item.unique_id, ''));
-            const safeSource = escJsAttrValue(sourceView || activeDetailSourceView || lastView || '');
-            return `<button type="button"${pressAttrs ? ` ${pressAttrs}` : ''} class="app-card-bottom-btn app-card-bottom-btn--argos-reclass" aria-label="Open reclass transaction" onclick="event.stopPropagation(); return openArgosInventoryTransactionModal('${safeUid}', 'reclass', '${safeSource}')"><i class="ph ph-arrows-clockwise text-base"></i><span>Reclass</span></button>`;
-        }
 
-        function buildArgosInventoryTransactionRailPlaceholderHtml(item) {
-            const uid = escJsAttrValue(item.UNIQUE_ID || item.unique_id);
-            return `<button type="button" class="app-card-bottom-btn app-card-bottom-btn--argos-reclass" data-fast-press-ignore onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();return openQueueReclassPicker('${uid}')">⇄ Reclass</button>`;
-        }
         function openQueueReclassPicker(uid) {
             const item = findDockSuspendDcRequestMirrorRowByUniqueId(uid) || findRequestRowByUniqueId(uid) || (activeItem?.UNIQUE_ID === uid ? activeItem : null);
             if (!item) return false;
@@ -43072,12 +43056,6 @@ return false;
             return filteredItems;
         }
 
-        function getDriveFilteredItems(includeQuickFilters = false) {
-            const candidates = getDriveBaseFilteredItems();
-            const baseItems = typeof applyInventoryExcelFilters === 'function' ? applyInventoryExcelFilters('drive',candidates) : candidates;
-            if (!includeQuickFilters) return baseItems;
-            return applyDriveQuickFiltersToItems(baseItems, `base:${driveBaseFilterCacheKey}`);
-        }
 
         function hasActiveDriveQuickFilters() {
             const ltsValue = String(driveQuickFilterLtsValue || '').trim();
@@ -63012,7 +62990,7 @@ function toggleDriveQuickRequestItem(domId) {
             const nursery = globalThis.AgDataHoldIntelligence.lifecycleFor(card.row, ['geo','move-up'].includes(card.type) ? 3 : null);
             const stateText = Array.from(card.states || []).slice(0, 5).join(', ');
             const repText = Array.from(card.reps || []).slice(0, 3).join(', ');
-            const reclassButton = `<button type="button" class="sales-intelligence-action sales-intelligence-action--primary" onclick="return openSalesIntelligenceReclass('${escJsAttrValue(actionKey)}')">${card.type === 'move-up' ? 'Open in Reclass' : 'Reclass'}</button>`;
+            const reclassButton = (!nativeAuthSessionActive || canShowBloomscapesReclassRow(card.row)) ? `<button type="button" class="sales-intelligence-action sales-intelligence-action--primary" onclick="return openSalesIntelligenceReclass('${escJsAttrValue(actionKey)}')">${card.type === 'move-up' ? 'Open in Reclass' : 'Reclass'}</button>` : '';
             const projectButton = card.type === 'hold' ? `<button type="button" class="sales-intelligence-action" onclick="return addSalesIntelligenceProject('${escJsAttrValue(actionKey)}')">+ Project</button>` : '';
             const bloomButton = ['geo','missed','add-on'].includes(card.type) ? `<button type="button" class="sales-intelligence-action sales-intelligence-action--primary" onclick="return addSalesIntelligenceBloom('${escJsAttrValue(actionKey)}')">Add to Bloom Picker</button>` : '';
             const requestButton = mode === 'rep' && ['missed','add-on'].includes(card.type) ? `<button type="button" class="sales-intelligence-action" onclick="return requestSalesIntelligenceItem('${escJsAttrValue(actionKey)}')">Request</button>` : '';
@@ -76917,18 +76895,6 @@ function toggleDriveQuickRequestItem(domId) {
             return setAvHoldFilterMode(avHoldFilterMode === 'hold' ? 'all' : 'hold');
         }
 
-        function getAvRawTabItems(tab = activeAVTab, options = {}) {
-            const mode = options?.ignoreSecondaryTab ? 'all' : getAvPhotoMode();
-            if (mode === 'valid_photos') return getCanonicalValidPhotoRows();
-            let items = Array.isArray(options?.salesRows) ? options.salesRows : getAvSalesRowsForBucket(activeAvSalesBucket);
-            const prepared = avPreparedRawTabRows.get(items);
-            items = prepared?.epoch === avDerivationMutationEpoch && prepared.all ? prepared.all.rows : items.filter(item => ['valid_photos','photos'].includes(getAvPhotoMode()) || !isShiftDesigItemRow(item));
-            if (tab === 'open') items = globalThis.collapseCanonicalAvLotRows(items);
-            if (mode === 'photos') return items.filter(avItemHasPhotos);
-            if (mode === 'valid_photos') return items.filter(hasValidRowPhoto);
-            if (mode === 'no_photos') return items.filter(item => !hasValidRowPhoto(item));
-            return items;
-        }
 
         function isTaskHotPriceSubview(tab = activeTaskTab, subview = activeTaskSubview) {
             const safeView = normalizeTaskViewValue(tab);
@@ -83634,10 +83600,6 @@ function toggleDriveQuickRequestItem(domId) {
             return isNcrOfficeRecord && normalizeNcrApprovalType(record && record.ncr_approval_type) === safeType;
         }
 
-        function getInventoryOfficeRecordsForActiveTab(records = getInventoryOfficeMoveRecords()) {
-            if (normalizeInventoryOfficeApprovalType(activeInventoryOfficeApprovalType) === 'inventory-edits') return getInventoryEditMockOfficeRecords();
-            return (Array.isArray(records) ? records : []).filter((record) => doesInventoryOfficeRecordMatchApprovalType(record, activeInventoryOfficeApprovalType));
-        }
 
         function getOpenMoveRecords() {
             return activeMovesTab === 'office' ? getInventoryOfficeRecordsForActiveTab() : getMoveCandidateRecords();
@@ -84576,6 +84538,7 @@ function toggleDriveQuickRequestItem(domId) {
 
         function renderMoves() {
             if (ensureViewDataForRender('moves')) return;
+            if (getBloomscapesReclassAccess()?.scope === 'assigned') activeMovesTab = 'office';
             syncMovesTabs();
             const crumb = document.getElementById('moves-crumb');
             const container = document.getElementById('moves-content');
@@ -89112,7 +89075,7 @@ function toggleDriveQuickRequestItem(domId) {
             const canShowInventoryEditTab = !!(inventoryEditTab && (canUseInventoryEditMock(item) || canCurrentUserEditInventoryEditMockRecord(inventoryEditRecord)));
             revealSourceDetailTabs(safeSourceView, item, { assignment, customerTab, ncrTab, inventoryEditTab, canShowInventoryEditTab });
 
-            if (itemInquiryTab && safeSourceView !== 'not-on-inventory' && getItemInquiryItemCode(item)) {
+            if (itemInquiryTab && canShowBloomscapesDetailItemInquiry(item,safeSourceView)) {
                 itemInquiryTab.classList.remove('hidden');
             }
 

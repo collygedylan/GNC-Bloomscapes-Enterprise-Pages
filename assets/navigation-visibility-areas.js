@@ -57,8 +57,15 @@ function allowedScopedAreaChoice(profile,key,view,baseline) {
 
 function bloomscapesAreaChoices(area) {
     const preview = typeof borrowedHelpPreview === 'function' && borrowedHelpPreview();
-    if (preview) return area.views.filter(([key])=>previewShowsAreaView(preview,key));
-    if (isBloomscapesAreaOwner()) return area.views;
+    const access = getBloomscapesReclassAccess();
+    const views = access && !hasBloomscapesReclassScope(access) ? area.views.filter(([key]) => key !== 'inventory-office') : area.views;
+    if (preview) return views.filter(([key]) => key === 'inventory-office' || previewShowsAreaView(preview,key));
+    if (isBloomscapesAreaOwner()) return views;
+    if (access && isBloomscapesAreaScoped() && area.id === 'INVENTORY') {
+        const permitted = filterBloomscapesAreaViews({...area,views:views.filter(([key]) => key !== 'inventory-office')},
+            bloomscapesAreaProfile(),true,canUseBloomscapesAreaView);
+        return views.filter(entry => entry[0] === 'inventory-office' || permitted.includes(entry));
+    }
     const profile = bloomscapesAreaProfile();
     return filterBloomscapesAreaViews(area, profile, isBloomscapesAreaScoped(profile), canUseBloomscapesAreaView);
 }
@@ -87,6 +94,10 @@ function canUseBloomscapesAreaView(key, view) {
 }
 
 function resolveBloomscapesAreaNavigation(view) {
+    if (['moves','office','inventory-office'].includes(view)) {
+        const access = getBloomscapesReclassAccess();
+        if (access) return hasBloomscapesReclassScope(access);
+    }
     const profile = bloomscapesAreaProfile();
     const preview = typeof borrowedHelpPreview === 'function' && borrowedHelpPreview();
     if (!preview && view === 'borrowed-work' && typeof canOpenBloomscapesDocksWorkspace === 'function') {

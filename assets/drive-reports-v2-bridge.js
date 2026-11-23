@@ -232,3 +232,10 @@ function renderStandardDriveCards(container, crumb, driveModeLabel, driveViewSta
         approxCardHeight: 310
     });
 }
+
+function getDriveFilteredItems(includeQuickFilters = false) {
+    const candidates = filterBloomscapesPreviewInventoryRows(getDriveBaseFilteredItems());
+    const baseItems = typeof applyInventoryExcelFilters === 'function' ? applyInventoryExcelFilters('drive',candidates) : candidates;
+    if (!includeQuickFilters) return baseItems;
+    return applyDriveQuickFiltersToItems(baseItems, `base:${driveBaseFilterCacheKey}`);
+}

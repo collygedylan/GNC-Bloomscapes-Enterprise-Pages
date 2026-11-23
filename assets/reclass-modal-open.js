@@ -215,3 +215,28 @@ function getArgosReclassActionAvailability(action, rule, scopeEntries, originalO
     const title = hold ? `${scopeEntries.length} scoped row${scopeEntries.length === 1 ? '' : 's'} affected` : '';
     return { eligible: true, title };
 }
+
+function buildArgosInventoryTransactionRailHtml(item = null, sourceView = '', pressAttrs = '') {
+    const safeSourceView = String(sourceView || activeDetailSourceView || lastView || '').trim().toLowerCase();
+    const access = getBloomscapesReclassAccess();
+    if (!(access ? ['drive','av','suspend-tag'] : ['drive','suspend-tag']).includes(safeSourceView)) return '';
+    if (safeSourceView === 'suspend-tag' && !canCurrentUserViewDockSuspendDcRequests(item)) return '';
+    if (access ? !canShowBloomscapesReclassRow(item,access) : !canShowLegacyReclassRail(item,safeSourceView)) return '';
+    if (!isArgosInventoryTransactionEligible(item)) return '';
+    const safeUid = escJsAttrValue(firstNonEmptyValue(item.UNIQUE_ID, item.unique_id, ''));
+    const safeSource = escJsAttrValue(sourceView || activeDetailSourceView || lastView || '');
+    return `<button type="button"${pressAttrs ? ` ${pressAttrs}` : ''} class="app-card-bottom-btn app-card-bottom-btn--argos-reclass" aria-label="Open reclass transaction" onclick="event.stopPropagation(); return openArgosInventoryTransactionModal('${safeUid}', 'reclass', '${safeSource}')"><i class="ph ph-arrows-clockwise text-base"></i><span>Reclass</span></button>`;
+}
+
+function buildArgosInventoryTransactionRailPlaceholderHtml(item) {
+    const access = getBloomscapesReclassAccess();
+    if (access && (!canShowBloomscapesReclassRow(getQueueCardInventoryRow(item,'request'), access) || access.preview)) return '';
+    const uid = escJsAttrValue(item.UNIQUE_ID || item.unique_id);
+    return `<button type="button" class="app-card-bottom-btn app-card-bottom-btn--argos-reclass" data-fast-press-ignore onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();return openQueueReclassPicker('${uid}')">⇄ Reclass</button>`;
+}
+
+function canShowLegacyReclassRail(item,sourceView) {
+    const adminAccess = getSeasonYReclassAdministratorAccess(item,sourceView);
+    return adminAccess === true || (adminAccess !== false &&
+        (canCurrentUserUseDriveCardOptions(item,'drive') || canCurrentUserSubmitRepInventoryOperations()));
+}

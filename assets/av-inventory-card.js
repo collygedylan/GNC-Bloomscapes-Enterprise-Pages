@@ -116,11 +116,25 @@ function renderAvInventoryCardMarkup(context) {
         <div class="app-av-catalog-frame">
             ${renderAvCardHeading(context, commonNameText)}
             <div class="app-av-catalog-media app-inline-thumb-column"><div class="app-av-catalog-photo-wrap">${heroHtml}</div>${photoDateHtml}</div>
-            <div class="app-av-catalog-info">${renderAvCardQuantities(context)}${renderAvCardNote('Spec', specText)}${renderAvCardNote('Caliper', caliperText)}${renderAvCardNote('AV Note', avNoteDisplay)}${kiosk ? '' : renderAvCardNote('Pick note', pickNoteText)}${buildAvCardActions(context)}${renderAvCardHold(context)}</div>
+            <div class="app-av-catalog-info">${renderAvCardQuantities(context)}${renderAvCardNote('Spec', specText)}${renderAvCardNote('Caliper', caliperText)}${renderAvCardNote('AV Note', avNoteDisplay)}${kiosk ? '' : renderAvCardNote('Pick note', pickNoteText)}${buildAvCardActions(context)}${kiosk ? '' : buildArgosInventoryTransactionRailHtml(item,'av')}${renderAvCardHold(context)}</div>
         </div>
     </div>`;
 }
 
 function renderAvInventoryCard(context) {
     return renderAvInventoryCardMarkup({ ...context, ...createAvInventoryCardModel(context) });
+}
+
+function getAvRawTabItems(tab = activeAVTab, options = {}) {
+    const mode = options?.ignoreSecondaryTab ? 'all' : getAvPhotoMode();
+    if (mode === 'valid_photos') return filterBloomscapesPreviewInventoryRows(getCanonicalValidPhotoRows());
+    let items = Array.isArray(options?.salesRows) ? options.salesRows : getAvSalesRowsForBucket(activeAvSalesBucket);
+    const prepared = avPreparedRawTabRows.get(items);
+    items = prepared?.epoch === avDerivationMutationEpoch && prepared.all ? prepared.all.rows : items.filter(item => ['valid_photos','photos'].includes(getAvPhotoMode()) || !isShiftDesigItemRow(item));
+    items = filterBloomscapesPreviewInventoryRows(items);
+    if (tab === 'open') items = globalThis.collapseCanonicalAvLotRows(items);
+    if (mode === 'photos') return items.filter(avItemHasPhotos);
+    if (mode === 'valid_photos') return items.filter(hasValidRowPhoto);
+    if (mode === 'no_photos') return items.filter(item => !hasValidRowPhoto(item));
+    return items;
 }

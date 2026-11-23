@@ -51,6 +51,7 @@ async function loadBloomscapesDockBoard(state) {
         }
     } catch (error) {
         if (!isBloomscapesDockStateCurrent(state)) return;
+        window.GncRuntimeWatchdog?.capture?.(error,{rpcName:'gnc_pull_board',action:'dock_board_load'});
         changed = state.error!==error.message || (error.code==='42501' && !!state.board);
         state.error = error.message;
         if (error.code === '42501' && state.board) {
@@ -240,6 +241,7 @@ async function applyBloomscapesDockCommand({state,form,input,action,key,host}) {
         if (isBloomscapesDockStateCurrent(state)) showToast('Docks','Saved.');
     } catch (error) {
         if (isBloomscapesDockStateCurrent(state)) {
+            window.GncRuntimeWatchdog?.capture?.(error,{rpcName:'gnc_pull_command',action});
             if (status) status.textContent = error.message;
             showToast('Docks',error.message,true);
         }

@@ -1,9 +1,11 @@
 const previewRoleOptions = [
+    ['admin','Admin',['drive','av','inventory-office','studio','po','docks','suspend','requests','tables'],true],
     ['manager','Manager — Production',['studio','production-schedule','po'],true],
     ['supervisor','Supervisor — Docks',['docks','docks-issues','load-maximizer','dock-credit-vault','suspend'],true],
     ['crew','Order Puller / Crew',['docks','suspend','studio'],false],
     ['eval','Evaluator',['drive','av','eval2','requests','studio'],false],
     ['rep','Sales Rep',['drive','av','sales-design','sales-flyer','sales-history','sales-rep','sales-archive','requests','historical'],false],
+    ['csr','CSR',['drive','av','requests','sales-rep','historical','messages'],false],
     ['traffic','Traffic',['docks','docks-issues','load-maximizer','suspend'],false]
 ];
 let superAdminLens;
@@ -42,7 +44,6 @@ function mountSuperAdminViewAs() {
     const picker = host || root.appendChild(document.createElement('div'));
     picker.dataset.superadminLens = '';
     paintSuperAdminLens(picker,state);
-
 }
 
 function prepareSuperAdminLens(picker,state) {
@@ -70,7 +71,8 @@ function initializeSuperAdminPicker(host) {
       aria-haspopup="dialog" aria-expanded="false"></button>
       <div data-lens-menu role="dialog" aria-label="👁️ View As" hidden>
         <button type="button" data-lens-close>Close</button>
-        <input type="search" aria-label="Search people or roles">
+        <input type="search" aria-label="Search people or roles" placeholder="Search any user or role...">
+        <div data-lens-self></div><p role="status" data-lens-status></p>
         <div data-lens-choices></div></div>`;
     host.querySelector('[data-lens-trigger]').onclick = () => openSuperAdminPicker(host,superAdminLens);
     host.querySelector('[data-lens-close]').onclick = () => closeSuperAdminPicker(host);
@@ -88,6 +90,7 @@ function openSuperAdminPicker(host,state) {
     host.querySelector('[data-lens-trigger]').setAttribute('aria-expanded','true');
     menu.hidden = false;
     paintSuperAdminChoices(host,state);
+    host.querySelector('input').focus();
     if (!state.ready && !state.flight && Date.now() >= (state.retryAt || 0)) prepareSuperAdminLens(host,state);
 }
 
@@ -99,22 +102,40 @@ function closeSuperAdminPicker(host) {
 function paintSuperAdminChoices(host,state) {
     const query = host.querySelector('input').value.toLowerCase().trim();
     const users = [...(state.receipt?.users || [])].sort((left,right)=>left.label.localeCompare(right.label));
-    const profiles = [{id:'self',label:'Myself (Super-Admin)'},...superAdminPreviewRoles(state.receipt),...users];
+    const self = {id:'self',label:'Myself — dylan_collyge (Super-Admin)'};
+    host.querySelector('[data-lens-self]').replaceChildren(superAdminChoiceButton(host,state,self));
+    const profiles = [...superAdminPreviewRoles(state.receipt),...users];
     const list = host.querySelector('[data-lens-choices]');
-    const choices = profiles.filter(profile=>profile.label.toLowerCase().includes(query));
-    renderBloomscapesListWindow(list,choices,profile=>superAdminChoiceButton(host,state,profile),'No matching profiles.');
+    const choices = profiles.filter(profile => matchesSuperAdminPreview(profile,query));
+    const status = host.querySelector('[data-lens-status]');
+    status.textContent = state.ready ? '' : 'Loading active users…';
+    list.replaceChildren(...choices.map(profile=>superAdminChoiceButton(host,state,profile)));
+    if (!choices.length) list.textContent = 'No matching profiles.';
+}
+
+function matchesSuperAdminPreview(profile,query) {
+    if (!query) return true;
+    const search = [profile.label,profile.username && '@'+profile.username,profile.role,...(profile.farm_scopes || [])]
+        .filter(Boolean).join(' ').toLowerCase();
+    return query.split(/\s+/).every(word => search.includes(word));
 }
 
 function superAdminChoiceButton(host,state,profile) {
     const button = document.createElement('button');
     button.type = 'button';
-    button.textContent = profile.label;
+    button.textContent = describeSuperAdminPreview(profile);
     button.setAttribute('aria-pressed',String((state.selected?.id || 'self') === profile.id));
     button.onclick = () => {
         closeSuperAdminPicker(host);
         applySuperAdminLens(state,profile.id === 'self' ? null : profile);
     };
     return button;
+}
+
+function describeSuperAdminPreview(profile) {
+    if (!profile.username) return profile.label;
+    const farms = profile.farm_scopes?.join(', ') || 'No farms';
+    return [profile.label,'@'+profile.username,profile.role,farms,'Assigned Rows: '+(profile.assigned_rows ?? 0)].join(' · ');
 }
 
 function paintSuperAdminBanner(profile) {
@@ -128,14 +149,18 @@ function paintSuperAdminBanner(profile) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = pullWorkspacePill;
-    button.textContent = 'Return to Super-Admin';
+    button.textContent = 'Exit View As';
     button.onclick = () => applySuperAdminLens(superAdminLens,null);
-    banner.replaceChildren('👁️ Viewing UI as '+profile.label+' · ',button);
+    const account = profile.username ? ' (@'+profile.username+' · '+profile.role+')' : '';
+    banner.replaceChildren('👁️ Viewing as '+profile.label+account+' · ',button);
 }
 
 function applySuperAdminLens(state,profile) {
     if (!state || state !== superAdminLens || state.owner !== borrowedHelpIdentity() || !isSuperAdminLensOwner()) return;
     state.selected = profile || null;
+    avResolvedBaseStateKey = '';
+    driveVisibleItemsStateCache = null;
+    driveVisibleItemsStateCacheKey = '';
     const trigger = document.querySelector('[data-lens-trigger]');
     if (trigger) trigger.textContent = '👁️ View As: '+(profile?.label || 'Myself (Super-Admin)')+' ▾';
     paintSuperAdminBanner(state.selected);
@@ -156,6 +181,8 @@ function finishSuperAdminLens(state,profile,grid) {
     syncNavigationVisibilityUi(getRoleAccessState(),'',grid);
     const view = getCurrentVisibleViewId();
     if (view === 'request') renderRequest();
+    if (view === 'drive') renderDrive();
+    if (view === 'av') renderAV();
     if (view === 'borrowed-work') renderBloomscapesBorrowedField(view);
 }
 

@@ -88,6 +88,13 @@ function isArgosReclassRepOperations(entry) {
 }
 
 function getArgosReclassRowAccessDenial(item, sourceView, mode) {
+    const access = getBloomscapesReclassAccess();
+    if (access) {
+        if (access.preview && mode !== 'open') return ['View Only', 'Exit View As to submit Reclass.'];
+        if (!canShowBloomscapesReclassRow(item,access)) return ['Unavailable', 'This inventory row is outside your Reclass access.'];
+        return sourceView === 'suspend-tag' && !canCurrentUserViewDockSuspendDcRequests(item)
+            ? ['Unavailable', 'Suspend Tag actions are not available for this account.'] : null;
+    }
     const adminAccess = getSeasonYReclassAdministratorAccess(item, sourceView);
     if (adminAccess === false) return ['View Only', 'Reclass is not available in this module for this account.'];
     if (adminAccess !== true && !isEvalReclassRowAssigned(currentUser || currentUserDisplay, item)) {
@@ -163,3 +170,23 @@ function authorizeArgosReclassSubmissionRows(payload, state) {
 }
 
 globalThis.getVerifiedReclassAdministrator = getVerifiedReclassAdministrator;
+
+function getInventoryOfficeRecordsForActiveTab(records = getInventoryOfficeMoveRecords()) {
+    const active = normalizeInventoryOfficeApprovalType(activeInventoryOfficeApprovalType);
+    const candidates = active === 'inventory-edits' ? getInventoryEditMockOfficeRecords()
+        : (Array.isArray(records) ? records : []).filter(record => doesInventoryOfficeRecordMatchApprovalType(record,active));
+    const access = getBloomscapesReclassAccess();
+    if (!access || access.scope === 'all') return candidates;
+    if (access.scope !== 'assigned') return [];
+    return candidates.filter(record => record.source_unique_id
+        && canShowBloomscapesReclassRow(findItemByUniqueId(record.source_unique_id),access));
+}
+
+function canShowBloomscapesDetailItemInquiry(item,sourceView) {
+    if (sourceView === 'not-on-inventory' || !getItemInquiryItemCode(item)) return false;
+    if (!['drive','request'].includes(sourceView)) return true;
+    const access = getBloomscapesReclassAccess();
+    if (!access) return true;
+    const row = findLinkedMasterRow(item) || (isArgosInventoryTransactionEligible(item) ? item : getQueueCardInventoryRow(item,'request'));
+    return canShowBloomscapesReclassRow(row,access);
+}

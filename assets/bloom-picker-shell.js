@@ -68,11 +68,11 @@ function mountBloomPickerDrawer(bar, hasItems) {
 function updateGlobalActionBar() {
     const items = getCartSelectedItems();
     const hasItems = selectedItems.size > 0;
-    const visibility = getBloomPickerActionVisibility(items);
+    const visibility = {...getBloomPickerActionVisibility(items),showReclass:canReclassBloomSelection(items)};
     const share = !!(visibility.showCopy || visibility.showEmail || visibility.showText);
     const anyAction = !!(share || visibility.showAssign || visibility.showEvalTask || visibility.showNcr
         || visibility.showRequest || visibility.showMove || visibility.showFlyer || visibility.showTakeBack
-        || visibility.showEndCap || visibility.showShear || visibility.showBloomOrder || visibility.showProject);
+        || visibility.showEndCap || visibility.showShear || visibility.showBloomOrder || visibility.showProject || visibility.showReclass);
     const canExport = !!getHeaderExcelExportCommand(getCurrentVisibleViewId());
     if (!cartPanelOpen || (!anyAction && !canExport)) {
         bloomPickerActionsOpen = false;
@@ -108,7 +108,21 @@ function toggleBloomPickerActionDropdown() {
     return false;
 }
 
+function ensureBloomPickerReclassButton() {
+    if (document.getElementById('batch-btn-reclass')) return;
+    const project = document.getElementById('batch-btn-project');
+    if (!project) return;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.id = 'batch-btn-reclass';
+    button.className = 'hidden flex-1 min-w-[60px] bg-emerald-100 text-emerald-700 p-2 rounded-lg text-[10px] font-bold';
+    button.innerHTML = '<i class="ph-bold ph-arrows-clockwise block text-lg mb-1" aria-hidden="true"></i> Reclass';
+    button.onclick = openBloomSelectionReclass;
+    project.before(button);
+}
+
 function syncBloomPickerActions(visibility, {hasItems, share, anyAction}) {
+    if (visibility.showReclass) ensureBloomPickerReclassButton();
     const toggle = document.getElementById('bloom-picker-actions-toggle');
     if (toggle) {
         const visible = cartPanelOpen && anyAction;
@@ -122,7 +136,7 @@ function syncBloomPickerActions(visibility, {hasItems, share, anyAction}) {
     if (icon) icon.className = 'ph-bold ' + (bloomPickerActionsOpen ? 'ph-caret-up' : 'ph-caret-down');
     const actions = {'assign':'showAssign', 'eval-task':'showEvalTask', 'ncr':'showNcr',
         'request':'showRequest', 'move':'showMove', 'flyer':'showFlyer', 'take-back':'showTakeBack',
-        'endcap':'showEndCap', 'shear':'showShear', 'bloom-order':'showBloomOrder', 'project':'showProject'};
+        'endcap':'showEndCap', 'shear':'showShear', 'bloom-order':'showBloomOrder', 'project':'showProject','reclass':'showReclass'};
     for (const [id, key] of Object.entries(actions)) {
         document.getElementById('batch-btn-' + id)?.classList.toggle('hidden', !bloomPickerActionsOpen || !hasItems || !visibility[key]);
     }

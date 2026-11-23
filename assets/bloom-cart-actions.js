@@ -145,3 +145,43 @@ function initializeCartUi() {
     restoreBloomCartSelection();
     scheduleCartUiRefresh();
 }
+
+function canReclassBloomSelection(items) {
+    const access = getBloomscapesReclassAccess();
+    return hasBloomscapesReclassScope(access) && Boolean(items.length) && items.length === selectedItems.size
+        && items.every(row => canShowBloomscapesReclassRow(row,access));
+}
+
+function openBloomSelectionReclass() {
+    const items = getCartSelectedItems();
+    if (!canReclassBloomSelection(items)) return false;
+    if (items.length === 1) return openBloomReclassRow(items[0],items);
+    showBloomReclassChoices(items);
+    return false;
+}
+
+function openBloomReclassRow(row,items) {
+    const uid = row.UNIQUE_ID || row.unique_id;
+    return openArgosInventoryTransactionModal(uid,'reclass','drive',{inquiryRow:row,inquiryRows:items});
+}
+
+function showBloomReclassChoices(items) {
+    const dialog = document.createElement('dialog');
+    dialog.className = 'queue-reclass-row-picker';
+    dialog.innerHTML = '<h3>Choose a row to reclass</h3><section></section><button type="button">Cancel</button>';
+    dialog.querySelector('button').onclick = () => dialog.close();
+    dialog.addEventListener('close', () => dialog.remove(), {once:true});
+    const rows = dialog.querySelector('section');
+    for (const row of items) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = [row.ITEMCODE || row.itemcode,row.LOCATIONCODE || row.locationcode,row.LOTCODE || row.lotcode].join(' · ');
+        button.onclick = () => {
+            dialog.close();
+            if (canReclassBloomSelection(items)) openBloomReclassRow(row,items);
+        };
+        rows.append(button);
+    }
+    document.body.append(dialog);
+    dialog.showModal();
+}
