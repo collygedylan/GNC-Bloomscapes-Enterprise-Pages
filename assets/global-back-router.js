@@ -24,6 +24,7 @@ function goBackUniversal() {
     if (getManagerAssignedColumnState().editor) return closeManagerAssignedColumnFilter();
     const currentView=getCurrentVisibleViewId();
     if (isDrawerOpen()) { setMenuOpenState(false); updateGlobalBackButton(); return false; }
+    if (currentView==='home' && !hasOpenInteractiveSurfaceForBack() && backBloomscapesHomeDepartment()) return false;
     if (currentView==='docks' && dockViewLevel>0) return backGlobalDocksSurface({restoreViewBack:restoreGlobalViewBack,currentView});
     if (typeof backBloomscapesActiveWorkBrowser==='function' && backBloomscapesActiveWorkBrowser()) return false;
     if (closeOpenInteractiveSurfaceForBack()) return false;

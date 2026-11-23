@@ -24,8 +24,9 @@ function getGlobalHeaderChromeState(backState = getGlobalBackState()) {
         : baseMeta;
     const moduleTitle = bloomscapesDepartmentTitle(currentView)
         || (currentView === 'managers' ? bloomscapesWorkflowTab(activeHomeTab)?.label : '');
-    const resolvedTitle = moduleTitle || meta.title || formatGlobalHeaderTitle(currentView);
-    const showHomeBack = currentView === 'home' && backState.modalBack;
+    const department = currentView === 'home' && bloomscapesHomeDepartmentTitle();
+    const resolvedTitle = department || moduleTitle || meta.title || formatGlobalHeaderTitle(currentView);
+    const showHomeBack = currentView === 'home' && (backState.modalBack || Boolean(department));
     const po=document.getElementById('view-'+currentView)?.querySelector('[data-bloomscapes-workflow="bloomscapes-replenishment"]');
     const searchContainerId = po && !po.closest('[hidden],.hidden') ? getBloomscapesPoHeaderSearch(po) : currentView === 'tasks'
         ? (shouldShowTaskHeaderSearch() ? GLOBAL_HEADER_SEARCH_CONFIG.tasks : '')
@@ -58,7 +59,9 @@ function getGlobalHeaderChromeState(backState = getGlobalBackState()) {
 
 
 function applyGlobalBackState(state) {
-    const { currentView, modalBack, showBack } = state;
+    const { currentView, modalBack } = state;
+    const department = currentView === 'home' && getBloomscapesHomeDepartment();
+    const showBack = state.showBack || Boolean(department);
     syncHeaderBloomPlacement(currentView);
     const body = document.body;
     if (body) body.classList.toggle('global-back-active', showBack);
@@ -78,15 +81,13 @@ function applyGlobalBackState(state) {
     if (legacyBack) legacyBack.classList.toggle('hidden', !showBack);
     const button = document.getElementById('global-header-inline-back');
     if (!button) return;
-    // A closed popover is hidden by the browser even if our CSS makes
-    // the button visible. Normal navigation must remove that mode.
     if (!modalBack || typeof button.showPopover !== 'function') {
         try {
             if (button.hasAttribute('popover') && button.matches(':popover-open') && typeof button.hidePopover === 'function') button.hidePopover();
         } catch { globalThis.reportHandledRuntimeIssue?.("applyGlobalBackState", 'HANDLED_OPERATION_FAILURE'); }
         button.removeAttribute('popover');
     }
-    const visible = (currentView !== 'home' || modalBack) && (showBack || !!currentUser);
+    const visible = (currentView !== 'home' || modalBack || department) && (showBack || !!currentUser);
     button.classList.toggle('hidden', !visible);
     button.hidden = !visible;
     button.disabled = !showBack;
@@ -222,33 +223,6 @@ function formatGlobalHeaderTitle(viewId) {
     if (viewId === 'request-history') return 'Request History';
     if (viewId === 'credit-request') return 'Credit Request';
     return String(viewId || 'home').replace(/-/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
-}
-
-function resolveFooterNavigationSelection(buttons, currentView, access, personal) {
-    let selected = null;
-    let parent = null;
-    for (const button of buttons) {
-        const view = String(button.dataset.footerView || '').trim();
-        const allowed = personal || canShowFooterViewButton(view, access);
-        if (!personal) button.classList.toggle('hidden', !allowed);
-        if (!allowed || button.classList.contains('hidden')) continue;
-        if (!selected && view === currentView) selected = button;
-        if (view === 'communication' && ['communication','chat','department-calendar'].includes(currentView)) parent = button;
-        if (!parent && view === 'sales' && currentView !== 'home' && isSalesShellAccess(access)) parent = button;
-    }
-    return selected || parent;
-}
-
-function syncFooterNavigationButtons(footer, currentView, access, personal) {
-    const active = resolveFooterNavigationSelection(footer?.querySelectorAll('[data-footer-view]') || [], currentView, access, personal);
-    const controls = footer?.querySelectorAll('button, .nav-item, [data-footer-view]') || [];
-    for (const button of controls) {
-        const selected = button === active;
-        if (button.classList.contains('active') !== selected) button.classList.toggle('active', selected);
-        if (selected && button.getAttribute('aria-current') !== 'page') button.setAttribute('aria-current', 'page');
-        if (!selected && button.hasAttribute('aria-current')) button.removeAttribute('aria-current');
-        if (button.style.touchAction !== 'manipulation') button.style.touchAction = 'manipulation';
-    }
 }
 
 let stickyRailForceRequested = false;

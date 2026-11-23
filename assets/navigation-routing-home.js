@@ -159,3 +159,73 @@ async function refreshInventoryOfficeDirectory(sequence) {
         }
     }
 }
+
+function resolveFooterNavigationSelection(buttons, currentView, access, personal) {
+    let selected = null;
+    let parent = null;
+    for (const button of buttons) {
+        const view = String(button.dataset.footerView || '').trim();
+        const allowed = personal || canShowFooterViewButton(view, access);
+        if (!personal) button.classList.toggle('hidden', !allowed);
+        if (!allowed || button.classList.contains('hidden')) continue;
+        if (!selected && view === currentView) selected = button;
+        if (view === 'communication' && ['communication','chat','department-calendar'].includes(currentView)) parent = button;
+        if (!parent && view === 'sales' && currentView !== 'home' && isSalesShellAccess(access)) parent = button;
+    }
+    return selected || parent;
+}
+
+function syncFooterNavigationButtons(footer, currentView, access, personal) {
+    const active = resolveFooterNavigationSelection(footer?.querySelectorAll('[data-footer-view]') || [], currentView, access, personal);
+    const controls = footer?.querySelectorAll('button, .nav-item, [data-footer-view]') || [];
+    for (const button of controls) {
+        const selected = button === active;
+        if (button.classList.contains('active') !== selected) button.classList.toggle('active', selected);
+        if (selected && button.getAttribute('aria-current') !== 'page') button.setAttribute('aria-current', 'page');
+        if (!selected && button.hasAttribute('aria-current')) button.removeAttribute('aria-current');
+        if (button.style.touchAction !== 'manipulation') button.style.touchAction = 'manipulation';
+    }
+}
+
+function usesBloomscapesEffectiveNavigation() {
+    return nativeAuthSessionActive;
+}
+
+function isBloomscapesNavigationPreview() {
+    return nativeAuthSessionActive && Boolean(borrowedHelpPreview());
+}
+
+function beginPrimaryViewNavigation(viewId, options, navigationSeq) {
+    if (viewId !== 'bunch-note') window.BunchNote?.disposeView();
+    if (viewId !== 'request' && !(viewId === 'detail' && window.BunchQueueShell?.isDetailOpen())) window.BunchQueueShell?.destroy();
+    if (String(viewId || '').trim() !== 'managers') cancelManagerSeasonPriorityRead();
+    const viewSwitchStartedAt = beginInternalPerfMeasure();
+    persistAppFilterStateNow();
+    if (driveQuickFiltersModalOpen) closeDriveQuickFiltersModal();
+    if (String(viewId || '').trim() !== 'tasks') closeTaskDropdowns(false);
+    if (isDrawerOpen()) setMenuOpenState(false);
+    beginDirectNavigationActivity();
+    const switchOptions = (options && typeof options === 'object') ? options : {};
+    const fromHistory = !!switchOptions.fromHistory;
+    const requestedViewId = String(viewId || 'home').trim();
+    if (typeof syncRequestSalesImpactOwnership === 'function') syncRequestSalesImpactOwnership();
+    if (requestedViewId === 'request-sales-impact') ensureRequestSalesImpactViewElement();
+    if (requestedViewId === 'request' && switchOptions.managerSalesReps !== true && requestSalesRepsManagerMode) {
+        requestSalesRepsManagerMode = false;
+        if (activeReqTab === 'reps') activeReqTab = 'pending';
+        markViewDirty('request');
+    }
+    const nextViewId = canAccessView(requestedViewId) ? requestedViewId : 'home';
+    const currentViewId = getCurrentVisibleViewId();
+    return { navigationSeq, viewSwitchStartedAt, switchOptions, fromHistory, requestedViewId, nextViewId, currentViewId };
+}
+
+
+function canOpenCommunicationView(view, user) {
+    if (!nativeAuthSessionActive || (user && user !== currentUser)) return false;
+    const preview = borrowedHelpPreview();
+    if (preview) return previewShowsAreaView(preview,view === 'messages' ? 'messages' : 'walkie');
+    const key = view === 'messages' ? 'view_messages' : 'view_walkie';
+    const grant=getAppAccessSnapshot()?.permissionMap?.[key];
+    return grant ? grant.allowed===true : hasExplicitViewPermission(view,user);
+}

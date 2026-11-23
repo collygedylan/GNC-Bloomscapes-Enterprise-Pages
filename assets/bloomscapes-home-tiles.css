@@ -117,3 +117,12 @@ html body.ops-precision-pilot.current-view-home.home-dashboard-mode #app-wrapper
     overflow-wrap: anywhere;
   }
 }
+
+html body.current-view-home.global-back-active:has(#home-dashboard-grid > [data-home-department-module])
+#app-wrapper #app-top-chrome #global-header-search-row > :is(#global-header-inline-back, #global-header-inline-title):not([hidden], [popover], .hidden) {
+  display: inline-flex !important;
+}
+
+#view-home [data-home-department] {
+  min-width: 0;
+}

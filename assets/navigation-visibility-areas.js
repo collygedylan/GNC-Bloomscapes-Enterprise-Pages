@@ -51,6 +51,10 @@ function filterBloomscapesAreaViews(area, profile, scoped, baseline) {
 
 function allowedScopedAreaChoice(profile,key,view,baseline) {
     if (key === 'borrowed-help') return baseline(key,view);
+    if (key === 'reports') return allowsBloomscapesAreaSubview('eval2');
+    if (key === 'queue') return ['suspend','requests','studio'].some(key=>bloomscapesAreaGrant(profile.area_access?.[key]));
+    if (key === 'sales-av') return bloomscapesAreaGrant(profile.area_access?.av)
+        && ['sales-design','sales-flyer','sales-history','sales-rep','sales-archive'].some(key=>bloomscapesAreaGrant(profile.area_access?.[key]));
     const level = profile.area_access?.[key === 'docks-issues' ? 'docks' : key];
     return level === 'VIEW_ONLY' || level === 'FULL_EDIT';
 }
@@ -59,7 +63,12 @@ function bloomscapesAreaChoices(area) {
     const preview = typeof borrowedHelpPreview === 'function' && borrowedHelpPreview();
     const access = getBloomscapesReclassAccess();
     const views = access && !hasBloomscapesReclassScope(access) ? area.views.filter(([key]) => key !== 'inventory-office') : area.views;
-    if (preview) return views.filter(([key]) => key === 'inventory-office' || previewShowsAreaView(preview,key));
+    const restricted = bloomscapesRestrictedNavigationProfile(preview);
+    if (restricted?.role === 'eval' && !bloomscapesEvalDepartmentGrant(area.id, restricted)) return [];
+    if (preview) return views.filter(([key])=>canPreviewBloomscapesAreaChoice(preview,key));
+    if (restricted?.role === 'eval' && area.id === 'INVENTORY') return views.filter(([key,,view]) => key === 'inventory-office'
+        || (key === 'reports' ? canAccessView(view) : bloomscapesAreaGrant(restricted.area_access?.[key])));
+    if (restricted?.role === 'eval' && area.id === 'DOCKS') return views.filter(([key])=>bloomscapesAreaGrant(restricted.area_access?.[key]));
     if (isBloomscapesAreaOwner()) return views;
     if (access && isBloomscapesAreaScoped() && area.id === 'INVENTORY') {
         const permitted = filterBloomscapesAreaViews({...area,views:views.filter(([key]) => key !== 'inventory-office')},
@@ -68,6 +77,18 @@ function bloomscapesAreaChoices(area) {
     }
     const profile = bloomscapesAreaProfile();
     return filterBloomscapesAreaViews(area, profile, isBloomscapesAreaScoped(profile), canUseBloomscapesAreaView);
+}
+
+function canPreviewBloomscapesAreaChoice(preview, key) {
+    if (key === 'inventory-office') return true;
+    if (key === 'reports') return previewShowsAreaView(preview,'reports') || previewShowsAreaView(preview,'eval2');
+    if (key === 'sales-av') return allowedScopedAreaChoice(preview,key,'av',canUseBloomscapesAreaView);
+    return previewShowsAreaView(preview,key);
+}
+
+function bloomscapesEvalDepartmentGrant(area, profile) {
+    const routes = {INVENTORY:'drive',QC:'qc',DOCKS:'docks',ADMIN:'managers'};
+    return bloomscapesAreaGrant(profile.area_access?.[routes[area]]);
 }
 
 function isBloomscapesAreaOwner() {
@@ -81,9 +102,13 @@ function canUseBloomscapesAreaView(key, view) {
     if (key === 'docks-issues') return canOpenBloomscapesDocksWorkspace(view);
     if (key === 'studio') return canUseBloomscapesWorkStudio();
     if (key === 'eval2') return canViewManagerEvalReports2();
+    if (key === 'assigned-items') return canAccessView(view) && getManagersToolAccess().canViewAssignedItemsExport;
+    if (key === 'reports') return getActiveEvalReportsAccess().scope !== 'legacy'
+        ? canAccessView(view) : canViewManagerEvalReports2();
+    if (key === 'sales-av') return Boolean(resolveBloomscapesSalesStudioView()) && canAccessView(view);
+    if (key === 'queue') return !isBloomscapesAreaScoped() && canAccessView(view);
     if (key === 'watchdog') return canAccessView(view) && ['dylan_collyge','jd_jones','megan_kelly'].includes(currentUser);
     if (key === 'tables') return canAccessView(view) && getManagersToolAccess().canViewTableManagement;
-    if (key === 'assigned-items') return canAccessView(view) && getManagersToolAccess().canViewAssignedItemsExport;
     if (key === 'hr') return canAccessView(view) && getManagersToolAccess().canViewHrCommand;
     if (key === 'production-schedule') return canAccessView(view) && getManagersToolAccess().canViewProductionSchedule;
     if (key === 'suspend' || key === 'requests') {
@@ -100,14 +125,22 @@ function resolveBloomscapesAreaNavigation(view) {
     }
     const profile = bloomscapesAreaProfile();
     const preview = typeof borrowedHelpPreview === 'function' && borrowedHelpPreview();
+    const restricted = bloomscapesRestrictedViewGrant(view, preview);
+    if (restricted !== null) return restricted;
     if (!preview && view === 'borrowed-work' && typeof canOpenBloomscapesDocksWorkspace === 'function') {
         return canOpenBloomscapesDocksWorkspace(view);
     }
     if (!preview && view === 'request' && ['crew','eval','qc','rep'].includes(nativeAuthProfile?.role)
         && typeof canOpenBloomscapesDocksWorkspace === 'function' && canOpenBloomscapesDocksWorkspace('borrowed-work')) return true;
+    if (nativeAuthSessionActive && view === 'communication') return canOpenCommunicationView('push-to-talk');
     if (!preview && !isBloomscapesAreaScoped(profile)) return null;
     if (preview && view === 'borrowed-work') return preview.borrowed || preview.loans?.length > 0;
-    if (view === 'reports') return allowsBloomscapesAreaSubview('eval2');
+    if (view === 'reports') return preview
+        ? previewShowsAreaView(preview,'reports') || previewShowsAreaView(preview,'eval2')
+        : allowsBloomscapesAreaSubview('eval2');
+    if (view === 'messages' || view === 'push-to-talk') return canOpenCommunicationView(view);
+    if (preview && view === 'request' && previewShowsAreaView(preview,'queue')) return true;
+    if (preview && view === 'aura') return previewShowsAreaView(preview,'aura');
     if (view === 'request-history') return allowsBloomscapesAreaSubview('historical');
     if (view === 'request' && (allowsBloomscapesAreaSubview('studio') || preview?.loans?.length)) return true;
     const target = bloomscapesAreaPrimaryRoute(view);
@@ -159,9 +192,11 @@ function canShowBloomscapesHomeTile(view) {
 function syncBloomscapesHomeTileVisibility(grid) {
     if (!nativeAuthSessionActive || !grid) return;
     grid.querySelector('[data-home-account-navigation]')?.remove();
-    let visibleCount = 0;
+    let visibleCount = paintBloomscapesHomeDepartments(grid);
+    const root = !getBloomscapesHomeDepartment(grid);
     for (const tile of grid.querySelectorAll('[data-home-module-view]')) {
-        const visible = Boolean(canShowBloomscapesHomeTile(tile.dataset.homeModuleView));
+        const visible = root && ['messages','walkie'].includes(tile.dataset.homeModuleView)
+            && Boolean(canShowBloomscapesHomeTile(tile.dataset.homeModuleView));
         tile.hidden = !visible;
         tile.classList.toggle('hidden', !visible);
         tile.setAttribute('aria-hidden', String(!visible));

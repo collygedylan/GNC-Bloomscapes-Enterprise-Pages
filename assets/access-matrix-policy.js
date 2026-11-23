@@ -173,13 +173,44 @@ function canAccessOperationalView(targetView, userOverride) {
     return navigationPreferencesAllowed(targetView, access.allowedViews.has(targetView));
 }
 
+const bloomscapesRestrictedRoles = new Set(['eval','evaluator','crew','rep','sales_rep','csr']);
+const bloomscapesRestrictedRoutes = Object.freeze({
+    __proto__:null,managers:['managers','view_managers'],docks:['docks','view_docks'],
+    sales:['sales-design','view_sales'],'sales-office':['sales-design','view_sales'],
+    'hl-order':['po','view_hl_order'],'po-management':['po','view_hl_order'],aura:['aura','view_aura']
+});
+
+function bloomscapesAreaGrant(level) {
+    return level === 'FULL_EDIT' || level === 'VIEW_ONLY';
+}
+
+function bloomscapesRestrictedNavigationProfile(preview = borrowedHelpPreview()) {
+    if (!nativeAuthSessionActive) return null;
+    const profile = preview || bloomscapesAreaProfile() || nativeAuthProfile;
+    return bloomscapesRestrictedRoles.has(profile?.role) ? profile : null;
+}
+
+function bloomscapesRestrictedViewGrant(view, preview = borrowedHelpPreview()) {
+    if (!nativeAuthSessionActive) return null;
+    const profile = bloomscapesRestrictedNavigationProfile(preview);
+    const route = bloomscapesRestrictedRoutes[view];
+    if (!route) return null;
+    const [area,flag] = route;
+    if (view === 'aura' && !preview) return window.GncUserAccessControl?.getSelfState()?.permissions?.use_aura_assistant === true
+        || resolveUserAccessMatrix(currentUser)?.use_aura_assistant === 'Y';
+    if (!profile) return null;
+    if (preview || profile.role === 'eval' && profile.area_access) return bloomscapesAreaGrant(profile.area_access?.[area]);
+    const matrix = resolveUserAccessMatrix(currentUser);
+    return matrix?.verified === true && matrix.view_permissions?.[flag] === 'Y';
+}
+
 function getActiveEvalReportsAccess() {
     if (!nativeAuthSessionActive) return {scope:'legacy'};
     const preview = borrowedHelpPreview();
     const expected = expectedEvalReportsScope(nativeAuthProfile, preview);
     if (preview && preview.role !== 'eval') return {scope:'legacy'};
     if (preview) {
-        return expected === 'own' && preview.area_access?.reports === 'VIEW_ONLY'
+        return expected === 'own' && bloomscapesAreaGrant(preview.area_access?.reports)
             ? {scope:'own', preview:preview.username} : {scope:'hidden'};
     }
     if (expected === 'hidden') return {scope:'legacy'};

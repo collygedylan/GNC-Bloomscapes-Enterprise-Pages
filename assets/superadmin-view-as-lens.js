@@ -167,7 +167,10 @@ function applySuperAdminLens(state,profile) {
     const view = getCurrentVisibleViewId();
     if (view !== 'home' && !canDisplayNavigationView(view)) switchView('home');
     const grid = document.getElementById('home-dashboard-grid');
+    clearBloomscapesHomeDepartment();
     syncBloomscapesHomeTileVisibility(grid);
+    updateFooterNavState();
+    updateGlobalBackButton();
     if (view === 'request' && getCurrentVisibleViewId() === 'request') {
         syncQueActiveCategory();
         mountBorrowedHelpQueue();

@@ -1,10 +1,3 @@
-function canOpenCommunicationView(view, user) {
-    if (!nativeAuthSessionActive || (user && user !== currentUser)) return false;
-    const key = view === 'messages' ? 'view_messages' : 'view_walkie';
-    const grant=getAppAccessSnapshot()?.permissionMap?.[key];
-    return grant ? grant.allowed===true : hasExplicitViewPermission(view,user);
-}
-
 const FULL_NAVIGATION_USERNAMES = new Set([
     'nelly_aguilar', 'dylan_collyge', 'megan_kelly', 'jd_jones',
     'mitch_kaiser', 'morgan_anderson', 'melissa_dowty'
@@ -157,7 +150,7 @@ function canDisplayNavigationView(viewId = '', userOverride = '') {
     const matrix = getNavigationDisplayMatrix(identity);
     const flag = resolveNavigationViewFlag(view, matrix?.view_permissions);
     if (flag === 'N') return false;
-    if (flag === 'Y' || (!staleProfile && canAccessView(view, userOverride))) return navigationPreferencesAllowed(view, true);
+    if (flag === 'Y') return navigationPreferencesAllowed(view, true);
     const defaults = getRoleNavigationDisplayDefaults(identity);
     const nested = QUICK_ACCESS_NESTED_ROUTES[view];
     return defaults.has(nested?.parent || view) && navigationPreferencesAllowed(view, true);

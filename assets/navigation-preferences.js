@@ -37,6 +37,7 @@
         return typeof value.override === 'boolean' ? value.allowed === true : !!baseline;
     }
     function permitted(view) {
+        if (root.isBloomscapesNavigationPreview?.()) return hooks.canDisplay?.(view) === true;
         const value = entry(view);
         if (fullVisibility()) return typeof hooks.canDisplay === 'function' ? hooks.canDisplay(view) === true : true;
         if (typeof hooks.canDisplay === 'function') {
@@ -270,8 +271,11 @@
     function getFooterChoices() {
         const custom = shortcuts();
         const canCommunicate = fullVisibility() || (typeof hooks.canDisplay === 'function' ? hooks.canDisplay('communication') : !hooks.canAccess || hooks.canAccess('communication'));
-        return ['menu','home',custom[0],custom[1],canCommunicate ? 'communication' : null,custom[2],custom[3],'aura']
-            .map((view, index) => view || `unavailable-${index + 1}`);
+        const choices = ['menu','home',custom[0],custom[1],canCommunicate ? 'communication' : null,custom[2],custom[3],'aura'];
+        if (root.usesBloomscapesEffectiveNavigation?.()) {
+            return choices.filter(view => view && (view === 'menu' || view === 'home' || hooks.canDisplay?.(view)));
+        }
+        return choices.map((view, index) => view || `unavailable-${index + 1}`);
     }
     function footerChoicesAlreadyMounted(container, choices) {
         if (container.children.length !== choices.length) return false;

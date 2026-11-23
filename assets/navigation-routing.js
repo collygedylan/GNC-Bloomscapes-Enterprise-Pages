@@ -30,6 +30,9 @@ function switchView(viewId, options = {}) {
     const navigationSeq = ++navTransitionSeq;
     if (viewId === 'home' && restoreCameraDetailSession()) return;
     if (typeof getManagerTableManagementKey === 'function' && getManagerTableManagementKey(viewId)) return openManagerTableManagement(getManagerTableManagementKey(viewId));
+    if (target === 'home' && !options.fromHistory && clearBloomscapesHomeDepartment()) {
+        syncBloomscapesHomeTileVisibility(document.getElementById('home-dashboard-grid'));
+    }
     const context = beginPrimaryViewNavigation(target, options, navigationSeq);
     preparePrimaryNavigationTarget(context);
     if (!preparePrimaryNavigationOrigin(context)) return false;
@@ -42,31 +45,6 @@ function switchView(viewId, options = {}) {
         activatePrimaryNavigation(context);
     });
     return false;
-}
-
-function beginPrimaryViewNavigation(viewId, options, navigationSeq) {
-    if (viewId !== 'bunch-note') window.BunchNote?.disposeView();
-    if (viewId !== 'request' && !(viewId === 'detail' && window.BunchQueueShell?.isDetailOpen())) window.BunchQueueShell?.destroy();
-    if (String(viewId || '').trim() !== 'managers') cancelManagerSeasonPriorityRead();
-    const viewSwitchStartedAt = beginInternalPerfMeasure();
-    persistAppFilterStateNow();
-    if (driveQuickFiltersModalOpen) closeDriveQuickFiltersModal();
-    if (String(viewId || '').trim() !== 'tasks') closeTaskDropdowns(false);
-    if (isDrawerOpen()) setMenuOpenState(false);
-    beginDirectNavigationActivity();
-    const switchOptions = (options && typeof options === 'object') ? options : {};
-    const fromHistory = !!switchOptions.fromHistory;
-    const requestedViewId = String(viewId || 'home').trim();
-    if (typeof syncRequestSalesImpactOwnership === 'function') syncRequestSalesImpactOwnership();
-    if (requestedViewId === 'request-sales-impact') ensureRequestSalesImpactViewElement();
-    if (requestedViewId === 'request' && switchOptions.managerSalesReps !== true && requestSalesRepsManagerMode) {
-        requestSalesRepsManagerMode = false;
-        if (activeReqTab === 'reps') activeReqTab = 'pending';
-        markViewDirty('request');
-    }
-    const nextViewId = canAccessView(requestedViewId) ? requestedViewId : 'home';
-    const currentViewId = getCurrentVisibleViewId();
-    return { navigationSeq, viewSwitchStartedAt, switchOptions, fromHistory, requestedViewId, nextViewId, currentViewId };
 }
 
 function preparePrimaryNavigationTarget(context) {
