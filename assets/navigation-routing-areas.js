@@ -160,8 +160,8 @@ function preparePrimaryNavigationTarget(context) {
 }
 
 function preparePermittedStudioNavigation(view, options) {
-    if (view==='field-work-consolidation' || options.studioPhase==='consolidation') return prepareFieldWorkConsolidationNavigation();
-    if (view==='production' && bloomscapesDepartmentTabs.get(bloomscapesDepartmentKey(view))==='bloomscapes-consolidation') {
+    if (isFieldWorkConsolidationRoute(view,options.studioPhase)) return prepareFieldWorkConsolidationNavigation();
+    if (options.fromHistory && view==='production' && bloomscapesDepartmentTabs.get(bloomscapesDepartmentKey(view))==='bloomscapes-consolidation') {
         return canViewFieldWorkConsolidation();
     }
     if (!canUseBloomscapesWorkStudio()) return true;

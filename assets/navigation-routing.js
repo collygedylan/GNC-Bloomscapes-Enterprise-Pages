@@ -15,7 +15,7 @@ function switchView(viewId, options = {}) {
         return false;
     }
     if (!canAccessView(target)) return openDisplayOnlyNavigation(target, options);
-    if (denyFieldWorkConsolidationRoute(viewId)) return false;
+    if (denyFieldWorkConsolidationRoute(viewId,options.studioPhase)) return false;
     if (target==='time-cards' && borrowedHelpPreview()) return false;
     if (typeof closeBloomscapesDockCapacity === 'function') closeBloomscapesDockCapacity();
     if (typeof closeActiveModuleSubview === 'function') closeActiveModuleSubview();

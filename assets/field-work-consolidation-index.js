@@ -11,7 +11,7 @@ function buildFieldWorkConsolidationIndex(rows, resolve = resolveCanonicalInvent
         const identity = bloomscapesWorkBrowserIdentity(input);
         const code = identity.item.trim();
         if (!code) continue;
-        if (!items.has(code)) items.set(code,{code,name:identity.common || code,size:identity.size,years:new Map(),blocks:new Set()});
+        if (!items.has(code)) items.set(code,createConsolidationIndexItem(code,identity));
         const item = items.get(code);
         const row = resolve(input);
         const location = LocationCode.normalize(consolidationField(row,'LOCATIONCODE'));
@@ -23,6 +23,11 @@ function buildFieldWorkConsolidationIndex(rows, resolve = resolveCanonicalInvent
         recordConsolidationLot(item,year,row,location,block,quantity);
     }
     return [...items.values()].sort((a,b)=>consolidationNaturalOrder.compare(a.name,b.name) || a.code.localeCompare(b.code));
+}
+
+function createConsolidationIndexItem(code,{common,size}) {
+    const name = common || code;
+    return {code,name,size,searchCode:code.toLowerCase(),searchName:name.toLowerCase(),years:new Map(),blocks:new Set()};
 }
 
 function recordConsolidationLot(item,year,row,location,block,quantity) {
@@ -55,13 +60,16 @@ function consolidationPickerGroups(items,mode,path) {
 function fieldWorkConsolidationPicker(items,{mode,path,query,split,page}) {
     const search = query.trim().toLowerCase();
     const matches = items.filter(item=>{
-        if (search) return item.code.toLowerCase().includes(search) || item.name.toLowerCase().includes(search);
+        if (search) return item.searchCode.includes(search) || item.searchName.includes(search);
         const distributed = [...item.years.values()].some(group=>[...group.blocks].filter(Boolean).length>1);
         return (!split || distributed) && consolidationMatchesPath(item,mode,path);
     });
     const leaf = search || path.length===2;
     const choices = leaf ? matches : [...new Set(consolidationPickerGroups(matches,mode,path))].sort(consolidationNaturalOrder.compare);
-    if (search) choices.sort((a,b)=>Number(b.code.toLowerCase()===search)-Number(a.code.toLowerCase()===search));
+    if (search) {
+        const exact = choices.findIndex(item=>item.searchCode===search);
+        if (exact>0) choices.unshift(...choices.splice(exact,1));
+    }
     const start = page * consolidationPickPageSize;
     return {many:choices.length>start+consolidationPickPageSize,options:choices.slice(start,start+consolidationPickPageSize)};
 }

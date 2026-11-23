@@ -73,7 +73,9 @@ function renderBloomscapesDepartmentWorkspace(view) {
         mounted?.remove();restoreBloomscapesDepartmentChildren(root);
         return false;
     }
-    if (mounted?.dataset.departmentScope===key+':'+tab && !mounted.querySelector('[data-radio-disposed]')) {
+    const advisor = tab==='bloomscapes-consolidation';
+    if (mounted?.dataset.departmentScope===key+':'+tab && !mounted.querySelector('[data-radio-disposed]')
+        && (!advisor || isCurrentFieldWorkConsolidationFrame(mounted))) {
         if (tab==='bloomscapes-radio') renderBloomscapesComm();
         if (tab==='bloomscapes-studio') renderFieldWorkConsolidationEntry(mounted);
         return true;
@@ -85,7 +87,6 @@ function renderBloomscapesDepartmentWorkspace(view) {
         child.dataset.departmentHidden = 'true';child.hidden = true;
     }
     let frame = bloomscapesDepartmentFrames.get(key+':'+tab);
-    const advisor = tab==='bloomscapes-consolidation';
     const fresh = !frame || tab==='bloomscapes-radio' || advisor;
     if (fresh) {
         frame = document.createElement('section');
@@ -110,7 +111,10 @@ function restoreBloomscapesDepartmentChildren(root) {
 function backBloomscapesDepartmentWorkspace(view) {
     const advisor = view==='production' && document.querySelector('#view-production > [data-department-workspace="bloomscapes-consolidation"]');
     if (advisor) {
-        if (!backFieldWorkConsolidation(advisor)) openBloomscapesDepartmentModule('production','studio');
+        if (!backFieldWorkConsolidation(advisor)) {
+            if (!canReturnToFieldWorkStudio()) return false;
+            openBloomscapesDepartmentModule('production','studio');
+        }
         return true;
     }
     const back=document.getElementById('view-'+view)?.querySelector('[data-module-back]');
@@ -126,8 +130,6 @@ function backBloomscapesDepartmentWorkspace(view) {
 function bloomscapesDepartmentTitle(view) {
     if (view==='hl-order' || view==='po-management') return 'PO Management';
     if (nativeAuthSessionActive && (view==='sales' || view==='sales-office')) return 'Sales & Marketing Studio';
-    if (view==='production' && bloomscapesDepartmentTabs.get(bloomscapesDepartmentKey(view))==='bloomscapes-consolidation'
-        && canViewFieldWorkConsolidation()) return 'Bed Space Advisor';
     if (view==='production' && canUseBloomscapesWorkStudio()) return 'Field Work Studio';
     if (view==='chat') return 'Messages';
     const tab=bloomscapesDepartmentTabs.get(bloomscapesDepartmentKey(view));

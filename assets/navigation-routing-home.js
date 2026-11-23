@@ -5,6 +5,8 @@ const BLOOMSCAPES_HOME_MODULES = Object.freeze([
     {view:'drive', label:'Drive Mode', icon:'ph-car', action:"switchView('drive')"},
     {view:'av', label:'AV', icon:'ph-notebook', action:"switchView('av')"},
     {view:'studio', label:'Field Work Studio', icon:'ph-plant', action:'openBloomscapesFieldWorkStudio()'},
+    {view:'field-work-consolidation', label:'Consolidate Inventory', icon:'ph-arrows-in-cardinal', action:"switchView('field-work-consolidation')"},
+    {view:'production-schedule', label:'Production Schedule', icon:'ph-calendar-check', action:"openBloomscapesAreaManagerView('production-schedule')"},
     {view:'disease-pest', label:'QC', icon:'ph-shield-check', action:"switchView('disease-pest')"},
     {view:'inventory-office', label:'Inventory Office', icon:'ph-buildings', action:'openInventoryOfficeView()'},
     {view:'docks', label:'Docks', icon:'ph-truck', action:"switchView('docks')"},
@@ -18,8 +20,13 @@ const BLOOMSCAPES_HOME_MODULES = Object.freeze([
     {view:'messages', label:'Messages', icon:'ph-chat-circle-text', action:'openBloomscapesMessages()'},
     {view:'walkie', label:'Push to Talk', icon:'ph-microphone', action:"openBloomscapesComm('voice')"},
     {view:'request', label:'Que', icon:'ph-list-checks', action:"switchView('request')"},
-    {view:'reports', label:'Reports', icon:'ph-chart-bar', action:"switchView('reports')"}
+    {view:'reports', label:'Reports', icon:'ph-chart-bar', action:'openBloomscapesHomeReports()'}
 ]);
+
+function openBloomscapesHomeReports() {
+    return getActiveEvalReportsAccess().scope === 'legacy'
+        ? openBloomscapesAreaManagerView('eval2') : switchView('reports');
+}
 
 function mountBloomscapesFarmSelector() {
     void ensureBloomscapesFarmAccess().then(() => {

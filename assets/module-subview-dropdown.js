@@ -1,25 +1,29 @@
 const moduleSubviewPickers = new WeakMap();
-
-function mountModuleSubviewDropdown(host, { label = 'View', choices, value, select }) {
+function mountModuleSubviewDropdown(host, { label = 'View', choices, value, select, search = '', onOpen, tools = '' }) {
     let picker = moduleSubviewPickers.get(host);
     if (!picker) {
         picker = createModuleSubviewDropdown(host);
         moduleSubviewPickers.set(host, picker);
     }
-    Object.assign(picker, { label, choices, value, select });
+    Object.assign(picker, { label, choices, value, select, onOpen });
+    if (search && !picker.search) addModuleSubviewSearch(picker,search);
+    if (tools && !picker.tools) {
+        picker.tools = document.createElement("div");
+        picker.tools.dataset.moduleSubviewTools = "";
+        picker.options.insertBefore(picker.tools,picker.list);
+    }
+    if (picker.tools) mountModuleSubviewSelect(picker.tools,tools);
     const shown = picker.pending?.value ?? value;
     updateModuleSubviewTrigger(picker, shown);
     picker.trigger.disabled = !choices.length;
     paintModuleSubviewOptions(picker, choices, shown);
     return picker.trigger;
 }
-
 function updateModuleSubviewTrigger(picker, value) {
     const selected = picker.choices.find(([key]) => key === value);
-    const text = picker.label + ': ' + (selected?.[1] || 'Choose') + ' ▾';
+    const text = picker.search ? picker.label + ' ▾' : picker.label + ': ' + (selected?.[1] || 'Choose') + ' ▾';
     if (picker.trigger.textContent !== text) picker.trigger.textContent = text;
 }
-
 function createModuleSubviewDropdown(host) {
     const container = host.appendChild(document.createElement('div'));
     container.dataset.moduleSubview = '';
@@ -37,7 +41,9 @@ function createModuleSubviewDropdown(host) {
         options.removeAttribute('popover');
         options.hidden = true;
     }
-    const picker = { trigger, options };
+    const list = options.appendChild(document.createElement('div'));
+    list.dataset.moduleSubviewList = '';
+    const picker = { trigger, options, list };
     trigger.onclick = () => toggleModuleSubviewDropdown(picker);
     options.onclick = event => chooseModuleSubview(picker, event);
     options.addEventListener('toggle', event => trigger.setAttribute('aria-expanded', String(event.newState === 'open')));
@@ -48,7 +54,6 @@ function createModuleSubviewDropdown(host) {
     });
     return picker;
 }
-
 function toggleModuleSubviewDropdown(picker) {
     const { trigger, options } = picker;
     if (picker.pending) return;
@@ -62,16 +67,19 @@ function toggleModuleSubviewDropdown(picker) {
     if (options.showPopover) options.showPopover();
     else options.hidden = false;
     trigger.setAttribute('aria-expanded', 'true');
-    (options.querySelector('button[aria-current="true"]') || options.firstElementChild)?.focus({preventScroll:true});
+    if (picker.search) {
+        picker.search.value = '';
+        filterModuleSubviewOptions(picker);
+    }
+    (picker.search || picker.list.querySelector('button[aria-current="true"]') || picker.list.firstElementChild)?.focus({preventScroll:true});
+    picker.onOpen?.();
 }
-
 function closeModuleSubviewDropdown({ trigger, options }) {
     if (options.hidePopover) options.hidePopover();
     else options.hidden = true;
     trigger.setAttribute('aria-expanded', 'false');
     if (trigger.isConnected && !trigger.disabled) trigger.focus({preventScroll:true});
 }
-
 function chooseModuleSubview(picker, event) {
     const option = event.target.closest('[data-module-subview-value]');
     if (!option || !picker.options.contains(option)) return;
@@ -117,8 +125,49 @@ function paintModuleSubviewOptions(picker, choices, value) {
         if (key === value) button.setAttribute('aria-current', 'true');
         return button;
     });
-    picker.options.replaceChildren(...buttons);
+    picker.list.replaceChildren(...buttons);
+    filterModuleSubviewOptions(picker);
     if (focused !== null) buttons.find(button => button.dataset.moduleSubviewValue === focused)?.focus({preventScroll:true});
+}
+
+function addModuleSubviewSearch(picker,label) {
+    const search = document.createElement('input');
+    search.type = 'search';
+    search.placeholder = label;
+    search.setAttribute('aria-label',label);
+    picker.options.prepend(search);
+    picker.search = search;
+    search.oninput = () => filterModuleSubviewOptions(picker);
+}
+
+function filterModuleSubviewOptions(picker) {
+    if (!picker.search) return;
+    const terms = picker.search.value.trim().toLowerCase().split(/\s+/);
+    for (const button of picker.list.children) {
+        const text = button.textContent.toLowerCase();
+        button.hidden = !terms.every(term=>text.includes(term));
+    }
+}
+
+function mountModuleSubviewSelect(host,settings) {
+    host.hidden = !settings;
+    if (!settings) {
+        host.replaceChildren();
+        return;
+    }
+    if (!host.firstElementChild) {
+        const label = host.appendChild(document.createElement('label'));
+        label.append(settings.label+' ');
+        label.append(document.createElement('select'));
+    }
+    const select = host.querySelector('select');
+    const signature = JSON.stringify(settings.choices);
+    if (select.dataset.choices !== signature) {
+        select.replaceChildren(...settings.choices.map(([key,title])=>new Option(title,key)));
+        select.dataset.choices = signature;
+    }
+    select.value = settings.value;
+    select.onchange = () => settings.select(select.value);
 }
 
 function mountModuleButtonSubview(source, selector, keyFor, valueFor, { phase, available = () => true, permitted = () => true } = {}) {
@@ -173,8 +222,21 @@ function syncBloomscapesLegacySubview(view) {
         const phase = studio?.querySelector('[data-studio-module]');
         mountModuleButtonSubview(studio?.querySelector('[data-studio-modules]'), '[data-open-module]',
             button => button.dataset.openModule, () => phase?.dataset.studioPhase,
-            {phase,permitted:key=>allowsBloomscapesAreaSubview(bloomscapesStudioPermission(key))});
+            {phase,permitted:canDisplayFieldWorkSubview});
     }
+}
+
+function canDisplayFieldWorkSubview(key) {
+    return key === 'consolidate' ? canViewFieldWorkConsolidation()
+        : allowsBloomscapesAreaSubview(bloomscapesStudioPermission(key));
+}
+
+function mountFieldWorkConsolidationSubview(frame) {
+    const rail = frame.querySelector('[data-consolidation-subview]');
+    const choices = BLOOMSCAPES_STUDIO_PHASES.filter(([key])=>canDisplayFieldWorkSubview(key));
+    mountModuleSubviewDropdown(rail,{choices,value:'consolidate',select:key=>{
+        if (key !== 'consolidate') openBloomscapesFieldWorkStudio(key);
+    }});
 }
 
 function mountHistoricalArchiveSubview(root) {

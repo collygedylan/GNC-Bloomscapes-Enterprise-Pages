@@ -195,7 +195,7 @@ button.card-eval-owner[data-owner-item] { pointer-events: auto; cursor: pointer;
 }
 
 [data-module-subview] { min-width: 0; }
-[data-module-subview-trigger], [data-module-subview-options] > button {
+[data-module-subview-trigger], [data-module-subview-list] > button {
   box-sizing: border-box;
   min-height: 36px;
   max-width: 100%;
@@ -226,9 +226,9 @@ button.card-eval-owner[data-owner-item] { pointer-events: auto; cursor: pointer;
   box-shadow: 0 8px 24px #0007;
 }
 
-[data-module-subview-options] > button { display: block; width: 100%; margin-bottom: 3px; }
-[data-module-subview-options] > button:last-child { margin-bottom: 0; }
-[data-module-subview-options] > button[aria-current="true"] { background: #215738; }
+[data-module-subview-list] > button:not([hidden]) { display: block; width: 100%; margin-bottom: 3px; }
+[data-module-subview-list] > button:last-child { margin-bottom: 0; }
+[data-module-subview-list] > button[aria-current="true"] { background: #215738; }
 [data-module-subview] button:focus-visible { outline: 2px solid #93e9ba; outline-offset: -3px; }
 [data-module-subview-trigger]:disabled { cursor: default; opacity: .6; }
 
@@ -253,3 +253,19 @@ button.card-eval-owner[data-owner-item] { pointer-events: auto; cursor: pointer;
 
 #view-reports [data-report-back]:not([hidden]),
 .ps-page :is([data-schedule-back], [data-schedule-close]):not([hidden]) { display: inline-flex !important; }
+#view-drive [data-drive-saved-reports] { margin-block: 6px 2px; }
+#app-wrapper [data-drive-saved-reports] [data-module-subview-options] { z-index: 80; }
+[data-drive-saved-reports] :is(input,select) { width: 100%; min-width: 0; color: inherit; background: #103220; padding: 8px; }
+[data-drive-saved-reports] [data-module-subview-tools]:not([hidden]) { padding-block: 6px; }
+#view-drive :is(#drive-report-browse > select, [data-drive-custom-reports-v2-saved], .field-audit-switcher,
+  label:has([data-drive-audit-filter="preset"]), button[onclick*="setDriveHoldStopReport"]) { display: none !important; }
+#app-wrapper #view-production [data-module-subview-rail]:not([hidden]) { overflow: clip; }
+#app-wrapper #view-production [data-studio-excel] { top: 42px; overflow: clip; }
+html body #app-wrapper #view-production [data-studio-excel] .inventory-excel-fields {
+  display: grid !important; grid-template-columns: repeat(auto-fit,minmax(min(100%,150px),1fr)) !important;
+  gap: 8px !important; min-width: 0; overflow: visible;
+}
+#app-wrapper #view-production [data-studio-excel] .inventory-excel-field { min-width: 0; max-width: 100%; }
+#app-wrapper #view-production [data-studio-excel] .inventory-excel-field :is(select,button) {
+  box-sizing: border-box; min-width: 0; max-width: 100%; width: 100%; overflow: hidden; text-overflow: ellipsis;
+}

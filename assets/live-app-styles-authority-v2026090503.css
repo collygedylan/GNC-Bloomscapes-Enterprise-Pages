@@ -109,7 +109,7 @@ body.ios-device.viewport-phone.current-view-request #view-request .request-swipe
         #request-content .app-suspend-tag-compact-card[class*="app-planstart-"] .bg-purple-50:not(button, button *) { background-color: #faf5ff !important; }
         #request-content .app-suspend-tag-compact-card[class*="app-planstart-"] .bg-amber-50:not(button, button *) { background-color: #fffbeb !important; }
         #request-content .app-suspend-tag-compact-card[class*="app-planstart-"] :is(.bg-red-50,.bg-red-100):not(button, button *) { background-color: #fee2e2 !important; }
-#drive-evaluator-reports-link, [data-drive-eval-workspace] [data-module-subview-trigger],
+[data-drive-eval-workspace] [data-module-subview-trigger],
 [data-drive-eval-workspace] [data-drive-eval-exit] {
     background: #103220;
     color: #ecfdf5;
@@ -127,11 +127,6 @@ body.ios-device.viewport-phone.current-view-request #view-request .request-swipe
     color: #ecfdf5;
 }
 
-#view-home #home-dashboard-grid[data-bloomscapes-home="tiles"] [data-home-module-view]:not(
-    [data-home-module-view="messages"], [data-home-module-view="walkie"],
-    [data-home-module-view="borrowed-work"], [data-home-module-view="time-cards"]) {
-    display: none !important;
-}
 #side-drawer :is([data-drawer-view="time-cards"], [data-drawer-view="borrowed-work"]),
 [data-time-cards-link], [data-borrowed-field-trigger], [data-queue-borrowed-help] > button,
 [data-pull-click="borrow"], [data-pull-borrow] {

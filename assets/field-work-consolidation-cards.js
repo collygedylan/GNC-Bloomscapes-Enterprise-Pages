@@ -43,7 +43,7 @@ function renderConsolidationDestination(option,recommended,index) {
     return '<article data-consolidation-destination class="consolidation-destination">'
         +(recommended ? '<p class="consolidation-fits">#1 Recommended · 100% Whole-Group Move</p>' : '')
         +(index ? '<small>Option '+index+'</small>' : '')
-        +'<h5>'+esc(row.source_locationcode)+' → '+esc(row.destination_locationcode)+'</h5>'
+        +'<h5>Move '+esc(row.source_locationcode)+' → '+esc(row.destination_locationcode)+'</h5>'
         +'<p>Move '+consolidationCans.format(row.cans_to_move_in)+' cans · '+formatConsolidationBeds(row.cpb_used)+' CPB · '+esc(row.cpb_source)+'</p>'
         +'<dl>'+proof+'</dl>'+renderConsolidationSafeguards(option)+'</article>';
 }

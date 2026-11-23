@@ -171,7 +171,11 @@ function allowsBloomscapesAreaSubview(key, required = 'VIEW_ONLY') {
 
 function canShowBloomscapesHomeTile(view) {
     const preview = typeof borrowedHelpPreview === 'function' && borrowedHelpPreview();
+    if (view === 'field-work-consolidation') return canViewFieldWorkConsolidation();
     if (view === 'studio') return preview ? previewShowsAreaView(preview, 'studio') : canUseBloomscapesWorkStudio();
+    if (view === 'production-schedule') return bloomscapesAreaChoices(BLOOMSCAPES_BUSINESS_AREAS[1])
+        .some(([key]) => key === view) && canAccessView('managers');
+    if (view === 'reports' && !preview && getActiveEvalReportsAccess().scope === 'legacy') return canViewManagerEvalReports2();
     if (['borrowed-work','time-cards'].includes(view)) return canOpenBloomscapesHomeLeadership(view,preview);
     const route = view === 'inventory-office' ? 'moves' : view === 'walkie' ? 'push-to-talk' : view;
     return canDisplayNavigationView(route) && (preview || canAccessView(route));
@@ -181,12 +185,9 @@ function syncBloomscapesHomeTileVisibility(grid) {
     if (typeof syncFieldWorkConsolidationVisibility==='function') syncFieldWorkConsolidationVisibility();
     if (!nativeAuthSessionActive || !grid) return;
     grid.querySelector('[data-home-account-navigation]')?.remove();
-    let visibleCount = paintBloomscapesHomeDepartments(grid);
-    const homeShortcuts = ['messages','walkie','borrowed-work','time-cards'];
-    const root = !getBloomscapesHomeDepartment(grid);
+    let visibleCount = 0;
     for (const tile of grid.querySelectorAll('[data-home-module-view]')) {
-        const visible = root && homeShortcuts.includes(tile.dataset.homeModuleView)
-            && Boolean(canShowBloomscapesHomeTile(tile.dataset.homeModuleView));
+        const visible = Boolean(canShowBloomscapesHomeTile(tile.dataset.homeModuleView));
         tile.hidden = !visible;
         tile.classList.toggle('hidden', !visible);
         tile.setAttribute('aria-hidden', String(!visible));

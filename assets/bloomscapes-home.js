@@ -9,6 +9,7 @@ function mountBloomscapesHomeModules() {
     const grid = ensureHomeModuleRegistry();
     if (!grid) return;
     grid.dataset.bloomscapesHome = 'tiles';
+    grid.querySelector('#home-tile-field-work-consolidation')?.setAttribute('aria-description','Bed Space Advisor');
     mountBloomscapesAreaHubs(grid);
     scheduleHomeQueueCategoryCounts();
 }

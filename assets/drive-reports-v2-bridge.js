@@ -51,10 +51,7 @@ function renderDriveReport2Tab(container, crumb) {
     scheduleDriveTopControlsRender(state.baseSearchFilteredItems, state.drivePlantFilterState);
     if (!container) return;
     if (!container.querySelector('#drive-custom-reports-v2')) {
-        cancelChunkRenderWorkForContainer(container, 'drive-report-v2');
-        delete container.dataset.driveDetailedRecords;
-        delete container.dataset.driveDisplay;
-        delete container.dataset.driveRenderKey;
+        resetDriveReportContent(container);
     }
     syncDriveCrumb(crumb, '');
     mountDriveReport2(container, { ...driveReport2Context(), ...driveReport2Source(state) });
@@ -119,9 +116,13 @@ function releaseDriveReport2Ui(container) {
 }
 
 function renderDriveReport2Browse(container, crumb, driveModeLabel) {
+    if (!canUseDriveCustomReports()) {
+        hideDriveReport2BrowseBar();
+        return false;
+    }
     const context = driveReport2Context();
     const state = getDriveReport2State(context);
-    if (activeDriveTab !== 'card') scheduleDriveReport2Saved(state, context.authenticated);
+    if (activeDriveTab !== 'card') scheduleDriveReport2Saved(state,context.authenticated);
     if (!state.scoped) {
         syncDriveReport2BrowseBar(crumb, state, null, activeDriveTab);
         return false;
@@ -161,10 +162,13 @@ function renderDrive() {
     const driveModeLabel = DRIVE_MODE_LABELS[activeDriveMode] || 'Drive Mode';
     const drillTabs = document.getElementById('drive-drill-tabs');
     if (drillTabs) drillTabs.classList.remove('hidden');
-    if (mountDriveEvaluatorReports(crumb,container)) {
+    const evaluator = getDriveEvaluatorReportState();
+    mountDriveSavedReports(getDriveReport2State(driveReport2Context()),evaluator);
+    if (mountDriveEvaluatorReports(container,evaluator)) {
         hideDriveReport2BrowseBar();
         return;
     }
+    if (!canUseDriveCustomReports() && !driveReport2BrowseTab(activeDriveTab)) return setDriveTab('name',{exitReport:true});
     if (activeDriveMode === 'ok' && driveReport2BrowseTab(activeDriveTab)) {
         releaseDriveReport2Ui(container);
         if (renderDriveReport2Browse(container, crumb, driveModeLabel)) return;
@@ -219,7 +223,7 @@ function getDriveCurrentReturnedRows() {
     if (activeDriveMode !== 'ok' || activeDriveTab !== 'card') return [];
     const driveModeLabel = DRIVE_MODE_LABELS[activeDriveMode] || 'Drive Mode';
     const driveViewState = buildDriveVisibleItemsState();
-    const report = getActiveDriveReport2();
+    const report = canUseDriveCustomReports() && getActiveDriveReport2();
     if (report) {
         syncDriveReport2Rows(report, driveReport2Source(driveViewState));
         return getDriveReport2PhysicalRows(report);

@@ -1,27 +1,42 @@
 const consolidationWorkspaces = new WeakMap();
+let consolidationOpenedFromStudio = false;
 
-function denyFieldWorkConsolidationRoute(view) {
-    if (view!=='field-work-consolidation' || canViewFieldWorkConsolidation()) return false;
+function denyFieldWorkConsolidationRoute(view,phase) {
+    if (!isFieldWorkConsolidationRoute(view,phase) || canViewFieldWorkConsolidation()) return false;
     syncFieldWorkConsolidationVisibility();
     return true;
 }
 
+function isFieldWorkConsolidationRoute(view, phase) {
+    return view === 'field-work-consolidation' || phase === 'consolidation' || phase === 'consolidate'
+        || bloomscapesStudioRoute(view) === 'consolidate';
+}
+
 function prepareFieldWorkConsolidationNavigation() {
     if (!canViewFieldWorkConsolidation()) return false;
+    consolidationOpenedFromStudio = getCurrentVisibleViewId() === 'production';
     bloomscapesDepartmentTabs.set(bloomscapesDepartmentKey('production'),'bloomscapes-consolidation');
     markViewDirty('production');
     return true;
 }
 
+function canReturnToFieldWorkStudio() {
+    return consolidationOpenedFromStudio;
+}
+
+function isCurrentFieldWorkConsolidationFrame(frame) {
+    const state = consolidationWorkspaces.get(frame);
+    return !!state && state.owner === getSupabaseReadIdentityScope() && fieldWorkConsolidationSubjectMatches(state);
+}
+
 function syncFieldWorkConsolidationVisibility() {
     if (typeof canViewFieldWorkConsolidation!=='function') return;
     const allowed = canViewFieldWorkConsolidation();
-    if (!allowed) document.querySelectorAll('[data-field-work-consolidation-entry]').forEach(entry=>entry.remove());
     const frame = document.querySelector('#view-production > [data-department-workspace]');
     if (!frame) return;
     if (frame.dataset.departmentWorkspace==='bloomscapes-studio') return renderFieldWorkConsolidationEntry(frame);
     const state = consolidationWorkspaces.get(frame);
-    if (!state || state.subject===activeConsolidationUser()?.username && allowed) return;
+    if (!state || isCurrentFieldWorkConsolidationFrame(frame)) return;
     unmountFieldWorkConsolidation(frame);
     frame.remove();
     if (!allowed) bloomscapesDepartmentTabs.set(bloomscapesDepartmentKey('production'),'bloomscapes-studio');
@@ -29,20 +44,18 @@ function syncFieldWorkConsolidationVisibility() {
 }
 
 function renderFieldWorkConsolidationEntry(frame) {
-    const studio = frame.querySelector('[data-bloomscapes-studio]');
-    const existing = studio?.querySelector('[data-field-work-consolidation-entry]');
-    if (typeof canViewFieldWorkConsolidation!=='function' || !canViewFieldWorkConsolidation()) return existing?.remove();
-    if (!studio || existing) return;
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.dataset.fieldWorkConsolidationEntry = '';
-    button.textContent = 'Sales-Year Consolidation / Bed Space Advisor';
-    studio.querySelector('[data-studio-modules]')?.before(button);
-    button.onclick = () => switchView('field-work-consolidation');
+    const button = frame.querySelector('[data-studio-modules] [data-open-module="consolidate"]');
+    if (!button) return;
+    const hidden = !canViewFieldWorkConsolidation();
+    if (button.hidden !== hidden) button.hidden = hidden;
+    button.onclick = event => {
+        event.stopPropagation();
+        if (canViewFieldWorkConsolidation()) switchView('field-work-consolidation');
+    };
 }
 
 function renderFieldWorkConsolidationPanel() {
-    return '<section data-field-work-consolidation><h3>Sales-Year Consolidation / Bed Space Advisor</h3>'
+    return '<div data-module-subview-rail data-consolidation-subview></div><section data-field-work-consolidation><h3>Sales-Year Consolidation / Bed Space Advisor</h3>'
         +'<div data-consolidation-picker><label>Search inventory<input type="search" data-consolidation-search placeholder="Item code or common name"></label>'
         +'<div class="consolidation-controls"><div role="group" aria-label="Location filter">'
         +'<button type="button" data-consolidation-action="split">Split Across 2+ Locations</button>'
@@ -56,13 +69,14 @@ function mountFieldWorkConsolidation(frame) {
     if (!canViewFieldWorkConsolidation()) return;
     const host = frame.querySelector('[data-field-work-consolidation]');
     if (!host) return;
+    mountFieldWorkConsolidationSubview(frame);
     const state = {host,mode:'common',path:[],query:'',split:true,page:0,items:[],owner:getSupabaseReadIdentityScope(),subject:activeConsolidationUser()?.username};
     consolidationWorkspaces.set(frame,state);
     host.onclick = event => dispatchFieldWorkConsolidation(state,event);
     host.querySelector('[data-consolidation-search]').oninput = event => {
         state.query = event.target.value;
         state.page = 0;
-        paintFieldWorkConsolidationPicker(state);
+        if (fieldWorkConsolidationActive(state)) paintFieldWorkConsolidationOptions(state);
     };
     host.querySelector('[data-consolidation-mode]').onchange = event => {
         state.mode = event.target.value;
@@ -90,7 +104,12 @@ async function loadFieldWorkConsolidationInventory(state) {
 
 function fieldWorkConsolidationActive(state) {
     return state.host.isConnected && getCurrentVisibleViewId()==='production'
-        && state.owner===getSupabaseReadIdentityScope() && state.subject===activeConsolidationUser()?.username && canViewFieldWorkConsolidation();
+        && state.owner===getSupabaseReadIdentityScope() && fieldWorkConsolidationSubjectMatches(state);
+}
+
+function fieldWorkConsolidationSubjectMatches(state) {
+    const subject = activeConsolidationUser();
+    return state.subject === subject?.username && canViewFieldWorkConsolidation(subject);
 }
 
 function paintFieldWorkConsolidationPicker(state) {
@@ -100,6 +119,10 @@ function paintFieldWorkConsolidationPicker(state) {
         state.rows = rows;
         state.items = buildFieldWorkConsolidationIndex(rows);
     }
+    paintFieldWorkConsolidationOptions(state);
+}
+
+function paintFieldWorkConsolidationOptions(state) {
     const {options,many} = fieldWorkConsolidationPicker(state.items,state);
     const host = state.host;
     for (const button of host.querySelectorAll('[data-consolidation-action="split"],[data-consolidation-action="all"]')) {
@@ -149,14 +172,18 @@ function chooseFieldWorkConsolidationItem(state,choice) {
     state.host.querySelector('[data-consolidation-picker]').hidden = true;
     const item = state.host.querySelector('[data-consolidation-item]');
     item.hidden = false;
+    const years = [...choice.years.values()].sort((a,b)=>b.year.localeCompare(a.year));
     item.innerHTML = '<h4>'+esc(choice.name)+' · '+esc(choice.code)+'</h4><div class="consolidation-years" role="group" aria-label="Sales year">'
-        +[...choice.years.values()].sort((a,b)=>b.year.localeCompare(a.year))
+        +years
             .map(group=>'<button type="button" aria-pressed="false" data-consolidation-action="year" data-year="'+group.year+'">'
                 +group.year+' · '+consolidationCans.format(group.cans)+' cans</button>').join('')+'</div>'
-        +(choice.years.size ? '' : '<p>No positive on-hand stock with a recorded sales year.</p>');
+        +(years.length ? '' : '<p>No positive on-hand stock with a recorded sales year.</p>');
+    const planningYear = choice.years.get('2027') || years[0];
+    if (planningYear) void selectFieldWorkConsolidationYear(state,planningYear.year);
 }
 
 async function selectFieldWorkConsolidationYear(state,year) {
+    if (state.group?.year === year && (state.data || state.request && !state.error)) return;
     state.request?.abort();
     const request = state.request = new AbortController();
     state.group = state.item.years.get(year);
@@ -194,6 +221,8 @@ function backFieldWorkConsolidation(frame) {
         state.request?.abort();
         state.request = null;
         state.item = null;
+        state.group = null;
+        state.data = null;
         state.host.querySelector('[data-consolidation-result]').replaceChildren();
         state.host.querySelector('[data-consolidation-item]').hidden = true;
         state.host.querySelector('[data-consolidation-picker]').hidden = false;
