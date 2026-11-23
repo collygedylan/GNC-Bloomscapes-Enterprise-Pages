@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.42';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.43';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -23298,7 +23298,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.42';
+        const APP_VERSION = '3.1.43';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -53447,6 +53447,9 @@ function toggleDriveQuickRequestItem(domId) {
             if (isBloomscapesDockRoute(targetView)) return canOpenBloomscapesDocksWorkspace(targetView,userOverride);
             if (!targetView || targetView === 'home') return true;
             if (targetView === 'crop-roll' || targetView === 'manager-crop-roll') return false;
+            const areaLevel = typeof resolveBloomscapesAreaNavigation === 'function'
+                && (!userOverride || userOverride === currentUser) ? resolveBloomscapesAreaNavigation(targetView) : null;
+            if (areaLevel !== null) return areaLevel && navigationPreferencesAllowed(targetView,true);
             if (targetView === 'sales' && nativeAuthSessionActive && canAccessView('sales-office', userOverride)) return true;
             if (!isFullAppAdministrator(userOverride) && !hasExplicitViewPermission(targetView,userOverride)) return false;
             if (targetView === 'smart-moves') return isAuthenticatedExecutiveUser('view_smart_moves', userOverride);
@@ -61669,7 +61672,7 @@ function toggleDriveQuickRequestItem(domId) {
             });
         }
         async function refreshSuspendApprovalInbox(force = false) {
-            if (!nativeAuthSessionActive || canonicalFeaturePermission('can_access_que') === false) return;
+            if (!nativeAuthSessionActive || !canReadBloomscapesSuspendApprovals()) return;
             const owner = getSupabaseReadIdentityScope();
             if (suspendApprovalInbox.owner !== owner) suspendApprovalInbox = { owner, rows: [], loadedAt: 0, pending: null };
             paintSuspendApprovalInbox();
@@ -71052,17 +71055,11 @@ function toggleDriveQuickRequestItem(domId) {
         }
 
         /* @runtime-fragment assets/navigation-routing.js */ /* @runtime-fragment assets/navigation-routing-home.js */
+        /* @runtime-fragment assets/navigation-visibility-areas.js */
+        /* @runtime-fragment assets/navigation-routing-areas.js */
+        /* @runtime-fragment assets/bloomscapes-user-directory-areas.js */
         /* @runtime-fragment assets/module-subview-dropdown.js */
         /* @runtime-fragment assets/navigation-routing-promotion.js */
-        function syncGlobalModalBack() {
-            updateGlobalBackButton();
-        }
-        function initializeModalBackNavigation() {
-            let queued=false;
-            const observer=new MutationObserver(()=>{if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;syncGlobalModalBack();});});
-            document.querySelectorAll('[id$="-modal"],dialog,[role="dialog"]').forEach(modal=>observer.observe(modal,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style','open']}));
-            syncGlobalModalBack();
-        }
         /* @runtime-fragment assets/global-back-router.js */
         /* @runtime-fragment assets/global-back-surfaces-1.js */
         /* @runtime-fragment assets/global-back-surfaces-2.js */
@@ -71977,6 +71974,8 @@ function toggleDriveQuickRequestItem(domId) {
         }
 
         function setReqTab(tab) {
+            const areaRoute = tab === 'suspend-tag' ? 'suspend' : tab === 'pending' ? 'requests' : 'studio';
+            if (typeof allowsBloomscapesAreaSubview === 'function' && !allowsBloomscapesAreaSubview(areaRoute)) return false;
             const nextTab = normalizeRequestTabValue(tab);
             if (!['archived', 'reps'].includes(tab) && !getAuthorizedRequestCategories().includes(nextTab)) {
                 showToast('Access unavailable', 'You do not have permission to open this queue.', true);
@@ -95185,7 +95184,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
         function canUseRequestSuspendTagAssignedToFilter() { return queueAccessScope('suspend-tag').all; }
 
         function canReadSuspendQueue() {
-            return !!currentUser && canAccessView('request');
+            return !!currentUser && canAccessView('request') && allowsBloomscapesAreaSubview('suspend');
         }
 
         function getDockSuspendDcRequestAssignedToRaw(item = null) {

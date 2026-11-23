@@ -2,15 +2,19 @@ const BLOOMSCAPES_STUDIO_PHASES=[
     ['cans','Can Filling','CAN_FILLING','Can Filling',''],
     ['bunch','Bunch Notes','BUNCH_NOTES','Bunch & Tie','Overwinter Process: Grade · Bunch · Consolidate'],
     ['consolidate','Consolidate Inventory','HAULING','Consolidate',''],
-    ['shear','Shearing','SHEARING','Add to Shear List','']
+    ['shear','Shearing','SHEARING','Add to Shear List',''],
+    ['grading','Shift Grading','Y_GRADING','Shift Grading',''],
+    ['hauling','Hauling','HAULING','Haul',''],
+    ['counts','Block Counts & Poly / Spread','BUNCH_NOTES','Bunch Count','']
 ];
 
 const BLOOMSCAPES_STUDIO_LEGACY_ROUTES=Object.assign(Object.create(null),{
     'field-jobs':'','bloomscapes-field-jobs':'','bunch-note':'bunch','bunch-notes':'bunch',
-    'bloomscapes-bunch-notes':'bunch','grading':'bunch','bloomscapes-grading':'bunch','shift-grading':'bunch',
+    'bloomscapes-bunch-notes':'bunch','grading':'grading','bloomscapes-grading':'grading','shift-grading':'grading',
     'can-fill':'cans','can-filling':'cans','bloomscapes-can-filling':'cans','shear-list':'shear',
     'shearing':'shear','bloomscapes-shearing':'shear','location-moves':'consolidate',
-    'location-work':'consolidate','hauling':'consolidate','bloomscapes-hauling':'consolidate'
+    'location-work':'consolidate','consolidate-inventory':'consolidate',
+    'hauling':'hauling','field-work-hauling':'hauling','bloomscapes-hauling':'hauling'
 });
 
 function bloomscapesStudioRoute(route) {
@@ -39,14 +43,26 @@ function parkBloomscapesWorkRowEditor(host) {
     if (panel && host.contains(panel)) root.appendChild(panel);
 }
 
-function bloomscapesCanChooseWork(kind) {
-    return isFullAppAdministrator() || bloomscapesFieldQueueState.canCreate?.[kind]===true;
+function bloomscapesStudioPermission(key) {
+    if (key === 'hauling') return 'field-work-hauling';
+    if (key === 'consolidate') return 'consolidate-inventory';
+    return 'studio-'+key;
+}
+
+function bloomscapesCanChooseWork(kind, action) {
+    return allowsBloomscapesMovementAction(action)
+        && (isFullAppAdministrator() || bloomscapesFieldQueueState.canCreate?.[kind]===true);
+}
+
+function allowsBloomscapesMovementAction(action) {
+    if (typeof isBloomscapesAreaScoped !== 'function' || !isBloomscapesAreaScoped()) return true;
+    return getBloomscapesWorkActionPermission(action).every(key => allowsBloomscapesAreaSubview(key, 'FULL_EDIT'));
 }
 
 function selectBloomscapesStudioAction(form,action) {
     const entry=BLOOMSCAPES_LIFECYCLE_ACTIONS.find(([label])=>label===action)
         || (action==='Custom Bunch Note' && [action,'BUNCH_NOTES']);
-    if (!entry || !bloomscapesCanChooseWork(entry[1])) return false;
+    if (!entry || !bloomscapesCanChooseWork(entry[1],action)) return false;
     form.elements.workView.value=entry[1];
     syncBloomscapesWorkCreatorKind(form);form.elements.actionType.value=action;
     syncBloomscapesWorkDetailFields(form);

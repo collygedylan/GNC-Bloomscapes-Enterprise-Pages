@@ -9,6 +9,7 @@ function mountBloomscapesHomeModules(opening = false) {
     if (!opening) mountDivisionWeather();
     const grid = document.getElementById('home-dashboard-grid');
     if (!grid) return;
+    if (typeof mountBloomscapesAreaHubs === 'function') mountBloomscapesAreaHubs(grid);
     grid.dataset.bloomscapesHome = 'true';
     if (!grid.querySelector('#home-tile-drive')) grid.innerHTML = BLOOMSCAPES_BASE_HOME;
     for (const tile of grid.querySelectorAll('[id^="home-bloomscapes-"]')) tile.remove();
@@ -85,7 +86,7 @@ function renderHome(opening = false) {
     }
     const dashboardSticky = document.getElementById('home-dashboard-sticky');
     const dashboardHero = document.getElementById('home-dashboard-hero');
-    if (shouldUseRepSalesHomeHub()) {
+    if (!nativeAuthSessionActive && shouldUseRepSalesHomeHub()) {
         activeHomeTab = 'dashboard';
         selectedProductivityUser = '';
         if (dashboardSticky) dashboardSticky.classList.remove('hidden');

@@ -84,7 +84,8 @@ function syncBloomscapesWorkCreatorKind(form) {
     const actions={SHEARING:['Add to Shear List','Shear %','Whole-group Shear'],HAULING:['Haul','Consolidate','Haul / Consolidate','Consolidate Inventory','Whole-group Consolidation','Block Haul'],
         BUNCH_NOTES:['Bunch & Tie','Bunch Count','Cover with Poly','Remove Poly (Spring)','Spread Block (Spring)','Spread Count','Custom Crew Instructions','Custom Bunch Note'],
         CAN_FILLING:['Can Filling','Can Fill Prep'],Y_GRADING:['Shift Grading','Grade & Haul','Grade & Shift']}[kind];
-    form.elements.actionType.replaceChildren(...actions.map(action=>new Option(({'Bunch & Tie':'Bunch','Consolidate Bunches':'Consolidate'})[action] || action,action)));
+    const allowed = actions.filter(allowsBloomscapesMovementAction);
+    form.elements.actionType.replaceChildren(...allowed.map(action=>new Option(action==='Bunch & Tie' ? 'Bunch' : action,action)));
     form.elements.targetLocation.required=kind==='HAULING';
 }
 

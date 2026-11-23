@@ -19,3 +19,9 @@ function isNavigationDisplayPromotionCurrent(pending) {
         && pending.sequence === navTransitionSeq && getCurrentVisibleViewId() === pending.viewId
         && pending.viewId !== 'detail' && canAccessView(pending.viewId);
 }
+function promoteNavigationDisplayAfterAccess() {
+    const pending = pendingNavigationDisplay;
+    if (!pending || !isNavigationDisplayPromotionCurrent(pending)) return false;
+    scheduleUiRender(`navigation-access-ready:${pending.viewId}`, () => applyNavigationDisplayPromotion(pending));
+    return true;
+}

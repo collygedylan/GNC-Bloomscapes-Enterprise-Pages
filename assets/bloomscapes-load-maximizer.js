@@ -1,4 +1,3 @@
-
 let bloomscapesLoadState;
 let bloomscapesLoadFitBound = false;
 const bloomscapesLoadUnits=new Intl.NumberFormat('en-US',{maximumFractionDigits:4});
@@ -134,6 +133,8 @@ function bloomscapesLoadRequest(scope) {
 }
 
 function renderBloomscapesLoadMaximizer(scope) {
+    if (scope?.kind !== 'order' && typeof allowsBloomscapesAreaSubview === 'function'
+        && !allowsBloomscapesAreaSubview('load-maximizer')) return '';
     const entry=bloomscapesLoadRequest(scope);
     if (!entry) return '';
     if (!bloomscapesLoadFitBound) {
@@ -143,4 +144,57 @@ function renderBloomscapesLoadMaximizer(scope) {
     return '<aside class="bloom-load-summary" data-bloom-load="'+bloomscapesLoadText(entry.key)
         +'" data-bloom-load-owner="'+bloomscapesLoadText(entry.owner)+'">'
         +(entry.summary ? bloomscapesLoadSummary(entry.summary) : '<small>Checking load capacity…</small>')+'</aside>';
+}
+
+function openBloomscapesDockCapacity(root) {
+    if (!allowsBloomscapesAreaSubview('load-maximizer')) return false;
+    closeBloomscapesDockCapacity();
+    const panel = document.createElement('section');
+    panel.dataset.dockCapacityView = '';
+    panel.className = 'freeze-panel';
+    panel.innerHTML = '<h2>Load Maximizer</h2><button type="button" data-module-back>← Docks Board</button>'
+        + '<label>Dock <select aria-label="Capacity dock" disabled></select></label><div role="status"></div>';
+    root.prepend(panel);
+    const context = currentBloomscapesLoadContext();
+    const current = () => panel.isConnected && getCurrentVisibleViewId() === 'docks'
+        && getBloomscapesFarm() === context.farm && getSupabaseReadIdentityScope() === context.owner
+        && allowsBloomscapesAreaSubview('load-maximizer');
+    panel.querySelector('[data-module-back]').onclick = () => {
+        closeBloomscapesDockCapacity();
+        updateGlobalBackButton();
+    };
+    void mountBloomscapesCapacityDocks(panel, context.farm, current);
+    updateGlobalBackButton();
+    return false;
+}
+
+function closeBloomscapesDockCapacity() {
+    document.querySelector('#view-docks > [data-dock-capacity-view]')?.remove();
+}
+
+async function mountBloomscapesCapacityDocks(panel, farm, current) {
+    const status = panel.querySelector('[role="status"]');
+    status.textContent = 'Loading docks…';
+    try {
+        const docks = await readBloomscapesCapacityDocks(farm);
+        if (current()) paintBloomscapesDockCapacity(panel, docks, current);
+    } catch (error) {
+        if (current()) status.textContent = error.message;
+    }
+}
+
+function paintBloomscapesDockCapacity(panel, docks, current) {
+    const status = panel.querySelector('[role="status"]');
+    if (!docks.length) {
+        status.textContent = 'No docks have open loads for this farm.';
+        return;
+    }
+    const select = panel.querySelector('select');
+    const sorted = [...docks].sort((a,b) => a.localeCompare(b,undefined,{numeric:true}));
+    select.replaceChildren(...sorted.map(dock => new Option(formatDockViewDockLabel(dock),dock)));
+    select.disabled = false;
+    select.onchange = () => {
+        if (current()) status.innerHTML = renderBloomscapesLoadMaximizer({kind:'dock',dock:select.value});
+    };
+    select.onchange();
 }

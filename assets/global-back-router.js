@@ -1,3 +1,22 @@
+function syncGlobalModalBack() {
+    updateGlobalBackButton();
+}
+
+function initializeModalBackNavigation() {
+    let queued = false;
+    const observer = new MutationObserver(() => {
+        if (queued) return;
+        queued = true;
+        requestAnimationFrame(() => {
+            queued = false;
+            syncGlobalModalBack();
+        });
+    });
+    const options = {subtree:true,childList:true,attributes:true,attributeFilter:['class','style','open']};
+    for (const modal of document.querySelectorAll('[id$="-modal"],dialog,[role="dialog"]')) observer.observe(modal, options);
+    syncGlobalModalBack();
+}
+
 function goBackUniversal() {
     if (typeof closeActiveModuleSubview === 'function' && closeActiveModuleSubview()) return false;
     const modalBack=getVisibleSecondaryBack(true);

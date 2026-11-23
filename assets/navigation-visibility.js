@@ -139,6 +139,9 @@ function canDisplayNavigationView(viewId = '', userOverride = '') {
     if (window.__agdataSessionBoundary === true || hasExplicitLogoutMarker() || hasConfirmedCurrentAccountRevocation()) return false;
     const identity = getNavigationVisibilityIdentity(userOverride);
     if (!identity || !view || ['crop-roll', 'manager-crop-roll'].includes(view)) return false;
+    const areaAllowed = typeof resolveBloomscapesAreaNavigation === 'function' && (!userOverride || userOverride === currentUser)
+        ? resolveBloomscapesAreaNavigation(view) : null;
+    if (areaAllowed !== null) return areaAllowed && navigationPreferencesAllowed(view, true);
     if (view === 'inventory-office') return canAccessView('moves', userOverride);
     if (['messages','push-to-talk'].includes(view)) return canOpenCommunicationView(view,userOverride);
     if (isBloomscapesDockRoute(view)) return canOpenBloomscapesDocksWorkspace(view,userOverride);
@@ -160,20 +163,6 @@ function canDisplayNavigationView(viewId = '', userOverride = '') {
     return defaults.has(nested?.parent || view) && navigationPreferencesAllowed(view, true);
 }
 
-function canDisplayQuickAccessView(view = '') {
-    const route = String(view || '').trim();
-    if (route.startsWith('production:')) return canDisplayNavigationView('production-workflow');
-    return canDisplayNavigationView(route);
-}
-
-function navigateDisplayedQuickAccessView(view = '') {
-    const route = String(view || '').trim();
-    if (!canDisplayQuickAccessView(route)) return false;
-    if (canAccessQuickAccessView(route)) return navigateQuickAccessView(route);
-    const target = QUICK_ACCESS_NESTED_ROUTES[route]?.parent || (route.startsWith('production:') ? 'production-workflow' : route);
-    return switchView(target);
-}
-
 function getNavigationDisplayChoices() {
     const choices = [...getHomeModuleRegistry().map(module => module.view), 'tasks', 'take-back', 'weather-hold'];
     return [...new Set(choices)].filter(view => canDisplayNavigationView(view));
@@ -189,7 +178,11 @@ function canShowFooterViewButton(viewId = '', access = getRoleAccessState()) {
 }
 
 function canUseBloomscapesWorkStudio() {
-    return nativeAuthSessionActive && nativeAuthProfile?.username==='dylan_collyge' && currentUser==='dylan_collyge';
+    if (!nativeAuthSessionActive) return false;
+    if (nativeAuthProfile?.username==='dylan_collyge' && currentUser==='dylan_collyge') return true;
+    const profile = typeof bloomscapesAreaProfile === 'function' ? bloomscapesAreaProfile() : null;
+    const level = profile?.area_access?.studio;
+    return level === 'FULL_EDIT' || level === 'VIEW_ONLY';
 }
 
 function applyNavigationElementVisibility(element, visible) {

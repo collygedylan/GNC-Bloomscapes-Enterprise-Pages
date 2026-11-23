@@ -30,6 +30,11 @@ async function readBloomscapesSelfAccess(current) {
         const code=signal.aborted && !result.status ? 'USER_ACCESS_TIMEOUT' : result.error.message || result.error.code;
         throw Object.assign(new Error(result.error.message),{code,status:result.status});
     }
+    if (result.data?.profile?.area_scopes) requestAnimationFrame(() => {
+        if (!current()) return;
+        const grid = document.getElementById('home-dashboard-grid');
+        if (typeof mountBloomscapesAreaHubs === 'function') mountBloomscapesAreaHubs(grid);
+    });
     return result.data;
 }
 

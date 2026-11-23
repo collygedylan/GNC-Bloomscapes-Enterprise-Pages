@@ -192,7 +192,7 @@ if (!(typeof window !== 'undefined' ? window : globalThis).GncUserAccessControl)
         qc_supervisor: ['QC SUPERVISOR', 'QC-SUPERVISOR', 'QCSUPERVISOR', 'QCSUP'],
         csr: ['CSR', 'CUSTOMER SERVICE REPRESENTATIVE'],
         data_entry: ['DATA ENTRY', 'DATA-ENTRY'],
-        foreman: ['FOREMAN'],
+        foreman: ['FOREMAN'], crew: ['CREW'],
         grower: ['GROWER'],
         take_backs: ['TAKE BACK', 'TAKEBACK', 'TAKE BACKS', 'TAKEBACKS']
     });
@@ -263,20 +263,7 @@ if (!(typeof window !== 'undefined' ? window : globalThis).GncUserAccessControl)
     }
 
     function normalizeProfile(value) {
-        const source = value && typeof value === 'object' ? value : {};
-        const username = key(source.username);
-        const id = text(source.id);
-        if (!username || !id) return null;
-        const aliases = Array.isArray(source.salesrep_match_names || source.salesrepMatchNames)
-            ? (source.salesrep_match_names || source.salesrepMatchNames).map(key).filter(Boolean) : [];
-        const salesrepId = text(source.salesrep_id || source.salesrepId).toUpperCase();
-        return {
-            id, username,
-            display_name: text(source.display_name || source.displayName || username),
-            role: text(source.role), canonical_role: normalizeRole(source.role),
-            email: text(source.email).toLowerCase(), salesrep_id: salesrepId,
-            salesrep_match_names: Array.from(new Set([...aliases, username, key(source.display_name), key(salesrepId)]))
-        };
+        return globalThis.normalizeAccessProfile(value, {key,text,normalizeRole});
     }
 
     function isVerifiedManager() {

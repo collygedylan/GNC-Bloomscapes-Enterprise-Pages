@@ -42,7 +42,33 @@ function resolveMatrixAliasFlag(saved, primary, alias, fallback, yn) {
     return values.some(value => yn(value) === 'N') ? 'N' : 'Y';
 }
 
-globalThis.resolveTableDrivenAccessMatrix = resolveTableDrivenAccessMatrix;
+function normalizeAccessProfile(value, {key,text,normalizeRole}) {
+    const source = value && typeof value === 'object' ? value : {};
+    const username = key(source.username);
+    const id = text(source.id);
+    if (!username || !id) return null;
+    const aliases = source.salesrep_match_names || source.salesrepMatchNames;
+    const names = Array.isArray(aliases) ? aliases.map(key).filter(Boolean) : [];
+    const salesrepId = text(source.salesrep_id || source.salesrepId).toUpperCase();
+    return {
+        id, username,
+        display_name: text(source.display_name || source.displayName || username),
+        role: text(source.role), canonical_role: normalizeRole(source.role),
+        area_scopes: Array.isArray(source.area_scopes) ? source.area_scopes.filter(area => typeof area === 'string') : null,
+        area_access: source.area_access && typeof source.area_access === 'object' ? {...source.area_access} : {},
+        email: text(source.email).toLowerCase(), salesrep_id: salesrepId,
+        salesrep_match_names: [...new Set([...names, username, key(source.display_name), key(salesrepId)])]
+    };
+}
+
+Object.assign(globalThis,{resolveTableDrivenAccessMatrix,normalizeAccessProfile});
+
+function getBloomscapesWorkActionPermission(action) {
+    if (['Consolidate','Consolidate Inventory','Whole-group Consolidation'].includes(action)) return ['consolidate-inventory'];
+    if (action === 'Haul / Consolidate') return ['field-work-hauling','consolidate-inventory'];
+    if (['Haul','Block Haul','Grade & Haul'].includes(action)) return ['field-work-hauling'];
+    return [];
+}
 
 function sameAccessSession(left, right) {
     return !!(left && right && left.id === right.id && left.username === right.username && left.sessionKey === right.sessionKey);

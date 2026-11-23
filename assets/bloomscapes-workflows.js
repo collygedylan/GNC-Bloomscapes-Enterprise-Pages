@@ -27,6 +27,17 @@ function bloomscapesData(result) {
     return result.data;
 }
 
+async function readBloomscapesCapacityDocks(farm) {
+    const {client,owner} = await requireBloomscapesSession();
+    const response = await client.rpc('gnc_load_maximizer_docks',{p_farm:farm}).abortSignal(AbortSignal.timeout(6000));
+    await requireBloomscapesOwner(owner);
+    const docks = bloomscapesData(response);
+    if (farm !== getBloomscapesFarm() || !Array.isArray(docks) || docks.some(dock => typeof dock !== 'string')) {
+        throw new Error('Dock capacity choices could not be confirmed for this farm.');
+    }
+    return docks;
+}
+
 async function readBloomscapesPanel(panel, inputs = {}) {
     const {client, owner} = await requireBloomscapesSession();
     const input = {...inputs,farm:getBloomscapesFarm()};

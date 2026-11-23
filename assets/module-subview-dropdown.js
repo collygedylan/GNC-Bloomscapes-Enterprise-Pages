@@ -121,7 +121,7 @@ function paintModuleSubviewOptions(picker, choices, value) {
     if (focused !== null) buttons.find(button => button.dataset.moduleSubviewValue === focused)?.focus({preventScroll:true});
 }
 
-function mountModuleButtonSubview(source, selector, keyFor, valueFor, { phase, available = () => true } = {}) {
+function mountModuleButtonSubview(source, selector, keyFor, valueFor, { phase, available = () => true, permitted = () => true } = {}) {
     if (!source || source.hasAttribute('data-module-subview-source')) return;
     const host = document.createElement('div');
     host.dataset.moduleSubviewRail = '';
@@ -130,7 +130,7 @@ function mountModuleButtonSubview(source, selector, keyFor, valueFor, { phase, a
     const refresh = () => {
         host.hidden = !available();
         const buttons = [...source.querySelectorAll(selector)].filter(button => !button.disabled && !button.hidden);
-        const entries = new Map(buttons.map(button => [keyFor(button), button]));
+        const entries = new Map(buttons.map(button => [keyFor(button), button]).filter(([key]) => permitted(key)));
         const choices = [...entries].map(([key, button]) => [key, [...button.childNodes].map(node => node.textContent.trim()).filter(Boolean).join(' · ').replace(/^\p{Extended_Pictographic}\uFE0F?\s*/u, '')]);
         mountModuleSubviewDropdown(host, { choices, value: valueFor(buttons), select: key => { entries.get(key)?.click(); refresh(); } });
     };
@@ -156,7 +156,8 @@ function syncBloomscapesLegacySubview(view) {
     if (view === 'sales' || view === 'sales-office') {
         mountModuleButtonSubview(root?.querySelector('[data-marketing-studio] [data-studio-modules]'),
             '[data-sales-section]', button => button.dataset.salesSection,
-            buttons => buttons.find(button => button.getAttribute('aria-pressed') === 'true')?.dataset.salesSection);
+            buttons => buttons.find(button => button.getAttribute('aria-pressed') === 'true')?.dataset.salesSection,
+            {permitted:key=>allowsBloomscapesAreaSubview('sales-'+key)});
     }
     if (view === 'reports') {
         mountModuleButtonSubview(root?.querySelector('.detail-tabs:has(.report-tab)'), '.report-tab',
@@ -171,7 +172,8 @@ function syncBloomscapesLegacySubview(view) {
         const studio = root?.querySelector('[data-bloomscapes-studio]');
         const phase = studio?.querySelector('[data-studio-module]');
         mountModuleButtonSubview(studio?.querySelector('[data-studio-modules]'), '[data-open-module]',
-            button => button.dataset.openModule, () => phase?.dataset.studioPhase, {phase});
+            button => button.dataset.openModule, () => phase?.dataset.studioPhase,
+            {phase,permitted:key=>allowsBloomscapesAreaSubview(bloomscapesStudioPermission(key))});
     }
 }
 
@@ -186,6 +188,7 @@ function syncManagerModuleSubview(container, {access, managerApprovalTabs, manag
     const host = document.getElementById('manager-subview-rail');
     if (!host || !container.parentElement.contains(host)) return;
     const options = getManagerModuleOptions(access, managerApprovalTabs, managerToolTabs)
+        .filter(option => allowsBloomscapesAreaSubview(bloomscapesAreaManagerKey(option.id)))
         .filter(option => option.id === MANAGER_ACCESS_CONTROL_VIEW || !getManagerTableManagementKey(option.id));
     const choices = [['dashboard', 'Manager Modules'], ...options.map(option => [option.id,
         option.label || getManagerModuleMeta(option.id).label])];

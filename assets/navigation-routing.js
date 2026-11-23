@@ -2,7 +2,6 @@ let pendingNavigationDisplay = null;
 
 function openDisplayOnlyNavigation(viewId, options = {}) {
     if (options.boot === true && shouldPreserveMountedBootView()) return false;
-    if (target==='production' && canUseBloomscapesWorkStudio()) prepareBloomscapesStudioNavigation(viewId,options);
     const previous = getCurrentVisibleViewId();
     if (options.boot !== true && currentUser) getAppBootViewState().userHasNavigated = true;
     navTransitionSeq += 1;
@@ -28,19 +27,15 @@ function openDisplayOnlyNavigation(viewId, options = {}) {
     return false;
 }
 
-function promoteNavigationDisplayAfterAccess() {
-    const pending = pendingNavigationDisplay;
-    if (!pending || !isNavigationDisplayPromotionCurrent(pending)) return false;
-    scheduleUiRender(`navigation-access-ready:${pending.viewId}`, () => applyNavigationDisplayPromotion(pending));
-    return true;
-}
-
 function switchView(viewId, options = {}) {
     const target = String(BLOOMSCAPES_SHELL_ROUTE_ALIASES[viewId]
         || (nativeAuthSessionActive && viewId === 'sales-office' && 'sales')
-        || (nativeAuthSessionActive && viewId === 'production' && currentUser !== 'dylan_collyge' && 'drive')
-        || (nativeAuthSessionActive && currentUser==='dylan_collyge' && (
-            viewId==='field-work-studio' || BLOOMSCAPES_STUDIO_LEGACY_ROUTES[viewId]!==undefined
+        || (nativeAuthSessionActive && viewId === 'production' && currentUser !== 'dylan_collyge'
+            && nativeAuthProfile?.role !== 'manager' && nativeAuthProfile?.role !== 'supervisor' && 'drive')
+        || (nativeAuthSessionActive && (currentUser === 'dylan_collyge'
+            || nativeAuthProfile?.role === 'manager' || nativeAuthProfile?.role === 'supervisor') && (
+            viewId==='field-work-studio'
+            || typeof BLOOMSCAPES_STUDIO_LEGACY_ROUTES !== 'undefined' && BLOOMSCAPES_STUDIO_LEGACY_ROUTES[viewId]!==undefined
             || viewId==='production-workflow' && productionWorkflowActive==='can-filling')
             ? 'production' : viewId==='chat' && nativeAuthSessionActive ? 'messages' : viewId || 'home')).trim();
     if (!canDisplayNavigationView(target)) {
@@ -48,6 +43,7 @@ function switchView(viewId, options = {}) {
         return false;
     }
     if (!canAccessView(target)) return openDisplayOnlyNavigation(target, options);
+    if (typeof closeBloomscapesDockCapacity === 'function') closeBloomscapesDockCapacity();
     if (typeof closeActiveModuleSubview === 'function') closeActiveModuleSubview();
     if (viewId === 'office' || viewId === 'inventory-office') return openInventoryOfficeView();
     if (nativeAuthSessionActive && target==='communication') {
@@ -56,9 +52,7 @@ function switchView(viewId, options = {}) {
     pendingNavigationDisplay = null;
     syncNavigationDisplayStatus(getViewElementById(target));
     if (options.boot === true && shouldPreserveMountedBootView()) return false;
-    if (target==='production' && canUseBloomscapesWorkStudio()) {
-        prepareBloomscapesStudioNavigation(viewId==='production' && !options.fromHistory ? 'field-work-studio' : viewId, options);
-    }
+    if (target==='production' && !preparePermittedStudioNavigation(viewId, options)) return false;
     if (options.boot !== true && currentUser) getAppBootViewState().userHasNavigated = true;
     const navigationSeq = ++navTransitionSeq;
     if (viewId === 'home' && restoreCameraDetailSession()) return;

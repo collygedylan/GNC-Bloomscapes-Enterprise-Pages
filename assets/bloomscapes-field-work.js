@@ -15,7 +15,7 @@ async function previewBloomscapesFieldWork(input) {
     const farm = getBloomscapesFarm();
     const result = await client.rpc('gnc_preview_field_work',{p_farm:farm,p_source:input.sourceId,p_scope:input.scope,
         p_quantity:input.quantity ? Number(input.quantity) : null,p_percent:input.percent ? Number(input.percent) : null,
-        p_target:input.targetLocation || null,p_work_view:input.workView});
+        p_target:input.targetLocation || null,p_work_view:input.workView,p_action_type:input.actionType || null});
     await requireBloomscapesOwner(owner);
     const receipt = bloomscapesData(result);
     if (receipt?.farm_code!==farm || receipt.source_id!==input.sourceId || receipt.scope!==input.scope) {

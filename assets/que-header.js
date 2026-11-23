@@ -145,7 +145,9 @@ function syncQueHeaderLayout() {
 }
 
 function syncQueCategoryControl(toolbar, counts) {
-    const categories = bloomscapesJobBoardCategories().map(([category,label]) => ({
+    const categories = bloomscapesJobBoardCategories().filter(([category]) =>
+        typeof allowsBloomscapesAreaSubview !== 'function' || allowsBloomscapesAreaSubview(
+            category === 'suspend-tag' ? 'suspend' : category === 'pending' ? 'requests' : 'studio')).map(([category,label]) => ({
         key: category,
         label,
         count: bloomscapesWorkKind(category) ? bloomscapesWorkQueueCount(category) : Math.max(0, Number(counts[category]) || 0)

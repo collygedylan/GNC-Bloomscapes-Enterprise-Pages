@@ -6,7 +6,8 @@ const BLOOMSCAPES_LIFECYCLE_ACTIONS=[
 
 function bloomscapesLifecyclePicker() {
     return '<fieldset data-work-steps><legend>Chain work · ordered steps</legend>'
-        +BLOOMSCAPES_LIFECYCLE_ACTIONS.map(([action])=>'<label><input type="checkbox" name="lifecycleStep" value="'+esc(action)+'">'+esc(action)+'</label>').join('')+'</fieldset>';
+        +BLOOMSCAPES_LIFECYCLE_ACTIONS.filter(([action])=>allowsBloomscapesMovementAction(action))
+            .map(([action])=>'<label><input type="checkbox" name="lifecycleStep" value="'+esc(action)+'">'+esc(action)+'</label>').join('')+'</fieldset>';
 }
 
 function bindBloomscapesLifecyclePicker(form) {
