@@ -507,7 +507,8 @@ function canViewNurseryCommandTables(user = currentUser) {
 function openManagerTableManagement(table = '') {
             const key = getManagerTableManagementKey(table) || String(table || '').trim().toLowerCase();
             if (!key) managersSearchTerm = '';
-            const available = new Set(getManagerTableManagementItems().map(item => item.id));
+            const available = new Set(managerTableItemsWithConsolidation(getManagerTableManagementItems()).map(item => item.id));
+            const archive = managerTableArchiveRoute(key);
             if (key && !available.has(key)) {
                 if (key === 'photo-history' && !canOpenPhotoHistory()) return false;
                 if (key === 'assigned-items' && canViewAssignedItemsExport()) {
@@ -522,10 +523,7 @@ function openManagerTableManagement(table = '') {
                     managerTableManagementSelection = key; managerTableManagementDirectOpen = true;
                     try { return setHomeTab(MANAGER_ACCESS_CONTROL_VIEW); } finally { managerTableManagementDirectOpen = false; }
                 }
-                if (key === 'historical-requests' && canUseHistoricalRequests()) return navigateQuickAccessView('archive-requests');
-                if (key === 'historical-drive-mode' && canUseHistoricalRequests()) return navigateQuickAccessView('archive-drive');
-                if (key === 'historical-soc-open-orders' && canUseHistoricalRequests()) return navigateQuickAccessView('archive-orders');
-                if (key === 'historical-soc-reserves' && canUseHistoricalRequests()) return navigateQuickAccessView('archive-reserves');
+                if (archive && canUseHistoricalRequests()) return navigateQuickAccessView(archive);
                 return false;
             }
             if (key === 'photo-history') return openDylanPhotoHistory({ readOnly: true });
@@ -536,10 +534,7 @@ function openManagerTableManagement(table = '') {
                 try { if (getCurrentVisibleViewId() !== 'managers') switchView('managers'); setHomeTab(legacyTab); if (key !== 'assigned-items') renderManagers(); return false; }
                 finally { managerTableManagementDirectOpen = false; }
             }
-            if (key === 'historical-requests') return navigateQuickAccessView('archive-requests');
-            if (key === 'historical-drive-mode') return navigateQuickAccessView('archive-drive');
-            if (key === 'historical-soc-open-orders') return navigateQuickAccessView('archive-orders');
-            if (key === 'historical-soc-reserves') return navigateQuickAccessView('archive-reserves');
+            if (archive) return navigateQuickAccessView(archive);
             managerTableManagementSelection = key;
             destroyManagerTableManagement();
             if (getCurrentVisibleViewId() !== 'managers') switchView('managers');
@@ -557,9 +552,11 @@ function getManagerTableManagementLegacyTab(key = '') {
     return {'assigned-items':'assigned-items-export','customer-assignments':'customer-rep-map','user-role-access':'access-control','production-schedule':'production-schedule','av-note-users':'av-blanks-photo-bypass','season':'season-settings','season-priority':'season-priority'}[key] || '';
 }
 function renderManagerTableManagementWorkspace(content, selected = '') {
-    return renderManagerTableWorkspaceMarkup(content,selected,getManagerTableManagementItems(),
+    const items = managerTableItemsWithConsolidation(getManagerTableManagementItems());
+    return renderManagerTableWorkspaceMarkup(consolidationWorkspaceContent(content,selected),selected,items,
         typeof managersSearchTerm === 'string' ? managersSearchTerm : '',esc);
 }
+Object.assign(globalThis,{openManagerTableManagement,renderManagerTableManagementWorkspace});
 function syncManagerTableManagementViewport() {
     const root = document.getElementById('view-table-management');
     if (!root) return;

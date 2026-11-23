@@ -34,3 +34,49 @@ async function dispatchBloomscapesModuleAccess(select,status,row) {
         if (select.isConnected) {select.value=row.access_level;status.textContent=error.message;}
     } finally {select.disabled=false;}
 }
+
+function mountConsolidationGrantControl(host,type,key) {
+    if (borrowedHelpPreview() || currentUser !== 'dylan_collyge') return;
+    const owner = getSupabaseReadIdentityScope();
+    const current = () => label.isConnected && owner === getSupabaseReadIdentityScope() && !borrowedHelpPreview();
+    const label = host.appendChild(document.createElement('label'));
+    label.className = 'consolidation-grant-control';
+    label.textContent = 'Field Work Consolidation';
+    const select = label.appendChild(document.createElement('select'));
+    select.setAttribute('aria-label','Field Work Consolidation');
+    select.disabled = true;
+    select.add(new Option('N','N'));
+    select.add(new Option('Y','Y'));
+    const status = label.appendChild(document.createElement('span'));
+    status.setAttribute('role','status');
+    status.textContent = 'Loading…';
+    const editable = type === 'USER' && canEditConsolidationUserGrant(key);
+    void runConsolidationAccessSettings(type,key).then(grant => {
+        if (!current()) return;
+        select.value = grant;
+        select.disabled = !editable;
+        status.textContent = '';
+        if (editable) select.onchange = () => void dispatchConsolidationGrant(select,status,key,current);
+    }).catch(error => { if (current()) status.textContent = error.message; });
+}
+
+async function dispatchConsolidationGrant(select,status,key,current) {
+    const requested = select.value;
+    select.disabled = true;
+    status.textContent = 'Saving…';
+    try {
+        const grant = await runConsolidationAccessSettings('USER',key,requested === 'Y');
+        if (!current()) return;
+        select.value = grant;
+        status.textContent = 'Saved.';
+        if (key === currentUser) await window.GncUserAccessControl?.loadSelf?.({force:true});
+    } catch (error) {
+        if (!current()) return;
+        select.value = requested === 'Y' ? 'N' : 'Y';
+        status.textContent = error.message;
+    } finally {
+        if (current()) select.disabled = false;
+    }
+}
+
+Object.assign(globalThis,{mountConsolidationGrantControl});

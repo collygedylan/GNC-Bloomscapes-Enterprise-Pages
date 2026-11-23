@@ -143,6 +143,34 @@ html body dialog#av-photo-viewer {
     max-height: none !important;
     overflow: hidden;
 }
+bloomscapes-consolidation-grid {display:block;height:100%;min-height:0}
+.consolidation-grid {
+  display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:.5rem;
+  height:100%;min-height:0;overflow:hidden;color:#ecfdf5;background:#0b2417;
+}
+.consolidation-grid form,.consolidation-grid footer {
+  display:flex;flex-wrap:wrap;align-items:end;gap:.5rem;padding:.5rem;
+}
+.consolidation-grid label,.consolidation-grant-control {
+  display:grid;gap:.25rem;font-size:.875rem;
+}
+.consolidation-grid label {flex:1 1 9rem}
+.consolidation-grid :is(input,select,button),.consolidation-grant-control select {
+  max-width:100%;min-height:2.25rem;padding:.25rem .5rem;
+  border:1px solid #529278;border-radius:.4rem;color:#ecfdf5;background:#103220;
+}
+.consolidation-grid input[type="checkbox"] {min-height:1rem;accent-color:#6ee7b7}
+.consolidation-grid-scroll {min-height:0;overflow:auto;overscroll-behavior:contain}
+.consolidation-grid table {width:max-content;min-width:100%;border-collapse:separate;border-spacing:0}
+.consolidation-grid :is(th,td) {
+  padding:.375rem .5rem;border-bottom:1px solid #315743;text-align:left;white-space:nowrap;
+}
+.consolidation-grid thead th {position:sticky;top:0;z-index:1;background:#103220}
+.consolidation-grid td input[type="number"] {width:8rem}
+.consolidation-grid footer {justify-content:space-between;align-items:center}
+.consolidation-grid dialog {width:min(94vw,35rem);color:#ecfdf5;background:#0b2417;border:1px solid #529278;border-radius:.5rem}
+.consolidation-grid dialog h3,.consolidation-grid dialog p {flex:0 0 100%}
+.consolidation-grid dialog::backdrop {background:#0009}
 .app-operational-card-meta { display:flex; flex-wrap:wrap; gap:4px 6px; margin:4px 0; }
         #docks-content .app-operational-card-meta .app-request-card-meta-chip { display:inline-flex; min-width:0; max-width:100%; align-items:center; gap:4px; border:1px solid #dbe4dc; border-radius:999px; background:#f8fafc; padding:4px 8px; color:#475569; font-size:10px; font-weight:800; line-height:1.15; }
         #docks-content .app-operational-card-meta .app-request-card-meta-chip strong { color:#0f172a; font-weight:900; overflow-wrap:anywhere; }
