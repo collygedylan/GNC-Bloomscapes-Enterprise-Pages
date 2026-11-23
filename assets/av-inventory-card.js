@@ -10,7 +10,7 @@ function renderInventoryCardAvHero(context) {
     const fallback = normalizeStoragePublicUrl(validAvPhotoUrls[0]);
     const fallbackAttr = fallback && fallback !== src ? ` data-av-photo-fallback="${escapeHtml(fallback)}"` : '';
     const label = escapeHtml(`View ${photoCount} photo${photoCount === 1 ? '' : 's'} of ${name}`);
-    const previewHtml = `<button type="button" class="app-av-photo-slide" data-fast-press-ignore data-av-photo-index="0" aria-label="${label}" onclick="event.stopPropagation(); return openAvPhotoViewer('${safePhotoCsv}', '${photoCaption}', 0, this)">
+    const previewHtml = `<button type="button" class="app-av-photo-slide" data-fast-press-ignore data-av-photo-index="0" data-av-photo-open aria-label="${label}" onclick="event.stopPropagation(); return openAvPhotoViewer('${safePhotoCsv}', '${photoCaption}', 0, this)">
         <img src="${escapeHtml(src)}"${fallbackAttr} loading="lazy" decoding="async" alt="${escapeHtml(`${name} photo 1 of ${photoCount}`)}" onerror="handleAvCardPhotoError(this)">
         <span class="app-av-catalog-photo-status" hidden>Photo unavailable</span>
     </button>`;
@@ -36,7 +36,7 @@ function createAvInventoryCardModel(context) {
     const listPriceText = listPriceNumber === null ? formatCardPriceValue(firstNonEmptyValue(item.LISTPRICE, item.LISTPRI, '')) : `$${listPriceNumber.toFixed(2)}`;
     const liveEvidenceRow = getLiveDriveNoteRow(item) || item;
     const avNoteText = String(firstNonEmptyValue(liveEvidenceRow.AV_NOTE, liveEvidenceRow.av_note, item.AV_NOTE, item.av_note, '') || '').trim();
-    const validAvPhotoUrls = canonicalCardPhotoUrls.length ? canonicalCardPhotoUrls : resolveCanonicalPhotoUrls(item, 'drive');
+    const validAvPhotoUrls = canonicalCardPhotoUrls;
     const resolvedAvPhotoLink = validAvPhotoUrls.join(',');
     const hasValidAvPhotos = validAvPhotoUrls.length > 0;
     const pickNoteText = hasValidAvPhotos ? getCorrectedPickNoteValue(item, firstNonEmptyValue(getItemDisplayValue(item, 'PICK', sourceView), item.PIC_NOTE, item.PICK, item.PICKNOTE, item.REQ_PICK, item.REQ_PIC_NOTE, item.FLYER_PICK, ''), { includeStandard: true }) : '';

@@ -1,12 +1,11 @@
 let pendingNavigationDisplay = null;
-
 function switchView(viewId, options = {}) {
     const target = String(BLOOMSCAPES_SHELL_ROUTE_ALIASES[viewId]
         || (nativeAuthSessionActive && viewId === 'sales-office' && 'sales')
         || (nativeAuthSessionActive && viewId === 'production' && currentUser !== 'dylan_collyge'
-            && nativeAuthProfile?.role !== 'manager' && nativeAuthProfile?.role !== 'supervisor' && 'drive')
+            && !BLOOMSCAPES_FIELD_ENTRY_ROLES[nativeAuthProfile?.role] && 'drive')
         || (nativeAuthSessionActive && (currentUser === 'dylan_collyge'
-            || nativeAuthProfile?.role === 'manager' || nativeAuthProfile?.role === 'supervisor') && (
+            || BLOOMSCAPES_FIELD_ENTRY_ROLES[nativeAuthProfile?.role]) && (
             viewId==='field-work-studio'
             || typeof BLOOMSCAPES_STUDIO_LEGACY_ROUTES !== 'undefined' && BLOOMSCAPES_STUDIO_LEGACY_ROUTES[viewId]!==undefined
             || viewId==='production-workflow' && productionWorkflowActive==='can-filling')
@@ -16,6 +15,7 @@ function switchView(viewId, options = {}) {
         return false;
     }
     if (!canAccessView(target)) return openDisplayOnlyNavigation(target, options);
+    if (target==='time-cards' && borrowedHelpPreview()) return false;
     if (typeof closeBloomscapesDockCapacity === 'function') closeBloomscapesDockCapacity();
     if (typeof closeActiveModuleSubview === 'function') closeActiveModuleSubview();
     if (viewId === 'office' || viewId === 'inventory-office') return openInventoryOfficeView();

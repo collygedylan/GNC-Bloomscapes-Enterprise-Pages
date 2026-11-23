@@ -28,7 +28,7 @@ function openAvPhotoViewer(photoUrls, caption, startIndex = 0, trigger = documen
     const status = document.createElement('span');
     const number = Math.trunc(Number(startIndex)) || 0;
     const viewer = {
-        dialog, image, status, trigger, urls, caption: caption || 'AV photos',
+        dialog, image, status, trigger, urls, caption: caption || 'Inventory photos',
         abort: new AbortController(),
         index: Math.max(0, Math.min(number, urls.length - 1)),
         pointers: new Map(), drag: null, pinch: null, lastTap: null,
@@ -36,6 +36,7 @@ function openAvPhotoViewer(photoUrls, caption, startIndex = 0, trigger = documen
         resizeObserver: new ResizeObserver(() => fitAvPhoto(viewer))
     };
     dialog.id = 'av-photo-viewer';
+    dialog.style.zIndex = '9999';
     dialog.dataset.fastPressIgnore = '';
     dialog.setAttribute('aria-label', viewer.caption);
     dialog.setAttribute('aria-description', 'Swipe sideways to browse and swipe down to close. Double tap or pinch to zoom. Keyboard: arrow keys, plus, minus, zero, and Escape.');
@@ -44,6 +45,10 @@ function openAvPhotoViewer(photoUrls, caption, startIndex = 0, trigger = documen
     status.className = 'av-photo-viewer-status';
     status.setAttribute('role', 'status');
     dialog.append(image, status);
+    if (window.matchMedia('(pointer: fine)').matches) {
+        dialog.append(avPhotoButton(viewer, 'Previous photo', '‹', 'left', -1),
+            avPhotoButton(viewer, 'Next photo', '›', 'right', 1), avPhotoButton(viewer, 'Close photos', '×', 'right', 0));
+    }
 
     bindAvPhotoViewer(viewer);
     activeAvPhotoViewer = viewer;
@@ -52,6 +57,18 @@ function openAvPhotoViewer(photoUrls, caption, startIndex = 0, trigger = documen
     viewer.resizeObserver.observe(dialog);
     showAvPhoto(viewer);
     return false;
+}
+
+function avPhotoButton(viewer, label, text, side, direction) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.setAttribute('aria-label', label);
+    button.textContent = text;
+    button.style.cssText = 'position:absolute;z-index:1;min-width:44px;min-height:44px;' +
+        'border-radius:8px;background:#103220;color:#fff;font-size:26px;' +
+        side + ':12px;' + (direction ? 'top:calc(50% - 22px)' : 'top:12px');
+    button.addEventListener('click', () => direction ? stepAvPhotoViewer(viewer, direction) : closeAvPhotoViewer());
+    return button;
 }
 
 function bindAvPhotoViewer(viewer) {
@@ -148,7 +165,7 @@ function beginAvPhotoDrag(viewer, point, followsPinch = false) {
 }
 
 function beginAvPhotoGesture(viewer, event) {
-    if (event.button !== 0 || viewer.pointers.size >= 2) return;
+    if (event.button !== 0 || viewer.pointers.size >= 2 || event.target.closest('button')) return;
     const point = avPhotoGesturePoint(event);
     event.preventDefault();
     viewer.pointers.set(event.pointerId, point);
@@ -211,6 +228,12 @@ function finishAvPhotoGesture(viewer, event, cancelled) {
     if (drag.moved || Math.abs(dx) > 10 || Math.abs(dy) > 10) {
         viewer.lastTap = null;
         finishAvPhotoSwipe(viewer, dx, dy);
+        return;
+    }
+    if (event.pointerType === 'mouse' && viewer.scale === 1) {
+        const {left, width} = viewer.dialog.getBoundingClientRect();
+        const zone = (point.x - left) / width;
+        if (zone < 0.25 || zone > 0.75) stepAvPhotoViewer(viewer, zone < 0.25 ? -1 : 1);
         return;
     }
     finishAvPhotoTap(viewer, point, event.timeStamp);

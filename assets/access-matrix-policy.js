@@ -174,11 +174,40 @@ function canAccessOperationalView(targetView, userOverride) {
 }
 
 const bloomscapesRestrictedRoles = new Set(['eval','evaluator','crew','rep','sales_rep','csr']);
-const bloomscapesRestrictedRoutes = Object.freeze({
-    __proto__:null,managers:['managers','view_managers'],docks:['docks','view_docks'],
-    sales:['sales-design','view_sales'],'sales-office':['sales-design','view_sales'],
-    'hl-order':['po','view_hl_order'],'po-management':['po','view_hl_order'],aura:['aura','view_aura']
+const bloomscapesLeadershipRoles = new Set(['super-admin','admin','manager','supervisor','foreman']);
+const bloomscapesSharedRoutes = new Set(['home','detail','request','messages','push-to-talk','communication']);
+const bloomscapesSalesRoutes = Object.freeze({
+    __proto__:null, sales:['sales-design','view_sales'], 'sales-office':['sales-design','view_sales_office'],
+    av:['av','view_av'], drive:['drive','view_drive_mode'], bloom:['av','view_bloom_picker'],
+    'historical-requests':['historical','view_historical_requests'], 'request-history':['historical','view_historical_requests']
 });
+const bloomscapesEvalRoutes = Object.freeze({
+    __proto__:null, drive:['drive','view_drive_mode'], av:['av','view_av'],
+    reports:['reports','view_reports'], bloom:['av','view_bloom_picker']
+});
+const bloomscapesCrewRoutes = Object.freeze({
+    __proto__:null, docks:['docks','view_docks'], 'pull-tags':['docks','view_docks'],
+    production:['studio','view_production'], 'field-work-studio':['studio','view_production']
+});
+
+function isBloomscapesLeadershipRole(role) {
+    return bloomscapesLeadershipRoles.has(role);
+}
+
+function canOpenBloomscapesHomeLeadership(view, preview = borrowedHelpPreview()) {
+    const role = preview?.role ?? nativeAuthProfile?.role;
+    if (!nativeAuthSessionActive || !nativeAuthProfile?.id || !isBloomscapesLeadershipRole(role)) return false;
+    if (!['borrowed-work','time-cards'].includes(view)) return false;
+    return preview ? preview.borrowed === true : getBloomscapesAllowedFarms().includes(getBloomscapesFarm());
+}
+
+function restrictedBloomscapesRouteLevel(profile,route,preview) {
+    if (!route) return false;
+    const [area,flag] = route;
+    if (preview || profile.role === 'eval' && profile.area_access) return bloomscapesAreaGrant(profile.area_access?.[area]);
+    const matrix = resolveUserAccessMatrix(currentUser);
+    return matrix?.verified === true && matrix.view_permissions?.[flag] === 'Y';
+}
 
 function bloomscapesAreaGrant(level) {
     return level === 'FULL_EDIT' || level === 'VIEW_ONLY';
@@ -193,27 +222,26 @@ function bloomscapesRestrictedNavigationProfile(preview = borrowedHelpPreview())
 function bloomscapesRestrictedViewGrant(view, preview = borrowedHelpPreview()) {
     if (!nativeAuthSessionActive) return null;
     const profile = bloomscapesRestrictedNavigationProfile(preview);
-    const route = bloomscapesRestrictedRoutes[view];
-    if (!route) return null;
-    const [area,flag] = route;
-    if (view === 'aura' && !preview) return window.GncUserAccessControl?.getSelfState()?.permissions?.use_aura_assistant === true
+    if (['borrowed-work','time-cards'].includes(view)) return canOpenBloomscapesHomeLeadership(view,preview);
+    if (!profile && view === 'aura' && !preview) return window.GncUserAccessControl?.getSelfState()?.permissions?.use_aura_assistant === true
         || resolveUserAccessMatrix(currentUser)?.use_aura_assistant === 'Y';
-    if (!profile) return null;
-    if (preview || profile.role === 'eval' && profile.area_access) return bloomscapesAreaGrant(profile.area_access?.[area]);
-    const matrix = resolveUserAccessMatrix(currentUser);
-    return matrix?.verified === true && matrix.view_permissions?.[flag] === 'Y';
+    if (!profile || bloomscapesSharedRoutes.has(view)) return null;
+    if (view === 'moves') return hasBloomscapesReclassScope();
+    const routes = profile.role === 'crew' ? bloomscapesCrewRoutes
+        : ['eval','evaluator'].includes(profile.role) ? bloomscapesEvalRoutes : bloomscapesSalesRoutes;
+    return restrictedBloomscapesRouteLevel(profile,routes[view],preview);
 }
 
 function getActiveEvalReportsAccess() {
     if (!nativeAuthSessionActive) return {scope:'legacy'};
     const preview = borrowedHelpPreview();
     const expected = expectedEvalReportsScope(nativeAuthProfile, preview);
-    if (preview && preview.role !== 'eval') return {scope:'legacy'};
+    if (preview && preview.role !== 'eval') return {scope:bloomscapesRestrictedRoles.has(preview.role) ? 'hidden' : 'legacy'};
     if (preview) {
         return expected === 'own' && bloomscapesAreaGrant(preview.area_access?.reports)
             ? {scope:'own', preview:preview.username} : {scope:'hidden'};
     }
-    if (expected === 'hidden') return {scope:'legacy'};
+    if (expected === 'hidden') return {scope:bloomscapesRestrictedRoles.has(nativeAuthProfile?.role) ? 'hidden' : 'legacy'};
     const matrix = resolveUserAccessMatrix(currentUser);
     const views = matrix?.view_permissions;
     const verified = matrix?.verified && matrix.profile_id === nativeAuthProfile?.id && currentUser === nativeAuthProfile.username;

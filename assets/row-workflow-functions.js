@@ -1897,22 +1897,7 @@ function getAvRowPhotoUrls(row = {}) {
         .flatMap(value => getPhotoUrlList(value || '')).filter(url => /^https?:\/\//i.test(url)))];
 }
 function isValidPhotoRow(row) {
-    if (!row) return false;
-    row = resolveCanonicalInventoryRow(row) || row;
-    const onHand = Number(String(row.PTRONHAND ?? row.ptronhand ?? row.ON_HAND ?? row.on_hand ?? row.ONHAND ?? row.onhand ?? '').replace(/,/g,''));
-    if (!(onHand > 0)) return false;
-    const stored = row.LOC_PHOTO_MATCH ?? row.loc_photo_match ?? row.LOC_MATCH_QTY ?? row.loc_match_qty;
-    const hasStoredMatch = stored != null && String(stored).trim() !== '';
-    if (hasStoredMatch && !(Number(String(stored).replace(/,/g,'')) > 0)) return false;
-    const pctValue = row.LOC_MATCH_PCT ?? row.loc_match_pct ?? row.MATCH_PCT ?? row.match_pct ?? row.MATCH ?? row.match;
-    if (!hasStoredMatch && pctValue != null && String(pctValue).trim() !== '') {
-        const pct = Number(String(pctValue).replace(/[% ,]/g,''));
-        if (!(Math.round(Math.min(100,pct)*onHand/100) > 0)) return false;
-    }
-    return getAvRowPhotoUrls(row).some(url => {
-        const stamp = getPhotoEntryDateMs(url,row);
-        return Number.isFinite(stamp) && stamp <= Date.now() && !isPhotoDateMsExpired(stamp);
-    });
+    return currentCanonicalAvPhotoUrls(row).length > 0;
 }
 function hasValidRowPhoto(row) {
     return isValidPhotoRow(row);

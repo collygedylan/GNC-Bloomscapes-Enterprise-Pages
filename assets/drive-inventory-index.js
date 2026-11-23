@@ -4,7 +4,7 @@ let driveCommonNameSearchTerm = '';
 let driveCommonNameFilterOpen = false;
 
 const driveIndexOrder = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' }).compare;
-const driveIndexLocation = row => LocationCode.normalize(getDrivePlantLocationCode(row)) || DRIVE_NO_BLOCK_NUMBER;
+const driveIndexLocation = row => LocationCode.base(getDrivePlantLocationCode(row)) || DRIVE_NO_BLOCK_NUMBER;
 
 function addDriveIndexRow(blocks, row) {
     const block = getDriveBlockAlphaValue(row);
@@ -161,8 +161,7 @@ function renderDriveLocationDrill(container, crumb, driveModeLabel = '', viewSta
         return;
     }
     const selectedBlockNumberItems = blockEntry.locations.get(selectedDriveLoc) || [];
-    const finalItems = reportCards ? selectedBlockNumberItems : sortDriveCardItems(selectedBlockNumberItems)
-        .sort((a, b) => compareLocationCodeValues(getDrivePlantLocationCode(a), getDrivePlantLocationCode(b)) || compareItemInquiryRows(a, b));
+    const finalItems = sortDriveLocationCards(reportCards ? selectedBlockNumberItems : sortDriveCardItems(selectedBlockNumberItems));
     const selectedBlockNumberLabel = getDriveBlockNumberLabel(selectedDriveLoc);
     const crumbText = `${resolvedDriveModeLabel} > ${selectedBlockLabel} > ${selectedBlockNumberLabel} (${finalItems.length} physical rows)`;
     const renderKey = buildDriveRenderKey('drive:loc:cards', crumbText, finalItems);

@@ -158,12 +158,12 @@ function canDisplayNavigationView(viewId = '', userOverride = '') {
 
 function getNavigationDisplayChoices() {
     const choices = [...getHomeModuleRegistry().map(module => module.view), 'tasks', 'take-back', 'weather-hold'];
-    return [...new Set(choices)].filter(view => canDisplayNavigationView(view));
+    return [...new Set(choices)].filter(view => !['borrowed-work','time-cards'].includes(view) && canDisplayNavigationView(view));
 }
 
 function canShowFooterViewButton(viewId = '', access = getRoleAccessState()) {
     const targetView = String(viewId || '').trim();
-    if (!targetView) return false;
+    if (!targetView || ['borrowed-work','time-cards'].includes(targetView)) return false;
     if (hasFullNavigationVisibility()) return canDisplayNavigationView(targetView);
     if (isSalesShellAccess(access)) return targetView === 'sales' || (['request', 'sales-inventory'].includes(targetView) && canDisplayNavigationView(targetView));
     if (targetView === 'sales') return false;

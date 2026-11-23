@@ -53,8 +53,7 @@ function refreshBloomscapesInventoryLocation(state,rows) {
     select.replaceChildren(new Option('All blocks / locations',''));
     const locations=new Map();
     for (const row of rows) {
-        const location=row.LOCATIONCODE || row.locationcode;
-        const block=getDriveBlockAlphaLabel(getDriveBlockAlphaValue(row));
+        const [block,location]=bloomscapesWorkLocationParts(row);
         if (block && !locations.has(block)) locations.set(block,new Set());
         if (location && block) locations.get(block).add(location);
     }
@@ -72,14 +71,15 @@ function refreshBloomscapesInventoryLocation(state,rows) {
 }
 
 function matchesBloomscapesInventoryLocation(row,path) {
-    return !path.length || getDriveBlockAlphaLabel(getDriveBlockAlphaValue(row))===path[0]
-        && (path.length===1 || (row.LOCATIONCODE || row.locationcode)===path[1]);
+    const parts=bloomscapesWorkLocationParts(row);
+    return path.every((key,index)=>parts[index]===key);
 }
 
 function bloomscapesWorkLocationParts(row) {
-    const location=String(row.LOCATIONCODE || row.locationcode || '').split('.');
-    return [String(row.BLOCKALPHA || row.blockalpha || location[0] || 'Other'),
-        String(row.BLOCKNUMBER || row.blocknumber || location[1] || 'Other'),row.LOCATIONCODE || row.locationcode || 'No location'];
+    const location=LocationCode.normalize(row.LOCATIONCODE || row.locationcode);
+    const block=LocationCode.base(location);
+    const alpha=block.includes('.') ? block.split('.')[0] : getDriveBlockAlphaLabel(getDriveBlockAlphaValue(row));
+    return [alpha,block || 'No location'];
 }
 
 function bloomscapesWorkBrowseProjection(host,state) {
@@ -96,7 +96,7 @@ function bloomscapesWorkBrowseProjection(host,state) {
     }
     const rows=[], groups=new Map();
     for (const row of all) {
-        const parts=bloomscapesWorkBrowseParts(row,state.mode,state.options);
+        const parts=bloomscapesWorkBrowseParts(row,state.mode);
         if (!state.path.every((part,index)=>part===parts[index])) continue;
         rows.push(row);
         if (leaf) continue;
@@ -106,15 +106,14 @@ function bloomscapesWorkBrowseProjection(host,state) {
         entry.beds.add(row.LOCATIONCODE || row.locationcode);
         groups.set(key,entry);
     }
-    return {rows,leaf,groups:[...groups.values()].sort((a,b)=>a.key.localeCompare(b.key,undefined,{numeric:true}))};
+    return {rows:leaf && state.mode==='block' ? sortDriveLocationCards(rows) : rows,leaf,groups:[...groups.values()].sort((a,b)=>a.key.localeCompare(b.key,undefined,{numeric:true}))};
 }
 
 function bloomscapesStudioLocationProjection(state,rows) {
     if (state.locationIndex?.rows!==rows) {
         const blocks=new Map();
         for (const row of rows) {
-            const block=getDriveBlockAlphaLabel(getDriveBlockAlphaValue(row)) || 'No common name recorded';
-            const location=row.LOCATIONCODE || row.locationcode || 'No location';
+            const [block,location]=bloomscapesWorkLocationParts(row);
             const parent=bloomscapesWorkIndexGroup(blocks,block,row);
             parent.beds.add(row.LOCATIONCODE || row.locationcode);
             const child=bloomscapesWorkIndexGroup(parent.children,location,row);
@@ -125,7 +124,7 @@ function bloomscapesStudioLocationProjection(state,rows) {
     const {blocks}=state.locationIndex;
     const [block,location]=state.path;
     const parent=blocks.get(block);
-    if (state.path.length>1) return {leaf:true,rows:parent?.children.get(location)?.rows || [],groups:[]};
+    if (state.path.length>1) return {leaf:true,rows:sortDriveLocationCards(parent?.children.get(location)?.rows || []),groups:[]};
     const compare=bloomscapesWorkGroupCollator.compare;
     const groups=[...(block ? parent?.children.values() || [] : blocks.values())].sort((a,b)=>compare(a.key,b.key));
     return {leaf:false,rows:block ? parent?.rows || [] : rows,groups};
@@ -144,8 +143,7 @@ function bloomscapesWorkIndexGroup(groups,key,row) {
     return group;
 }
 
-function bloomscapesWorkBrowseParts(row,mode,options) {
-    if (mode==='block' && options.locationDrill) return [getDriveBlockAlphaLabel(getDriveBlockAlphaValue(row)),row.LOCATIONCODE || row.locationcode || 'No location'];
+function bloomscapesWorkBrowseParts(row,mode) {
     const identity=bloomscapesWorkBrowserIdentity(row);
     return mode==='block' ? bloomscapesWorkLocationParts(row) : [identity.common,identity.size,identity.lot || identity.season];
 }

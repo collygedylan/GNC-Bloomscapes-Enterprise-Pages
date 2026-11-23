@@ -34,7 +34,7 @@ function buildAvCardPhotoActivationAttrs(hasPhotos) {
 }
 
 function buildAuthorizedAvCardActivationAttrs(item, sourceView, hasPhotos) {
-    if (sourceView === 'av-photo') {
+    if (isAvDetailSource(sourceView)) {
         return buildAvCardPhotoActivationAttrs(hasPhotos);
     }
     return buildExactInventoryCardActivationAttrs(item,sourceView === 'reserves_drill' ? 'av' : sourceView,'Open Item Detail');
@@ -45,7 +45,7 @@ function activateAvCardPhotos(event) {
     const photoSurface = event.type === 'click'
         && event.target.matches('.app-av-photo-carousel, .app-av-photo-track, .app-av-photo-count');
     if (!photoSurface && shouldIgnoreFastPressTarget(event)) return true;
-    const preview = event.currentTarget.querySelector('button.app-av-photo-slide');
+    const preview = event.currentTarget.querySelector('button[data-av-photo-open]');
     if (!preview) return true;
     event.preventDefault();
     preview.click();
@@ -123,6 +123,5 @@ function handlePhotoThumbClick(link, title, index = 0) {
         photoDeleteLongPressFired = false;
         return;
     }
-    if (isAvDetailSource(activeDetailSourceView)) return openAvPhotoViewer(link, title, index);
-    openPhotoModal(link, title, index);
+    return openAvPhotoViewer(link, title, index);
 }

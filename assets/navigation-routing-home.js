@@ -1,5 +1,6 @@
 const BLOOMSCAPES_SHELL_ROUTE_ALIASES = Object.freeze({__proto__:null, office:'moves', 'inventory-office':'moves', qc:'request'});
 
+const BLOOMSCAPES_FIELD_ENTRY_ROLES = Object.freeze({__proto__:null,manager:true,supervisor:true,foreman:true,crew:true});
 const BLOOMSCAPES_HOME_MODULES = Object.freeze([
     {view:'drive', label:'Drive Mode', icon:'ph-car', action:"switchView('drive')"},
     {view:'av', label:'AV', icon:'ph-notebook', action:"switchView('av')"},
@@ -12,6 +13,7 @@ const BLOOMSCAPES_HOME_MODULES = Object.freeze([
     {view:'historical-requests', label:'Historical Requests', icon:'ph-clock-counter-clockwise', action:"switchView('historical-requests')"},
     {view:'smart-moves', label:'Smart Sales & Move Intelligence', icon:'ph-trend-up', action:"switchView('smart-moves')"},
     {view:'borrowed-work', label:'Borrowed Help', icon:'ph-users', action:"switchView('borrowed-work')"},
+    {view:'time-cards', label:'Time Cards', icon:'ph-clock', action:"switchView('time-cards')"},
     {view:'managers', label:'Managers', icon:'ph-users-three', action:"switchView('managers')"},
     {view:'messages', label:'Messages', icon:'ph-chat-circle-text', action:'openBloomscapesMessages()'},
     {view:'walkie', label:'Push to Talk', icon:'ph-microphone', action:"openBloomscapesComm('voice')"},

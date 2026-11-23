@@ -12,6 +12,11 @@ function groupDriveBrowseRows(rows, keyFor, compare = driveBrowseCollator.compar
     return [...groups].sort(([left], [right]) => compare(left, right));
 }
 
+function sortDriveLocationCards(rows) {
+    const location = row => row.LOCATIONCODE ?? row.locationcode;
+    return rows.toSorted((left,right)=>LocationCode.compare(location(left),location(right)));
+}
+
 function createDriveBrowseState(mode = 'name') {
     return {mode, path:[], query:''};
 }
@@ -27,7 +32,8 @@ function resolveDriveBrowseLevel(rows, state, dimensions) {
     const path = state.path.slice(0, levels.length);
     const matching = rows.filter(row => path.every((key, index) => levels[index].key(row) === key));
     const level = levels[path.length];
-    return {rows:matching, level, groups:level ? groupDriveBrowseRows(matching, level.key, level.compare) : []};
+    return {rows:!level && state.mode==='location' ? sortDriveLocationCards(matching) : matching,
+        level, groups:level ? groupDriveBrowseRows(matching, level.key, level.compare) : []};
 }
 
 function filterDriveBrowseRows(rows, query, searchText) {
@@ -46,8 +52,8 @@ const reportDriveDimensions = {
     ],
     location:[
         {key:row=>getDriveBlockAlphaValue(row), label:'Block Alpha', display:key=>getDriveBlockAlphaLabel(key)},
-        {key:row=>LocationCode.normalize(getDrivePlantLocationCode(row)) || DRIVE_NO_BLOCK_NUMBER,
-            label:'Location', display:key=>getDriveBlockNumberLabel(key)}
+        {key:row=>LocationCode.base(getDrivePlantLocationCode(row)) || DRIVE_NO_BLOCK_NUMBER,
+            label:'Block', display:key=>getDriveBlockNumberLabel(key)}
     ]
 };
 
@@ -177,11 +183,11 @@ function watchEvalReportsPreview() {
     });
 }
 
-async function loadCompleteEvalReportInventory(state) {
+async function loadCompleteEvalReportInventory(current) {
     if (isMasterFullProjectionReady()) return true;
     await hydrateColdSource('master');
     if (isMasterFullProjectionReady()) return true;
-    if (!isCurrentEvalReportsWorkspace(state)) return false;
+    if (!current()) return false;
     return ensureDatasetLoaded('master', 'full', {bypassLiveSyncCoordinator:true,
         force:true, retryOnCancellation:true, retainOnGenerationChange:true});
 }
@@ -194,7 +200,7 @@ async function loadEvalReportsWorkspace(state) {
     try {
         const results = await Promise.all([
             readEvalReportsScope(state.farm, state.access.preview),
-            loadCompleteEvalReportInventory(state)
+            loadCompleteEvalReportInventory(()=>isCurrentEvalReportsWorkspace(state))
         ]);
         if (!isCurrentEvalReportsWorkspace(state)) return;
         const [receipt, loaded] = results;

@@ -1,7 +1,7 @@
 /* global getMainAreaScrollTop, setMainAreaScrollTop */
 (function(root) {
  'use strict';
-  const normalize = value => String(value ?? '').trim().toUpperCase();
+  const normalize = value => String(value ?? '').trim().toUpperCase().replace(/\.+$/, '');
   // Only a numeric third segment is a bay. Other codes retain their full identity.
   const base = value => normalize(value).replace(/^([A-Z0-9]+\.\d+)\.\d+$/, '$1');
   function compareLocationCodeNatural(leftValue, rightValue, compareText = null) {
@@ -82,7 +82,8 @@ function createLocationCardNavigation(root,normalize,base,group) {
 }
 
 function locationWindowRows(view,normalize,base) {
-  if(view.selected)return view.entries.filter(entry=>base(view.code(entry))===view.selected).map(entry=>({entry}));
+  if(view.selected)return view.entries.filter(entry=>base(view.code(entry))===view.selected)
+    .sort((left,right)=>globalThis.LocationCode.compare(view.code(left),view.code(right))).map(entry=>({entry}));
   const byCode=new Map();
   for(const entry of view.entries){
    const id=normalize(view.code(entry));

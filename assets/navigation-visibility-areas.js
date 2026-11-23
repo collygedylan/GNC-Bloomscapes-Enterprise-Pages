@@ -16,7 +16,7 @@ const BLOOMSCAPES_BUSINESS_AREAS = Object.freeze([
     {id:'DOCKS', label:'Shipping, Traffic & Order Pulling', icon:'ph-truck', views:[
         ['docks','Docks & Order Pulling Board','docks'], ['docks-issues','Order Pulling Issues','mistake-fix'],
         ['load-maximizer','Traffic & Load Maximizer','docks'],
-        ['dock-credit-vault','Dock Credit Vault','docks'], ['suspend','Que · Suspend Tags','request'], ['borrowed-help','🤝 Borrowed Help','borrowed-work']
+        ['dock-credit-vault','Dock Credit Vault','docks'], ['suspend','Que · Suspend Tags','request']
     ]},
     {id:'SALES', label:'Sales & Marketing', icon:'ph-handshake', views:[
         ['sales-design','Design Studio','sales'], ['sales-flyer','Flyer Folders','sales'],
@@ -25,7 +25,7 @@ const BLOOMSCAPES_BUSINESS_AREAS = Object.freeze([
         ['historical','Historical Archive','historical-requests']
     ]},
     {id:'ADMIN', label:'Management, HR & Communications', icon:'ph-users-three', views:[
-        ['tables','Table Management','managers'], ['hr','HR & Labor','managers'], ['time-cards','Timecards','time-cards'],
+        ['tables','Table Management','managers'], ['hr','HR & Labor','managers'],
         ['watchdog','Watchdog Monitor','managers'], ['messages','Messages','messages'],
         ['walkie','Push to Talk','push-to-talk']
     ]}
@@ -38,19 +38,18 @@ function bloomscapesAreaProfile() {
 }
 
 function isBloomscapesAreaScoped(profile = bloomscapesAreaProfile()) {
-    if (!['manager','supervisor'].includes(String(profile?.role || nativeAuthProfile?.role).toLowerCase())) return false;
+    if (!['manager','supervisor','foreman'].includes(String(profile?.role || nativeAuthProfile?.role).toLowerCase())) return false;
     return !profile || Array.isArray(profile.area_scopes);
 }
 
 function filterBloomscapesAreaViews(area, profile, scoped, baseline) {
     if (scoped && !profile?.area_scopes?.includes(area.id)) return [];
     return area.views.filter(([key,,view]) => scoped
-        ? allowedScopedAreaChoice(profile,key,view,baseline)
+        ? allowedScopedAreaChoice(profile,key)
         : baseline(key, view));
 }
 
-function allowedScopedAreaChoice(profile,key,view,baseline) {
-    if (key === 'borrowed-help') return baseline(key,view);
+function allowedScopedAreaChoice(profile,key) {
     if (key === 'reports') return allowsBloomscapesAreaSubview('eval2');
     if (key === 'queue') return ['suspend','requests','studio'].some(key=>bloomscapesAreaGrant(profile.area_access?.[key]));
     if (key === 'sales-av') return bloomscapesAreaGrant(profile.area_access?.av)
@@ -82,7 +81,7 @@ function bloomscapesAreaChoices(area) {
 function canPreviewBloomscapesAreaChoice(preview, key) {
     if (key === 'inventory-office') return true;
     if (key === 'reports') return previewShowsAreaView(preview,'reports') || previewShowsAreaView(preview,'eval2');
-    if (key === 'sales-av') return allowedScopedAreaChoice(preview,key,'av',canUseBloomscapesAreaView);
+    if (key === 'sales-av') return allowedScopedAreaChoice(preview,key);
     return previewShowsAreaView(preview,key);
 }
 
@@ -97,8 +96,6 @@ function isBloomscapesAreaOwner() {
 }
 
 function canUseBloomscapesAreaView(key, view) {
-    if (key === 'borrowed-help') return canOpenBloomscapesDocksWorkspace(view)
-        && ['manager','supervisor','admin','super-admin'].includes(nativeAuthProfile?.role);
     if (key === 'docks-issues') return canOpenBloomscapesDocksWorkspace(view);
     if (key === 'studio') return canUseBloomscapesWorkStudio();
     if (key === 'eval2') return canViewManagerEvalReports2();
@@ -127,14 +124,8 @@ function resolveBloomscapesAreaNavigation(view) {
     const preview = typeof borrowedHelpPreview === 'function' && borrowedHelpPreview();
     const restricted = bloomscapesRestrictedViewGrant(view, preview);
     if (restricted !== null) return restricted;
-    if (!preview && view === 'borrowed-work' && typeof canOpenBloomscapesDocksWorkspace === 'function') {
-        return canOpenBloomscapesDocksWorkspace(view);
-    }
-    if (!preview && view === 'request' && ['crew','eval','qc','rep'].includes(nativeAuthProfile?.role)
-        && typeof canOpenBloomscapesDocksWorkspace === 'function' && canOpenBloomscapesDocksWorkspace('borrowed-work')) return true;
     if (nativeAuthSessionActive && view === 'communication') return canOpenCommunicationView('push-to-talk');
     if (!preview && !isBloomscapesAreaScoped(profile)) return null;
-    if (preview && view === 'borrowed-work') return preview.borrowed || preview.loans?.length > 0;
     if (view === 'reports') return preview
         ? previewShowsAreaView(preview,'reports') || previewShowsAreaView(preview,'eval2')
         : allowsBloomscapesAreaSubview('eval2');
@@ -181,10 +172,7 @@ function allowsBloomscapesAreaSubview(key, required = 'VIEW_ONLY') {
 function canShowBloomscapesHomeTile(view) {
     const preview = typeof borrowedHelpPreview === 'function' && borrowedHelpPreview();
     if (view === 'studio') return preview ? previewShowsAreaView(preview, 'studio') : canUseBloomscapesWorkStudio();
-    if (view === 'borrowed-work') {
-        if (preview) return canDisplayNavigationView(view);
-        if (!['supervisor','manager','admin','super-admin'].includes(nativeAuthProfile?.role)) return false;
-    }
+    if (['borrowed-work','time-cards'].includes(view)) return canOpenBloomscapesHomeLeadership(view,preview);
     const route = view === 'inventory-office' ? 'moves' : view === 'walkie' ? 'push-to-talk' : view;
     return canDisplayNavigationView(route) && (preview || canAccessView(route));
 }
@@ -193,9 +181,10 @@ function syncBloomscapesHomeTileVisibility(grid) {
     if (!nativeAuthSessionActive || !grid) return;
     grid.querySelector('[data-home-account-navigation]')?.remove();
     let visibleCount = paintBloomscapesHomeDepartments(grid);
+    const homeShortcuts = ['messages','walkie','borrowed-work','time-cards'];
     const root = !getBloomscapesHomeDepartment(grid);
     for (const tile of grid.querySelectorAll('[data-home-module-view]')) {
-        const visible = root && ['messages','walkie'].includes(tile.dataset.homeModuleView)
+        const visible = root && homeShortcuts.includes(tile.dataset.homeModuleView)
             && Boolean(canShowBloomscapesHomeTile(tile.dataset.homeModuleView));
         tile.hidden = !visible;
         tile.classList.toggle('hidden', !visible);

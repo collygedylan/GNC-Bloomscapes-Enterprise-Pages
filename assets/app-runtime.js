@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.48';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.49';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -10135,10 +10135,11 @@ function broadcastRowSyncSnapshot(item, prefix = '', options = {}) {
             if (!item) return [];
             const seen = new Set();
             const displayView = String(sourceView || '').toLowerCase();
-            const previews = ['drive', 'av', ''].includes(displayView) && typeof getPendingPhotoPreviewEntries === 'function'
-                ? getPendingPhotoPreviewEntries(item,'lsn-').filter(entry => displayView === 'drive' || entry.status !== 'Save failed')
+            if (displayView === 'av' || displayView === 'av-photo') return currentCanonicalAvPhotoUrls(item);
+            const previews = ['drive', ''].includes(displayView) && typeof getPendingPhotoPreviewEntries === 'function'
+                ? getPendingPhotoPreviewEntries(item,'lsn-')
                     .map(entry => entry.publicPreviewReady ? entry.publicUrl : entry.localPreviewUrl || entry.url) : [];
-            const shared = ['drive','av','av-photo','request','docks','detail',''].includes(displayView) && typeof getInventoryLocationPhotos === 'function' ? getInventoryLocationPhotos(item) : [];
+            const shared = ['drive','request','docks','detail',''].includes(displayView) && typeof getInventoryLocationPhotos === 'function' ? getInventoryLocationPhotos(item) : [];
             const urls = [...getPhotoUrlList(getRowPhotoLink(item, sourceView)), ...shared, ...previews].map((url) => String(url || '').trim()).filter((url) => {
                 if (/^blob:/i.test(url) && !previews.includes(url)) return false;
                 if (!url || seen.has(url)) return false;
@@ -19489,6 +19490,8 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
         /* @runtime-fragment assets/confirmed-evaluation-ui.js */
         /* @runtime-fragment assets/canonical-inventory-cache.js */
         /* @runtime-fragment assets/drive-inventory-index.js */
+        /* @runtime-fragment assets/drive-location-navigation.js */
+        /* @runtime-fragment assets/canonical-inventory-current-photo.js */
         /* @runtime-fragment assets/canonical-inventory-evidence.js */
         /* @runtime-fragment assets/av-lot-cards.js */
         /* @runtime-fragment assets/inventory-excel-popover.js */ /* @runtime-fragment assets/inventory-excel-state.js */ /* @runtime-fragment assets/inventory-excel-mount.js */ /* @runtime-fragment assets/inventory-excel-refresh.js */ /* @runtime-fragment assets/detail-photo-gallery.js */
@@ -19526,6 +19529,7 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
         /* @runtime-fragment assets/eval-report2-overview.js */
         /* @runtime-fragment assets/eval-role-reports-catalog.js */
         /* @runtime-fragment assets/eval-role-reports-view.js */
+        /* @runtime-fragment assets/drive-eval-reports.js */
         /* @runtime-fragment assets/bloom-cart-persistence.js */
         /* @runtime-fragment assets/bloom-cart-actions.js */
         /* @runtime-fragment assets/bloom-inventory-project.js */
@@ -23252,7 +23256,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.48';
+        const APP_VERSION = '3.1.49';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -48210,161 +48214,7 @@ function toggleDriveQuickRequestItem(domId) {
             snapPhotoModalToIndex(nextIndex, false);
         }
 
-        function openPhotoModal(urlStr, caption, startIndex = 0) {
-            const modal = document.getElementById('photo-modal');
-            const gallery = document.getElementById('photo-modal-gallery');
-            const swipeHint = document.getElementById('photo-swipe-hint');
-            const urls = getPhotoUrlList(urlStr);
-            if (!modal || !gallery) return;
-            if (!urls.length) {
-                showToast('No Photo', 'There is no photo on file for this item.', true);
-                return;
-            }
-            if (photoModalState.scrollTimer) {
-                clearTimeout(photoModalState.scrollTimer);
-                photoModalState.scrollTimer = null;
-            }
-            if (photoModalState.galleryClickHandler) {
-                gallery.removeEventListener('click', photoModalState.galleryClickHandler);
-            }
-            if (photoModalState.scrollHandler) {
-                gallery.removeEventListener('scroll', photoModalState.scrollHandler);
-            }
-            if (photoModalState.wheelHandler) {
-                gallery.removeEventListener('wheel', photoModalState.wheelHandler);
-            }
-            if (photoModalState.touchMoveHandler) {
-                gallery.removeEventListener('touchmove', photoModalState.touchMoveHandler);
-            }
-            if (photoModalState.pointerDownHandler) {
-                gallery.removeEventListener('pointerdown', photoModalState.pointerDownHandler);
-            }
-            if (photoModalState.pointerMoveHandler) {
-                gallery.removeEventListener('pointermove', photoModalState.pointerMoveHandler);
-            }
-            if (photoModalState.pointerUpHandler) {
-                gallery.removeEventListener('pointerup', photoModalState.pointerUpHandler);
-            }
-            if (photoModalState.pointerCancelHandler) {
-                gallery.removeEventListener('pointercancel', photoModalState.pointerCancelHandler);
-            }
-            if (photoModalState.keyHandler) {
-                window.removeEventListener('keydown', photoModalState.keyHandler);
-            }
-            if (photoModalState.scrollFrame) {
-                cancelAnimationFrame(photoModalState.scrollFrame);
-                photoModalState.scrollFrame = null;
-            }
-
-            const initialIndex = Math.max(0, Math.min(urls.length - 1, Number.isFinite(Number(startIndex)) ? Math.trunc(Number(startIndex)) : 0));
-            const displayUrls = urls.map(url => findPendingPhotoPreviewByUrl(url)?.url || getExpandedImageUrl(url) || url);
-            photoModalState.urls = urls;
-            photoModalState.displayUrls = displayUrls;
-            photoModalState.index = initialIndex;
-            photoModalState.primedKey = '';
-            primePhotoModalAroundIndex(initialIndex);
-            gallery.innerHTML = displayUrls.map((url, index) => `<div class="photo-modal-slide photo-date-badge-host" data-photo-index="${index}"><img src="${esc(url)}" data-full-src="${esc(urls[index] || url)}" sizes="100vw" alt="${esc(caption || `Photo ${index + 1}`)}" loading="${Math.abs(index - initialIndex) <= 1 ? 'eager' : 'lazy'}" decoding="async" fetchpriority="${Math.abs(index - initialIndex) <= 1 ? 'high' : 'low'}" draggable="false">${buildPhotoTakenDateBadge(null, urls[index] || url)}</div>`).join('');
-            photoModalState.scrollHandler = () => {
-                markScrollActivity();
-                if (photoModalState.scrollFrame) return;
-                photoModalState.scrollFrame = requestAnimationFrame(() => {
-                    photoModalState.scrollFrame = null;
-                    syncPhotoModalIndexFromScroll();
-                });
-                if (photoModalState.scrollTimer) clearTimeout(photoModalState.scrollTimer);
-                photoModalState.scrollTimer = setTimeout(() => {
-                    requestAnimationFrame(() => {
-                        snapPhotoModalToIndex(photoModalState.index, false);
-                    });
-                }, 120);
-            };
-            photoModalState.wheelHandler = (event) => {
-                markScrollActivity();
-                if (!window.matchMedia('(pointer: coarse)').matches && Math.abs(Number(event.deltaY) || 0) > Math.abs(Number(event.deltaX) || 0)) {
-                    gallery.scrollLeft += Number(event.deltaY) || 0;
-                    if (typeof event.preventDefault === 'function') event.preventDefault();
-                }
-            };
-            photoModalState.touchMoveHandler = () => markScrollActivity();
-            photoModalState.pointerDownHandler = (event) => {
-                if (window.matchMedia('(pointer: coarse)').matches || event.button !== 0 || photoModalState.urls.length <= 1) return;
-                photoModalState.pointerDragging = true;
-                photoModalState.pointerDragMoved = false;
-                photoModalState.pointerDragStartX = Number(event.clientX) || 0;
-                photoModalState.pointerDragStartScrollLeft = Number(gallery.scrollLeft) || 0;
-                gallery.classList.add('photo-modal-dragging');
-                try { gallery.setPointerCapture(event.pointerId); } catch (error) { globalThis.reportHandledRuntimeIssue?.("openPhotoModal", 'HANDLED_OPERATION_FAILURE'); }
-                markScrollActivity();
-                if (typeof event.preventDefault === 'function') event.preventDefault();
-            };
-            photoModalState.pointerMoveHandler = (event) => {
-                if (!photoModalState.pointerDragging) return;
-                const nextX = Number(event.clientX) || 0;
-                const deltaX = nextX - photoModalState.pointerDragStartX;
-                if (Math.abs(deltaX) > 4) photoModalState.pointerDragMoved = true;
-                gallery.scrollLeft = photoModalState.pointerDragStartScrollLeft - deltaX;
-                markScrollActivity();
-                if (typeof event.preventDefault === 'function') event.preventDefault();
-            };
-            photoModalState.pointerUpHandler = (event) => {
-                if (!photoModalState.pointerDragging) return;
-                const moved = !!photoModalState.pointerDragMoved;
-                photoModalState.pointerDragging = false;
-                photoModalState.pointerDragMoved = false;
-                gallery.classList.remove('photo-modal-dragging');
-                try { gallery.releasePointerCapture(event.pointerId); } catch (error) { globalThis.reportHandledRuntimeIssue?.("openPhotoModal", 'HANDLED_OPERATION_FAILURE'); }
-                syncPhotoModalIndexFromScroll();
-                snapPhotoModalToIndex(photoModalState.index, true);
-                if (moved) photoModalState.pointerSuppressClickUntil = Date.now() + 260;
-            };
-            photoModalState.pointerCancelHandler = (event) => {
-                if (!photoModalState.pointerDragging) return;
-                photoModalState.pointerDragging = false;
-                photoModalState.pointerDragMoved = false;
-                gallery.classList.remove('photo-modal-dragging');
-                try { gallery.releasePointerCapture(event.pointerId); } catch (error) { globalThis.reportHandledRuntimeIssue?.("openPhotoModal", 'HANDLED_OPERATION_FAILURE'); }
-                syncPhotoModalIndexFromScroll();
-            };
-            gallery.addEventListener('scroll', photoModalState.scrollHandler, { passive: true });
-            gallery.addEventListener('wheel', photoModalState.wheelHandler, { passive: false });
-            gallery.addEventListener('touchmove', photoModalState.touchMoveHandler, { passive: true });
-            gallery.addEventListener('pointerdown', photoModalState.pointerDownHandler);
-            gallery.addEventListener('pointermove', photoModalState.pointerMoveHandler);
-            gallery.addEventListener('pointerup', photoModalState.pointerUpHandler);
-            gallery.addEventListener('pointercancel', photoModalState.pointerCancelHandler);
-            photoModalState.galleryClickHandler = (event) => {
-                if (window.matchMedia('(pointer: coarse)').matches) return;
-                if (photoModalState.urls.length <= 1) return;
-                if (Date.now() < photoModalState.pointerSuppressClickUntil) {
-                    if (typeof event.preventDefault === 'function') event.preventDefault();
-                    return;
-                }
-                stepPhotoModal(1);
-            };
-            gallery.addEventListener('click', photoModalState.galleryClickHandler);
-            gallery.classList.toggle('photo-gallery-clickzone', photoModalState.urls.length > 1 && !window.matchMedia('(pointer: coarse)').matches);
-            photoModalState.keyHandler = (event) => {
-                if (modal.classList.contains('hidden')) return;
-                if (event.key === 'ArrowRight') {
-                    event.preventDefault();
-                    stepPhotoModal(1);
-                } else if (event.key === 'ArrowLeft') {
-                    event.preventDefault();
-                    stepPhotoModal(-1);
-                } else if (event.key === 'Escape') {
-                    closePhotoModal();
-                }
-            };
-            window.addEventListener('keydown', photoModalState.keyHandler);
-
-            document.getElementById('photo-modal-caption').innerText = caption || 'Photo Gallery';
-            swipeHint.classList.toggle('hidden', urls.length <= 1);
-            modal.classList.remove('hidden');
-            requestAnimationFrame(() => {
-                snapPhotoModalToIndex(initialIndex, false);
-                updatePhotoModalCounter();
-            });
-        }
+        /* @runtime-fragment assets/inventory-photo-modal.js */
         function closePhotoModal(event = null) {
             if (event) {
                 if (typeof event.preventDefault === 'function') event.preventDefault();
@@ -53345,6 +53195,9 @@ function toggleDriveQuickRequestItem(domId) {
         function canAccessView(viewId, userOverride = '') {
             const targetView = String(viewId || '').trim();
             if (['messages','push-to-talk'].includes(targetView)) return canOpenCommunicationView(targetView,userOverride);
+            if (targetView === 'borrowed-work' || targetView === 'time-cards') {
+                return (!userOverride || userOverride === currentUser) && canOpenBloomscapesHomeLeadership(targetView);
+            }
             if (isBloomscapesDockRoute(targetView)) return canOpenBloomscapesDocksWorkspace(targetView,userOverride);
             if (!targetView || targetView === 'home') return true;
             if (targetView === 'crop-roll' || targetView === 'manager-crop-roll') return false;
@@ -121273,7 +121126,7 @@ ${folderNote ? `Folder Note: ${folderNote}
             if (activeDriveTab !== 'loc' || Number(driveViewLevel || 0) < 1 || !selectedDriveBlock) return items;
             return items.filter((item) => getDriveBlockAlphaValue(item) === selectedDriveBlock
                 && (Number(driveViewLevel || 0) < 2 || !selectedDriveLoc
-                    || (LocationCode.normalize(getDrivePlantLocationCode(item)) || DRIVE_NO_BLOCK_NUMBER) === selectedDriveLoc));
+                    || (LocationCode.base(getDrivePlantLocationCode(item)) || DRIVE_NO_BLOCK_NUMBER) === selectedDriveLoc));
         }
 
         function getDriveUniversalSearchDataSignature(items = []) {
@@ -122526,95 +122379,6 @@ ${folderNote ? `Folder Note: ${folderNote}
             return 'Drive Mode';
         }
 
-        function buildDriveCurrentExportContext(viewStateOverride = null) {
-            const driveViewState = viewStateOverride && typeof viewStateOverride === 'object'
-                ? viewStateOverride
-                : buildDriveVisibleItemsState();
-            const driveModeLabel = DRIVE_MODE_LABELS[activeDriveMode] || 'Drive Mode';
-            const tab = String(activeDriveTab || 'name').trim().toLowerCase();
-            const tabLabel = getDriveExportTabLabel(tab);
-            const sourceRows = Array.isArray(driveViewState.visibleItems) ? driveViewState.visibleItems : [];
-            const scopeParts = [driveModeLabel];
-            let rows = sourceRows;
-            if (activeDriveMode !== 'ok') {
-                return { driveViewState, driveModeLabel, tab, tabLabel, scopeLabel: driveModeLabel, rows: [] };
-            }
-            if (tab === 'hold') {
-                const reportContext = buildDriveReportExportContext(driveViewState);
-                const evalLabel = getDriveReportEvalUserFilterLabel(reportContext.evalFilter || driveReportEvalUserFilter);
-                const evalScope = normalizeDriveReportEvalUserFilter(reportContext.evalFilter || driveReportEvalUserFilter) === DRIVE_REPORT_ALL_EVAL_USERS ? '' : ` > ${evalLabel}`;
-                return {
-                    driveViewState,
-                    driveModeLabel,
-                    tab,
-                    tabLabel,
-                    reportMode: reportContext.reportMode,
-                    reportLabel: reportContext.reportLabel,
-                    evalFilter: reportContext.evalFilter,
-                    scopeLabel: `${driveModeLabel} > ${reportContext.reportLabel}${evalScope}`,
-                    rows: reportContext.rows || []
-                };
-            }
-            if (tab === 'season-sales-notes') {
-                scopeParts.push('Season Sales Notes');
-                rows = sortDriveCardItems(sourceRows);
-                return { driveViewState, driveModeLabel, tab, tabLabel, scopeLabel: scopeParts.join(' > '), rows };
-            }
-            const forceTopLevelSearchResults = shouldLockDriveSearchToTopLevel();
-            if (tab === 'loc') {
-                scopeParts.push('Location');
-                if (forceTopLevelSearchResults) {
-                    scopeParts.push('Search Results');
-                } else {
-                    if (selectedDriveBlock) {
-                        rows = rows.filter((item) => getDriveBlockAlphaValue(item) === selectedDriveBlock);
-                        scopeParts.push(getDriveBlockAlphaLabel(selectedDriveBlock));
-                    }
-                    if (selectedDriveLoc) {
-                        rows = rows.filter((item) => LocationCode.normalize(getDrivePlantLocationCode(item)) === selectedDriveLoc);
-                        scopeParts.push(getDriveBlockNumberLabel(selectedDriveLoc));
-                        const locationSearchTerm = shouldScopeDriveSearchToSelectedLocation() ? getDriveSearchTerm() : '';
-                        if (locationSearchTerm) rows = filterBySearch(rows, locationSearchTerm, 'drive_card');
-                    }
-                }
-                rows = sortDriveCardItems(rows);
-                return { driveViewState, driveModeLabel, tab, tabLabel, scopeLabel: scopeParts.join(' > '), rows };
-            }
-            if (tab === 'name') {
-                scopeParts.push('Common Name');
-                if (forceTopLevelSearchResults) {
-                    scopeParts.push('Search Results');
-                } else {
-                    if (selectedDriveName) {
-                        rows = rows.filter((item) => getDrivePlantCommonName(item) === selectedDriveName);
-                        scopeParts.push(selectedDriveName);
-                    }
-                    if (selectedDriveSize) {
-                        const selectedSizeIsAll = isDriveDrillAllValue(selectedDriveSize);
-                        scopeParts.push(getDriveDrillDisplayValue(selectedDriveSize));
-                        if (!selectedSizeIsAll) rows = rows.filter((item) => getDrivePlantContSize(item) === selectedDriveSize);
-                    }
-                    if (selectedDriveSeason) {
-                        const selectedSeasonIsAll = isDriveDrillAllValue(selectedDriveSeason);
-                        const normalizedSeason = String(selectedDriveSeason || '').trim().toUpperCase();
-                        scopeParts.push(getDriveDrillDisplayValue(selectedDriveSeason, 'Unknown'));
-                        if (!selectedSeasonIsAll) rows = rows.filter((item) => String(firstNonEmptyValue(item && item.SEASON, '') || '').trim().toUpperCase() === normalizedSeason);
-                    }
-                    const selectedProgram = normalizeDriveItemProgram(selectedDriveProgram);
-                    if (selectedProgram) {
-                        rows = filterDriveItemsByProgram(rows, selectedProgram);
-                        scopeParts.push(getDriveItemProgramLabel(selectedProgram));
-                    }
-                }
-                rows = sortDriveCardItems(rows);
-                return { driveViewState, driveModeLabel, tab, tabLabel, scopeLabel: scopeParts.join(' > '), rows };
-            }
-            const resolvedState = buildDriveResolvedCardState(driveModeLabel, driveViewState);
-            rows = Array.isArray(resolvedState.finalItems) ? resolvedState.finalItems : sourceRows;
-            const crumbText = String(resolvedState.crumbText || driveModeLabel).replace(/\s*\(\d+\s+items?\)\s*$/i, '').trim();
-            return { driveViewState, driveModeLabel, tab, tabLabel, scopeLabel: crumbText || driveModeLabel, rows };
-        }
-
         function buildDriveCurrentExportMetaRows(context = null) {
             const safeContext = context && typeof context === 'object' ? context : buildDriveCurrentExportContext();
             return [
@@ -122636,6 +122400,8 @@ ${folderNote ? `Folder Note: ${folderNote}
             return `drive-mode-${tab}${scope ? `-${scope}` : ''}`;
         }
 
+
+        Object.assign(globalThis, {buildDriveCurrentExportMetaRows});
 
         function exportCurrentDriveReportToExcel() {
             if (ensureViewDataForRender('drive')) return false;
@@ -124721,92 +124487,6 @@ ${folderNote ? `Folder Note: ${folderNote}
             handleSearchEnterApply(event, applyVisibleDriveLotResults);
         }
 
-        function reconcileDriveDrillSelectionWithVisibleItems(visibleItems = []) {
-            if (!Array.isArray(visibleItems) || shouldLockDriveSearchToTopLevel()) return false;
-            const masterState = getDatasetState('master');
-            if (masterState && masterState.initialLoaded === true && masterState.rowCompleteness !== 'complete') return false;
-            let changed = false;
-            if (activeDriveTab === 'name') {
-                const hasSelectedName = !!(selectedDriveName && visibleItems.some((item) => getDrivePlantCommonName(item) === selectedDriveName));
-                if (!hasSelectedName) {
-                    if (selectedDriveName || selectedDriveSize || selectedDriveSeason || selectedDriveProgram || driveViewLevel !== 0) changed = true;
-                    driveViewLevel = 0;
-                    selectedDriveName = null;
-                    selectedDriveSize = null;
-                    selectedDriveSeason = null;
-                    selectedDriveProgram = null;
-                    return changed;
-                }
-                if (driveViewLevel < 1) {
-                    driveViewLevel = 1;
-                    changed = true;
-                }
-                const nameItems = visibleItems.filter((item) => getDrivePlantCommonName(item) === selectedDriveName);
-                const selectedSizeIsAll = isDriveDrillAllValue(selectedDriveSize);
-                const hasSelectedSize = !!(selectedDriveSize && (selectedSizeIsAll || nameItems.some((item) => getDrivePlantContSize(item) === selectedDriveSize)));
-                if (!hasSelectedSize) {
-                    if (selectedDriveSize || selectedDriveSeason || selectedDriveProgram || driveViewLevel !== 1) changed = true;
-                    driveViewLevel = 1;
-                    selectedDriveSize = null;
-                    selectedDriveSeason = null;
-                    selectedDriveProgram = null;
-                    return changed;
-                }
-                if (driveViewLevel < 2) {
-                    driveViewLevel = 2;
-                    changed = true;
-                }
-                const sizeItems = selectedSizeIsAll ? nameItems : nameItems.filter((item) => getDrivePlantContSize(item) === selectedDriveSize);
-                const normalizedSeason = String(selectedDriveSeason || '').trim().toUpperCase();
-                const selectedSeasonIsAll = isDriveDrillAllValue(selectedDriveSeason);
-                const hasSelectedSeason = !!(normalizedSeason && (selectedSeasonIsAll || sizeItems.some((item) => String(firstNonEmptyValue(item.SEASON, '') || '').trim().toUpperCase() === normalizedSeason)));
-                if (!hasSelectedSeason) {
-                    if (selectedDriveSeason || selectedDriveProgram || driveViewLevel !== 2) changed = true;
-                    driveViewLevel = 2;
-                    selectedDriveSeason = null;
-                    selectedDriveProgram = null;
-                    return changed;
-                }
-                if (driveViewLevel < 3) {
-                    driveViewLevel = 3;
-                    changed = true;
-                }
-                if (selectedDriveProgram || driveViewLevel > 3) {
-                    selectedDriveProgram = null;
-                    driveViewLevel = 3;
-                    changed = true;
-                }
-                return changed;
-            }
-            if (activeDriveTab === 'loc') {
-                const hasSelectedBlock = !!(selectedDriveBlock && visibleItems.some((item) => getDriveBlockAlphaValue(item) === selectedDriveBlock));
-                if (!hasSelectedBlock) {
-                    if (selectedDriveBlock || selectedDriveLoc || driveViewLevel !== 0) changed = true;
-                    driveViewLevel = 0;
-                    selectedDriveBlock = null;
-                    selectedDriveLoc = null;
-                    return changed;
-                }
-                if (driveViewLevel < 1) {
-                    driveViewLevel = 1;
-                    changed = true;
-                }
-                const blockItems = visibleItems.filter((item) => getDriveBlockAlphaValue(item) === selectedDriveBlock);
-                const hasSelectedBlockNumber = !!(selectedDriveLoc && blockItems.some((item) => LocationCode.normalize(getDrivePlantLocationCode(item)) === selectedDriveLoc));
-                if (!hasSelectedBlockNumber) {
-                    if (selectedDriveLoc || driveViewLevel !== 1) changed = true;
-                    driveViewLevel = 1;
-                    selectedDriveLoc = null;
-                    return changed;
-                }
-                if (driveViewLevel < 2) {
-                    driveViewLevel = 2;
-                    changed = true;
-                }
-            }
-            return changed;
-        }
-
         function toggleDriveGenusSelection(genus = '') {
             const value = String(genus || '').trim();
             if (!value) return false;
@@ -124826,6 +124506,8 @@ ${folderNote ? `Folder Note: ${folderNote}
             scheduleDriveFilterRender();
             return false;
         }
+
+        globalThis.toggleDriveGenusSelection = toggleDriveGenusSelection;
 
         function toggleDriveContSizeSelection(contSize = '') {
             const value = String(contSize || '').trim();

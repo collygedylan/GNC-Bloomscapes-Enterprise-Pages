@@ -109,6 +109,40 @@ body.ios-device.viewport-phone.current-view-request #view-request .request-swipe
         #request-content .app-suspend-tag-compact-card[class*="app-planstart-"] .bg-purple-50:not(button, button *) { background-color: #faf5ff !important; }
         #request-content .app-suspend-tag-compact-card[class*="app-planstart-"] .bg-amber-50:not(button, button *) { background-color: #fffbeb !important; }
         #request-content .app-suspend-tag-compact-card[class*="app-planstart-"] :is(.bg-red-50,.bg-red-100):not(button, button *) { background-color: #fee2e2 !important; }
+#drive-evaluator-reports-link, [data-drive-eval-workspace] [data-module-subview-trigger],
+[data-drive-eval-workspace] [data-drive-eval-exit] {
+    background: #103220;
+    color: #ecfdf5;
+    border: 1px solid #31634a;
+    border-radius: .5rem;
+    padding: .35rem .65rem;
+}
+[data-drive-eval-workspace] [data-module-subview-options] {
+    z-index: 80;
+    background: #103220;
+    color: #ecfdf5;
+}
+[data-drive-eval-workspace] [data-module-subview-options] button {
+    background: #103220;
+    color: #ecfdf5;
+}
+
+#view-home #home-dashboard-grid[data-bloomscapes-home="tiles"] [data-home-module-view]:not(
+    [data-home-module-view="messages"], [data-home-module-view="walkie"],
+    [data-home-module-view="borrowed-work"], [data-home-module-view="time-cards"]) {
+    display: none !important;
+}
+#side-drawer :is([data-drawer-view="time-cards"], [data-drawer-view="borrowed-work"]),
+[data-time-cards-link], [data-borrowed-field-trigger], [data-queue-borrowed-help] > button,
+[data-pull-click="borrow"], [data-pull-borrow] {
+    display: none !important;
+}
+
+html body dialog#av-photo-viewer {
+    max-width: none !important;
+    max-height: none !important;
+    overflow: hidden;
+}
 .app-operational-card-meta { display:flex; flex-wrap:wrap; gap:4px 6px; margin:4px 0; }
         #docks-content .app-operational-card-meta .app-request-card-meta-chip { display:inline-flex; min-width:0; max-width:100%; align-items:center; gap:4px; border:1px solid #dbe4dc; border-radius:999px; background:#f8fafc; padding:4px 8px; color:#475569; font-size:10px; font-weight:800; line-height:1.15; }
         #docks-content .app-operational-card-meta .app-request-card-meta-chip strong { color:#0f172a; font-weight:900; overflow-wrap:anywhere; }

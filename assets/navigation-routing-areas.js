@@ -3,15 +3,13 @@ const bloomscapesHomeDepartmentNames = Object.freeze({
 });
 const bloomscapesHomeDepartmentLabels = Object.freeze({
     requests:'Que → Requests',suspend:'Que → Suspend Tags',po:'PO Management',
-    historical:'Historical Requests','borrowed-help':'Borrowed Help'
+    historical:'Historical Requests'
 });
 const bloomscapesHomeDetailOnly = new Set(['messages','walkie','docks-issues','sales-flyer','sales-history','sales-rep','sales-archive']);
 const bloomscapesHomeAreaOverrides = Object.freeze({
     INVENTORY:area => [...area.views.flatMap(view=>view[0] === 'assigned-items' ? []
         : [view[0] === 'eval2' ? ['reports','Reports','reports'] : view]),['queue','Que','request']],
-    PRODUCTION:area => [...area.views,['borrowed-help','Borrowed Help','borrowed-work']],
-    SALES:area => [...area.views,['sales-av','AV','av']],
-    ADMIN:area => [...area.views,['borrowed-help','Borrowed Help','borrowed-work']]
+    SALES:area => [...area.views,['sales-av','AV','av']]
 });
 const bloomscapesHomeAreas = BLOOMSCAPES_BUSINESS_AREAS.map(area=>({...area,
     views:bloomscapesHomeAreaOverrides[area.id]?.(area) || area.views

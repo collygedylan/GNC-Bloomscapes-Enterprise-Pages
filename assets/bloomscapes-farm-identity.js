@@ -1,6 +1,6 @@
 
 function bloomscapesRowFarm(row) {
-    const raw = row?.warehouse_id || row?.WAREHOUSE_ID || row?.WAREHOUSEI || row?.warehousei || row?.WAREHOUSEID || row?.warehouseid || '10';
+    const raw = row?.farm_code || row?.FARM_CODE || row?.warehouse_id || row?.WAREHOUSE_ID || row?.WAREHOUSEI || row?.warehousei || row?.WAREHOUSEID || row?.warehouseid || '10';
     const code = String(raw).split('-')[0];
     return ({'10':'10-PH','60':'60-HL','20':'20-TX','40':'40-NC'})[code] || String(raw);
 }

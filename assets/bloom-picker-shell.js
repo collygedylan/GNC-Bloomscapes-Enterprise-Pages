@@ -65,10 +65,19 @@ function mountBloomPickerDrawer(bar, hasItems) {
     bar.classList.toggle('hidden', !cartPanelOpen || !currentUser || !canAccessView('bloom'));
 }
 
+function resolveBloomscapesPickerActions(items) {
+    const visibility = getBloomPickerActionVisibility(items);
+    const profile = bloomscapesRestrictedNavigationProfile();
+    if (['rep','sales_rep','csr'].includes(profile?.role)) {
+        return {showRequest:visibility.showRequest,showFlyer:visibility.showFlyer};
+    }
+    return {...visibility,showReclass:canReclassBloomSelection(items)};
+}
+
 function updateGlobalActionBar() {
     const items = getCartSelectedItems();
     const hasItems = selectedItems.size > 0;
-    const visibility = {...getBloomPickerActionVisibility(items),showReclass:canReclassBloomSelection(items)};
+    const visibility = resolveBloomscapesPickerActions(items);
     const share = !!(visibility.showCopy || visibility.showEmail || visibility.showText);
     const anyAction = !!(share || visibility.showAssign || visibility.showEvalTask || visibility.showNcr
         || visibility.showRequest || visibility.showMove || visibility.showFlyer || visibility.showTakeBack

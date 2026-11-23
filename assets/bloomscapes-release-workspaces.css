@@ -1,0 +1,34 @@
+#drive-evaluator-reports-link, [data-drive-eval-workspace] [data-module-subview-trigger],
+[data-drive-eval-workspace] [data-drive-eval-exit] {
+    background: #103220;
+    color: #ecfdf5;
+    border: 1px solid #31634a;
+    border-radius: .5rem;
+    padding: .35rem .65rem;
+}
+[data-drive-eval-workspace] [data-module-subview-options] {
+    z-index: 80;
+    background: #103220;
+    color: #ecfdf5;
+}
+[data-drive-eval-workspace] [data-module-subview-options] button {
+    background: #103220;
+    color: #ecfdf5;
+}
+
+#view-home #home-dashboard-grid[data-bloomscapes-home="tiles"] [data-home-module-view]:not(
+    [data-home-module-view="messages"], [data-home-module-view="walkie"],
+    [data-home-module-view="borrowed-work"], [data-home-module-view="time-cards"]) {
+    display: none !important;
+}
+#side-drawer :is([data-drawer-view="time-cards"], [data-drawer-view="borrowed-work"]),
+[data-time-cards-link], [data-borrowed-field-trigger], [data-queue-borrowed-help] > button,
+[data-pull-click="borrow"], [data-pull-borrow] {
+    display: none !important;
+}
+
+html body dialog#av-photo-viewer {
+    max-width: none !important;
+    max-height: none !important;
+    overflow: hidden;
+}

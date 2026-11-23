@@ -1,3 +1,4 @@
+
 const driveReport2MetricReaders = {
     PTRONHAND: row => getCardPtrOnHandValue(row, { preserveUnknown: true }),
     PTRAVAILABLE: row => getCardPtrAvailableValue(row, { preserveUnknown: true }),
@@ -61,7 +62,7 @@ function renderDriveReport2Tab(container, crumb) {
 
 function renderDriveRecordResults(tokenKey, container, crumb, rows, crumbText, renderKey = '', options = {}) {
     const input = Array.isArray(rows) ? rows : [];
-    const safeRows = !options.reportCards && tokenKey === 'drive-loc-card' && driveHasSeasonCardSort() ? sortDriveSeasonCards(input) : input;
+    const safeRows = tokenKey === 'drive-loc-card' ? sortDriveLocationCards(input) : input;
     const nextOptions = options && typeof options === 'object' ? options : {};
     const browsePage = getClientBrowsePage('drive', renderKey || `${tokenKey}:${crumbText}`, safeRows);
     const useSpreadsheet = !nextOptions.reportCards && isDriveSpreadsheetGridMode();
@@ -156,11 +157,14 @@ function renderDrive() {
     syncDriveModeTabs();
     syncDriveTabPills();
     const container = document.getElementById('drive-content');
-    const filtersDiv = document.getElementById('drive-season-filters');
     const crumb = document.getElementById('drive-crumb');
     const driveModeLabel = DRIVE_MODE_LABELS[activeDriveMode] || 'Drive Mode';
     const drillTabs = document.getElementById('drive-drill-tabs');
     if (drillTabs) drillTabs.classList.remove('hidden');
+    if (mountDriveEvaluatorReports(crumb,container)) {
+        hideDriveReport2BrowseBar();
+        return;
+    }
     if (activeDriveMode === 'ok' && driveReport2BrowseTab(activeDriveTab)) {
         releaseDriveReport2Ui(container);
         if (renderDriveReport2Browse(container, crumb, driveModeLabel)) return;
@@ -169,9 +173,13 @@ function renderDrive() {
         if (activeDriveTab === 'reports-v2' && activeDriveMode === 'ok') return renderDriveReport2Tab(container, crumb);
         releaseDriveReport2Ui(container);
     }
+    renderDriveOrdinaryTab(container,crumb,driveModeLabel);
+}
+
+function renderDriveOrdinaryTab(container,crumb,driveModeLabel) {
     if (renderDriveUniversalSearchResultsOnly()) return;
     if (activeDriveMode !== 'ok') {
-        syncDriveFilterStrip(filtersDiv, '');
+        syncDriveFilterStrip(document.getElementById('drive-season-filters'), '');
         hideDrivePlantFilters();
         renderDriveQuickRequestBar([]);
         applyDriveRenderMarkup(container, crumb, driveModeLabel, `<div class="p-8 text-center text-gray-400">No ${driveModeLabel} rows have been added yet.</div>`, `drive:mode-empty:${activeDriveMode}`);
@@ -206,6 +214,8 @@ function renderDrive() {
 function getDriveCurrentReturnedRows() {
     const driveView = document.getElementById('view-drive');
     if (!driveView || driveView.classList.contains('hidden')) return [];
+    const evaluatorRows = getDriveEvaluatorReportRows();
+    if (evaluatorRows) return evaluatorRows;
     if (activeDriveMode !== 'ok' || activeDriveTab !== 'card') return [];
     const driveModeLabel = DRIVE_MODE_LABELS[activeDriveMode] || 'Drive Mode';
     const driveViewState = buildDriveVisibleItemsState();
