@@ -2,7 +2,6 @@
 const borrowedFieldRoute = 'borrowed-work';
 const borrowedFieldDepartments = {'inventory':'156','qc':'161'};
 const borrowedFieldModules = {'sales-inventory':'inventory','qc':'qc','drive':'inventory'};
-const borrowedFieldLabels = {'inventory':'Inventory Count','qc':'QC Inspection'};
 let borrowedFieldState = null;
 
 function getBorrowedFieldState() {
@@ -43,7 +42,7 @@ async function loadBorrowedFieldBoard(state) {
         }
     } finally {
         state.read = null;
-        if (changed && borrowedFieldStateCurrent(state) && getCurrentVisibleViewId() === borrowedFieldRoute) paintBorrowedFieldWorkspace(state);
+        if (changed && borrowedFieldStateCurrent(state) && getCurrentVisibleViewId() === borrowedFieldRoute) renderBloomscapesBorrowedField(borrowedFieldRoute);
     }
 }
 
@@ -55,52 +54,13 @@ function activateBloomscapesBorrowedField(view) {
 
 function renderBloomscapesBorrowedField(view) {
     if (view !== borrowedFieldRoute) return false;
-    paintBorrowedFieldWorkspace(getBorrowedFieldState());
-    return true;
-}
-
-function paintBorrowedFieldWorkspace(state) {
     const host = document.getElementById('view-'+borrowedFieldRoute);
-    if (!host) return;
-    if (!host.dataset.borrowedFieldBound) {
-        host.dataset.borrowedFieldBound = 'true';
-        host.addEventListener('click',handleBorrowedFieldWorkspaceClick);
-        host.addEventListener('submit',handleBorrowedFieldAssignmentSubmit);
-    }
-    const rows = state.board?.assignments || [];
-    const message = state.error || (!state.board ? 'Loading assignments…' : '');
-    host.innerHTML = `<section class="space-y-2 p-3"><p role="status">${pullHtml(message)}</p>
-        <button type="button" class="${pullWorkspacePill}" data-borrowed-field-refresh>Refresh</button>
-        <div data-borrowed-field-cards class="space-y-2"></div></section>`;
-    const list = host.querySelector('[data-borrowed-field-cards]');
-    if (state.board) renderBloomscapesListWindow(list,rows,createBorrowedFieldCard,'No active borrowed assignments.');
-}
-
-function handleBorrowedFieldWorkspaceClick(event) {
-    if (event.target.closest('[data-borrowed-field-refresh]')) void refreshBorrowedFieldBoard(getBorrowedFieldState(),true);
-}
-
-function createBorrowedFieldCard(row) {
-    const card = document.createElement('article');
-    card.className = 'space-y-2 rounded-xl border border-emerald-700/60 p-3';
-    card.dataset.borrowedFieldCard = row.id;
-    const identity = [row.itemcode,row.locationcode,row.lotcode].filter(Boolean).join(' · ');
-    card.innerHTML = `<h3 class="font-bold">${pullHtml(row.commonname || row.itemcode)} · ${pullHtml(borrowedFieldLabels[row.route])}</h3>
-        <p class="text-sm">${pullHtml(identity)}</p><p class="text-xs">${pullHtml(row.username)} · ${pullHtml(row.farm_code)}</p>
-        ${borrowedFieldCardActions(row)}`;
-    return card;
-}
-
-function borrowedFieldCardActions(row) {
-    const allowed = row.allowed || [];
-    const result = row.route === 'inventory'
-        ? '<label>Counted quantity <input name="quantity" type="number" min="0" step="1" required></label>'
-        : '<label>Inspection result <select name="result"><option value="pass">Pass</option><option value="needs_review">Needs review</option></select></label>';
-    const complete = allowed.includes('complete') ? `<form data-borrowed-field-action="complete" class="flex flex-wrap items-center gap-2">
-        ${result}<label>Notes <input name="notes" maxlength="500"></label>
-        <button class="${pullWorkspacePill}" type="submit">Mark assigned task done</button></form>` : '';
-    const release = allowed.includes('release') ? `<form data-borrowed-field-action="release"><button class="${pullWorkspacePill}" type="submit">Release help</button></form>` : '';
-    return complete + release;
+    if (!host) return true;
+    mountBorrowedHelpWorkspace(host);
+    const legacy = host.querySelector('[data-legacy-borrowed-field]');
+    legacy.hidden = Boolean(borrowedHelpPreview());
+    if (!legacy.hidden) paintLegacyBorrowedField(getBorrowedFieldState(),legacy);
+    return true;
 }
 
 function handleBorrowedFieldAssignmentSubmit(event) {

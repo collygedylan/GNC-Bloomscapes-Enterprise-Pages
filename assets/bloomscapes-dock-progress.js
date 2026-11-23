@@ -25,3 +25,27 @@ async function toggleDockItemState(uid,type) {
     } finally { bloomscapesDockProgressFlights.delete(key); }
     return false;
 }
+
+function publishBloomscapesDockBoard(state) {
+    const viewId = getCurrentVisibleViewId();
+    const host = document.getElementById('view-'+viewId);
+    if (host && Object.hasOwn(bloomscapesDockWorkspaceTitles,viewId)) paintBloomscapesDocksWorkspace(host,viewId,state);
+    if (viewId === 'docks') {
+        if (!isDatasetLoaded('soc','full')) invalidateDockWorkflowResolvedState();
+        scheduleDocksRender(0,180,true);
+    }
+    if (viewId === 'request' && activeReqTab === 'suspend-tag') {
+        markViewDirty('request');
+        scheduleRequestRender(0);
+    }
+}
+
+function currentBloomscapesDockBoard() {
+    const state = getBloomscapesDockBoardState();
+    return isBloomscapesDockStateCurrent(state) ? state.board : null;
+}
+
+function bloomscapesDockBoardRevision() {
+    const state = getBloomscapesDockBoardState();
+    return isBloomscapesDockStateCurrent(state) ? state.revision : 0;
+}

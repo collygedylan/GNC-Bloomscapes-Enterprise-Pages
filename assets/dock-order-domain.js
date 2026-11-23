@@ -218,6 +218,16 @@ function applyDockSuspendAvailableQuantities(row, source, sourceSnapshot, rowSna
     ));
 }
 
+function dockScopedOrderSource(items) {
+    if (typeof getCurrentVisibleViewId !== 'function' || getCurrentVisibleViewId() !== 'docks'
+        || typeof isDatasetLoaded !== 'function' || isDatasetLoaded('soc','full')) return items;
+    const hasAssigned = items.some(row=>normalizeDockViewDockKey(firstNonEmptyValue(
+        row.DOCK,row.dock,row.DOCK_NUM,row.dock_num,'')) !== 'Unassigned' && bloomscapesFarmRowIsVisible(row));
+    if (hasAssigned) return items;
+    const board = currentBloomscapesDockBoard();
+    return board?.tags.length ? dockBrowseRowsFromBoard(board) : items;
+}
+
 function firstDockValue(row, keys) {
     return firstDockNonEmpty(...keys.map(key => row[key]));
 }
@@ -375,7 +385,7 @@ function formatDockViewDockLabel(dockNum = '') {
 
 function getActiveSuspendDockRows(items = []) {
     const groups = new Set(), orders = new Set();
-    return items.filter(row => {
+    return dockScopedOrderSource(items).filter(row => {
         const state = String(row.suspend_candidate_state || row.SUSPEND_CANDIDATE_STATE || '').toLowerCase();
         const cancellation = state === 'canceled' && !!(row.cancel_reason || row.CANCEL_REASON);
         if (!cancellation && ['replaced', 'denied', 'canceled'].includes(state)) return false;

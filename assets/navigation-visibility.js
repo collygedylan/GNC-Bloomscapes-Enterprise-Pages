@@ -129,7 +129,7 @@ function getNavigationDisplayMatrix(identity) {
 
 function hasFullNavigationVisibility(userOverride = '') {
     const identity = getNavigationVisibilityIdentity(userOverride);
-    if (!identity) return false;
+    if (!identity || typeof borrowedHelpPreview === 'function' && borrowedHelpPreview()) return false;
     const role = String(identity.role || '').trim().toLowerCase().replace(/[-_\s]/g, '');
     return FULL_NAVIGATION_USERNAMES.has(identity.username) || ['admin', 'administrator', 'superadmin'].includes(role);
 }

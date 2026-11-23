@@ -14,8 +14,9 @@ const BLOOMSCAPES_BUSINESS_AREAS = Object.freeze([
         ['take-back','Take Back','take-back']
     ]},
     {id:'DOCKS', label:'Shipping, Traffic & Order Pulling', icon:'ph-truck', views:[
-        ['docks','Docks Board','docks'], ['load-maximizer','Load Maximizer','docks'],
-        ['dock-credit-vault','Dock Credit Vault','docks'], ['suspend','Que · Suspend Tags','request']
+        ['docks','Docks & Order Pulling Board','docks'], ['docks-issues','Order Pulling Issues','mistake-fix'],
+        ['load-maximizer','Traffic & Load Maximizer','docks'],
+        ['dock-credit-vault','Dock Credit Vault','docks'], ['suspend','Que · Suspend Tags','request'], ['borrowed-help','🤝 Borrowed Help','borrowed-work']
     ]},
     {id:'SALES', label:'Sales & Marketing', icon:'ph-handshake', views:[
         ['sales-design','Design Studio','sales'], ['sales-flyer','Flyer Folders','sales'],
@@ -44,11 +45,19 @@ function isBloomscapesAreaScoped(profile = bloomscapesAreaProfile()) {
 function filterBloomscapesAreaViews(area, profile, scoped, baseline) {
     if (scoped && !profile?.area_scopes?.includes(area.id)) return [];
     return area.views.filter(([key,,view]) => scoped
-        ? profile.area_access?.[key] === 'VIEW_ONLY' || profile.area_access?.[key] === 'FULL_EDIT'
+        ? allowedScopedAreaChoice(profile,key,view,baseline)
         : baseline(key, view));
 }
 
+function allowedScopedAreaChoice(profile,key,view,baseline) {
+    if (key === 'borrowed-help') return baseline(key,view);
+    const level = profile.area_access?.[key === 'docks-issues' ? 'docks' : key];
+    return level === 'VIEW_ONLY' || level === 'FULL_EDIT';
+}
+
 function bloomscapesAreaChoices(area) {
+    const preview = typeof borrowedHelpPreview === 'function' && borrowedHelpPreview();
+    if (preview) return area.views.filter(([key])=>previewShowsAreaView(preview,key));
     if (isBloomscapesAreaOwner()) return area.views;
     const profile = bloomscapesAreaProfile();
     return filterBloomscapesAreaViews(area, profile, isBloomscapesAreaScoped(profile), canUseBloomscapesAreaView);
@@ -60,6 +69,9 @@ function isBloomscapesAreaOwner() {
 }
 
 function canUseBloomscapesAreaView(key, view) {
+    if (key === 'borrowed-help') return canOpenBloomscapesDocksWorkspace(view)
+        && ['manager','supervisor','admin','super-admin'].includes(nativeAuthProfile?.role);
+    if (key === 'docks-issues') return canOpenBloomscapesDocksWorkspace(view);
     if (key === 'studio') return canUseBloomscapesWorkStudio();
     if (key === 'eval2') return canViewManagerEvalReports2();
     if (key === 'watchdog') return canAccessView(view) && ['dylan_collyge','jd_jones','megan_kelly'].includes(currentUser);
@@ -76,13 +88,20 @@ function canUseBloomscapesAreaView(key, view) {
 
 function resolveBloomscapesAreaNavigation(view) {
     const profile = bloomscapesAreaProfile();
-    if (!isBloomscapesAreaScoped(profile)) return null;
+    const preview = typeof borrowedHelpPreview === 'function' && borrowedHelpPreview();
+    if (!preview && view === 'borrowed-work' && typeof canOpenBloomscapesDocksWorkspace === 'function') {
+        return canOpenBloomscapesDocksWorkspace(view);
+    }
+    if (!preview && view === 'request' && ['crew','eval','qc','rep'].includes(nativeAuthProfile?.role)
+        && typeof canOpenBloomscapesDocksWorkspace === 'function' && canOpenBloomscapesDocksWorkspace('borrowed-work')) return true;
+    if (!preview && !isBloomscapesAreaScoped(profile)) return null;
+    if (preview && view === 'borrowed-work') return preview.borrowed || preview.loans?.length > 0;
     if (view === 'reports') return allowsBloomscapesAreaSubview('eval2');
     if (view === 'request-history') return allowsBloomscapesAreaSubview('historical');
-    if (view === 'request' && allowsBloomscapesAreaSubview('studio')) return true;
+    if (view === 'request' && (allowsBloomscapesAreaSubview('studio') || preview?.loans?.length)) return true;
     const target = bloomscapesAreaPrimaryRoute(view);
     const matching = BLOOMSCAPES_BUSINESS_AREAS.filter(area => area.views.some(([, , route]) => route === target));
-    return matching.length ? matching.some(area => bloomscapesAreaChoices(area).some(([, , route]) => route === target)) : null;
+    return matching.length ? matching.some(area => bloomscapesAreaChoices(area).some(([, , route]) => route === target)) : preview ? view === 'home' : null;
 }
 
 function bloomscapesAreaPrimaryRoute(view) {
@@ -107,6 +126,8 @@ function navigateDisplayedQuickAccessView(view = '') {
 }
 
 function allowsBloomscapesAreaSubview(key, required = 'VIEW_ONLY') {
+    const preview = typeof borrowedHelpPreview === 'function' && borrowedHelpPreview();
+    if (preview) return required === 'VIEW_ONLY' && previewShowsAreaView(preview,key);
     const profile = bloomscapesAreaProfile();
     if (!isBloomscapesAreaScoped(profile)) return true;
     const level = profile?.area_access?.[key];

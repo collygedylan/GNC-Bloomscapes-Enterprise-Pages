@@ -6,11 +6,14 @@ function mountBloomscapesHomeModules(opening = false) {
         if (pill) pill.textContent = window.__APP_RELEASE_VERSION__;
     }
     mountBloomscapesFarmSelector();
+    if (typeof mountSuperAdminViewAs === 'function') mountSuperAdminViewAs();
+    if (typeof primeBorrowedHelpRoutes === 'function') primeBorrowedHelpRoutes();
     if (!opening) mountDivisionWeather();
     const grid = document.getElementById('home-dashboard-grid');
     if (!grid) return;
     if (typeof mountBloomscapesAreaHubs === 'function') mountBloomscapesAreaHubs(grid);
     grid.dataset.bloomscapesHome = 'true';
+    if (typeof borrowedHelpPreview === 'function') grid.hidden = Boolean(borrowedHelpPreview());
     if (!grid.querySelector('#home-tile-drive')) grid.innerHTML = BLOOMSCAPES_BASE_HOME;
     for (const tile of grid.querySelectorAll('[id^="home-bloomscapes-"]')) tile.remove();
     let studio=grid.querySelector('#home-tile-studio');
@@ -19,7 +22,8 @@ function mountBloomscapesHomeModules(opening = false) {
         studio.className='home-module-tile';studio.innerHTML='<i class="ph ph-hammer" aria-hidden="true"></i><span>Field Work Studio</span>';
         studio.addEventListener('click',()=>openBloomscapesFieldWorkStudio());grid.appendChild(studio);
     }
-    studio.hidden=!canUseBloomscapesWorkStudio();
+    studio.hidden=!(typeof borrowedHelpPreview === 'function' && borrowedHelpPreview()
+        ? allowsBloomscapesAreaSubview('studio') : canUseBloomscapesWorkStudio());
     const drawerStudio=queryBloomscapesStaticBody('side-drawer','#drawer-field-work-studio-btn');
     if (drawerStudio) drawerStudio.hidden=studio.hidden;
     grid.querySelector('#home-tile-bloom')?.remove();
@@ -49,7 +53,9 @@ function mountBloomscapesCommunicationTiles(grid) {
             tile.innerHTML='<i class="ph '+icon+'" aria-hidden="true"></i><span>'+title+'</span><b data-home-count hidden></b>';
             tile.addEventListener('click',open);grid.appendChild(tile);
         }
-        tile.hidden=!canAccessView(id==='walkie'?'push-to-talk':id);
+        const route = id==='walkie'?'push-to-talk':id;
+        tile.hidden=!(typeof borrowedHelpPreview === 'function' && borrowedHelpPreview()
+            ? canDisplayNavigationView(route) : canAccessView(route));
     }
     syncBloomscapesHomeBadges();
 }

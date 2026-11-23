@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.43';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.44';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -23298,7 +23298,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.43';
+        const APP_VERSION = '3.1.44';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -45737,39 +45737,6 @@ function toggleDriveQuickRequestItem(domId) {
             return load.finally(() => { if (loads.get(inflightKey) === load) loads.delete(inflightKey); });
         }
 
-
-        function prefetchRequestModalCustomerOptions(force = false) {
-            if (!currentUser || (!canAccessView('request') && !canUseRequestRepScopedAccess())) return Promise.resolve(false);
-            const owner = syncRequestModalCustomerMappingOwner();
-            const signature = getRequestModalCustomerMappingCacheSignature();
-            if (!force && prefetchRequestModalCustomerOptions.completedOwner === signature) return Promise.resolve(true);
-            if (prefetchRequestModalCustomerOptions.owner === owner && prefetchRequestModalCustomerOptions.promise) return prefetchRequestModalCustomerOptions.promise;
-            const epoch = requestMappingSecurityEpoch;
-            const promise = fetchRequestCustomerMapRows().then(rows => {
-                if (owner !== getRequestModalLookupOwnerSignature() || epoch !== requestMappingSecurityEpoch) return false;
-                customerRepMapRows = rows;
-                requestGlobalCustomerOptionsCacheKey = '';
-                requestGlobalCustomerOptionsCache = [];
-                const directory = getRequestMappedRepDirectory();
-                requestModalCustomerOptionRowsCache.clear();
-                requestExistingFolderGroupsByRepCache.clear();
-                for (const [id, repRows] of directory.rowsBySalesrepId) {
-                    requestMappingRpcCache.set(id, { owner, signature: getRequestModalCustomerMappingCacheSignature(), revision: rows.mappingRevision, rows: repRows, stale: false });
-                }
-                // Prepare every authorized rep's sorted customer tree once, off the click path.
-                for (const option of directory.options) getRequestModalCustomerOptionsForRep(option.label);
-                buildRequestModalCustomerOptionsCache(true);
-                prefetchRequestModalCustomerOptions.completedOwner = getRequestModalCustomerMappingCacheSignature();
-                refreshRequestModalCustomerStepIfVisible();
-                return true;
-            }).catch(error => {
-                if (isRequestModalCustomerAuthorizationFailure(error)) clearRequestModalCustomerMappingOwnerState();
-                throw error;
-            }).finally(() => { if (prefetchRequestModalCustomerOptions.promise === promise) prefetchRequestModalCustomerOptions.promise = null; });
-            prefetchRequestModalCustomerOptions.owner = owner;
-            prefetchRequestModalCustomerOptions.promise = promise;
-            return promise;
-        }
 
         function scheduleRequestModalReferencePrefetch(attempt = 0, owner = getRequestModalLookupOwnerSignature()) {
             setTimeout(() => {
@@ -113656,7 +113623,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
 /* @runtime-fragment assets/bloomscapes-docks-workspace.js */
 /* @runtime-fragment assets/bloomscapes-docks-render.js */
 /* @runtime-fragment assets/bloomscapes-docks-borrowed-cards.js */
-/* @runtime-fragment assets/bloomscapes-docks-borrowed-field.js */
+/* @runtime-fragment assets/borrowed-help-service.js */ /* @runtime-fragment assets/borrowed-help-modal.js */ /* @runtime-fragment assets/borrowed-help-workspace.js */ /* @runtime-fragment assets/superadmin-view-as-lens.js */ /* @runtime-fragment assets/bloomscapes-docks-borrowed-field.js */
 /* @runtime-fragment assets/bloomscapes-timecards-transport.js */
 /* @runtime-fragment assets/bloomscapes-timecards.js */
 /* @runtime-fragment assets/bloomscapes-docks-documents.js */

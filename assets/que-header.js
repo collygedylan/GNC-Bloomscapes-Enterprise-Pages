@@ -142,10 +142,14 @@ function syncQueHeaderLayout() {
     if (getCurrentVisibleViewId() !== 'request' || !row || !toolbar) return;
     if (toolbar.parentElement !== row) row.prepend(toolbar);
     row.dataset.jobBoardHeader = 'true';
+    if (!bloomscapesJobBoardCategories().length && typeof showLoanOnlyQueControl === 'function') showLoanOnlyQueControl(toolbar);
+    if (typeof mountBorrowedHelpQueue === 'function') mountBorrowedHelpQueue();
 }
 
 function syncQueCategoryControl(toolbar, counts) {
-    const categories = bloomscapesJobBoardCategories().filter(([category]) =>
+    const permitted = bloomscapesJobBoardCategories();
+    if (!permitted.length && typeof showLoanOnlyQueControl === 'function' && showLoanOnlyQueControl(toolbar)) return;
+    const categories = permitted.filter(([category]) =>
         typeof allowsBloomscapesAreaSubview !== 'function' || allowsBloomscapesAreaSubview(
             category === 'suspend-tag' ? 'suspend' : category === 'pending' ? 'requests' : 'studio')).map(([category,label]) => ({
         key: category,
@@ -168,7 +172,7 @@ function renderRequestCategoryToolbar(counts = null) {
     syncBloomscapesJobBoardToolbar(toolbar);
     toolbar.dataset.toolbarSingleRow = 'true';
     syncQueHeaderLayout();
-    if (nativeAuthSessionActive) void ensureBloomscapesFieldQueue().catch(error=>
+    if (nativeAuthSessionActive && bloomscapesJobBoardCategories().length) void ensureBloomscapesFieldQueue().catch(error=>
         globalThis.reportHandledRuntimeIssue?.('field_work_queue',error.code || 'FIELD_WORK_READ_FAILED'));
     return true;
 }

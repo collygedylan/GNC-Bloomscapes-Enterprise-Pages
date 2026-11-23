@@ -100,3 +100,14 @@ function assertBloomscapesDockScope(farm, identity) {
         throw new Error('The Dock board changed account or farm.');
     }
 }
+
+function dockBrowseRowsFromBoard(board) {
+    return (board?.tags || []).map(tag=>normalizeSocDockRowAliases({
+        UNIQUE_ID:tag.id, FARM_CODE:board.farm_code, farm_code:board.farm_code,
+        DOCK:tag.dock, DOCK_NUM:tag.dock, TRIPNUMBER:tag.trip, STOPNUMBER:tag.drop,
+        ITEMCODE:tag.itemcode, LOCATIONCODE:tag.locationcode, LOTCODE:tag.lotcode, COMMONNAME:tag.commonname,
+        CONTSIZE:tag.contsize, QUANTITYORDERED:tag.quantity, WINGDINGUNITS:tag.wingdingunits,
+        PLANSTART:tag.plan_start, CONSIGNEENAME:tag.consignee, CUSTOMERNAME:tag.customer,
+        SALESREPNAME:tag.rep, SALESREPID:tag.rep_id, CONSIGNEESTATE:tag.state
+    }));
+}

@@ -64,27 +64,6 @@ async function loadBloomscapesDockBoard(state) {
     }
 }
 
-function publishBloomscapesDockBoard(state) {
-    const viewId = getCurrentVisibleViewId();
-    const host = document.getElementById('view-'+viewId);
-    if (host && Object.hasOwn(bloomscapesDockWorkspaceTitles,viewId)) paintBloomscapesDocksWorkspace(host,viewId,state);
-    if (viewId === 'docks') scheduleDocksRender(0);
-    if (viewId === 'request' && activeReqTab === 'suspend-tag') {
-        markViewDirty('request');
-        scheduleRequestRender(0);
-    }
-}
-
-function currentBloomscapesDockBoard() {
-    const state = getBloomscapesDockBoardState();
-    return isBloomscapesDockStateCurrent(state) ? state.board : null;
-}
-
-function bloomscapesDockBoardRevision() {
-    const state = getBloomscapesDockBoardState();
-    return isBloomscapesDockStateCurrent(state) ? state.revision : 0;
-}
-
 function getBloomscapesUrgentSuspendTag(row) {
     const state = getBloomscapesDockBoardState();
     if (!isBloomscapesDockStateCurrent(state)) return null;

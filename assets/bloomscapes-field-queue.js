@@ -146,6 +146,8 @@ function applyBloomscapesBlockLifecycleReceipt(receipt) {
 
 function getScopedRequestItems(items = requestsInventory, options = {}) {
     const sourceItems = Array.isArray(items) ? items : [];
+    const preview = typeof borrowedHelpPreview === 'function' && borrowedHelpPreview();
+    if (preview) return sourceItems.filter(row=>bloomscapesFarmRowIsVisible(row) && previewShowsQueueRow(preview,row,activeReqTab));
     const capabilities = getRequestCapabilities();
     const requestScopeMode = capabilities ? capabilities.scope : 'none';
     const hasGlobalRequestAccess = canViewAllRequests();

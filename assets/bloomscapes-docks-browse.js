@@ -8,6 +8,7 @@ function renderBloomscapesDocksBrowse() {
     const crumb = document.getElementById('docks-crumb');
     rememberOperationalExport('docks',[]);
     updateDockModeToggleUi();
+    if (typeof mountBloomscapesDocksAreaMenu === 'function') mountBloomscapesDocksAreaMenu();
     mountBloomscapesDockDropEvents();
     const access = getRoleAccessState();
     const awaitingProgress = access.isQc && !access.isAdmin && !access.isQcSupervisor;
@@ -49,17 +50,6 @@ function getBloomscapesDockBrowseRows(term) {
     if (term) items = filterBySearch(items,term,'docks');
     updateDockFilterSummary(scopedRows,items,term);
     return items;
-}
-
-function showEmptyBloomscapesDockBrowse(container, crumb, awaitingProgress) {
-    const missing = [
-        dockTeamSchemaReady === false ? 'shared Trip status' : '',
-        awaitingProgress && dockItemSchemaReady === false ? 'Dock item status' : ''
-    ].filter(Boolean);
-    const message = missing.length ? `${missing.join(' and ')} unavailable. Refresh after the current release finishes deploying.` : 'No dock items found.';
-    setContainerHtml(container,`<div class="p-8 text-center text-gray-400">${message}</div>`);
-    setContainerUiState(container,'empty');
-    crumb.innerText = missing.length ? 'Dock Setup Required' : 'No Results';
 }
 
 function sortBloomscapesDockLabels(a, b) {
