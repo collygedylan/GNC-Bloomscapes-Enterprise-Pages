@@ -50,6 +50,7 @@ function openBloomscapesDepartmentModule(view,tab) {
     if (tab==='smart-moves') return switchView('smart-moves');
     const module = tab.startsWith('bloomscapes-') ? tab : 'bloomscapes-'+tab;
     if (module==='bloomscapes-studio' && !canUseBloomscapesWorkStudio()) return false;
+    if (module==='bloomscapes-consolidation' && (view!=='production' || !canViewFieldWorkConsolidation())) return false;
     if (view==='managers') return openBloomscapesHomeModule(module);
     bloomscapesDepartmentTabs.set(bloomscapesDepartmentKey(view),module);
     markViewDirty(view);
@@ -67,30 +68,36 @@ function renderBloomscapesDepartmentWorkspace(view) {
     const key = bloomscapesDepartmentKey(view);
     const tab = bloomscapesDepartmentTabs.get(key) || BLOOMSCAPES_DEPARTMENT_DEFAULTS[view] || '';
     const mounted = root.querySelector(':scope > [data-department-workspace]');
-    if (!tab || (tab==='bloomscapes-studio' && !canUseBloomscapesWorkStudio())) {
+    if (!tab || (tab==='bloomscapes-studio' && !canUseBloomscapesWorkStudio())
+        || (tab==='bloomscapes-consolidation' && !canViewFieldWorkConsolidation())) {
         mounted?.remove();restoreBloomscapesDepartmentChildren(root);
         return false;
     }
     if (mounted?.dataset.departmentScope===key+':'+tab && !mounted.querySelector('[data-radio-disposed]')) {
         if (tab==='bloomscapes-radio') renderBloomscapesComm();
+        if (tab==='bloomscapes-studio') renderFieldWorkConsolidationEntry(mounted);
         return true;
     }
+    if (mounted) unmountFieldWorkConsolidation(mounted);
     mounted?.remove();
     for (const child of root.children) {
         if (child.hidden) continue;
         child.dataset.departmentHidden = 'true';child.hidden = true;
     }
     let frame = bloomscapesDepartmentFrames.get(key+':'+tab);
-    const fresh = !frame || tab==='bloomscapes-radio';
+    const advisor = tab==='bloomscapes-consolidation';
+    const fresh = !frame || tab==='bloomscapes-radio' || advisor;
     if (fresh) {
         frame = document.createElement('section');
         frame.dataset.departmentWorkspace = tab;
         frame.dataset.departmentScope = key+':'+tab;
-        frame.innerHTML = renderBloomscapesWorkflowPanel(tab);
-        bloomscapesDepartmentFrames.set(key+':'+tab,frame);
+        frame.innerHTML = advisor ? renderFieldWorkConsolidationPanel() : renderBloomscapesWorkflowPanel(tab);
+        if (!advisor) bloomscapesDepartmentFrames.set(key+':'+tab,frame);
     }
     root.appendChild(frame);
-    if (fresh || tab==='bloomscapes-replenishment') mountBloomscapesWorkflowPanel(frame,tab);
+    if (advisor) mountFieldWorkConsolidation(frame);
+    else if (fresh || tab==='bloomscapes-replenishment') mountBloomscapesWorkflowPanel(frame,tab);
+    if (tab==='bloomscapes-studio') renderFieldWorkConsolidationEntry(frame);
     return true;
 }
 
@@ -101,6 +108,11 @@ function restoreBloomscapesDepartmentChildren(root) {
 }
 
 function backBloomscapesDepartmentWorkspace(view) {
+    const advisor = view==='production' && document.querySelector('#view-production > [data-department-workspace="bloomscapes-consolidation"]');
+    if (advisor) {
+        if (!backFieldWorkConsolidation(advisor)) openBloomscapesDepartmentModule('production','studio');
+        return true;
+    }
     const back=document.getElementById('view-'+view)?.querySelector('[data-module-back]');
     if (back) {back.click();return true;}
     if (BLOOMSCAPES_DEPARTMENT_DEFAULTS[view] || !bloomscapesDepartmentTabs.has(bloomscapesDepartmentKey(view))) return false;
@@ -114,6 +126,8 @@ function backBloomscapesDepartmentWorkspace(view) {
 function bloomscapesDepartmentTitle(view) {
     if (view==='hl-order' || view==='po-management') return 'PO Management';
     if (nativeAuthSessionActive && (view==='sales' || view==='sales-office')) return 'Sales & Marketing Studio';
+    if (view==='production' && bloomscapesDepartmentTabs.get(bloomscapesDepartmentKey(view))==='bloomscapes-consolidation'
+        && canViewFieldWorkConsolidation()) return 'Bed Space Advisor';
     if (view==='production' && canUseBloomscapesWorkStudio()) return 'Field Work Studio';
     if (view==='chat') return 'Messages';
     const tab=bloomscapesDepartmentTabs.get(bloomscapesDepartmentKey(view));

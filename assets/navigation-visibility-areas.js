@@ -178,6 +178,7 @@ function canShowBloomscapesHomeTile(view) {
 }
 
 function syncBloomscapesHomeTileVisibility(grid) {
+    if (typeof syncFieldWorkConsolidationVisibility==='function') syncFieldWorkConsolidationVisibility();
     if (!nativeAuthSessionActive || !grid) return;
     grid.querySelector('[data-home-account-navigation]')?.remove();
     let visibleCount = paintBloomscapesHomeDepartments(grid);

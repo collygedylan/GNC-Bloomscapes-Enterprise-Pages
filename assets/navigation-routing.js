@@ -1,20 +1,21 @@
 let pendingNavigationDisplay = null;
 function switchView(viewId, options = {}) {
-    const target = String(BLOOMSCAPES_SHELL_ROUTE_ALIASES[viewId]
+    const target = String(BLOOMSCAPES_SHELL_ROUTE_ALIASES[viewId] || (viewId==='field-work-consolidation' && 'production')
         || (nativeAuthSessionActive && viewId === 'sales-office' && 'sales')
-        || (nativeAuthSessionActive && viewId === 'production' && currentUser !== 'dylan_collyge'
+        || (nativeAuthSessionActive && viewId === 'production' && currentUser !== 'dylan_collyge' && currentUser !== 'megan_kelly'
             && !BLOOMSCAPES_FIELD_ENTRY_ROLES[nativeAuthProfile?.role] && 'drive')
-        || (nativeAuthSessionActive && (currentUser === 'dylan_collyge'
+        || (nativeAuthSessionActive && (currentUser === 'dylan_collyge' || currentUser === 'megan_kelly'
             || BLOOMSCAPES_FIELD_ENTRY_ROLES[nativeAuthProfile?.role]) && (
             viewId==='field-work-studio'
             || typeof BLOOMSCAPES_STUDIO_LEGACY_ROUTES !== 'undefined' && BLOOMSCAPES_STUDIO_LEGACY_ROUTES[viewId]!==undefined
             || viewId==='production-workflow' && productionWorkflowActive==='can-filling')
             ? 'production' : viewId==='chat' && nativeAuthSessionActive ? 'messages' : viewId || 'home')).trim();
     if (!canDisplayNavigationView(target)) {
-        showToast('Access unavailable', 'You do not have permission to open this view.', true);
+        viewId!=='field-work-consolidation' && showToast('Access unavailable', 'You do not have permission to open this view.', true);
         return false;
     }
     if (!canAccessView(target)) return openDisplayOnlyNavigation(target, options);
+    if (denyFieldWorkConsolidationRoute(viewId)) return false;
     if (target==='time-cards' && borrowedHelpPreview()) return false;
     if (typeof closeBloomscapesDockCapacity === 'function') closeBloomscapesDockCapacity();
     if (typeof closeActiveModuleSubview === 'function') closeActiveModuleSubview();
@@ -45,40 +46,6 @@ function switchView(viewId, options = {}) {
         activatePrimaryNavigation(context);
     });
     return false;
-}
-
-function preparePrimaryNavigationTarget(context) {
-    const { nextViewId, currentViewId, switchOptions, fromHistory } = context;
-    const plainManagersHubEntry = nextViewId === 'managers' && !fromHistory
-        && !switchOptions.managerSubView && !switchOptions.quickAccessRoute;
-    if (plainManagersHubEntry) {
-        if (activeHomeTab !== 'dashboard') {
-            if (typeof cancelManagerModuleReads === 'function') cancelManagerModuleReads();
-            if (typeof destroyManagerAssignedItemsView === 'function') destroyManagerAssignedItemsView();
-            window.GncProductionSchedule?.unmount();
-            if (typeof unmountAlphaCommandCenter === 'function') unmountAlphaCommandCenter('hr');
-        }
-        activeHomeTab = 'dashboard';
-        managersSearchTerm = '';
-        selectedProductivityUser = '';
-        if (typeof markViewDirty === 'function') markViewDirty('managers');
-    }
-    if (switchOptions.quickAccessRoute && currentViewId !== nextViewId) {
-        quickAccessNestedBackState = {
-            account: String(currentUser || '').trim().toLowerCase(),
-            origin: String(switchOptions.quickAccessOrigin || currentViewId || 'home').trim(),
-            parent: nextViewId,
-            route: String(switchOptions.quickAccessRoute || '').trim(),
-            tab: String(switchOptions.quickAccessTab || '').trim().toLowerCase()
-        };
-    } else if (!fromHistory && currentViewId !== nextViewId) quickAccessNestedBackState = null;
-    if (nextViewId === 'av' && currentViewId === 'home') clearAvSearchForHomeEntry();
-    if (!['historical-requests', 'request-history'].includes(nextViewId)) destroyHistoricalRequestsIsland();
-    else markViewDirty('historical-requests');
-    if (nextViewId !== 'sales-inventory' && inventoryFieldCountingMode) {
-        inventoryFieldCountingMode = false;
-        destroyFieldCountingIsland();
-    }
 }
 
 function preparePrimaryNavigationOrigin(context) {
