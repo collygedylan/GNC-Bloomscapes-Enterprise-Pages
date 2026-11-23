@@ -66,8 +66,7 @@ async function openEligibleDockAssigneeFacet(trigger) {
         await readEligibleModuleDirectory(farm);
         if (current()) showBloomscapesDockFacet(trigger);
     } catch (error) {
-        if (!current()) return;
-        reportEligibleModuleReadFailure(error);
+        if (!current() || !reportEligibleModuleReadFailure(error)) return;
         showToast('Assigned users',error.message,true);
     }
 }
