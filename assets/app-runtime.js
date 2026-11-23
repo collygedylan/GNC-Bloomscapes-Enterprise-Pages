@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.46';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.47';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -2912,7 +2912,7 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
 
         function handleMobileTextEntryFocusIn(event) {
             const target = event && event.target ? event.target : null;
-            if (!isMobileTextEntryTarget(target)) return;
+            if (isItemDetailMeasurementPaintDeferred(target) || !isMobileTextEntryTarget(target)) return;
             beginMobileTextEntryStability(target);
             const lightIosFilter = isIOSDevice() && isMobileFilterEntryTarget(target);
             queueMobileTextEntryVisibilitySettle(target, { forceViewportSync: !lightIosFilter, light: lightIosFilter });
@@ -4187,30 +4187,10 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
             }, { passive: true });
             document.addEventListener("focusin", (event) => {
                 scheduleKeyboardViewportShell('keyboard-focusin');
-                const target = event && event.target ? event.target : document.activeElement;
-                if (isMobileTextEntryTarget(target)) {
-                    if (!isMobileTextEntryPositionLocked(target)) beginMobileTextEntryStability(target);
-                    queueMobileTextEntryVisibilitySettle(target);
-                }
+                syncMobileTextEntryOnViewportFocus(event);
             });
             document.addEventListener("focusout", () => setTimeout(() => scheduleKeyboardViewportShell('keyboard-focusout'), 160));
-            if (window.visualViewport) {
-                const handleVisualViewportKeyboardChange = (reason = 'visual-viewport-keyboard') => {
-                    const activeTarget = document.activeElement;
-                    if (!isMobileTextEntryTarget(activeTarget)) return;
-                    scheduleVisualKeyboardViewportShell(reason);
-                    if (isMobileTextEntryTarget(activeTarget)) {
-                        if (!isMobileTextEntryPositionLocked(activeTarget)) beginMobileTextEntryStability(activeTarget);
-                        queueMobileTextEntryVisibilitySettle(activeTarget);
-                    }
-                };
-                window.visualViewport.addEventListener("resize", () => {
-                    handleVisualViewportKeyboardChange('visual-viewport-keyboard');
-                }, { passive: true });
-                window.visualViewport.addEventListener("scroll", () => {
-                    handleVisualViewportKeyboardChange('visual-viewport-scroll');
-                }, { passive: true });
-            }
+            installMobileTextEntryViewportListeners(window.visualViewport, scheduleVisualKeyboardViewportShell);
         }
 
         function isCompactViewport() {
@@ -5873,7 +5853,7 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
             detailFormFocusInitialized = true;
             initializePinnedDetailFields();
             document.addEventListener('focusin', (event) => {
-                if (!isDetailEditableField(event.target)) return;
+                if (isItemDetailMeasurementPaintDeferred(event.target) || !isDetailEditableField(event.target)) return;
                 clearTimeout(detailFieldFocusResetTimer);
                 setDetailEditingChromeState(true);
                 bringDetailFieldIntoView(event.target, { reason: 'focusin' });
@@ -7689,21 +7669,14 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
             applyDetailMeasurementKeyboardInputState(input);
             try {
                 input.focus({ preventScroll: true });
-            } catch (error) {
-                try { input.focus(); } catch (focusError) { globalThis.safeIgnoreProbeError?.("openDetailMeasurementKeyboard"); }
+            } catch {
+                try { input.focus(); } catch { globalThis.safeIgnoreProbeError?.("openDetailMeasurementKeyboard"); }
             }
             if (!shouldPreserveSelection && typeof input.setSelectionRange === 'function') {
                 const cursorEnd = String(input.value || '').length;
                 restoreDetailMeasurementFieldFocus(input, cursorEnd, cursorEnd);
             }
-            if (sameKeyboardOpen) {
-                updateDetailMeasurementKeyboardValuePreview();
-                syncDetailMeasurementKeyboardLayout();
-                return false;
-            }
-            renderDetailMeasurementKeyboard();
-            bringDetailFieldIntoView(input, { reason: 'keyboard-open', force: true, followUpDelay: isIOSDevice() ? 220 : 140 });
-            return false;
+            return paintItemDetailMeasurementOpen(input,sameKeyboardOpen);
         }
 
         function handleDetailMeasurementKeyboardButtonPress(event = null, token = '', action = 'key') {
@@ -7836,27 +7809,6 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
             return index >= 0 ? (fields[index + 1] || null) : null;
         }
 
-        function completeDetailMeasurementKeyboard() {
-            clearDetailMeasurementKeyboardRepeat();
-            clearDetailMeasurementKeyboardKeepAlive();
-            triggerDetailKeyboardHaptic(12);
-            const input = detailMeasurementKeyboardTarget;
-            if (input) input.dispatchEvent(new Event('change', { bubbles: true }));
-            restoreDetailMeasurementInputReadonly(input);
-            detailMeasurementKeyboardTarget = null;
-            detailMeasurementKeyboardType = '';
-            detailMeasurementKeyboardAvNoteMode = 'letters';
-            detailMeasurementKeyboardChoiceOpen = '';
-            const keyboard = document.getElementById('detail-measurement-keyboard');
-            if (keyboard) keyboard.classList.add('hidden');
-            clearDetailMeasurementKeyboardRenderSignature();
-            clearDetailMeasurementKeyboardLayout();
-            if (!focusDetailMeasurementNextField(input) && input) {
-                try { input.blur(); } catch (error) { globalThis.safeIgnoreProbeError?.("completeDetailMeasurementKeyboard"); }
-                detailMeasurementKeyboardResumeId = '';
-            }
-            return false;
-        }
 
         function restoreDetailMeasurementFieldFocus(input = null, cursorStart = null, cursorEnd = null) {
             if (!input || !input.isConnected) return false;
@@ -19572,6 +19524,8 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
         /* @runtime-fragment assets/report-panel-export.js */
         /* @runtime-fragment assets/eval-report2-controls.js */
         /* @runtime-fragment assets/eval-report2-overview.js */
+        /* @runtime-fragment assets/eval-role-reports-catalog.js */
+        /* @runtime-fragment assets/eval-role-reports-view.js */
         /* @runtime-fragment assets/bloom-cart-persistence.js */
         /* @runtime-fragment assets/bloom-cart-actions.js */
         /* @runtime-fragment assets/bloom-inventory-project.js */
@@ -23298,7 +23252,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.46';
+        const APP_VERSION = '3.1.47';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -23403,8 +23357,10 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
 
         function writeLocalAppSeasonSettings(settings = null) {
             const normalized = normalizeAppSeasonSettingsPayload(settings);
+            const salesYearChanged = appSeasonSettingsCache?.salesYear !== normalized.salesYear;
             appSeasonSettingsCache = normalized;
-            try { localStorage.setItem(APP_SEASON_SETTINGS_STORAGE_KEY, JSON.stringify(normalized)); } catch (error) { globalThis.safeIgnoreProbeError?.("writeLocalAppSeasonSettings"); }
+            try { localStorage.setItem(APP_SEASON_SETTINGS_STORAGE_KEY, JSON.stringify(normalized)); } catch { globalThis.safeIgnoreProbeError?.("writeLocalAppSeasonSettings"); }
+            if (salesYearChanged && isViewVisible('reports')) scheduleReportsRender(0, 0, true);
             return normalized;
         }
 
@@ -23578,8 +23534,8 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         }
 
         function markSeasonSensitiveViewsDirty() {
-            ['drive', 'tasks', 'building', 'move-up', 'review', 'managers', 'av', 'sales', 'docks'].forEach((viewId) => {
-                try { markViewDirty(viewId); } catch (error) { globalThis.reportHandledRuntimeIssue?.("markSeasonSensitiveViewsDirty", 'HANDLED_OPERATION_FAILURE'); }
+            ['drive', 'tasks', 'building', 'move-up', 'review', 'managers', 'av', 'sales', 'docks', 'reports'].forEach((viewId) => {
+                try { markViewDirty(viewId); } catch { globalThis.reportHandledRuntimeIssue?.("markSeasonSensitiveViewsDirty", 'HANDLED_OPERATION_FAILURE'); }
             });
         }
 
@@ -53392,6 +53348,11 @@ function toggleDriveQuickRequestItem(domId) {
             if (isBloomscapesDockRoute(targetView)) return canOpenBloomscapesDocksWorkspace(targetView,userOverride);
             if (!targetView || targetView === 'home') return true;
             if (targetView === 'crop-roll' || targetView === 'manager-crop-roll') return false;
+            if (targetView === 'reports' && typeof getActiveEvalReportsAccess === 'function'
+                && (!userOverride || userOverride === currentUser)) {
+                const reports = getActiveEvalReportsAccess();
+                if (reports.scope !== 'legacy') return ['own','all'].includes(reports.scope) && navigationPreferencesAllowed(targetView, true);
+            }
             const areaLevel = typeof resolveBloomscapesAreaNavigation === 'function'
                 && (!userOverride || userOverride === currentUser) ? resolveBloomscapesAreaNavigation(targetView) : null;
             if (areaLevel !== null) return areaLevel && navigationPreferencesAllowed(targetView,true);
@@ -53412,31 +53373,7 @@ function toggleDriveQuickRequestItem(domId) {
             if (isFullAppAdministrator(userOverride)) return true;
             if (isEvalSensitiveDataRestricted() && ['managers', 'reports', 'request-history', 'historical-requests', 'po-management'].includes(targetView)) return false;
             if (targetView === 'building') return false;
-            if (targetView === 'historical-requests') return (!userOverride || userOverride === currentUser) && canUseHistoricalRequests() && navigationPreferencesAllowed(targetView, true);
-            if (window.SalesWorkspace?.isView(targetView)) {
-                const access = getRoleAccessState('', userOverride);
-                const base = access.isRepLike || access.isAdmin || canViewManagerSalesReps();
-                return navigationPreferencesAllowed(targetView, base);
-            }
-            if (targetView === 'bunch-note') return (!userOverride || userOverride === currentUser) && canUseInvBunchNotes() && navigationPreferencesAllowed(targetView, true);
-            if (targetView === 'hl-order') return (!userOverride || userOverride === currentUser) && canUseHlOrder() && navigationPreferencesAllowed(targetView, true);
-            if (targetView === 'managers' && isManagerViewDeniedUser(userOverride) && !getRoleAccessState('', userOverride).isAdmin) return false;
-            const canonicalFlag = { drive: 'can_access_drive_mode', av: 'can_access_av', request: 'can_access_que', managers: 'can_access_manager_tab' }[targetView];
-            const canonicalAllowed = canonicalFlag ? canonicalFeaturePermission(canonicalFlag, userOverride) : null;
-            if (canonicalAllowed === false) return false;
-            if (canonicalAllowed === true && targetView !== 'request') return navigationPreferencesAllowed(targetView, true);
-            if (targetView === 'pest-management') return isExecutiveAccessUser() && navigationPreferencesAllowed(targetView, true);
-            if (targetView === 'disease-pest') return isExecutiveAccessUser() && navigationPreferencesAllowed(targetView, true);
-            if (targetView === 'request') {
-                const capabilities = getRequestCapabilities();
-                return (canonicalAllowed === true || !!(capabilities && capabilities.canViewQueue) || canSeeEvalWorkRequestTab() || ((!userOverride || userOverride === currentUser) && canUseInvBunchNotes())) && navigationPreferencesAllowed(targetView, true);
-            }
-            const access = getRoleAccessState('', userOverride);
-            if (['sales-inventory','inventory-suggestion','inv-consolidation'].includes(targetView)) {
-                return navigationPreferencesAllowed('sales-inventory', access.allowedViews.has('sales-inventory') || ((!userOverride || userOverride === currentUser) && canUseInvBunchNotes()));
-            }
-            if (targetView === 'moves') return navigationPreferencesAllowed(targetView, canUseMovesModule() || access.allowedViews.has('moves'));
-            return navigationPreferencesAllowed(targetView, access.allowedViews.has(targetView));
+            return canAccessOperationalView(targetView, userOverride);
         }
 
         function isSalesShellAccess(access = getRoleAccessState()) {
@@ -90886,31 +90823,14 @@ function toggleDriveQuickRequestItem(domId) {
         function populateDetailSummaryValues(item = activeItem, detailSourceView = '') {
             if (!item) return;
             const safeDetailSourceView = String(detailSourceView || activeDetailSourceView || lastView || '').trim().toLowerCase();
-            document.getElementById('det-common').innerText = item.COMMONNAME || '--';
-            document.getElementById('det-size').innerText = item.CONTSIZE || '--';
-            const detLocation = document.getElementById('det-location');
-            if (detLocation) detLocation.innerText = item.LOCATIONCODE || '--';
-            scheduleDetailTitleRowFit(0);
-            const isRequestDetail = isRequestDetailItem(item, safeDetailSourceView);
-            const useRequestStyleDetailShell = isRequestDetail;
-            const detailRoot = document.getElementById('view-detail');
-            if (detailRoot) detailRoot.classList.toggle('detail-request-mode', !!useRequestStyleDetailShell);
-            if (detailRoot) detailRoot.classList.toggle('detail-av-mode', safeDetailSourceView === 'av');
+            paintItemDetailSummaryText(item,safeDetailSourceView);
+            const isRequestDetail = isRequestDetailItem(item,safeDetailSourceView);
             if (typeof syncDetailPhotoUpdateMode === 'function') syncDetailPhotoUpdateMode();
             if (typeof syncRequestDetailScrollMode === 'function') syncRequestDetailScrollMode();
             renderAvDetailHero(item, safeDetailSourceView);
             paintAvDetailExtraInfo(item, safeDetailSourceView, isRequestDetail);
             renderRequestDesiredPanel(item, safeDetailSourceView);
             renderManagerApprovalDetailWorkspace(item, safeDetailSourceView);
-
-            document.getElementById('ov-loc').innerText = item.LOCATIONCODE || '--';
-            document.getElementById('ov-avail').innerText = item.PTRAVAILABLE || '0';
-            document.getElementById('ov-item').innerText = item.ITEMCODE || '--';
-            document.getElementById('ov-lot').innerText = item.LOTCODE || '--';
-            document.getElementById('ov-qual').innerText = item.QUALITYCODE || '--';
-            document.getElementById('ov-prior').innerText = item.PRIORITY || '--';
-            document.getElementById('ov-tag').innerText = getInventoryCardFieldTagColorDisplayValue(item) || '--';
-            document.getElementById('ov-season').innerText = firstNonEmptyValue(item.SEASON_SUPPLY, item.SEASONSUPPLY, '0');
 
             const globalAvContainer = document.getElementById('global-av-container');
             if (globalAvContainer) globalAvContainer.classList.add('hidden');
@@ -92183,30 +92103,7 @@ function toggleDriveQuickRequestItem(domId) {
             return false;
         }
 
-        function renderDetailShellView() {
-            if (window.BunchQueueShell?.isDetailOpen()) return 'request';
-            if (!activeItem) return 'overview';
-            if (typeof mountBloomscapesStaticBody === 'function') mountBloomscapesStaticBody('view-detail');
-            const detailShellStartedAt = beginInternalPerfMeasure();
-            const detailSourceView = String(activeDetailSourceView || lastView || '').trim();
-            const primaryDetailTab = runDetailPanelRender(() => configureDetailTabsForItem(activeItem, detailSourceView), ['drive','av'].includes(detailSourceView) ? 'location' : 'overview');
-            const targetDetailTab = resolveVisibleDetailTab(primaryDetailTab, 'overview');
-            const editPrefix = getDetailTabPrefix(targetDetailTab);
-            if (typeof mountBloomscapesStaticBody === 'function') mountBloomscapesStaticBody('det-' + targetDetailTab + '-content');
-            runDetailPanelRender(() => { populateDetailSummaryValues(activeItem, detailSourceView); });
-            if (detailSourceView.toLowerCase() === 'request') runDetailPanelRender(() => { renderSavedPhotos(); });
-            else runDetailPanelRender(() => { resetDetailDeferredMediaShell(); });
-            runDetailPanelRender(() => { applyCameraPermissions(detailSourceView, activeItem); });
-            runDetailPanelRender(() => { populatePrimaryDetailTabShell(targetDetailTab, detailSourceView, activeItem); });
-            runDetailPanelRender(() => { switchDetailTab(targetDetailTab, { suppressScroll: true, skipHydrate: true }); });
-            if (String(detailSourceView || '').trim().toLowerCase() === 'request') {
-                setRequestDetailLoadState('');
-                scheduleRequestDetailEntryVisible('shell', { skipOptionLoad: true });
-            }
-            if (editPrefix) runDetailPanelRender(() => applyProtectedEditState(editPrefix));
-            recordInternalPerfDuration('detailShellDurations', detailShellStartedAt, detailSourceView || 'detail');
-            return targetDetailTab;
-        }
+        /* @runtime-fragment assets/item-detail-first-paint.js */
 
         function setRequestDetailLoadState(status = '', message = '') {
             const panel = document.getElementById('request-detail-load-state');
@@ -92276,6 +92173,7 @@ function toggleDriveQuickRequestItem(domId) {
             const expectedToken = Number(token) || 0;
             if (!expectedToken || expectedToken !== detailHydrationToken) return false;
             if (getCurrentVisibleViewId() !== 'detail' || !activeItem) return false;
+            if (deferFocusedItemDetailHydration(expectedToken)) return false;
             const hydrationStartedAt = beginInternalPerfMeasure();
             const primaryDetailTab = getPrimaryDetailTabForItemContext(activeItem, activeDetailSourceView || lastView || '');
             const preferredTab = resolveVisibleDetailTab(activeDetailTab || primaryDetailTab, primaryDetailTab || 'overview');
@@ -103812,6 +103710,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
         }
 
         function canViewManagerEvalReports2(userOverride = '') {
+            if (typeof borrowedHelpPreview === 'function' && borrowedHelpPreview()?.area_access?.legacy_eval2 === 'HIDDEN') return false;
             if (!isFullAppAdministrator(userOverride) && !hasExplicitViewPermission('eval_reports_2',userOverride)) return false;
             const canonicalAllowed = canonicalFeaturePermission('can_access_eval_reports_2', userOverride);
             if (canonicalAllowed !== null) return canonicalAllowed;
@@ -132556,86 +132455,7 @@ ${folderNote ? `Folder Note: ${folderNote}
             setContainerHtmlWithSignature(container, html, reportRenderKey);
         }
 
-        function renderReports() {
-            if (ensureViewDataForRender('reports')) return;
-            const container = document.getElementById('reports-content');
-            const crumb = document.getElementById('reports-crumb');
-            if (!container) return;
-            const reportRenderKey = [
-                resolvedViewStateEpoch,
-                activeReportTab,
-                safeRole,
-                currentUser || '',
-                currentUserDisplay || '',
-                requestHistoryReportSalesRepSearchTerm,
-                requestHistoryReportCommonNameSearchTerm,
-                requestHistoryReportSelectedSalesRep,
-                requestHistoryReportSelectedCustomerConsignee,
-                requestHistoryReportDateStart,
-                requestHistoryReportDateEnd,
-                getConfiguredCurrentSeasonCode(),
-                getConfiguredCurrentSalesYearCode(),
-                JSON.stringify(getConfiguredNextSaleSeasonTarget() || {}),
-                getDatasetLoadSignature('master'),
-                getDatasetLoadSignature('requests'),
-                getDatasetLoadSignature('requestHistory'),
-                getDatasetLoadSignature('reserves'),
-                getDatasetLoadSignature('soc')
-            ].join('|');
-            if (reportsSummaryCacheKey === reportRenderKey && reportsSummaryCacheHtml) {
-                if (crumb) crumb.innerText = reportsSummaryCacheCrumb;
-                setContainerHtmlWithSignature(container, reportsSummaryCacheHtml, reportRenderKey);
-                return;
-            }
-            if (activeReportTab === 'REQUEST_HISTORY') {
-                renderRequestHistoryReport(container, crumb, reportRenderKey);
-                return;
-            }
-            if (activeReportTab === 'NON_SALEABLE_BUCKETS') {
-                renderNonSaleableBucketsReport(container, crumb, reportRenderKey);
-                return;
-            }
-
-            let seasonItems = fullInventory.filter(i => activeReportTab === 'ALL' ? true : String(i.SEASON || '').toUpperCase() === activeReportTab);
-            let reserveItems = reservesInventory;
-            let requestItems = getScopedRequestItems(requestsInventory).filter(i => !i.REQ_ARCHIVED);
-            let dockItems = socInventory;
-
-            const hasGlobalRequestAccess = canUseGlobalRequestAccess();
-            if (safeRole === 'SALESREP') {
-                reserveItems = reserveItems.filter(i => isMyRep(firstNonEmptyValue(i.SALESREPNAME, i.SALESREP, i.SALES_REP, i.SALESREPID, '')));
-                if (!hasGlobalRequestAccess) requestItems = requestItems.filter(i => isMyRep(i.REQUESTED_BY));
-                dockItems = dockItems.filter(i => isMyRep(i.SALESREPNAME || i.SALESREPID));
-            }
-
-            const sumField = (arr, key) => arr.reduce((sum, item) => sum + (parseInt(String(item[key] || 0).replace(/,/g, '')) || 0), 0);
-            const summaryCards = [
-                { label: activeReportTab === 'ALL' ? 'Open Stock Rows' : `${activeReportTab} Rows`, value: seasonItems.length },
-                { label: 'Available', value: sumField(seasonItems, 'PTRAVAILABLE').toLocaleString() },
-                { label: 'Season Supply', value: sumField(seasonItems, 'SEASONSUPPLY').toLocaleString() },
-                { label: safeRole === 'SALESREP' ? 'My Reserves' : 'Reserves', value: reserveItems.length.toLocaleString() },
-                { label: safeRole === 'SALESREP' && !hasGlobalRequestAccess ? 'My Que' : 'Que', value: requestItems.length.toLocaleString() },
-                { label: safeRole === 'SALESREP' ? 'My Dock Rows' : 'Dock Rows', value: dockItems.length.toLocaleString() }
-            ];
-
-            const topPlants = Object.values(seasonItems.reduce((acc, item) => {
-                const key = `${item.COMMONNAME || 'Unknown'}|${item.CONTSIZE || '-'}`;
-                if (!acc[key]) acc[key] = { name: item.COMMONNAME || 'Unknown', size: item.CONTSIZE || '-', rows: 0, ptr: 0 };
-                acc[key].rows += 1;
-                acc[key].ptr += parseInt(String(item.PTRAVAILABLE || 0).replace(/,/g, '')) || 0;
-                return acc;
-            }, {})).sort((a, b) => b.rows - a.rows).slice(0, 12);
-
-            const crumbText = activeReportTab === 'ALL' ? 'Crop Value Summary' : `${activeReportTab} Summary`;
-            if (crumb) crumb.innerText = crumbText;
-            const cardsHtml = summaryCards.map(card => `<div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm"><div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">${card.label}</div><div class="text-2xl font-black text-[#007a4d] leading-none">${card.value}</div></div>`).join('');
-            const topHtml = topPlants.length ? topPlants.map(plant => `<div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm flex justify-between items-center gap-3"><div class="min-w-0"><div class="font-bold text-gray-800 truncate">${plant.name}</div><div class="text-xs font-semibold text-gray-500">${plant.size}</div></div><div class="text-right shrink-0"><div class="text-xs font-bold text-gray-400 uppercase">Rows</div><div class="font-black text-[#007a4d]">${plant.rows}</div><div class="text-[11px] font-semibold text-gray-500 mt-1">Available ${plant.ptr.toLocaleString()}</div></div></div>`).join('') : `<div class="p-8 text-center text-gray-400">No report data found for this selection.</div>`;
-            const html = `<div class="grid grid-cols-2 gap-3 mb-4">${cardsHtml}</div><div class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Top Plants</div><div class="space-y-3">${topHtml}</div>`;
-            reportsSummaryCacheKey = reportRenderKey;
-            reportsSummaryCacheHtml = html;
-            reportsSummaryCacheCrumb = crumbText;
-            setContainerHtmlWithSignature(container, html, reportRenderKey);
-        }
+        /* @runtime-fragment assets/legacy-reports-view.js */
 
         const ADVERTISEMENT_FABRIC_ASSET_URL = new URL('./assets/vendor/fabric-6.7.1.min.mjs', document.baseURI).href;
         const ADVERTISEMENT_CANVAS_SIZE = 1080;

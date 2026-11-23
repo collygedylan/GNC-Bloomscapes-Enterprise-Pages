@@ -252,22 +252,13 @@ function renderDriveCommonNameList(container,crumb,resolvedDriveModeLabel,visibl
 }
 
 function renderDriveCommonNameSizes(container,crumb,resolvedDriveModeLabel,selectedNameItems,reportSort) {
-    const sizeMap = new Map();
-    selectedNameItems.forEach((item) => {
-        const contSize = getDrivePlantContSize(item) || '-';
-        if (!sizeMap.has(contSize)) sizeMap.set(contSize, { size: contSize, rowCount: 0, seasons: new Set(), __driveRenderKeyValue: '' });
-        const entry = sizeMap.get(contSize);
-        entry.rowCount += 1;
-        entry.seasons.add(String(firstNonEmptyValue(item.SEASON, '') || '').trim().toUpperCase() || 'UNKNOWN');
+    const compare = reportSort ? ()=>0 : compareDrivePlantContSize;
+    const grouped = groupDriveBrowseRows(selectedNameItems,item=>getDrivePlantContSize(item) || '-',compare);
+    const groups = grouped.map(([size,rows])=>{
+        const seasons = new Set(rows.map(row=>String(firstNonEmptyValue(row.SEASON,'') || '').trim().toUpperCase() || 'UNKNOWN'));
+        return {size,rowCount:rows.length,seasonCount:seasons.size,
+            __driveRenderKeyValue:`${selectedDriveName}|${size}|${rows.length}|${seasons.size}`};
     });
-    const groups = [...sizeMap.values()]
-        .map((entry) => ({
-            size: entry.size,
-            rowCount: entry.rowCount,
-            seasonCount: entry.seasons.size,
-            __driveRenderKeyValue: `${selectedDriveName}|${entry.size}|${entry.rowCount}|${entry.seasons.size}`
-        }));
-    if (!reportSort) groups.sort((a, b) => compareDrivePlantContSize(a.size, b.size));
     const allSeasons = new Set(selectedNameItems.map((item) => String(firstNonEmptyValue(item.SEASON, '') || '').trim().toUpperCase() || 'UNKNOWN'));
     const sizeGroups = [{
         size: DRIVE_DRILL_ALL_VALUE,

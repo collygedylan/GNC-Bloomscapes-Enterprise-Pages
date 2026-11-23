@@ -9935,20 +9935,6 @@ body.ops-precision-pilot.current-view-request #request-filter-toolbar {
 
 /* Shared Bloom card contract: title/photo/index share one stable header, while
    metadata wraps above the responsive six-metric grid. */
-#bloom-picker-actions-list:not(.hidden) {
-  display: flex !important;
-  flex-wrap: nowrap !important;
-  align-items: stretch !important;
-  gap: 6px !important;
-  max-width: 100%;
-  overflow-x: auto !important;
-  overflow-y: hidden !important;
-  overscroll-behavior-x: contain;
-  touch-action: pan-x;
-  scrollbar-width: thin;
-}
-#bloom-picker-actions-list > :is(button, div) { flex: 0 0 auto !important; }
-#bloom-picker-actions-list > div > button { min-width: 72px; min-height: 52px; }
 .app-bloom-card-header {
   display: grid;
   grid-template-columns: 92px minmax(0, 1fr) auto;

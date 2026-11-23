@@ -75,9 +75,9 @@ function evalAggregateDashboardState() {
     const permission = String(appAccessSnapshotState.snapshot?.dataPermissionVersion || '');
     const previous = window.__evalAggregateDashboard;
     if (previous?.owner === owner && previous.permission === permission) return previous;
-    const selected = previous?.owner === owner ? previous.selected : '';
-    return window.__evalAggregateDashboard = { owner, permission, selected, model: null, source: null,
-        pending: null, attempted: false, error: '' };
+    const retained = previous?.owner === owner ? previous : null;
+    return window.__evalAggregateDashboard = { owner, permission, selected:retained?.selected || '',
+        nurseryReport:retained?.nurseryReport || null, model:null, source:null, pending:null, attempted:false, error:'' };
 }
 
 function isEvalAggregateDashboardVisible() {
@@ -140,9 +140,15 @@ function getEvalAggregateDashboardModel(state = evalAggregateDashboardState()) {
     return state.model;
 }
 
+function isPublishedScheduleReportActive(state) {
+    const report = currentNurseryPlanningReport(state);
+    return report?.tab === 'schedule' || report?.showSchedule === true;
+}
+
 function queueEvalAggregateDashboardRefresh(force = false) {
     if (!canViewManagerEvalReports2()) return;
     const state = evalAggregateDashboardState();
+    if (isPublishedScheduleReportActive(state)) return;
     if (state.pending || !force && (state.source?.ready || state.attempted)) return;
     state.attempted = true;
     state.error = '';
@@ -153,7 +159,7 @@ function queueEvalAggregateDashboardRefresh(force = false) {
         if (getCurrentVisibleViewId() !== 'managers' || activeHomeTab !== MANAGER_EVAL_REPORTS_2_VIEW
             || evalAggregateDashboardState() !== state || !canViewManagerEvalReports2()) return;
         if (!evalAggregateDashboardSource().ready) state.error ||= 'Showing loaded rows. Retry to refresh inventory.';
-        if (!state.selected || state.selected === 'field-audit') scheduleManagersRender(true);
+        if (!isPublishedScheduleReportActive(state) && (!state.selected || state.selected === 'field-audit')) scheduleManagersRender(true);
     });
 }
 
@@ -171,8 +177,8 @@ function syncEvalOverviewAuditRows() {
 
 function refreshVisibleEvalOverview() {
     if (activeHomeTab !== MANAGER_EVAL_REPORTS_2_VIEW || getCurrentVisibleViewId() !== 'managers' || !canViewManagerEvalReports2()) return;
-    const { selected } = evalAggregateDashboardState();
-    if (!selected || selected === 'field-audit') scheduleManagersRender(true);
+    const state = evalAggregateDashboardState();
+    if (!isPublishedScheduleReportActive(state) && (!state.selected || state.selected === 'field-audit')) scheduleManagersRender(true);
 }
 
 function openEvalAggregateReport(reportId) {

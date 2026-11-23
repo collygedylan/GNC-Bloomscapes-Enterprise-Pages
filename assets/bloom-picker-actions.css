@@ -1,0 +1,50 @@
+[data-bloom-action-anchor] { position: relative; }
+
+#app-wrapper #global-action-bar { z-index: 60; }
+
+#global-action-bar #bloom-picker-actions-toggle:not(.hidden),
+#global-action-bar #bloom-picker-actions-list:not(.hidden) {
+  background: #0b2417;
+  border: 1px solid #407b5c;
+  color: #ecfdf3;
+  border-radius: 10px;
+  touch-action: manipulation;
+}
+
+#global-action-bar #bloom-picker-actions-list:not(.hidden) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  position: absolute;
+  inset-inline: 0;
+  bottom: calc(100% + 8px);
+  z-index: 60;
+  max-height: min(52dvh, 340px) !important;
+  overflow-x: hidden;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  padding: 6px;
+}
+
+#bloom-picker-actions-list button:not(.hidden, [hidden]) {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 38px;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid #407b5c;
+  border-radius: 8px;
+  background: #103220;
+  color: #ecfdf3;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+  touch-action: manipulation;
+}
+
+#bloom-picker-actions-list button > i { margin: 0; }
+#bloom-picker-actions-list button:focus-visible { outline: 2px solid #93e9ba; outline-offset: -3px; }
+#bloom-export-feedback { padding-inline: 10px; font-size: .85rem; }

@@ -232,40 +232,24 @@ button.card-eval-owner[data-owner-item] { pointer-events: auto; cursor: pointer;
 [data-module-subview] button:focus-visible { outline: 2px solid #93e9ba; outline-offset: -3px; }
 [data-module-subview-trigger]:disabled { cursor: default; opacity: .6; }
 
-#global-action-bar #bloom-picker-actions-toggle:not(.hidden),
-#global-action-bar #bloom-picker-actions-list:not(.hidden) {
-  background: #0b2417;
-  border: 1px solid #407b5c;
-  color: #ecfdf3;
-  border-radius: 10px;
-  touch-action: manipulation;
+#eval-reports-controls:not([hidden]) { position:sticky; top:0; z-index:30; background:#103220; color:#ecfdf5; padding:8px; }
+.report-drive-modes { display:flex; flex-wrap:wrap; gap:6px; }
+.report-drive-modes button { padding:6px 10px; border:1px solid #529370; border-radius:8px; background:#0b2417; text-transform:uppercase; }
+.report-drive-modes button[aria-pressed=true] { background:#215738; }
+.report-drive-level,.report-drive-count { font-weight:700; margin-block:8px; }
+.report-drive-group { display:flex; justify-content:space-between; align-items:center; width:100%; min-height:44px; padding:8px 12px; }
+.report-hold-badge { display:inline-block; border-radius:8px; padding:4px 8px; background:#523711; color:#fff1cb; }
+
+
+.ps-page dialog {
+  width: min(calc(100vw - 24px), 720px);
+  max-height: 85dvh;
+  overflow-y: auto;
+  padding: 16px;
+  border-radius: 12px;
 }
 
-#global-action-bar #bloom-picker-actions-list:not(.hidden) {
-  display: grid;
-  gap: 4px;
-  max-height: min(42dvh, 360px);
-  overflow: auto;
-  padding: 6px;
-}
+.ps-page [data-schedule-detail] :is(dt, dd) { min-width: 0; overflow-wrap: anywhere; }
 
-#bloom-picker-actions-list button:not(.hidden, [hidden]) {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  min-height: 38px;
-  gap: 8px;
-  padding: 6px 10px;
-  border: 1px solid #407b5c;
-  border-radius: 8px;
-  background: #103220;
-  color: #ecfdf3;
-  font-size: 13px;
-  font-weight: 700;
-  text-align: left;
-  touch-action: manipulation;
-}
-
-#bloom-picker-actions-list button > i { margin: 0; }
-#bloom-picker-actions-list button:focus-visible { outline: 2px solid #93e9ba; outline-offset: -3px; }
-#bloom-export-feedback { padding-inline: 10px; font-size: .85rem; }
+#view-reports [data-report-back]:not([hidden]),
+.ps-page :is([data-schedule-back], [data-schedule-close]):not([hidden]) { display: inline-flex !important; }

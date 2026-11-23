@@ -144,3 +144,57 @@ function filterBloomscapesPreviewInventoryRows(rows) {
     if (!preview.farm_scopes?.includes(farm)) return [];
     return rows.filter(row => exactBloomscapesReclassOwner(row,farm) === username);
 }
+
+function canAccessOperationalView(targetView, userOverride) {
+    if (targetView === 'historical-requests') return (!userOverride || userOverride === currentUser) && canUseHistoricalRequests() && navigationPreferencesAllowed(targetView, true);
+    if (window.SalesWorkspace?.isView(targetView)) {
+        const access = getRoleAccessState('', userOverride);
+        const base = access.isRepLike || access.isAdmin || canViewManagerSalesReps();
+        return navigationPreferencesAllowed(targetView, base);
+    }
+    if (targetView === 'bunch-note') return (!userOverride || userOverride === currentUser) && canUseInvBunchNotes() && navigationPreferencesAllowed(targetView, true);
+    if (targetView === 'hl-order') return (!userOverride || userOverride === currentUser) && canUseHlOrder() && navigationPreferencesAllowed(targetView, true);
+    if (targetView === 'managers' && isManagerViewDeniedUser(userOverride) && !getRoleAccessState('', userOverride).isAdmin) return false;
+    const canonicalFlag = { drive: 'can_access_drive_mode', av: 'can_access_av', request: 'can_access_que', managers: 'can_access_manager_tab' }[targetView];
+    const canonicalAllowed = canonicalFlag ? canonicalFeaturePermission(canonicalFlag, userOverride) : null;
+    if (canonicalAllowed === false) return false;
+    if (canonicalAllowed === true && targetView !== 'request') return navigationPreferencesAllowed(targetView, true);
+    if (targetView === 'pest-management') return isExecutiveAccessUser() && navigationPreferencesAllowed(targetView, true);
+    if (targetView === 'disease-pest') return isExecutiveAccessUser() && navigationPreferencesAllowed(targetView, true);
+    if (targetView === 'request') {
+        const capabilities = getRequestCapabilities();
+        return (canonicalAllowed === true || !!(capabilities && capabilities.canViewQueue) || canSeeEvalWorkRequestTab() || ((!userOverride || userOverride === currentUser) && canUseInvBunchNotes())) && navigationPreferencesAllowed(targetView, true);
+    }
+    const access = getRoleAccessState('', userOverride);
+    if (['sales-inventory','inventory-suggestion','inv-consolidation'].includes(targetView)) {
+        return navigationPreferencesAllowed('sales-inventory', access.allowedViews.has('sales-inventory') || ((!userOverride || userOverride === currentUser) && canUseInvBunchNotes()));
+    }
+    if (targetView === 'moves') return navigationPreferencesAllowed(targetView, canUseMovesModule() || access.allowedViews.has('moves'));
+    return navigationPreferencesAllowed(targetView, access.allowedViews.has(targetView));
+}
+
+function getActiveEvalReportsAccess() {
+    if (!nativeAuthSessionActive) return {scope:'legacy'};
+    const preview = borrowedHelpPreview();
+    const expected = expectedEvalReportsScope(nativeAuthProfile, preview);
+    if (preview && preview.role !== 'eval') return {scope:'legacy'};
+    if (preview) {
+        return expected === 'own' && preview.area_access?.reports === 'VIEW_ONLY'
+            ? {scope:'own', preview:preview.username} : {scope:'hidden'};
+    }
+    if (expected === 'hidden') return {scope:'legacy'};
+    const matrix = resolveUserAccessMatrix(currentUser);
+    const views = matrix?.view_permissions;
+    const verified = matrix?.verified && matrix.profile_id === nativeAuthProfile?.id && currentUser === nativeAuthProfile.username;
+    return {scope:verified && views?.view_reports === 'Y' && views.eval_reports_scope === expected ? expected : 'hidden'};
+}
+
+async function readEvalReportsScope(farm, preview = null) {
+    const {client,owner} = await requireBloomscapesSession();
+    const receipt = bloomscapesData(await client.rpc('gnc_eval_reports_scope', {p_farm:farm,p_preview:preview}));
+    await requireBloomscapesOwner(owner);
+    if (receipt?.farm_code !== farm || !Array.isArray(receipt.evaluators)) throw new Error('Evaluator scope could not be verified.');
+    if (preview && (receipt.scope !== 'own' || receipt.evaluators.length !== 1
+        || receipt.evaluators[0].username !== preview)) throw new Error('Evaluator preview scope could not be verified.');
+    return receipt;
+}

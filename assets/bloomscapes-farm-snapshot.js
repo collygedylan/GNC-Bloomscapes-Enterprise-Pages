@@ -20,7 +20,9 @@ async function readBloomscapesFarmSnapshot(farm,assertCurrent,background) {
     assertCurrent();
     const entries = await readBloomscapesFarmSnapshotTables(farm,assertCurrent,background);
     assertCurrent();
-    if (await readBloomscapesFarmRevision(farm,background)!==revision) throw Object.assign(
+    const confirmedRevision = await readBloomscapesFarmRevision(farm,background);
+    assertCurrent();
+    if (confirmedRevision!==revision) throw Object.assign(
         new Error('Inventory was updated during the snapshot read.'),{code:'FARM_SNAPSHOT_REVISION_CHANGED'});
     return {farm,revision,lastSyncRevisionAt,...Object.fromEntries(entries)};
 }
@@ -70,6 +72,12 @@ async function readBloomscapesFarmPage(table,query,count,signal,background,farm)
     const read = () => fetchDirectPostgrestReadPage(table,query,{count,signal:background ? background.signal() : signal},false);
     try { return await read(); }
     catch (error) {
+        if (activeSignal?.aborted) {
+            const promoted = background?.signal();
+            if (!promoted || promoted === activeSignal) activeSignal.throwIfAborted();
+            await background.checkpoint();
+            return read();
+        }
         if (background && error.code==='DATASET_READ_SCOPE_CHANGED') {
             await background.checkpoint();
             return read();

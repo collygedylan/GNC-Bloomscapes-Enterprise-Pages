@@ -21,8 +21,10 @@ function selectBloomscapesFarm(farm) {
     const state = bloomscapesFarmState;
     if (!state.loaded) return ensureBloomscapesFarmAccess().then(()=>selectBloomscapesFarm(farm));
     if (!state.allowed.includes(farm)) return Promise.reject(new Error('Choose one of your permitted farms.'));
-    if (state.busy) return farm===state.farm ? state.selection : Promise.reject(new Error('Farm inventory is still loading.'));
-    const previous = state.farm;
+    if (state.busy && farm===state.farm) return state.selection;
+    const previous = state.readyFarm || state.farm;
+    if (state.busy) cancelBloomscapesFarmRead(state.farm);
+    const token = state.selectionToken = Symbol(farm);
     rememberBloomscapesFarmPublication();
     state.farm = farm;
     state.confirmed = true;
@@ -31,14 +33,15 @@ function selectBloomscapesFarm(farm) {
     if (selector) selector.value = farm;
     if (previous!==farm) resetBloomscapesFarmNavigation();
     const visit = typeof getCurrentVisibleViewId==='function' ? currentDocksReadVisit() : null;
-    state.selection = hydrateBloomscapesChosenFarm(state,farm,previous,visit);
+    state.selection = hydrateBloomscapesChosenFarm(state,farm,previous,visit,token);
     return state.selection;
 }
 
-async function hydrateBloomscapesChosenFarm(state,farm,previous,visit) {
+async function hydrateBloomscapesChosenFarm(state,farm,previous,visit,token = state.selectionToken) {
+    const selectionIsCurrent = () => state===bloomscapesFarmState && token===state.selectionToken;
     try {
         const snapshot = getBloomscapesWarmFarm(farm) || await ensureBloomscapesWarmFarm(farm);
-        if (state!==bloomscapesFarmState || state.farm!==farm) throw new Error('Signed-in account changed.');
+        if (!selectionIsCurrent() || state.farm!==farm) return false;
         activateBloomscapesWarmFarm(snapshot);
         state.readyFarm = farm;
         persistBloomscapesSessionFarm(state);
@@ -48,15 +51,16 @@ async function hydrateBloomscapesChosenFarm(state,farm,previous,visit) {
         scheduleBloomscapesFarmRevalidation(state,farm,visit);
         return farm;
     } catch (error) {
-        if (state===bloomscapesFarmState && state.readyFarm!==farm) {
+        if (!selectionIsCurrent()) return false;
+        if (state.readyFarm!==farm) {
             state.farm=previous;
-            renderBloomscapesFarmNavigation();
+            if (farm!==previous) renderBloomscapesFarmNavigation();
         }
-        if (state===bloomscapesFarmState && previous===farm && state.farm===farm
-            && (error.name==='AbortError' || error.code==='FARM_SNAPSHOT_REVISION_CHANGED')) return farm;
+        if (error.name==='AbortError' || ['REQUEST_ABORTED','FARM_SNAPSHOT_SCOPE_CHANGED','DATASET_READ_SCOPE_CHANGED'].includes(error.code)) return false;
+        if (previous===farm && error.code==='FARM_SNAPSHOT_REVISION_CHANGED') return farm;
         throw error;
     } finally {
-        if (state===bloomscapesFarmState) { state.busy = false; state.selection = null; }
+        if (selectionIsCurrent()) { state.busy = false; state.selection = null; }
     }
 }
 
