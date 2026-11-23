@@ -269,3 +269,13 @@ html body #app-wrapper #view-production [data-studio-excel] .inventory-excel-fie
 #app-wrapper #view-production [data-studio-excel] .inventory-excel-field :is(select,button) {
   box-sizing: border-box; min-width: 0; max-width: 100%; width: 100%; overflow: hidden; text-overflow: ellipsis;
 }
+
+#studio-production-schedule {
+  display: none !important;
+}
+
+body.current-view-production #view-wrapper:has(> #view-production > [data-department-workspace="bloomscapes-studio"])
+> #studio-production-schedule:not([hidden]) {
+  display: inline-flex !important;
+  margin-block-end: 8px;
+}

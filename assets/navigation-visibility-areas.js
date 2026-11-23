@@ -173,8 +173,7 @@ function canShowBloomscapesHomeTile(view) {
     const preview = typeof borrowedHelpPreview === 'function' && borrowedHelpPreview();
     if (view === 'field-work-consolidation') return canViewFieldWorkConsolidation();
     if (view === 'studio') return preview ? previewShowsAreaView(preview, 'studio') : canUseBloomscapesWorkStudio();
-    if (view === 'production-schedule') return bloomscapesAreaChoices(BLOOMSCAPES_BUSINESS_AREAS[1])
-        .some(([key]) => key === view) && canAccessView('managers');
+    if (view === 'production-schedule') return false;
     if (view === 'reports' && !preview && getActiveEvalReportsAccess().scope === 'legacy') return canViewManagerEvalReports2();
     if (['borrowed-work','time-cards'].includes(view)) return canOpenBloomscapesHomeLeadership(view,preview);
     const route = view === 'inventory-office' ? 'moves' : view === 'walkie' ? 'push-to-talk' : view;
@@ -184,6 +183,9 @@ function canShowBloomscapesHomeTile(view) {
 function syncBloomscapesHomeTileVisibility(grid) {
     if (typeof syncFieldWorkConsolidationVisibility==='function') syncFieldWorkConsolidationVisibility();
     if (!nativeAuthSessionActive || !grid) return;
+    const schedule = document.getElementById('studio-production-schedule');
+    if (schedule) schedule.hidden = !bloomscapesAreaChoices(BLOOMSCAPES_BUSINESS_AREAS[1])
+        .some(([key])=>key === 'production-schedule') || !canAccessView('managers');
     grid.querySelector('[data-home-account-navigation]')?.remove();
     let visibleCount = 0;
     for (const tile of grid.querySelectorAll('[data-home-module-view]')) {

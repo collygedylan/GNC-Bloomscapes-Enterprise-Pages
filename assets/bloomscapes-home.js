@@ -8,6 +8,7 @@ function mountBloomscapesHomeModules() {
     if (typeof primeBorrowedHelpRoutes === 'function') primeBorrowedHelpRoutes();
     const grid = ensureHomeModuleRegistry();
     if (!grid) return;
+    grid.querySelector('#home-tile-production-schedule')?.remove();
     grid.dataset.bloomscapesHome = 'tiles';
     grid.querySelector('#home-tile-field-work-consolidation')?.setAttribute('aria-description','Bed Space Advisor');
     mountBloomscapesAreaHubs(grid);

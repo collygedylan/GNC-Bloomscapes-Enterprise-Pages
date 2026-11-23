@@ -103,7 +103,7 @@ function evalReportInventoryCard(row, showHold, cardRenderer) {
     return '<div><p class="report-hold-badge">' + esc(evalReportHoldReason(row)) + '</p>' + card + '</div>';
 }
 
-function paintReportInventoryDrill(content, state, rows, signature, before = '', showHold = false, cardRenderer) {
+function paintReportInventoryDrill(content, state, rows, signature, before = '', showHold = false, cardRenderer, ownerView = 'reports') {
     const view = resolveDriveBrowseLevel(rows, state, reportDriveDimensions);
     const key = JSON.stringify([signature, state.mode, state.path]);
     if (!view.rows.length) {
@@ -111,12 +111,12 @@ function paintReportInventoryDrill(content, state, rows, signature, before = '',
     } else if (view.level) {
         const caption = '<h3 class="report-drive-level">' + esc(view.level.label) + '</h3>';
         const render = ([name, group])=>evalReportDrillGroup(name, group, view.level);
-        if (!renderInventoryCardWindow(content, view.groups, render, {view:'reports', signature:key, estimatedHeight:72, prefixHtml:before+caption})) {
+        if (!renderInventoryCardWindow(content, view.groups, render, {view:ownerView, signature:key, estimatedHeight:72, prefixHtml:before+caption})) {
             setContainerHtmlWithSignature(content, before + caption + view.groups.map(render).join(''), key);
         }
     } else {
         const render = row=>evalReportInventoryCard(row,showHold,cardRenderer || renderReportDriveCard);
-        if (!renderInventoryCardWindow(content, view.rows, render, {view:'reports', signature:key, prefixHtml:before})) {
+        if (!renderInventoryCardWindow(content, view.rows, render, {view:ownerView, signature:key, prefixHtml:before})) {
             setContainerHtmlWithSignature(content, before + view.rows.map(render).join(''), key);
         }
     }

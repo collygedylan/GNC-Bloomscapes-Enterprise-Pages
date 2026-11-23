@@ -1,15 +1,19 @@
 function evalReportHoldCode(row) {
-    const code = String(row.holdstopcode ?? row.HOLDSTOPCODE ?? '').trim();
+    const code = String(row.holdstopcode || row.HOLDSTOPCODE || row.hold_stop_code || row.hold || row.raw?.holdstopcode || '').trim();
     return /^(none|null)$/i.test(code) ? '' : code;
 }
 
 function evalReportPlantGroup(row) {
-    return String(row.plantgroupcode ?? row.PLANTGROUPCODE ?? row.plantgroup ?? row.PLANTGROUP ?? row.plt_grp ?? row.PLT_GRP ?? '').trim();
+    return String(row.plantgroupcode || row.PLANTGROUPCODE || row.plantgroup || row.PLANTGROUP || row.plt_grp || row.PLT_GRP || row.raw?.plantgroupcode || '').trim();
+}
+
+function evalReportHoldReasonText(row) {
+    return String(row.holdstopreason || row.HOLDSTOPREASON || row.hold_stop_reason || row.raw?.holdstopreason || '').trim();
 }
 
 function evalReportHoldReason(row) {
     const code = evalReportHoldCode(row);
-    const reason = String(row.holdstopreason ?? row.HOLDSTOPREASON ?? '').trim();
+    const reason = evalReportHoldReasonText(row);
     return reason ? code + ' — ' + reason : code;
 }
 
@@ -29,6 +33,7 @@ function filterEvalReportHoldRows(rows, plantGroup, reason) {
 }
 
 const evalTransitionSeasons = new Set(['F1', 'S1', 'U1', 'U2', 'U3']);
+const evalReportSeasons = new Set(['F1', 'S1', 'U1', 'U2', 'U3', 'Y', 'Z', 'X']);
 const evalSummerSeasons = ['U1', 'U2', 'U3'];
 const evalReportLeads = new Set(['dylan_collyge', 'megan_kelly', 'mitch_kaiser', 'mitch_kasier', 'jd_jones']);
 
@@ -38,18 +43,29 @@ function evalReportKey(value) {
 
 function normalizeEvalReportSalesYear(value) {
     const year = String(value ?? '').trim().replace(/\.0+$/, '');
-    if (/^\d{1,2}$/.test(year)) return 2000 + Number(year);
-    return /^\d{4}$/.test(year) ? Number(year) : null;
+    if (/^\d{1,2}$/.test(year) && Number(year) > 0) return 2000 + Number(year);
+    return /^(?:19|20)\d{2}$/.test(year) ? Number(year) : null;
 }
 
 function evalReportSeason(value) {
     return String(value ?? '').trim().toUpperCase().replace(/^(?:\d{2}|\d{4})\s*\.\s*/, '');
 }
 
+function resolveEvalReportCrop(row) {
+    const lot = String(row.lotcode || row.LOTCODE || row.lot || row.LOT || '').trim();
+    const lotParts = /^(\d{2}|\d{4})\s*\.\s*(F1|S1|U1|U2|U3|Y|Z|X)(?=\b|$)/i.exec(lot);
+    const seasons = [row.season, row.SEASON, row.stock_season, row.lot_season, row.raw?.season];
+    const years = [row.salesyear, row.saleyear, row.SALESYEAR, row.SALEYEAR, row.sales_year, row.raw?.saleyear];
+    return {
+        season: seasons.map(evalReportSeason).find(value=>evalReportSeasons.has(value)) || evalReportSeason(lotParts?.[2]),
+        salesYear: years.map(normalizeEvalReportSalesYear).find(value=>value !== null) ?? normalizeEvalReportSalesYear(lotParts?.[1]),
+        designation: row.desigitem || row.DESIGITEM || row.desig_item || row.itemdesig || row.raw?.desigitem || ''
+    };
+}
+
 function evalReportRowFacts(row, year) {
-    const season = evalReportSeason(row.season ?? row.SEASON);
-    const salesYear = normalizeEvalReportSalesYear(row.salesyear ?? row.saleyear ?? row.SALESYEAR ?? row.SALEYEAR);
-    const shifted = String(row.desigitem ?? row.DESIGITEM ?? '').toUpperCase().includes('SHFT');
+    const {season, salesYear, designation} = resolveEvalReportCrop(row);
+    const shifted = String(designation).toUpperCase().includes('SHFT');
     return {
         season, shifted, hold: Boolean(evalReportHoldCode(row)),
         transition: evalTransitionSeasons.has(season) && !(season === 'U3' && shifted) && year !== null && salesYear !== null,
@@ -82,15 +98,26 @@ function expectedEvalReportsScope(profile, preview = null) {
     return profile?.role === 'eval' ? 'own' : 'hidden';
 }
 
+function evalReportRowIsInFarm(row, farm) {
+    const rowFarm = row.farm_code || row.FARM_CODE || row.warehouse_id || row.WAREHOUSE_ID
+        || row.warehousei || row.WAREHOUSEI || row.warehouseid || row.WAREHOUSEID || '10';
+    return String(rowFarm).trim().toUpperCase() === farm || String(rowFarm).trim() === farm.split('-')[0];
+}
+
 function resolveExactOwnerForRow(row, owners, farm) {
-    const rowFarm = row.farm_code ?? row.FARM_CODE ?? row.warehouse_id ?? row.WAREHOUSE_ID ?? row.warehouseid ?? row.WAREHOUSEID;
-    if (rowFarm && rowFarm !== farm && String(rowFarm) !== farm.split('-')[0]) return '';
+    if (!evalReportRowIsInFarm(row, farm)) return '';
     const uid = String(row.unique_id ?? row.UNIQUE_ID ?? '').trim();
     return owners.get(uid) || '';
 }
 
+function getEvalRoleReportRows(rows, id, activeAppSalesYear) {
+    const report = EVAL_ROLE_REPORTS.find(entry=>entry.id === id);
+    const year = normalizeEvalReportSalesYear(activeAppSalesYear) ?? 2027;
+    return report ? rows.filter(row=>report.matches(evalReportRowFacts(row, year))) : [];
+}
+
 function buildEvalRoleReportsCatalog({rows, evaluators, farm, activeAppSalesYear}) {
-    const year = normalizeEvalReportSalesYear(activeAppSalesYear);
+    const year = normalizeEvalReportSalesYear(activeAppSalesYear) ?? 2027;
     const owners = new Map();
     const catalog = new Map();
     for (const {username, display_name, row_ids} of evaluators) {

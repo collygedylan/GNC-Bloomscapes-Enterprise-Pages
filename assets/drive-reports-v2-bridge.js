@@ -153,7 +153,6 @@ function renderDriveReport2Browse(container, crumb, driveModeLabel) {
 
 function renderDrive() {
     ensureDriveToolbarControls();
-    if (ensureViewDataForRender('drive')) return;
     if (activeDriveTab === 'season-sales-notes') activeDriveTab = 'card';
     syncDriveModeTabs();
     syncDriveTabPills();
@@ -166,8 +165,10 @@ function renderDrive() {
     mountDriveSavedReports(getDriveReport2State(driveReport2Context()),evaluator);
     if (mountDriveEvaluatorReports(container,evaluator)) {
         hideDriveReport2BrowseBar();
+        hideDrivePlantFilters();
         return;
     }
+    if (ensureViewDataForRender('drive')) return;
     if (!canUseDriveCustomReports() && !driveReport2BrowseTab(activeDriveTab)) return setDriveTab('name',{exitReport:true});
     if (activeDriveMode === 'ok' && driveReport2BrowseTab(activeDriveTab)) {
         releaseDriveReport2Ui(container);

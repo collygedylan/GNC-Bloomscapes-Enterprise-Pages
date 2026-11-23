@@ -31,10 +31,9 @@ async function loadDriveEvaluatorReport(state) {
         const [receipt,loaded]=await Promise.all([readEvalReportsScope(state.farm,state.preview),
             loadCompleteEvalReportInventory(()=>currentDriveEvaluatorReport(state))]);
         if (!currentDriveEvaluatorReport(state)) return;
-        if (!loaded || receipt.scope!==state.scope) throw new Error('Evaluator scope could not be verified.');
+        if (!loaded || !isMasterFullProjectionReady() || receipt.scope!==state.scope) throw new Error('Evaluator scope could not be verified.');
         state.receipt=receipt;
         state.dataset=getDatasetLoadSignature('warehouseAssignedItems');
-        state.displays=null;
         state.evaluator=receipt.evaluators.some(entry=>entry.username===state.evaluator)
             ? state.evaluator : state.scope === 'all' ? '' : receipt.evaluators[0]?.username || '';
     } catch (error) {
@@ -54,16 +53,20 @@ function driveEvaluatorPick(state,key,value) {
 }
 
 function driveEvaluatorReportRows(state) {
-    if (state.rows!==fullInventory) {
-        state.rows=fullInventory;
-        state.displays=null;
-        state.eval2=null;
+    const signature = getDatasetLoadSignature('master');
+    const year = getConfiguredCurrentSalesYearCode();
+    if (state.inventory !== fullInventory || state.signature !== signature || state.year !== year) {
+        Object.assign(state,{inventory:fullInventory,signature,year,
+            rows:fullInventory.filter(row=>evalReportRowIsInFarm(row,state.farm)),eval2:null});
     }
-    state.displays ||= buildEvalRoleReportsCatalog({rows:state.rows,evaluators:state.receipt.evaluators,
-        farm:state.farm,activeAppSalesYear:getConfiguredCurrentSalesYearCode()});
-    if (state.report.startsWith('eval2:')) return driveEval2ScopedRows(state,state.report.slice(6));
-    const id = state.report === driveEvalReason.id ? 'hold-stop' : state.report;
-    return driveEvaluatorEntries(state).flatMap(entry=>state.displays.get(entry.username)?.reports.get(id) || []);
+    const candidates = state.report.startsWith('eval2:')
+        ? driveEval2CandidateRows(state,state.report.slice(6))
+        : getEvalRoleReportRows(state.rows,state.report === driveEvalReason.id ? 'hold-stop' : state.report,year);
+    if (state.scope === 'all' && !state.evaluator) return candidates;
+    const evaluator = state.receipt.evaluators.find(entry=>entry.username===state.evaluator);
+    if (!evaluator) return [];
+    const owners = new Map(evaluator.row_ids.map(uid=>[uid,evaluator.username]));
+    return candidates.filter(row=>resolveExactOwnerForRow(row,owners,state.farm) === evaluator.username);
 }
 
 function driveEval2CandidateRows(state,id) {
@@ -76,7 +79,7 @@ function driveEval2CandidateRows(state,id) {
     if (id===driveEvalLeaf.id) {
         return state.rows.filter(row=>/^330(?:\D|$)/.test(evalReportPlantGroup(row))
             && /^(H|S)$/i.test(evalReportHoldCode(row))
-            && /\bleaf\s+quality\b/i.test(String(row.holdstopreason ?? row.HOLDSTOPREASON ?? '')));
+            && /\bleaf\s+quality\b/i.test(evalReportHoldReasonText(row)));
     }
     const api=getManagerEvalReports2Api();
     const next=getConfiguredNextSaleSeasonTarget();
@@ -85,16 +88,6 @@ function driveEval2CandidateRows(state,id) {
         nextSeason:next.season,nextSalesYear:next.salesYear,settings:managerEvalReportSettings,now:new Date()
     });
     return state.eval2?.reports[id] || [];
-}
-
-function driveEval2ScopedRows(state,id) {
-    const owners = new Map(driveEvaluatorEntries(state).flatMap(entry=>entry.row_ids.map(uid=>[uid,entry.username])));
-    return driveEval2CandidateRows(state,id).filter(row=>resolveExactOwnerForRow(row,owners,state.farm));
-}
-
-function driveEvaluatorEntries(state) {
-    return state.scope === 'all' && !state.evaluator ? state.receipt.evaluators
-        : state.receipt.evaluators.filter(entry=>entry.username===state.evaluator);
 }
 
 function makeDriveEvaluatorControls(root,state) {
@@ -111,9 +104,9 @@ function makeDriveEvaluatorControls(root,state) {
 
 function paintDriveEvaluatorFilters(root,state,rows) {
     const report = driveEvaluatorReportOptions().find(entry=>entry.id===state.report);
-    const title = state.displays.get(state.evaluator);
+    const title = state.receipt.evaluators.find(entry=>entry.username===state.evaluator);
     root.querySelector('[data-drive-eval-title]').textContent = report?.label + ' · '
-        + (title ? title.displayName+' (@'+title.username+')' : 'All Evaluators');
+        + (title ? (title.display_name || title.username)+' (@'+title.username+')' : 'All Evaluators');
     const plants=root.querySelector('[data-drive-eval-plant]');
     plants.hidden=!state.report.startsWith('hold-stop');
     if (plants.hidden) return rows;
@@ -134,14 +127,14 @@ function paintDriveEvaluatorReport(container,state) {
     }
     const result=root.querySelector('[data-drive-eval-results]');
     if (!state.receipt) {
-        result.innerHTML=state.error ? '<p role="status">'+esc(state.error)+'</p><button data-drive-eval-retry>Retry</button>'
-            : '<p role="status">Loading evaluator reports…</p>';
+        setContainerHtml(result,state.error ? '<p role="status">'+esc(state.error)+'</p><button data-drive-eval-retry>Retry</button>'
+            : '<p role="status">Loading evaluator reports…</p>');
         return;
     }
     const rows=paintDriveEvaluatorFilters(root,state,driveEvaluatorReportRows(state));
     state.visibleRows=paintReportInventoryDrill(result,state,rows,[state.key,state.evaluator,state.report,state.plant,
         getDatasetLoadSignature('master'),state.dataset],'',state.report.startsWith('hold-stop'),
-        row=>generateCard(row,'drive',getDriveCardStatusClass(row),{originView:'drive'}));
+        row=>generateCard(row,'drive',getDriveCardStatusClass(row),{originView:'drive'}),'drive');
     syncEvalReportBrowseControls(root,state);
 }
 
