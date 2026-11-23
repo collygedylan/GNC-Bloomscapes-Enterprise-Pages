@@ -117,11 +117,16 @@ function collectSuspendOwnerCandidates(entries, inventory, code, family) {
 
 function getAssignedQueueOwner(row,index) {
     if (nativeAuthSessionActive) return resolveSuspendOwner(row);
-    if (isDockSuspendDcRequestMirrorRow(row) || isDockSuspendDcRequestSource(row)) return resolveSuspendOwner(row);
-    const code = buildManagerEvalAssignmentKey(row?.ITEMCODE || row?.itemcode || row?.ITEM || row?.item);
+    // Rows without any tag provenance do not need the Dock classification path.
+    const hasDockEvidence = row && (row.IS_SUSPEND_TAG || row.is_suspend_tag || row.REQUEST_TYPE || row.request_type
+        || row.SUSPEND || row.suspend || row.Suspend || row.DOCK_SUSPEND_DC_REQUEST
+        || row.UNIQUE_ID || row.unique_id || row.DOCK_SUSPEND_SOURCE_UID || row.dock_suspend_source_uid
+        || (row.SOURCE_TABLE || row.source_table) && (row.REQUEST_SOURCE || row.request_source));
+    if (hasDockEvidence && (isDockSuspendDcRequestMirrorRow(row) || isDockSuspendDcRequestSource(row))) return resolveSuspendOwner(row);
+    const rawCode = row?.ITEMCODE || row?.itemcode || row?.ITEM || row?.item;
+    const code = typeof rawCode === 'string' && /^[0-9]{6}\.[0-9]{3}\.[0-9]+$/.test(rawCode)
+        ? rawCode : buildManagerEvalAssignmentKey(rawCode);
     const lookup=index ?? getCardEvalOwnerIndex(getManagerAssignedColumnState(),true);
-    const mapped=lookup.exact.get(code) || lookup.family.get(code.slice(0,6));
-    if(mapped) return mapped;
-    return '';
+    return lookup.exact.get(code) || lookup.family.get(code.slice(0,6)) || '';
 }
 

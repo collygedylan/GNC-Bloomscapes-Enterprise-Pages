@@ -1,9 +1,27 @@
 const BLOOMSCAPES_SHELL_ROUTE_ALIASES = Object.freeze({__proto__:null, office:'moves', 'inventory-office':'moves', qc:'request'});
 
+const BLOOMSCAPES_HOME_MODULES = Object.freeze([
+    {view:'drive', label:'Drive Mode', icon:'ph-car', action:"switchView('drive')"},
+    {view:'av', label:'AV', icon:'ph-notebook', action:"switchView('av')"},
+    {view:'studio', label:'Field Work Studio', icon:'ph-plant', action:'openBloomscapesFieldWorkStudio()'},
+    {view:'disease-pest', label:'QC', icon:'ph-shield-check', action:"switchView('disease-pest')"},
+    {view:'inventory-office', label:'Inventory Office', icon:'ph-buildings', action:'openInventoryOfficeView()'},
+    {view:'docks', label:'Docks', icon:'ph-truck', action:"switchView('docks')"},
+    {view:'hl-order', label:'PO Management', icon:'ph-package', action:"openBloomscapesDepartmentModule('hl-order','bloomscapes-replenishment')"},
+    {view:'sales', label:'Sales & Marketing Studio', icon:'ph-handshake', action:"switchView('sales')"},
+    {view:'historical-requests', label:'Historical Requests', icon:'ph-clock-counter-clockwise', action:"switchView('historical-requests')"},
+    {view:'smart-moves', label:'Smart Sales & Move Intelligence', icon:'ph-trend-up', action:"switchView('smart-moves')"},
+    {view:'borrowed-work', label:'Borrowed Help', icon:'ph-users', action:"switchView('borrowed-work')"},
+    {view:'managers', label:'Managers', icon:'ph-users-three', action:"switchView('managers')"},
+    {view:'messages', label:'Messages', icon:'ph-chat-circle-text', action:'openBloomscapesMessages()'},
+    {view:'walkie', label:'Push to Talk', icon:'ph-microphone', action:"openBloomscapesComm('voice')"},
+    {view:'request', label:'Que', icon:'ph-list-checks', action:"switchView('request')"},
+    {view:'reports', label:'Reports', icon:'ph-chart-bar', action:"switchView('reports')"}
+]);
+
 function mountBloomscapesFarmSelector() {
     void ensureBloomscapesFarmAccess().then(() => {
         syncBloomscapesFarmSelector();
-        mountDivisionWeather();
         void resumeRequestPhotoGalleryDeepLink();
     }).catch(error=>
         globalThis.reportHandledRuntimeIssue?.('farm_access',error.code || 'FARM_ACCESS_UNAVAILABLE'));
@@ -40,7 +58,6 @@ async function changeBloomscapesFarmSelection(select) {
         select.value = next;
         select.value = await selectBloomscapesFarm(next);
         refreshBloomscapesFarmPanel();
-        mountDivisionWeather();
     } catch (error) {
         showToast('Farm selection',error.message,true);
     } finally {
@@ -72,6 +89,7 @@ function mountDocksFilterDisclosure(view) {
 }
 
 function getNavigationHomeModuleRegistry(base, smartMoves) {
+    if (nativeAuthSessionActive) return BLOOMSCAPES_HOME_MODULES;
     const retired = new Set(['sales-office', 'office', 'qc', 'production', 'sales-inventory']);
     const modules = base.filter(module => !retired.has(module.view)).map(module =>
         module.view === 'sales' ? { ...module, label:'Sales & Marketing Studio' } : module);
@@ -95,4 +113,49 @@ function partitionSalesOfficeLiveAdapters(adapters = [], view = '', surfaces = [
     const foreground = source.filter(adapter => adapter?.id === 'core:salesOffice');
     if (!foreground.length) return { foreground: source, background: [] };
     return { foreground, background: source.filter(adapter => adapter?.id !== 'core:salesOffice') };
+}
+
+function mountHomeQueueCategoryControl() {
+    const toolbar = document.getElementById('request-filter-toolbar');
+    if (!toolbar || toolbar.querySelector('[data-module-subview-trigger]')) return;
+    const counts = requestTabQueueCountsSnapshotScope === getSupabaseReadIdentityScope()
+        ? requestTabQueueCountsSnapshot : null;
+    if (counts) syncQueCategoryControl(toolbar, counts);
+    else mountQueCategoryControl();
+}
+
+function scheduleHomeQueueCategoryCounts() {
+    if (!nativeAuthSessionActive || !canShowBloomscapesHomeTile('request')) return;
+    const owner = getSupabaseReadIdentityScope();
+    if (requestTabQueueCountsSnapshot && requestTabQueueCountsSnapshotScope === owner) return;
+    scheduleUiRender('view-enter:home:que-counts', () => {
+        if (getCurrentVisibleViewId() !== 'home' || owner !== getSupabaseReadIdentityScope()
+            || !canShowBloomscapesHomeTile('request')) return;
+        if (!requestTabQueueCountsSnapshot || requestTabQueueCountsSnapshotScope !== owner) syncRequestTabButtons();
+    });
+}
+
+function openInventoryOfficeView() {
+    if (!canAccessView('moves')) return switchView('home');
+    activeMovesTab = 'office';
+    activeInventoryOfficeApprovalType = normalizeInventoryOfficeApprovalType(activeInventoryOfficeApprovalType);
+    movesViewLevel = 0;
+    selectedMovesBlock = null;
+    selectedMovesLocation = null;
+    markViewDirty('moves');
+    const result = switchView('moves');
+    const sequence = navTransitionSeq;
+    afterNavigationPaint('moves', sequence, () => void refreshInventoryOfficeDirectory(sequence));
+    return result;
+}
+
+async function refreshInventoryOfficeDirectory(sequence) {
+    try {
+        await ensureAssignableAppUsers();
+        if (isCurrentNavigationTransition(sequence, 'moves')) scheduleMovesRender(true);
+    } catch (error) {
+        if (isCurrentNavigationTransition(sequence, 'moves')) {
+            globalThis.reportHandledRuntimeIssue?.('inventory-office-directory', error.code || 'DIRECTORY_READ_FAILED');
+        }
+    }
 }

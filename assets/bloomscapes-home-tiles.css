@@ -1,0 +1,30 @@
+#view-home #home-dashboard-modules {
+  padding-block-start: 8px;
+}
+
+html body #app-wrapper [data-superadmin-lens] > [data-lens-trigger] {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  min-height: 32px;
+  max-height: 32px;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  padding-inline: 8px;
+}
+
+html body.ops-precision-pilot.current-view-home.home-dashboard-mode #app-wrapper #view-home
+#home-dashboard-modules #home-dashboard-grid[data-bloomscapes-home="tiles"] {
+  --home-square-size: min(var(--home-fit-tile-height, 60px), var(--home-fit-card-width, 60px));
+  grid-template-columns: repeat(var(--home-fit-columns, 3), var(--home-square-size)) !important;
+  grid-template-rows: none !important;
+  grid-auto-rows: var(--home-square-size) !important;
+  justify-content: center !important;
+  align-content: start !important;
+}
+
+html body.ops-precision-pilot.current-view-home.home-dashboard-mode #app-wrapper #view-home
+#home-dashboard-modules #home-dashboard-grid[data-bloomscapes-home="tiles"] > .home-module-tile {
+  width: 100% !important;
+  height: 100% !important;
+}

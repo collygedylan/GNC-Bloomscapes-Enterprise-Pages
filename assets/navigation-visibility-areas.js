@@ -134,6 +134,34 @@ function allowsBloomscapesAreaSubview(key, required = 'VIEW_ONLY') {
     return level === 'FULL_EDIT' || required === 'VIEW_ONLY' && level === 'VIEW_ONLY';
 }
 
+function canShowBloomscapesHomeTile(view) {
+    const preview = typeof borrowedHelpPreview === 'function' && borrowedHelpPreview();
+    if (view === 'studio') return preview ? previewShowsAreaView(preview, 'studio') : canUseBloomscapesWorkStudio();
+    if (view === 'borrowed-work') {
+        if (preview) return canDisplayNavigationView(view);
+        if (!['supervisor','manager','admin','super-admin'].includes(nativeAuthProfile?.role)) return false;
+    }
+    const route = view === 'inventory-office' ? 'moves' : view === 'walkie' ? 'push-to-talk' : view;
+    return canDisplayNavigationView(route) && (preview || canAccessView(route));
+}
+
+function syncBloomscapesHomeTileVisibility(grid) {
+    if (!nativeAuthSessionActive || !grid) return;
+    grid.querySelector('[data-home-account-navigation]')?.remove();
+    let visibleCount = 0;
+    for (const tile of grid.querySelectorAll('[data-home-module-view]')) {
+        const visible = Boolean(canShowBloomscapesHomeTile(tile.dataset.homeModuleView));
+        tile.hidden = !visible;
+        tile.classList.toggle('hidden', !visible);
+        tile.setAttribute('aria-hidden', String(!visible));
+        if (visible) visibleCount += 1;
+    }
+    grid.dataset.authorizedModuleCount = String(visibleCount);
+    grid.dataset.renderedModuleCount = String(visibleCount);
+    const drawerStudio = queryBloomscapesStaticBody('side-drawer','#drawer-field-work-studio-btn');
+    if (drawerStudio) drawerStudio.hidden = !canShowBloomscapesHomeTile('studio');
+}
+
 function canReadBloomscapesSuspendApprovals() {
     if (isBloomscapesAreaScoped()) return false;
     return canonicalFeaturePermission('can_access_que') !== false;

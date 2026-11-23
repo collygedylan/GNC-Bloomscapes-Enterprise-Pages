@@ -142,8 +142,7 @@ function applySuperAdminLens(state,profile) {
     const view = getCurrentVisibleViewId();
     if (view !== 'home' && !canDisplayNavigationView(view)) switchView('home');
     const grid = document.getElementById('home-dashboard-grid');
-    mountBloomscapesAreaHubs(grid);
-    if (grid) grid.hidden = Boolean(profile);
+    syncBloomscapesHomeTileVisibility(grid);
     if (view === 'request' && getCurrentVisibleViewId() === 'request') {
         syncQueActiveCategory();
         mountBorrowedHelpQueue();
@@ -153,9 +152,8 @@ function applySuperAdminLens(state,profile) {
 
 function finishSuperAdminLens(state,profile,grid) {
     if (state !== superAdminLens || state.selected !== (profile || null) || state.owner !== borrowedHelpIdentity()) return;
+    syncBloomscapesDrawerAreaHubs();
     syncNavigationVisibilityUi(getRoleAccessState(),'',grid);
-    const studio = grid?.querySelector('#home-tile-studio');
-    if (studio) studio.hidden = profile ? !previewShowsAreaView(profile,'studio') : !canUseBloomscapesWorkStudio();
     const view = getCurrentVisibleViewId();
     if (view === 'request') renderRequest();
     if (view === 'borrowed-work') renderBloomscapesBorrowedField(view);

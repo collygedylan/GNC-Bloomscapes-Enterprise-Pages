@@ -1,6 +1,4 @@
-const BLOOMSCAPES_BASE_HOME = "<button type=\"button\" id=\"home-tile-drive\" data-home-module-view=\"drive\" class=\"home-module-tile role-access hidden\" onclick=\"switchView('drive')\" aria-label=\"Open Drive Mode\"><i class=\"ph ph-car\" aria-hidden=\"true\"></i><span>Drive Mode</span></button>\n                                <button type=\"button\" id=\"home-tile-hl-order\" data-home-module-view=\"hl-order\" class=\"home-module-tile role-access hidden\" onclick=\"switchView('hl-order')\" aria-label=\"Open PO Management\"><i class=\"ph ph-truck\" aria-hidden=\"true\"></i><span>PO Management</span></button>\n                                <button type=\"button\" id=\"home-tile-av\" data-home-module-view=\"av\" class=\"home-module-tile role-access hidden\" onclick=\"switchView('av')\" aria-label=\"Open AV\"><i class=\"ph ph-notebook\" aria-hidden=\"true\"></i><span>AV</span></button>\n                                <button type=\"button\" id=\"home-tile-sales\" data-home-module-view=\"sales\" class=\"home-module-tile role-access hidden\" onclick=\"switchView('sales')\" aria-label=\"Open Sales &amp; Marketing Studio\"><i class=\"ph ph-handshake\" aria-hidden=\"true\"></i><span>Sales &amp; Marketing Studio</span></button>\n                                <button type=\"button\" id=\"home-tile-historical-requests\" data-home-module-view=\"historical-requests\" class=\"home-module-tile role-access hidden\" onclick=\"switchView('historical-requests')\" aria-label=\"Open Historical Requests\"><i class=\"ph ph-clock-counter-clockwise\" aria-hidden=\"true\"></i><span>Historical Requests</span></button>\n                                <button type=\"button\" id=\"home-tile-managers\" data-home-module-view=\"managers\" class=\"home-module-tile role-access hidden\" onclick=\"switchView('managers')\" aria-label=\"Open Managers\"><i class=\"ph ph-users-three\" aria-hidden=\"true\"></i><span>Managers</span></button>";
-
-function mountBloomscapesHomeModules(opening = false) {
+function mountBloomscapesHomeModules() {
     for (const id of ['header-version','app-release-version']) {
         const pill = document.getElementById(id);
         if (pill) pill.textContent = window.__APP_RELEASE_VERSION__;
@@ -8,55 +6,15 @@ function mountBloomscapesHomeModules(opening = false) {
     mountBloomscapesFarmSelector();
     if (typeof mountSuperAdminViewAs === 'function') mountSuperAdminViewAs();
     if (typeof primeBorrowedHelpRoutes === 'function') primeBorrowedHelpRoutes();
-    if (!opening) mountDivisionWeather();
-    const grid = document.getElementById('home-dashboard-grid');
+    const grid = ensureHomeModuleRegistry();
     if (!grid) return;
-    if (typeof mountBloomscapesAreaHubs === 'function') mountBloomscapesAreaHubs(grid);
-    grid.dataset.bloomscapesHome = 'true';
-    if (typeof borrowedHelpPreview === 'function') grid.hidden = Boolean(borrowedHelpPreview());
-    if (!grid.querySelector('#home-tile-drive')) grid.innerHTML = BLOOMSCAPES_BASE_HOME;
-    for (const tile of grid.querySelectorAll('[id^="home-bloomscapes-"]')) tile.remove();
-    let studio=grid.querySelector('#home-tile-studio');
-    if (!studio) {
-        studio=document.createElement('button');studio.id='home-tile-studio';studio.type='button';
-        studio.className='home-module-tile';studio.innerHTML='<i class="ph ph-hammer" aria-hidden="true"></i><span>Field Work Studio</span>';
-        studio.addEventListener('click',()=>openBloomscapesFieldWorkStudio());grid.appendChild(studio);
-    }
-    studio.hidden=!(typeof borrowedHelpPreview === 'function' && borrowedHelpPreview()
-        ? allowsBloomscapesAreaSubview('studio') : canUseBloomscapesWorkStudio());
-    const drawerStudio=queryBloomscapesStaticBody('side-drawer','#drawer-field-work-studio-btn');
-    if (drawerStudio) drawerStudio.hidden=studio.hidden;
-    grid.querySelector('#home-tile-bloom')?.remove();
-    mountBloomscapesCommunicationTiles(grid);
-    const order=['drive','hl-order','av','sales','historical-requests','managers','inventory-office','studio','smart-moves','messages','walkie'];
-    let previous = null;
-    for (const id of order) {
-        const tile = grid.querySelector('#home-tile-'+id);
-        if (!tile) continue;
-        const next = previous ? previous.nextElementSibling : grid.firstElementChild;
-        if (tile!==next) grid.insertBefore(tile,next);
-        previous = tile;
-    }
-    const orderTile=grid.querySelector('#home-tile-hl-order');
-    if (orderTile) orderTile.setAttribute('onclick',"return openBloomscapesDepartmentModule('hl-order','bloomscapes-replenishment')");
+    grid.dataset.bloomscapesHome = 'tiles';
+    mountBloomscapesAreaHubs(grid);
+    scheduleHomeQueueCategoryCounts();
 }
 
 function mountBloomscapesCommunicationTiles(grid) {
-    const modules=[['smart-moves','Smart Sales & Move Intelligence','ph-chart-line-up',()=>switchView('smart-moves')],
-        ['messages','Messages','ph-chat-circle-text',()=>openBloomscapesMessages()],
-        ['walkie','Push to Talk','ph-microphone',()=>openBloomscapesComm('voice')]];
-    for (const [id,title,icon,open] of modules) {
-        let tile=grid.querySelector('#home-tile-'+id);
-        if (!tile) {
-            tile=document.createElement('button');tile.id='home-tile-'+id;tile.type='button';
-            tile.className='home-module-tile';
-            tile.innerHTML='<i class="ph '+icon+'" aria-hidden="true"></i><span>'+title+'</span><b data-home-count hidden></b>';
-            tile.addEventListener('click',open);grid.appendChild(tile);
-        }
-        const route = id==='walkie'?'push-to-talk':id;
-        tile.hidden=!(typeof borrowedHelpPreview === 'function' && borrowedHelpPreview()
-            ? canDisplayNavigationView(route) : canAccessView(route));
-    }
+    syncBloomscapesHomeTileVisibility(grid);
     syncBloomscapesHomeBadges();
 }
 
@@ -64,8 +22,16 @@ function syncBloomscapesHomeBadges() {
     const counts={messages:typeof bloomscapesMessagesState==='undefined'?0:bloomscapesMessagesState.unread,
         walkie:typeof bloomscapesRadioInbox==='undefined'?0:bloomscapesRadioInbox.count};
     for (const [id,count] of Object.entries(counts)) {
-        const badge=document.querySelector('#home-tile-'+id+' [data-home-count]');
-        if (badge) {badge.hidden=!(count>0);badge.textContent=String(count);}
+        const tile = document.getElementById('home-tile-'+id);
+        if (!tile) continue;
+        let badge = tile.querySelector('[data-home-count]');
+        if (!badge && count > 0) {
+            badge = tile.appendChild(document.createElement('b'));
+            badge.dataset.homeCount = '';
+        }
+        if (!badge) continue;
+        badge.hidden = !(count > 0);
+        badge.textContent = String(count);
     }
     const menu=queryBloomscapesStaticBody('side-drawer','[data-menu-unread]');
     if (menu) {menu.hidden=!counts.messages;menu.textContent=String(counts.messages);}
@@ -82,7 +48,7 @@ function openBloomscapesHomeModule(tab) {
 const homeMarkupByNode = new WeakMap();
 function renderHome(opening = false) {
     if (getCurrentVisibleViewId() !== 'home') return;
-    mountBloomscapesHomeModules(opening);
+    mountBloomscapesHomeModules();
     const dynamicContent = document.getElementById('home-dynamic-content');
     const dashboardContent = document.getElementById('home-dashboard-content');
     if (!dynamicContent || !dashboardContent) return;
@@ -90,13 +56,9 @@ function renderHome(opening = false) {
         syncGoogleScriptButton();
         refreshBloomscapesHomeStatus();
     }
-    const dashboardSticky = document.getElementById('home-dashboard-sticky');
-    const dashboardHero = document.getElementById('home-dashboard-hero');
     if (!nativeAuthSessionActive && shouldUseRepSalesHomeHub()) {
         activeHomeTab = 'dashboard';
         selectedProductivityUser = '';
-        if (dashboardSticky) dashboardSticky.classList.remove('hidden');
-        if (dashboardHero) dashboardHero.classList.remove('hidden');
         dashboardContent.classList.add('hidden');
         const homeHtml = getRepHomeDashboardHtml();
         syncRequestChromeMarkup(dynamicContent, homeHtml || `<div class="request-capability-card request-capability-card--error" role="alert"><div><strong>Home could not load</strong><span>Retry your access check to restore authorized modules.</span></div><button type="button" onclick="return retryRequestCapabilities()">Retry</button></div>`, homeMarkupByNode);
@@ -110,8 +72,6 @@ function renderHome(opening = false) {
     }
     activeHomeTab = 'dashboard';
     selectedProductivityUser = '';
-    if (dashboardSticky) dashboardSticky.classList.remove('hidden');
-    if (dashboardHero) dashboardHero.classList.remove('hidden');
     dashboardContent.classList.remove('hidden');
     if (dynamicContent.firstChild) dynamicContent.replaceChildren();
     if (typeof syncCurrentViewBodyClass === 'function') syncCurrentViewBodyClass('home');
@@ -160,7 +120,6 @@ function confirmBloomscapesHomeMount() {
 function finishBloomscapesShellStartup(touchShell) {
     runLoginInitializationStep('AURA widget', () => syncAuraWidgetForSession());
     if (getCurrentVisibleViewId() === 'home') {
-        mountDivisionWeather();
         syncGoogleScriptButton();
         refreshBloomscapesHomeStatus();
     }

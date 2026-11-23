@@ -66,19 +66,13 @@ function openBloomscapesAreaSalesSection(section) {
 
 function mountBloomscapesAreaHubs(grid) {
     if (!nativeAuthSessionActive || !grid) return;
-    const home = getBloomscapesAreaHost(grid);
-    paintBloomscapesAreaHubs(home);
-    const drawer = queryBloomscapesStaticBody('side-drawer','[data-drawer-business-areas]');
-    if (drawer) paintBloomscapesAreaHubs(drawer);
+    syncBloomscapesHomeTileVisibility(grid);
+    syncBloomscapesDrawerAreaHubs();
 }
 
-function getBloomscapesAreaHost(grid) {
-    const previous = grid.previousElementSibling;
-    if (previous?.hasAttribute('data-home-business-areas')) return previous;
-    const host = document.createElement('div');
-    host.dataset.homeBusinessAreas = '';
-    grid.before(host);
-    return host;
+function syncBloomscapesDrawerAreaHubs() {
+    const drawer = queryBloomscapesStaticBody('side-drawer','[data-drawer-business-areas]');
+    if (drawer) paintBloomscapesAreaHubs(drawer);
 }
 
 function paintBloomscapesAreaHubs(host) {

@@ -1,32 +1,5 @@
 let pendingNavigationDisplay = null;
 
-function openDisplayOnlyNavigation(viewId, options = {}) {
-    if (options.boot === true && shouldPreserveMountedBootView()) return false;
-    const previous = getCurrentVisibleViewId();
-    if (options.boot !== true && currentUser) getAppBootViewState().userHasNavigated = true;
-    navTransitionSeq += 1;
-    const identity = getNavigationVisibilityIdentity();
-    pendingNavigationDisplay = { viewId, sequence: navTransitionSeq, owner: `${identity?.id}:${identity?.username}` };
-    persistAppFilterStateNow();
-    if (isDrawerOpen()) setMenuOpenState(false);
-    if (previous && previous !== viewId) {
-        cancelScheduledViewRenderWork(previous);
-        cancelChunkRenderWorkForView(previous);
-        if (previous !== 'detail') pushViewHistoryEntry(previous, getMainAreaScrollTop(), viewId);
-    }
-    if (previous === 'managers') cancelManagerModuleReads();
-    showOnlyPrimaryView(viewId);
-    const host = getViewElementById(viewId);
-    syncNavigationDisplayStatus(host, ensureViewRenderState(viewId).initialized ? '' : 'Loading module accessâ€¦');
-    updateFooterNavState(viewId);
-    syncGlobalHeaderChrome({ reason: `view-display:${viewId}`, force: true });
-    repairAppShellScrollState(`view-display:${viewId}`, { resetGestureState: previous !== viewId });
-    if (options.targetScrollTop != null) setMainAreaScrollTop(Math.max(0, Number(options.targetScrollTop) || 0));
-    else if (previous !== viewId) queueScrollMainAreaToTop(`view:${viewId}`);
-    if (viewId !== 'home') ensureNativeBackGuard();
-    return false;
-}
-
 function switchView(viewId, options = {}) {
     const target = String(BLOOMSCAPES_SHELL_ROUTE_ALIASES[viewId]
         || (nativeAuthSessionActive && viewId === 'sales-office' && 'sales')
@@ -150,7 +123,8 @@ function preparePrimaryNavigationOrigin(context) {
     // Capture after scroll repair, before teardown/body writes invalidate
     // layout and can change the outgoing view's scroll anchoring.
     const leavingAssignedItems = currentViewId === 'managers' && activeHomeTab === MANAGER_ASSIGNED_ITEMS_EXPORT_VIEW;
-    const originScrollTop = rememberCurrentView && !leavingAssignedItems ? getMainAreaScrollTop() : null;
+    const fittedHome = currentViewId === 'home' && document.getElementById('view-home')?.dataset.homeFitComplete === 'true';
+    const originScrollTop = rememberCurrentView && !leavingAssignedItems ? (fittedHome ? 0 : getMainAreaScrollTop()) : null;
     const historyScroll = rememberCurrentView && leavingAssignedItems ? getManagerAssignedColumnState().scroll : originScrollTop;
     if (currentViewId === 'managers' && nextViewId !== 'managers') { cancelManagerModuleReads(); destroyManagerAssignedItemsView(); }
     if (currentViewId === 'communication' && nextViewId !== 'communication') unmountAlphaCommandCenter('communications');
@@ -167,7 +141,10 @@ function mountPrimaryNavigation(context) {
     const targetView = getViewElementById(nextViewId);
     if (targetView) {
         showOnlyPrimaryView(nextViewId);
-        if (nextViewId === 'request') mountQueCategoryControl();
+        if (nextViewId === 'request') {
+            if (currentViewId === 'home') mountHomeQueueCategoryControl();
+            else mountQueCategoryControl();
+        }
         if (nextViewId === 'drive') mountInventoryExcelFilters('drive');
         updateFooterNavState(nextViewId);
         if (nextViewId === 'docks') mountDocksFilterDisclosure(targetView);
