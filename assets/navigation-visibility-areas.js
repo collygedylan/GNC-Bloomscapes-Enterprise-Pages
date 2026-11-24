@@ -16,12 +16,12 @@ const BLOOMSCAPES_BUSINESS_AREAS = Object.freeze([
     {id:'DOCKS', label:'Shipping, Traffic & Order Pulling', icon:'ph-truck', views:[
         ['docks','Docks & Order Pulling Board','docks'], ['docks-issues','Order Pulling Issues','mistake-fix'],
         ['load-maximizer','Traffic & Load Maximizer','docks'],
-        ['dock-credit-vault','Dock Credit Vault','docks'], ['suspend','Que · Suspend Tags','request']
+        ['dock-credit-vault','Dock Credit Vault','docks'], ['suspend','Que Â· Suspend Tags','request']
     ]},
     {id:'SALES', label:'Sales & Marketing', icon:'ph-handshake', views:[
         ['sales-design','Design Studio','sales'], ['sales-flyer','Flyer Folders','sales'],
         ['sales-history','Flyer History Archive','sales'], ['sales-rep','Sales Rep Vault','sales'],
-        ['sales-archive','Inquiry PDF Vault','sales'], ['requests','Que · Requests','request'],
+        ['sales-archive','Inquiry PDF Vault','sales'], ['requests','Que Â· Requests','request'],
         ['historical','Historical Archive','historical-requests']
     ]},
     {id:'ADMIN', label:'Management, HR & Communications', icon:'ph-users-three', views:[
@@ -61,12 +61,18 @@ function allowedScopedAreaChoice(profile,key) {
 function bloomscapesAreaChoices(area) {
     const preview = typeof borrowedHelpPreview === 'function' && borrowedHelpPreview();
     const access = getBloomscapesReclassAccess();
-    const views = access && !hasBloomscapesReclassScope(access) ? area.views.filter(([key]) => key !== 'inventory-office') : area.views;
+    const profile = preview || bloomscapesAreaProfile() || nativeAuthProfile;
+    const views = area.views.filter(([key,,view]) => {
+        if (key === 'inventory-office' && access && !hasBloomscapesReclassScope(access)) return false;
+        if (['rep','sales_rep'].includes(profile?.role) && view === 'docks' && key !== 'dock-credit-vault') return false;
+        return bloomscapesStrictRoleRoute(key === 'eval2' ? 'reports' : view,profile,preview) !== false;
+    });
     const restricted = bloomscapesRestrictedNavigationProfile(preview);
     if (restricted?.role === 'eval' && !bloomscapesEvalDepartmentGrant(area.id, restricted)) return [];
-    if (preview) return views.filter(([key])=>canPreviewBloomscapesAreaChoice(preview,key));
+    if (preview) return views.filter(([key,,view])=>canPreviewBloomscapesAreaChoice(preview,key)
+        || view === 'request' && ['eval','evaluator'].includes(preview.role) && bloomscapesAreaGrant(preview.area_access?.queue));
     if (restricted?.role === 'eval' && area.id === 'INVENTORY') return views.filter(([key,,view]) => key === 'inventory-office'
-        || (key === 'reports' ? canAccessView(view) : bloomscapesAreaGrant(restricted.area_access?.[key])));
+        || view === 'request' && bloomscapesAreaGrant(restricted.area_access?.queue) || bloomscapesAreaGrant(restricted.area_access?.[key]));
     if (restricted?.role === 'eval' && area.id === 'DOCKS') return views.filter(([key])=>bloomscapesAreaGrant(restricted.area_access?.[key]));
     if (isBloomscapesAreaOwner()) return views;
     if (access && isBloomscapesAreaScoped() && area.id === 'INVENTORY') {
@@ -74,14 +80,16 @@ function bloomscapesAreaChoices(area) {
             bloomscapesAreaProfile(),true,canUseBloomscapesAreaView);
         return views.filter(entry => entry[0] === 'inventory-office' || permitted.includes(entry));
     }
-    const profile = bloomscapesAreaProfile();
-    return filterBloomscapesAreaViews(area, profile, isBloomscapesAreaScoped(profile), canUseBloomscapesAreaView);
+    if (['rep','sales_rep'].includes(restricted?.role)) {
+        return views.filter(([key,,view]) => key === 'dock-credit-vault' || canAccessView(view));
+    }
+    return filterBloomscapesAreaViews({...area,views}, profile, isBloomscapesAreaScoped(profile), canUseBloomscapesAreaView);
 }
 
 function canPreviewBloomscapesAreaChoice(preview, key) {
     if (key === 'inventory-office') return true;
     if (key === 'reports') return previewShowsAreaView(preview,'reports') || previewShowsAreaView(preview,'eval2');
-    if (key === 'sales-av') return allowedScopedAreaChoice(preview,key);
+    if (key === 'sales-av') return bloomscapesAreaGrant(preview.area_access?.av);
     return previewShowsAreaView(preview,key);
 }
 
@@ -124,6 +132,10 @@ function resolveBloomscapesAreaNavigation(view) {
     const preview = typeof borrowedHelpPreview === 'function' && borrowedHelpPreview();
     const restricted = bloomscapesRestrictedViewGrant(view, preview);
     if (restricted !== null) return restricted;
+    if (view === 'reports' && !preview) {
+        const {scope} = getActiveEvalReportsAccess();
+        if (scope !== 'legacy') return scope === 'all';
+    }
     if (nativeAuthSessionActive && view === 'communication') return canOpenCommunicationView('push-to-talk');
     if (!preview && !isBloomscapesAreaScoped(profile)) return null;
     if (view === 'reports') return preview
@@ -162,7 +174,12 @@ function navigateDisplayedQuickAccessView(view = '') {
 
 function allowsBloomscapesAreaSubview(key, required = 'VIEW_ONLY') {
     const preview = typeof borrowedHelpPreview === 'function' && borrowedHelpPreview();
-    if (preview) return required === 'VIEW_ONLY' && previewShowsAreaView(preview,key);
+    if (preview) {
+        if (['queue','requests','suspend'].includes(key) && ['eval','evaluator'].includes(preview.role)) {
+            return required === 'VIEW_ONLY' && Boolean(preview.username) && bloomscapesAreaGrant(preview.area_access?.queue);
+        }
+        return required === 'VIEW_ONLY' && previewShowsAreaView(preview,key);
+    }
     const profile = bloomscapesAreaProfile();
     if (!isBloomscapesAreaScoped(profile)) return true;
     const level = profile?.area_access?.[key];
@@ -174,7 +191,9 @@ function canShowBloomscapesHomeTile(view) {
     if (view === 'field-work-consolidation') return canViewFieldWorkConsolidation();
     if (view === 'studio') return preview ? previewShowsAreaView(preview, 'studio') : canUseBloomscapesWorkStudio();
     if (view === 'production-schedule') return false;
-    if (view === 'reports' && !preview && getActiveEvalReportsAccess().scope === 'legacy') return canViewManagerEvalReports2();
+    if (view === 'reports' && !preview && getActiveEvalReportsAccess().scope === 'legacy') {
+        return bloomscapesRestrictedViewGrant(view) !== false && canViewManagerEvalReports2();
+    }
     if (['borrowed-work','time-cards'].includes(view)) return canOpenBloomscapesHomeLeadership(view,preview);
     const route = view === 'inventory-office' ? 'moves' : view === 'walkie' ? 'push-to-talk' : view;
     return canDisplayNavigationView(route) && (preview || canAccessView(route));
@@ -195,10 +214,27 @@ function syncBloomscapesHomeTileVisibility(grid) {
         tile.setAttribute('aria-hidden', String(!visible));
         if (visible) visibleCount += 1;
     }
+    synchronizeHistoricalArchiveLens(previewArchiveLensKey());
     grid.dataset.authorizedModuleCount = String(visibleCount);
     grid.dataset.renderedModuleCount = String(visibleCount);
     const drawerStudio = queryBloomscapesStaticBody('side-drawer','#drawer-field-work-studio-btn');
     if (drawerStudio) drawerStudio.hidden = !canShowBloomscapesHomeTile('studio');
+}
+
+let historicalArchiveLensKey = '';
+
+function previewArchiveLensKey() {
+    return typeof borrowedHelpPreview === 'function' ? borrowedHelpPreview()?.id || '' : '';
+}
+
+function synchronizeHistoricalArchiveLens(key) {
+    if (historicalArchiveLensKey === key) return;
+    historicalArchiveLensKey = key;
+    syncRequestSalesImpactEntrypoints();
+    syncRequestTabButtons();
+    if (!['historical-requests','request-history'].includes(getCurrentVisibleViewId())) return;
+    destroyHistoricalRequestsIsland();
+    void ensureHistoricalRequestsIsland();
 }
 
 function canReadBloomscapesSuspendApprovals() {

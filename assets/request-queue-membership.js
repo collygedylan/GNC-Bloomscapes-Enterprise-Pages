@@ -4,9 +4,15 @@ function queueAccessScope(tab = 'suspend-tag') {
     const resolved = access?.resolveUserAccessMatrix(user);
     const matrix = resolved?.__pendingAccessWrite ? null : resolved;
     const role = String(matrix?.role || (typeof currentRole === 'string' ? currentRole : '')).toUpperCase().replace(/[^A-Z]/g, '');
+    const preview = typeof borrowedHelpPreview === 'function' ? borrowedHelpPreview() : null;
+    const effectiveRole = String(preview?.role || role).toUpperCase();
+    if (['EVAL','EVALUATOR'].includes(effectiveRole)) {
+        const owner = preview ? normalizeEvalAssignableUser(preview.username || '') : user;
+        return {user:owner,all:false,initial:owner,exact:true};
+    }
     const admin = ['ADMIN', 'ADMINISTRATOR', 'SUPERADMIN'].includes(role);
     if (tab === 'pending') {
-        const all = !!user && (admin || ['MANAGER', 'EVAL', 'EVALUATOR'].includes(role)
+        const all = !!user && (admin || role === 'MANAGER'
             || GLOBAL_LIVE_CHANGE_USER_KEYS.has(user) || matrix?.view_all_requests === 'Y'
             || matrix?.request_default_scope === 'ALL');
         return { user, all, initial: all ? 'ALL' : user };
@@ -38,12 +44,13 @@ function getQueueScopeFilter(tab) {
 
 function isQueueOwnerVisible(row, tab = isDockSuspendDcRequestMirrorRow(row) ? 'suspend-tag' : 'pending') {
     if (!bloomscapesFarmRowIsVisible(row)) return false;
-    return queueOwnerMatchesSelection(row,tab,getQueueScopeFilter(tab));
+    return queueOwnerMatchesSelection(row,tab,getQueueScopeFilter(tab),queueAccessScope(tab).exact);
 }
 
-function queueOwnerMatchesSelection(row,tab,selected) {
+function queueOwnerMatchesSelection(row,tab,selected,exact = false) {
     if (selected==='ALL') return true;
     if (!selected) return false;
+    if (exact) return exactBloomscapesReclassOwner(row,getBloomscapesFarm()) === selected;
     const owner = getAssignedQueueOwner(row) || 'Unassigned';
     return (tab==='suspend-tag' ? normalizeSuspendQueueOwner(owner) : owner)===selected;
 }
@@ -51,12 +58,14 @@ function queueOwnerMatchesSelection(row,tab,selected) {
 function createQueueOwnerVisibilityPredicate(tab='') {
     if (tab) {
         const selection=getQueueScopeFilter(tab);
-        return row=>bloomscapesFarmRowIsVisible(row) && queueOwnerMatchesSelection(row,tab,selection);
+        const {exact} = queueAccessScope(tab);
+        return row=>bloomscapesFarmRowIsVisible(row) && queueOwnerMatchesSelection(row,tab,selection,exact);
     }
     const pending=getQueueScopeFilter('pending'), suspend=getQueueScopeFilter('suspend-tag');
+    const {exact} = queueAccessScope('pending');
     return row=>{
         if (!bloomscapesFarmRowIsVisible(row)) return false;
-        return isDockSuspendDcRequestMirrorRow(row) ? queueOwnerMatchesSelection(row,'suspend-tag',suspend) : queueOwnerMatchesSelection(row,'pending',pending);
+        return isDockSuspendDcRequestMirrorRow(row) ? queueOwnerMatchesSelection(row,'suspend-tag',suspend,exact) : queueOwnerMatchesSelection(row,'pending',pending,exact);
     };
 }
 

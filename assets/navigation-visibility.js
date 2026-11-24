@@ -1,3 +1,23 @@
+function bloomscapesStrictRoleRoute(view, profile, preview) {
+    const role = profile?.role;
+    const evaluator = role === 'eval' || role === 'evaluator';
+    if (role === 'rep' || role === 'sales_rep') {
+        if (['home','detail','messages','push-to-talk','communication','av','bloom','historical-requests','request-history'].includes(view)) return null;
+        if (view === 'docks') return bloomscapesAreaGrant(profile.area_access?.['dock-credit-vault']);
+        return false;
+    }
+    if (evaluator && ['av','reports','manager-eval-reports','eval-reports-2'].includes(view)) return false;
+    if (evaluator && ['request','queue-pending','queue-suspend'].includes(view)) {
+        return preview ? Boolean(profile.username) && bloomscapesAreaGrant(profile.area_access?.queue) : true;
+    }
+    if (view !== 'drive' || !profile || evaluator) return null;
+    if (['dylan_collyge','jd_jones','megan_kelly','mitch_kaiser','mitch_kasier'].includes(profile.username)) return null;
+    if (!isBloomscapesLeadershipRole(role)) return false;
+    const matrix = preview ? null : resolveUserAccessMatrix(profile.username);
+    return preview ? bloomscapesAreaGrant(profile.area_access?.drive)
+        : matrix?.verified === true && matrix.view_permissions?.view_drive_mode === 'Y';
+}
+
 const FULL_NAVIGATION_USERNAMES = new Set([
     'nelly_aguilar', 'dylan_collyge', 'megan_kelly', 'jd_jones',
     'mitch_kaiser', 'morgan_anderson', 'melissa_dowty'
@@ -164,7 +184,7 @@ function getNavigationDisplayChoices() {
 function canShowFooterViewButton(viewId = '', access = getRoleAccessState()) {
     const targetView = String(viewId || '').trim();
     if (!targetView || ['borrowed-work','time-cards'].includes(targetView)) return false;
-    if (hasFullNavigationVisibility()) return canDisplayNavigationView(targetView);
+    if (bloomscapesRestrictedNavigationProfile() || hasFullNavigationVisibility()) return canDisplayNavigationView(targetView);
     if (isSalesShellAccess(access)) return targetView === 'sales' || (['request', 'sales-inventory'].includes(targetView) && canDisplayNavigationView(targetView));
     if (targetView === 'sales') return false;
     return canDisplayNavigationView(targetView);

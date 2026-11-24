@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.54';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.55';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -23258,7 +23258,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.54';
+        const APP_VERSION = '3.1.55';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -52896,8 +52896,8 @@ function toggleDriveQuickRequestItem(domId) {
         window.ensureHistoricalRequestsIsland = ensureHistoricalRequestsIsland;
 
         function isRequestSalesImpactOwner() {
-            const username = String(nativeAuthProfile?.username || currentUser || '').trim().toLowerCase();
-            return !!username && navigationPreferencesAllowed('request-sales-impact', username === 'dylan_collyge');
+            return nativeAuthSessionActive && nativeAuthProfile?.username === 'dylan_collyge'
+                && currentUser === 'dylan_collyge' && nativeAuthProfile.role === 'super-admin' && !borrowedHelpPreview();
         }
 
         function getRequestSalesImpactOwnerKey() {
@@ -52946,10 +52946,7 @@ function toggleDriveQuickRequestItem(domId) {
         }
 
         function syncRequestSalesImpactEntrypoints() {
-            if (!isRequestSalesImpactOwner()) {
-                document.querySelectorAll('[data-request-sales-impact-entry="true"]').forEach((element) => element.remove());
-                return;
-            }
+            if (!isRequestSalesImpactOwner()) return clearRequestSalesImpactSurface();
             const drawerAnchor = document.getElementById('drawer-historical-requests-btn');
             if (drawerAnchor?.parentElement) {
                 const drawerEntry = createRequestSalesImpactEntry(drawerAnchor.parentElement, 'drawer-request-sales-impact-btn', 'drawer');
@@ -53072,11 +53069,6 @@ function toggleDriveQuickRequestItem(domId) {
             if (isBloomscapesDockRoute(targetView)) return canOpenBloomscapesDocksWorkspace(targetView,userOverride);
             if (!targetView || targetView === 'home') return true;
             if (targetView === 'crop-roll' || targetView === 'manager-crop-roll') return false;
-            if (targetView === 'reports' && typeof getActiveEvalReportsAccess === 'function'
-                && (!userOverride || userOverride === currentUser)) {
-                const reports = getActiveEvalReportsAccess();
-                if (reports.scope !== 'legacy') return ['own','all'].includes(reports.scope) && navigationPreferencesAllowed(targetView, true);
-            }
             const areaLevel = typeof resolveBloomscapesAreaNavigation === 'function'
                 && (!userOverride || userOverride === currentUser) ? resolveBloomscapesAreaNavigation(targetView) : null;
             if (areaLevel !== null) return areaLevel && navigationPreferencesAllowed(targetView,true);
@@ -95003,13 +94995,15 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
         }
 
         function isRegularRequestQueueItem(item = null) {
-            return !isDockSuspendDcRequestMirrorRow(item);
+            const exact = typeof queueAccessScope === 'function' && queueAccessScope('pending').exact;
+            return !isDockSuspendDcRequestMirrorRow(item) && (!exact || isQueueOwnerVisible(item, 'pending'));
         }
 
         let requestSuspendTagStatusFilter = 'active';
         function getSuspendTagRequestItems(items = [], statusFilter = 'active') {
     return (Array.isArray(items) ? items : []).filter(isDockSuspendDcRequestMirrorRow).filter(isDockSuspendDcRequestSource)
-        .filter(item => !getQueueCompletionState()?.completedSuspendTagKeys?.has(getDockSuspendDcRequestSourceUid(item)))
+        .filter(item => (!queueAccessScope('suspend-tag').exact || isQueueOwnerVisible(item, 'suspend-tag'))
+            && !getQueueCompletionState()?.completedSuspendTagKeys?.has(getDockSuspendDcRequestSourceUid(item)))
         .filter(item => statusFilter !== 'completed' || ['completed','awaiting_rep','approved'].includes(getSuspendTagStatus(item)));
 }
 

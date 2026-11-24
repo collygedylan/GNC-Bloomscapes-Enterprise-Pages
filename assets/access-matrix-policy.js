@@ -172,18 +172,16 @@ function canAccessOperationalView(targetView, userOverride) {
     if (targetView === 'moves') return navigationPreferencesAllowed(targetView, canUseMovesModule() || access.allowedViews.has('moves'));
     return navigationPreferencesAllowed(targetView, access.allowedViews.has(targetView));
 }
-
 const bloomscapesRestrictedRoles = new Set(['eval','evaluator','crew','rep','sales_rep','csr']);
 const bloomscapesLeadershipRoles = new Set(['super-admin','admin','manager','supervisor','foreman']);
-const bloomscapesSharedRoutes = new Set(['home','detail','request','messages','push-to-talk','communication']);
+const bloomscapesSharedRoutes = new Set(['home','detail','messages','push-to-talk','communication']);
 const bloomscapesSalesRoutes = Object.freeze({
     __proto__:null, sales:['sales-design','view_sales'], 'sales-office':['sales-design','view_sales_office'],
     av:['av','view_av'], drive:['drive','view_drive_mode'], bloom:['av','view_bloom_picker'],
     'historical-requests':['historical','view_historical_requests'], 'request-history':['historical','view_historical_requests']
 });
 const bloomscapesEvalRoutes = Object.freeze({
-    __proto__:null, drive:['drive','view_drive_mode'], av:['av','view_av'],
-    reports:['reports','view_reports'], bloom:['av','view_bloom_picker']
+    __proto__:null, drive:['drive','view_drive_mode'], bloom:['av','view_bloom_picker']
 });
 const bloomscapesCrewRoutes = Object.freeze({
     __proto__:null, docks:['docks','view_docks'], 'pull-tags':['docks','view_docks'],
@@ -222,10 +220,12 @@ function bloomscapesRestrictedNavigationProfile(preview = borrowedHelpPreview())
 function bloomscapesRestrictedViewGrant(view, preview = borrowedHelpPreview()) {
     if (!nativeAuthSessionActive) return null;
     const profile = bloomscapesRestrictedNavigationProfile(preview);
+    const strict = bloomscapesStrictRoleRoute(view, preview || bloomscapesAreaProfile() || nativeAuthProfile, preview);
+    if (strict !== null) return strict;
     if (['borrowed-work','time-cards'].includes(view)) return canOpenBloomscapesHomeLeadership(view,preview);
     if (!profile && view === 'aura' && !preview) return window.GncUserAccessControl?.getSelfState()?.permissions?.use_aura_assistant === true
         || resolveUserAccessMatrix(currentUser)?.use_aura_assistant === 'Y';
-    if (!profile || bloomscapesSharedRoutes.has(view)) return null;
+    if (!profile || bloomscapesSharedRoutes.has(view) || view === 'request') return null;
     if (view === 'moves') return hasBloomscapesReclassScope();
     const routes = profile.role === 'crew' ? bloomscapesCrewRoutes
         : ['eval','evaluator'].includes(profile.role) ? bloomscapesEvalRoutes : bloomscapesSalesRoutes;
@@ -245,7 +245,7 @@ function getActiveEvalReportsAccess() {
     const matrix = resolveUserAccessMatrix(currentUser);
     const views = matrix?.view_permissions;
     const verified = matrix?.verified && matrix.profile_id === nativeAuthProfile?.id && currentUser === nativeAuthProfile.username;
-    return {scope:verified && views?.view_reports === 'Y' && views.eval_reports_scope === expected ? expected : 'hidden'};
+    return {scope:verified && views?.eval_reports_scope === expected ? expected : 'hidden'};
 }
 
 async function readEvalReportsScope(farm, preview = null) {
