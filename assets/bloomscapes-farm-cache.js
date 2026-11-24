@@ -124,16 +124,18 @@ function canRetryBloomscapesFarmSnapshot(error,cache,farm,flight) {
     return ['FARM_SNAPSHOT_SCOPE_CHANGED','FARM_SNAPSHOT_REVISION_CHANGED'].includes(error.code);
 }
 
-function hasVerifiedBloomscapesFarmPermission() {
-    const access = appAccessSnapshotState;
-    return access.status==='ready' && !access.stale && access.snapshot?.dataPermissionVersion
-        && access.profileId===nativeAuthProfile?.id && access.authEpoch===productionLiveSyncReadAuthEpoch
-        && access.username===getRequestCapabilityUsernameKey(currentUser);
-}
-
 async function ensureBloomscapesWarmFarm(farm,refresh=false,attempt=0,speculative=false,visit=null) {
     const cache = getBloomscapesFarmCache();
     assertBloomscapesFarmCache(cache,farm);
+    if (!refresh && !speculative && bloomscapesFarmState.confirmed && bloomscapesFarmState.busy && farm===getBloomscapesFarm()) {
+        persistBloomscapesSessionFarm(bloomscapesFarmState);
+        hydrateBloomscapesReferenceSnapshot();
+    }
+    if (!refresh && cache.snapshots.has(farm)) {
+        const snapshot = cache.snapshots.get(farm);
+        scheduleBloomscapesWarmAssignments(snapshot);
+        return snapshot;
+    }
     const pending = cache.pending.get(farm);
     if (pending && !pending.visit?.aborted && (!pending.visit || pending.visit===visit)) {
         if (!speculative) {
@@ -141,11 +143,6 @@ async function ensureBloomscapesWarmFarm(farm,refresh=false,attempt=0,speculativ
             pending.resume?.();
         }
         return visit && !pending.visit ? waitForDocksRead(visit,()=>pending.promise) : pending.promise;
-    }
-    if (!refresh && cache.snapshots.has(farm)) {
-        const snapshot = cache.snapshots.get(farm);
-        scheduleBloomscapesWarmAssignments(snapshot);
-        return snapshot;
     }
     pending?.controller.abort();
     pending?.resume?.();
@@ -176,8 +173,6 @@ async function loadBloomscapesWarmFarm(cache,farm,refresh,flight) {
         if (cache.pending.get(farm)!==flight) throw new DOMException('Farm refresh superseded.','AbortError');
     };
     const background = bloomscapesFarmFlightContext(flight,assertCurrent,bloomscapesFarmPrewarmDelay);
-    const scope = JSON.stringify(JSON.parse(cache.owner).filter((_value,index)=>index !== 3));
-    const key = 'bloomscapes-farm-v3111:'+scope+':'+farm;
     const existing = cache.snapshots.get(farm);
     if (refresh && existing?.lastSyncRevisionAt) {
         if (Date.now()-existing.verifiedAt < 45000) return existing;
@@ -187,16 +182,20 @@ async function loadBloomscapesWarmFarm(cache,farm,refresh,flight) {
             return existing;
         }
     }
-    const saved = refresh ? null : await loadCacheValue(key);
+    const saved = refresh ? null : await readBloomscapesPersistedFarm(farm,cache.owner);
     assertCurrent();
-    const raw = isReusableBloomscapesFarmSnapshot(saved,scope,farm)
-        ? saved : await readBloomscapesFarmSnapshot(farm,assertCurrent,background);
+    if (!refresh && !saved && farm===getBloomscapesFarm() && bloomscapesFarmState.confirmed) {
+        await restoreBloomscapesBootMaster();
+        assertCurrent();
+    }
+    const raw = saved || await readBloomscapesFarmSnapshot(farm,assertCurrent,background);
+    assertCurrent();
+    persistBloomscapesReadyFarm(raw,cache.owner);
     if (background) await background.checkpoint();
     const snapshot = await prepareBloomscapesFarmPublication(raw,cache.owner,assertCurrent,background?.checkpoint);
     assertCurrent();
-    if (raw !== saved) snapshot.verifiedAt = Date.now();
     cache.snapshots.set(farm,snapshot);
-    void saveCacheValue(key,{...raw,cacheScope:scope,inventoryRowCount:raw.inventory.length,loadedAt:raw === saved ? raw.loadedAt : snapshot.loadedAt});
+    if (raw !== saved) snapshot.verifiedAt = Date.now();
     return snapshot;
 }
 
@@ -206,6 +205,7 @@ function activateBloomscapesWarmFarm(snapshot) {
     if (snapshot.owner!==cache.owner || cache.snapshots.get(snapshot.farm)!==snapshot) throw new Error('Stale farm snapshot rejected.');
     publishPreparedBloomscapesFarm(snapshot);
     snapshot.active = true;
+    if (snapshot.farm===getBloomscapesFarm()) hydrateBloomscapesReferenceSnapshot();
 }
 
 function rememberBloomscapesFarmPublication(invalidateDrive=false) {
@@ -286,4 +286,114 @@ function isReusableBloomscapesFarmSnapshot(saved,scope,farm,now = Date.now()) {
     return !!saved?.lastSyncRevisionAt && saved.cacheScope === scope && saved.farm === farm
         && Array.isArray(saved.inventory) && saved.inventoryRowCount === saved.inventory.length
         && Number.isFinite(age) && age >= 0 && age < 604800000;
+}
+
+function bloomscapesFarmStorageScope(owner) {
+    return JSON.stringify(JSON.parse(owner).filter((_,index)=>index!==3 && index!==5));
+}
+
+function bloomscapesFarmStorageKey(farm,owner = bloomscapesFarmCacheOwner()) {
+    return 'bloomscapes-farm-v3154:'+bloomscapesFarmStorageScope(owner)+':'+farm;
+}
+
+async function readBloomscapesPersistedFarm(farm,owner) {
+    const scope = bloomscapesFarmStorageScope(owner);
+    const saved = await loadCacheValue(bloomscapesFarmStorageKey(farm,owner));
+    if (isReusableBloomscapesFarmSnapshot(saved,scope,farm)) return saved;
+    const legacyScope = JSON.stringify(JSON.parse(owner).filter((_,index)=>index!==3));
+    const legacy = await loadCacheValue('bloomscapes-farm-v3111:'+legacyScope+':'+farm);
+    return isReusableBloomscapesFarmSnapshot(legacy,legacyScope,farm) ? legacy : null;
+}
+
+function persistBloomscapesReadyFarm(raw,owner) {
+    const scope = bloomscapesFarmStorageScope(owner);
+    if (raw.cacheScope === scope) return;
+    void saveCacheValue(bloomscapesFarmStorageKey(raw.farm,owner),{...raw,cacheScope:scope,
+        inventoryRowCount:raw.inventory.length,loadedAt:raw.loadedAt || Date.now()});
+}
+
+const bloomscapesReferenceFlights = new Map();
+let bloomscapesReferenceCurrent;
+
+function getBloomscapesReferenceScope() {
+    const profile = nativeAuthProfile;
+    const access = getAppAccessSnapshot();
+    if (!nativeAuthSessionActive || !profile?.id || !access?.dataPermissionVersion || profile.disabled_at
+        || hasConfirmedCurrentAccountRevocation()) return null;
+    const farm = getBloomscapesFarm();
+    const withCapacity = canViewFieldWorkConsolidation();
+    return {farm,withCapacity,key:JSON.stringify([profile.id,currentUser,currentRole,access.dataPermissionVersion,farm,withCapacity])};
+}
+
+function getBloomscapesReferenceSnapshot() {
+    const scope = getBloomscapesReferenceScope();
+    return scope && scope.key === bloomscapesReferenceCurrent?.key ? bloomscapesReferenceCurrent : null;
+}
+
+function hydrateBloomscapesReferenceSnapshot() {
+    const scope = getBloomscapesReferenceScope();
+    if (!scope || bloomscapesReferenceFlights.has(scope.key)) return;
+    if (Date.now()-(getBloomscapesReferenceSnapshot()?.checkedAt || 0) < 300000) return;
+    const flight = loadBloomscapesReferenceSnapshot(scope).finally(()=>bloomscapesReferenceFlights.delete(scope.key));
+    bloomscapesReferenceFlights.set(scope.key,flight);
+}
+
+async function loadBloomscapesReferenceSnapshot(scope) {
+    const cacheKey = 'bloomscapes-reference-v1:'+scope.key;
+    const current = ()=>getBloomscapesReferenceScope()?.key === scope.key;
+    const cached = await loadCacheValue(cacheKey);
+    if (!current()) return;
+    const prior = cached?.key === scope.key ? cached : null;
+    if (prior) bloomscapesReferenceCurrent = prior;
+    if (navigator.onLine === false) return;
+    try {
+        const live = await readBloomscapesReferenceSnapshot(scope.farm,scope.withCapacity);
+        if (!current()) return;
+        const checkedAt = Date.now();
+        const complete = live.scheduleSummary && (!scope.withCapacity || live.cpb && live.beds);
+        const snapshot = {key:scope.key,checkedAt,verifiedAt:complete ? checkedAt : prior?.verifiedAt,
+            scheduleSummary:live.scheduleSummary ?? prior?.scheduleSummary,
+            cpb:live.cpb ?? prior?.cpb,beds:live.beds ?? prior?.beds};
+        bloomscapesReferenceCurrent = snapshot;
+        await saveCacheValue(cacheKey,snapshot);
+    } catch (error) {
+        if (current() && error.name !== 'AbortError') globalThis.reportHandledRuntimeIssue?.('reference_snapshot',error.code || 'REFERENCE_READ_FAILED');
+    }
+}
+
+function getCachedFieldWorkCapacity(item) {
+    const snapshot = getBloomscapesReferenceSnapshot();
+    const cpb = snapshot?.cpb?.find(row=>row.itemcode===item.code);
+    return cpb ? {cpb,locations:snapshot.beds || []} : null;
+}
+
+function appAccessIndexedKey(username,profileId) {
+    return 'bloomscapes-access-v1:'+profileId+':'+username;
+}
+
+function persistAppAccessSnapshot(snapshot = null, loadedAt = Date.now()) {
+    const profileId = nativeAuthProfile?.id || '';
+    if (!snapshot?.username) return;
+    const cached = {snapshot,loadedAt,profileId};
+    try {
+        localStorage.setItem(getAppAccessCacheKey(snapshot.username),JSON.stringify(cached));
+    } catch { globalThis.safeIgnoreProbeError?.('persistAppAccessSnapshot'); }
+    if (profileId) void saveCacheValue(appAccessIndexedKey(snapshot.username,profileId),cached);
+}
+
+async function hydrateIndexedAppAccess(username,profileId,isCurrentAccount) {
+    if (!profileId || appAccessSnapshotState.snapshot) return;
+    const cached = await loadCacheValue(appAccessIndexedKey(username,profileId));
+    if (!isCurrentAccount() || !nativeAuthSessionActive || hasConfirmedCurrentAccountRevocation()
+        || appAccessSnapshotState.snapshot || cached?.profileId !== profileId) return;
+    const snapshot = normalizeAppAccessSnapshot(cached.snapshot,username);
+    if (!snapshot || normalizeRoleAccessToken(snapshot.role) !== normalizeRoleAccessToken(currentRole)) return;
+    Object.assign(appAccessSnapshotState,{snapshot,stale:true,loadedAt:Number(cached.loadedAt)||0});
+    if (appAccessSnapshotState.status === 'error') appAccessSnapshotState.status = 'ready';
+    if (typeof promoteNavigationDisplayAfterAccess === 'function') promoteNavigationDisplayAfterAccess();
+}
+
+function retainCachedAppAccessAfterFailure(cached) {
+    if (hasConfirmedCurrentAccountRevocation()) return null;
+    return cached || (appAccessSnapshotState.snapshot ? appAccessSnapshotState : null);
 }

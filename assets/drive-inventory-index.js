@@ -49,11 +49,14 @@ function getDriveVisibleProjectionKey() {
 }
 
 function readDriveVisibleProjection(baseSearchFilteredItems, drivePlantFilterState, resolvedStateKey) {
-    return getCanonicalDriveProjection(baseSearchFilteredItems, resolvedStateKey, () => {
+    const base = getCanonicalDriveProjection(baseSearchFilteredItems,resolvedStateKey,()=>{
         const columnRows = applyDriveColumnFiltersToItems(drivePlantFilterState.filteredItems);
         const visibleItems = applyDriveQuickFiltersToItems(columnRows, 'plant:' + resolvedStateKey);
         return { baseSearchFilteredItems, drivePlantFilterState, visibleItems, resolvedStateKey };
     });
+    const visibleItems = getDriveEvaluatorReportRows(base.visibleItems);
+    const key = visibleItems === base.visibleItems ? resolvedStateKey : resolvedStateKey+getDriveReportSearchSignature();
+    return visibleItems === base.visibleItems ? base : {...base,visibleItems,resolvedStateKey:key};
 }
 
 let driveListIdentity = 0;

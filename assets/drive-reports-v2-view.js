@@ -12,6 +12,215 @@ function driveReport2StateCurrent(state) {
     return state === activeDriveReport2State && state.owner === getSupabaseReadIdentityScope() && state.farm === getBloomscapesFarm();
 }
 
+function driveReport2FilteredRows(state, ignored = '') {
+    return driveReport2FilterRows(state.rows, state.layout.filters, state.fields, ignored);
+}
+
+function driveReport2Result(state) {
+    const signature = JSON.stringify([state.layout.filters, state.layout.sorting]);
+    if (state.result?.rows === state.rows && state.result.signature === signature) return state.result;
+    const filtered = driveReport2SortRows(driveReport2FilteredRows(state), state.layout.sorting, state.fields);
+    state.result = { rows: state.rows, signature, filtered, offset: 0, totals: driveReport2Totals([]) };
+    return state.result;
+}
+
+function loadDriveReport2Saved(state) {
+    if (!driveReport2StateCurrent(state)) return;
+    state.loadingSaved ||= readDriveReport2Saved(state).finally(()=>{state.loadingSaved = null;});
+    return state.loadingSaved;
+}
+
+async function readDriveReport2Saved(state) {
+    const revision = state.savedRevision;
+    const hadFailure = state.savedLoadFailed;
+    try {
+        const saved = await listDriveSavedReports(state.farm);
+        if (!driveReport2StateCurrent(state) || revision !== state.savedRevision) return;
+        state.savedLoadFailed = false;
+        const signature = JSON.stringify(saved);
+        if (signature === state.savedSignature && !hadFailure) return;
+        state.savedMessage = '';
+        state.savedSignature = signature;
+        state.saved = saved;
+        syncDriveReport2Saved(state);
+    } catch (error) {
+        if (!driveReport2StateCurrent(state)) return;
+        state.savedLoadFailed = true;
+        state.savedMessage = error?.message || 'Saved reports could not be loaded.';
+        syncDriveReport2Saved(state);
+    }
+}
+
+function driveReport2Selected(state) {
+    return state.saved.reports.find(report => String(report.id) === state.savedId);
+}
+
+function driveReport2ResetGrid(state) {
+    state.gridScrollTop = 0;
+    const scroll = state.root?.querySelector('.drive-custom-reports-v2-grid');
+    if (scroll) scroll.scrollTop = 0;
+    if (!state.root?.isConnected) return;
+    paintDriveReport2(state);
+}
+
+function driveReport2ApplySaved(state, id) {
+    if (!driveReport2StateCurrent(state)) return false;
+    const report = state.saved.reports.find(entry => String(entry.id) === id);
+    if (id && !report) return false;
+    state.savedId = id;
+    state.layout = driveReport2Layout([...state.fields.values()], report);
+    state.presetColumns = report?.filter_rules?._column_filters;
+    state.presetExcel = report?.filter_rules?._excel_filters;
+    state.scoped = !!report;
+    driveReport2ResetGrid(state);
+    return true;
+}
+
+function driveReport2SetFilter(state, key, rule) {
+    const { filters } = state.layout;
+    if (rule) filters[key] = rule;
+    else delete filters[key];
+    state.scoped = driveReport2HasRules(state);
+    driveReport2ResetGrid(state);
+}
+
+function driveReport2SetSort(state, key, direction) {
+    state.layout.sorting = [{ column: key, direction }, ...state.layout.sorting.filter(rule => rule.column !== key)];
+    state.scoped = true;
+    driveReport2ResetGrid(state);
+}
+
+function driveReport2SetPending(state, form, busy) {
+    state.busy = busy;
+    for (const control of form.querySelectorAll('button')) control.disabled = busy;
+}
+
+async function driveReport2SaveCommand(state, dialog, form, deleting = false) {
+    if (state.busy || !driveReport2StateCurrent(state)) return;
+    const report = driveReport2Selected(state);
+    if (!canManageDriveSavedReport(deleting ? report : undefined, state.saved)) return;
+    if (deleting && (!report || !canManageDriveSavedReport(report, state.saved) || !window.confirm(`Delete ${report.report_name}?`))) return;
+    driveReport2SetPending(state, form, true);
+    try {
+        const receipt = deleting ? await deleteDriveSavedReport(report.id) : await upsertDriveSavedReport(driveReport2SavedInput(form, state, report));
+        if (!driveReport2StateCurrent(state)) return;
+        const id = String(deleting ? receipt : receipt.id);
+        state.saved.reports = state.saved.reports.filter(entry => String(entry.id) !== id);
+        if (!deleting) state.saved.reports.push(receipt);
+        state.savedRevision = (state.savedRevision || 0) + 1;
+        state.savedSignature = JSON.stringify(state.saved);
+        state.savedId = deleting ? '' : id;
+        state.scoped = driveReport2HasRules(state);
+        state.savedMessage = deleting ? 'Report deleted.' : 'Report saved.';
+        syncDriveReport2Saved(state);
+        if (dialog.open) dialog.close();
+    } catch (error) {
+        if (driveReport2StateCurrent(state)) form.querySelector('output').textContent = error?.message || 'Report could not be saved.';
+    } finally {
+        driveReport2SetPending(state, form, false);
+    }
+}
+
+function getDriveReport2State(context) {
+    if (!activeDriveReport2State || !driveReport2StateCurrent(activeDriveReport2State)) {
+        activeDriveReport2State = newDriveReport2State(context);
+    }
+    return activeDriveReport2State;
+}
+
+function driveReport2HasRules(state) {
+    return !!(state.savedId || state.layout.sorting.length || Object.keys(state.layout.filters).length);
+}
+
+function getActiveDriveReport2() {
+    const state = activeDriveReport2State;
+    return state?.scoped && driveReport2StateCurrent(state) ? state : null;
+}
+
+function driveReport2BrowseTab(tab) {
+    return tab === 'name' || tab === 'loc' || tab === 'card';
+}
+
+function prepareDriveReport2Navigation(nextTab) {
+    const state = activeDriveReport2State;
+    if (!state || !driveReport2StateCurrent(state)) return;
+    if (activeDriveTab === 'reports-v2' && driveReport2BrowseTab(nextTab) && driveReport2HasRules(state)) state.scoped = true;
+}
+
+function openDriveReport2View(state, tab) {
+    if (!driveReport2StateCurrent(state)) return;
+    if (!driveReport2BrowseTab(tab) && tab !== 'reports-v2') return;
+    state.scoped = true;
+    return setDriveTab(tab);
+}
+
+function syncDriveReport2Rows(state, context) {
+    if (state.rawRows === context.rows && state.sourceKey === context.sourceKey) return false;
+    state.rawRows = context.rows;
+    state.sourceKey = context.sourceKey;
+    state.rows = getCanonicalDriveProjection(context.rows, 'reports-v2:rows', () => context.rows.map(context.projectRow));
+    return true;
+}
+
+function getDriveReport2PhysicalRows(state) {
+    const { filtered } = driveReport2Result(state);
+    const rows = filtered === state.rows ? state.rawRows
+        : getCanonicalDriveProjection(filtered,'reports-v2:physical-rows',()=>filtered.map(entry=>entry.row));
+    if (!state.presetColumns && !state.presetExcel) return rows;
+    return getCanonicalDriveProjection(rows,'drive-preset:'+state.savedId,()=>applyDriveSavedPreset(rows,state));
+}
+
+function applyDriveSavedPreset(rows,state) {
+    const columns = Object.keys(state.presetColumns || {}).filter(key=>state.fields.has(key))
+        .map(key=>[key,getDriveColumnFilterFromMap(state.presetColumns,key)]);
+    const matching = columns.length ? rows.filter(row=>columns.every(([key,rule])=>doesDriveColumnFilterMatchItem(row,key,rule))) : rows;
+    return applySavedDriveExcelFilters(matching,state.presetExcel);
+}
+
+function scheduleDriveReport2Saved(state, authenticated) {
+    const now = Date.now();
+    if (!authenticated || now - (state.savedRequestedAt || 0) < 60000) return;
+    state.savedRequestedAt = now;
+    requestAnimationFrame(() => {
+        if (driveReport2StateCurrent(state) && getCurrentVisibleViewId() === 'drive') void loadDriveReport2Saved(state);
+        else state.savedRequestedAt = 0;
+    });
+}
+
+function exitDriveReport2(state) {
+    if (!driveReport2StateCurrent(state)) return;
+    state.scoped = false;
+    return setDriveTab(activeDriveTab === 'reports-v2' ? 'name' : activeDriveTab, { exitReport: true });
+}
+
+function syncDriveReport2Saved(state) {
+    if (state.root?.isConnected) paintDriveReport2Saved(state.root, state);
+    if (state.browseBar?.isConnected && !state.browseBar.hidden) paintDriveReport2Picker(state.browseBar, state);
+}
+
+function mountDriveReport2(container, context) {
+    const state = getDriveReport2State(context);
+    const remount = !state.root?.isConnected || !container.contains(state.root);
+    if (!state.root) {
+        setContainerHtml(container, driveReport2Shell());
+        state.root = container.firstElementChild;
+        bindDriveReport2Events(state);
+    } else if (remount) {
+        setContainerHtml(container, '');
+        container.appendChild(state.root);
+        setContainerUiState(container, 'content');
+    }
+    syncDriveReport2Rows(state, context);
+    const result = driveReport2Result(state);
+    if (state.tableResult !== result || state.tableLayout !== state.layout) paintDriveReport2(state);
+    else if (remount) {
+        paintDriveReport2Saved(state.root, state);
+        void updateDriveReport2Totals(state, result);
+    }
+    if (remount && state.gridScrollTop) state.root.querySelector('.drive-custom-reports-v2-grid').scrollTop = state.gridScrollTop;
+    scheduleDriveReport2Saved(state, context.authenticated);
+}
+
 function driveReport2Shell() {
     return `<section id="drive-custom-reports-v2" aria-label="Reports #2">
         <div class="drive-custom-reports-v2-toolbar">
@@ -29,18 +238,6 @@ function driveReport2Shell() {
         <div class="drive-custom-reports-v2-grid" role="region" aria-label="Report rows" tabindex="0"></div>
         <dialog class="drive-custom-reports-v2-dialog" aria-label="Report settings"></dialog>
     </section>`;
-}
-
-function driveReport2FilteredRows(state, ignored = '') {
-    return driveReport2FilterRows(state.rows, state.layout.filters, state.fields, ignored);
-}
-
-function driveReport2Result(state) {
-    const signature = JSON.stringify([state.layout.filters, state.layout.sorting]);
-    if (state.result?.rows === state.rows && state.result.signature === signature) return state.result;
-    const filtered = driveReport2SortRows(driveReport2FilteredRows(state), state.layout.sorting, state.fields);
-    state.result = { rows: state.rows, signature, filtered, offset: 0, totals: driveReport2Totals([]) };
-    return state.result;
 }
 
 function displayDriveReport2Totals(output, result) {
@@ -83,68 +280,6 @@ function paintDriveReport2(state) {
     void updateDriveReport2Totals(state, result);
 }
 
-async function loadDriveReport2Saved(state) {
-    if (state.loadingSaved || !driveReport2StateCurrent(state)) return;
-    state.loadingSaved = true;
-    const revision = state.savedRevision;
-    const hadFailure = state.savedLoadFailed;
-    try {
-        const saved = await listDriveSavedReports(state.farm);
-        if (!driveReport2StateCurrent(state) || revision !== state.savedRevision) return;
-        state.savedLoadFailed = false;
-        const signature = JSON.stringify(saved);
-        if (signature === state.savedSignature && !hadFailure) return;
-        state.savedMessage = '';
-        state.savedSignature = signature;
-        state.saved = saved;
-        syncDriveReport2Saved(state);
-    } catch (error) {
-        if (!driveReport2StateCurrent(state)) return;
-        state.savedLoadFailed = true;
-        state.savedMessage = error?.message || 'Saved reports could not be loaded.';
-        syncDriveReport2Saved(state);
-    } finally {
-        state.loadingSaved = false;
-    }
-}
-
-function driveReport2Selected(state) {
-    return state.saved.reports.find(report => String(report.id) === state.savedId);
-}
-
-function driveReport2ResetGrid(state) {
-    state.gridScrollTop = 0;
-    const scroll = state.root?.querySelector('.drive-custom-reports-v2-grid');
-    if (scroll) scroll.scrollTop = 0;
-    if (!state.root?.isConnected) return;
-    paintDriveReport2(state);
-}
-
-function driveReport2ApplySaved(state, id) {
-    if (!driveReport2StateCurrent(state)) return false;
-    const report = state.saved.reports.find(entry => String(entry.id) === id);
-    if (id && !report) return false;
-    state.savedId = id;
-    state.layout = driveReport2Layout([...state.fields.values()], report);
-    state.scoped = !!report;
-    driveReport2ResetGrid(state);
-    return true;
-}
-
-function driveReport2SetFilter(state, key, rule) {
-    const { filters } = state.layout;
-    if (rule) filters[key] = rule;
-    else delete filters[key];
-    state.scoped = driveReport2HasRules(state);
-    driveReport2ResetGrid(state);
-}
-
-function driveReport2SetSort(state, key, direction) {
-    state.layout.sorting = [{ column: key, direction }, ...state.layout.sorting.filter(rule => rule.column !== key)];
-    state.scoped = true;
-    driveReport2ResetGrid(state);
-}
-
 function driveReport2OpenColumnFilter(state, control) {
     const key = control.dataset.driveCustomReportsV2Filter;
     const field = state.fields.get(key);
@@ -172,37 +307,6 @@ function driveReport2HandleColumn(state, dialog, control) {
     editDriveReport2Column(state.layout, key, control.dataset.columnAction, control);
     renderDriveReport2Columns(dialog, state.fields, state.layout);
     paintDriveReport2(state);
-}
-
-function driveReport2SetPending(state, form, busy) {
-    state.busy = busy;
-    for (const control of form.querySelectorAll('button')) control.disabled = busy;
-}
-
-async function driveReport2SaveCommand(state, dialog, form, deleting = false) {
-    if (state.busy || !driveReport2StateCurrent(state)) return;
-    const report = driveReport2Selected(state);
-    if (!canManageDriveSavedReport(deleting ? report : undefined, state.saved)) return;
-    if (deleting && (!report || !canManageDriveSavedReport(report, state.saved) || !window.confirm(`Delete ${report.report_name}?`))) return;
-    driveReport2SetPending(state, form, true);
-    try {
-        const receipt = deleting ? await deleteDriveSavedReport(report.id) : await upsertDriveSavedReport(driveReport2SavedInput(form, state, report));
-        if (!driveReport2StateCurrent(state)) return;
-        const id = String(deleting ? receipt : receipt.id);
-        state.saved.reports = state.saved.reports.filter(entry => String(entry.id) !== id);
-        if (!deleting) state.saved.reports.push(receipt);
-        state.savedRevision = (state.savedRevision || 0) + 1;
-        state.savedSignature = JSON.stringify(state.saved);
-        state.savedId = deleting ? '' : id;
-        state.scoped = driveReport2HasRules(state);
-        state.savedMessage = deleting ? 'Report deleted.' : 'Report saved.';
-        syncDriveReport2Saved(state);
-        if (dialog.open) dialog.close();
-    } catch (error) {
-        if (driveReport2StateCurrent(state)) form.querySelector('output').textContent = error?.message || 'Report could not be saved.';
-    } finally {
-        driveReport2SetPending(state, form, false);
-    }
 }
 
 function driveReport2OpenRow(state, element) {
@@ -252,95 +356,4 @@ function bindDriveReport2Events(state) {
         event.preventDefault();
         driveReport2SaveCommand(state, dialog, event.target);
     });
-}
-
-function getDriveReport2State(context) {
-    if (!activeDriveReport2State || !driveReport2StateCurrent(activeDriveReport2State)) {
-        activeDriveReport2State = newDriveReport2State(context);
-    }
-    return activeDriveReport2State;
-}
-
-function driveReport2HasRules(state) {
-    return !!(state.savedId || state.layout.sorting.length || Object.keys(state.layout.filters).length);
-}
-
-function getActiveDriveReport2() {
-    const state = activeDriveReport2State;
-    return state?.scoped && driveReport2StateCurrent(state) ? state : null;
-}
-
-function driveReport2BrowseTab(tab) {
-    return tab === 'name' || tab === 'loc' || tab === 'card';
-}
-
-function prepareDriveReport2Navigation(nextTab) {
-    const state = activeDriveReport2State;
-    if (!state || !driveReport2StateCurrent(state)) return;
-    if (activeDriveTab === 'reports-v2' && driveReport2BrowseTab(nextTab) && driveReport2HasRules(state)) state.scoped = true;
-}
-
-function openDriveReport2View(state, tab) {
-    if (!driveReport2StateCurrent(state)) return;
-    if (!driveReport2BrowseTab(tab) && tab !== 'reports-v2') return;
-    state.scoped = true;
-    return setDriveTab(tab);
-}
-
-function syncDriveReport2Rows(state, context) {
-    if (state.rawRows === context.rows && state.sourceKey === context.sourceKey) return false;
-    state.rawRows = context.rows;
-    state.sourceKey = context.sourceKey;
-    state.rows = getCanonicalDriveProjection(context.rows, 'reports-v2:rows', () => context.rows.map(context.projectRow));
-    return true;
-}
-
-function getDriveReport2PhysicalRows(state) {
-    const { filtered } = driveReport2Result(state);
-    if (filtered === state.rows) return state.rawRows;
-    return getCanonicalDriveProjection(filtered, 'reports-v2:physical-rows', () => filtered.map(entry => entry.row));
-}
-
-function scheduleDriveReport2Saved(state, authenticated) {
-    const now = Date.now();
-    if (!authenticated || now - (state.savedRequestedAt || 0) < 60000) return;
-    state.savedRequestedAt = now;
-    requestAnimationFrame(() => {
-        if (driveReport2StateCurrent(state) && getCurrentVisibleViewId() === 'drive') void loadDriveReport2Saved(state);
-        else state.savedRequestedAt = 0;
-    });
-}
-
-function exitDriveReport2(state) {
-    if (!driveReport2StateCurrent(state)) return;
-    state.scoped = false;
-    return setDriveTab(activeDriveTab === 'reports-v2' ? 'name' : activeDriveTab, { exitReport: true });
-}
-
-function syncDriveReport2Saved(state) {
-    if (state.root?.isConnected) paintDriveReport2Saved(state.root, state);
-    if (state.browseBar?.isConnected && !state.browseBar.hidden) paintDriveReport2Picker(state.browseBar, state);
-}
-
-function mountDriveReport2(container, context) {
-    const state = getDriveReport2State(context);
-    const remount = !state.root?.isConnected || !container.contains(state.root);
-    if (!state.root) {
-        setContainerHtml(container, driveReport2Shell());
-        state.root = container.firstElementChild;
-        bindDriveReport2Events(state);
-    } else if (remount) {
-        setContainerHtml(container, '');
-        container.appendChild(state.root);
-        setContainerUiState(container, 'content');
-    }
-    syncDriveReport2Rows(state, context);
-    const result = driveReport2Result(state);
-    if (state.tableResult !== result || state.tableLayout !== state.layout) paintDriveReport2(state);
-    else if (remount) {
-        paintDriveReport2Saved(state.root, state);
-        void updateDriveReport2Totals(state, result);
-    }
-    if (remount && state.gridScrollTop) state.root.querySelector('.drive-custom-reports-v2-grid').scrollTop = state.gridScrollTop;
-    scheduleDriveReport2Saved(state, context.authenticated);
 }

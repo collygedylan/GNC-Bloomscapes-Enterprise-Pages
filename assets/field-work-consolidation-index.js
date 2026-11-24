@@ -1,5 +1,5 @@
 const consolidationNaturalOrder = new Intl.Collator(undefined,{numeric:true});
-const consolidationPickPageSize = 36;
+
 
 function consolidationField(row,key) {
     return String(row[key] ?? row[key.toLowerCase()] ?? '').trim();
@@ -16,18 +16,29 @@ function buildFieldWorkConsolidationIndex(rows, resolve = resolveCanonicalInvent
         const row = resolve(input);
         const location = LocationCode.normalize(consolidationField(row,'LOCATIONCODE'));
         const block = LocationCode.base(location);
-        if (block) item.blocks.add(block);
+        addConsolidationBrowseLocation(item,location,block);
         const year = consolidationField(row,'SALEYEAR');
         const quantity = Number(consolidationField(row,'PTRONHAND').replaceAll(',',''));
         if (!/^20\d{2}$/.test(year) || !(quantity > 0)) continue;
         recordConsolidationLot(item,year,row,location,block,quantity);
     }
-    return [...items.values()].sort((a,b)=>consolidationNaturalOrder.compare(a.name,b.name) || a.code.localeCompare(b.code));
+    const entries = [...items.values()];
+    for (const item of entries) item.distributed = [...item.years.values()].some(group=>group.blocks.size - Number(group.blocks.has('')) > 1);
+    return entries.sort((a,b)=>consolidationNaturalOrder.compare(a.name,b.name) || a.code.localeCompare(b.code));
 }
 
 function createConsolidationIndexItem(code,{common,size}) {
-    const name = common || code;
-    return {code,name,size,searchCode:code.toLowerCase(),searchName:name.toLowerCase(),years:new Map(),blocks:new Set()};
+    const name = typeof normalizeEscapedDisplayText === 'function' ? normalizeEscapedDisplayText(common || code) : common || code;
+    return {code,name,size,searchCode:code.toLowerCase(),searchName:name.toLowerCase(),years:new Map(),blocks:new Set(),locations:new Map(),rowCount:0};
+}
+
+function addConsolidationBrowseLocation(item,location,block) {
+    item.rowCount++;
+    if (!block) return;
+    item.blocks.add(block);
+    const previous = item.locations.get(block);
+    const first = previous && LocationCode.compare(previous.first,location) <= 0 ? previous.first : location;
+    item.locations.set(block,{first,count:(previous?.count || 0)+1});
 }
 
 function recordConsolidationLot(item,year,row,location,block,quantity) {
@@ -51,27 +62,51 @@ function consolidationMatchesPath(item,mode,path) {
     return second ? item.blocks.has(second) : [...item.blocks].some(block=>block.split('.')[0]===first);
 }
 
-function consolidationPickerGroups(items,mode,path) {
-    if (mode==='common') return items.map(item=>path.length ? item.size || 'Size not recorded' : item.name);
-    return items.flatMap(item=>[...item.blocks].filter(block=>!path.length || block.split('.')[0]===path[0])
-        .map(block=>path.length ? block : block.split('.')[0]));
+function addConsolidationGroup(groups,key,count,child) {
+    if (!groups.has(key)) groups.set(key,{rowCount:0,children:new Set()});
+    const group = groups.get(key);
+    group.rowCount += count;
+    if (child) group.children.add(child);
 }
 
-function fieldWorkConsolidationPicker(items,{mode,path,query,split,page}) {
+function consolidationPickerGroups(items,mode,path) {
+    const groups = new Map();
+    for (const item of items) {
+        if (mode === 'common') {
+            const size = item.size || 'Size not recorded';
+            addConsolidationGroup(groups,path.length ? size : item.name,item.rowCount,path.length ? '' : size);
+        } else {
+            addConsolidationBlockGroups(groups,item,path);
+        }
+    }
+    return groups;
+}
+
+function addConsolidationBlockGroups(groups,item,[parent]) {
+    for (const [block,{count}] of item.locations) {
+        const alpha = block.split('.')[0];
+        if (parent && alpha !== parent) continue;
+        addConsolidationGroup(groups,parent ? block : alpha,count,parent ? '' : block);
+    }
+}
+
+function fieldWorkConsolidationPicker(items,{mode,path,query,split}) {
     const search = query.trim().toLowerCase();
     const matches = items.filter(item=>{
         if (search) return item.searchCode.includes(search) || item.searchName.includes(search);
-        const distributed = [...item.years.values()].some(group=>[...group.blocks].filter(Boolean).length>1);
-        return (!split || distributed) && consolidationMatchesPath(item,mode,path);
+        return (!split || item.distributed) && consolidationMatchesPath(item,mode,path);
     });
-    const leaf = search || path.length===2;
-    const choices = leaf ? matches : [...new Set(consolidationPickerGroups(matches,mode,path))].sort(consolidationNaturalOrder.compare);
-    if (search) {
-        const exact = choices.findIndex(item=>item.searchCode===search);
-        if (exact>0) choices.unshift(...choices.splice(exact,1));
+    if (!search && path.length < 2 && mode !== 'card') {
+        const groups = consolidationPickerGroups(matches,mode,path);
+        return {groups,options:[...groups.keys()].sort(consolidationNaturalOrder.compare)};
     }
-    const start = page * consolidationPickPageSize;
-    return {many:choices.length>start+consolidationPickPageSize,options:choices.slice(start,start+consolidationPickPageSize)};
+    if (mode === 'block' && path.length === 2 && !search) {
+        const block = path[1];
+        matches.sort((a,b)=>LocationCode.compare(a.locations.get(block).first,b.locations.get(block).first));
+    }
+    const exact = search ? matches.findIndex(item=>item.searchCode===search) : -1;
+    if (exact>0) matches.unshift(...matches.splice(exact,1));
+    return {options:matches};
 }
 
 function rankFieldWorkConsolidation(group,suggestions,locations) {

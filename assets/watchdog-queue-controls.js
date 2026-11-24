@@ -213,3 +213,48 @@ function inspectWatchdogMutation(entry,selector,inspect) {
         if (node.nodeType===1 && node.matches?.(selector)) inspect(node);
     }
 }
+
+function createWatchdogQueueEmptyConfirmation(schedule, cancel) {
+    let pending = null;
+    return (scope,issue,inspect,report) => {
+        if (pending && (pending.scope !== scope || issue !== 'EMPTY_TABS')) {
+            cancel(pending.timer);
+            pending = null;
+        }
+        if (issue !== 'EMPTY_TABS') {
+            if (issue) report(issue);
+            return;
+        }
+        if (pending) return;
+        const record = {scope};
+        pending = record;
+        record.timer = schedule(()=>{
+            if (pending !== record) return;
+            pending = null;
+            if (inspect() === 'EMPTY_TABS') report('EMPTY_TABS');
+        },160);
+    };
+}
+
+function inspectQueueControlIssue(deps,root,current,generation) {
+    const {state,document,view,visible} = deps;
+    if (view()!==current || document.hidden || state.reportGeneration!==generation
+        || state.queueAtRoot && !state.queueAtRoot()) return '';
+    const bar = document.getElementById('request-filter-toolbar') || root.querySelector?.('[data-que-tabs]');
+    return inspectWatchdogQueueControls(bar,visible);
+}
+
+function inspectWatchdogOperationalIntegrity(deps,root,current) {
+    const {state,global,document,reportField,confirm,inspectQueueBadge} = deps;
+    if (!state.username || document.hidden || !global.innerHeight || current === 'login' || current === 'unknown') return;
+    inspectWatchdogFooter(global,document,reportField);
+    const generation = state.reportGeneration;
+    const queue = ['request','que'].includes(current);
+    const inspect = ()=>queue ? inspectQueueControlIssue(deps,root,current,generation) : '';
+    confirm(current+':'+generation,inspect(),inspect,issue=>
+        reportField(issue === 'EMPTY_TABS' ? 'UI_CONTROL_BAR_EMPTY' : 'UI_GEOMETRY_ANOMALY','queue',issue));
+    if (!queue) return;
+    const audit = state.getQueueAudit?.(root);
+    inspectQueueBadge(audit);
+    if (audit?.foreign) reportField('QUEUE_BADGE_MISMATCH','queue','FOREIGN_OWNER');
+}

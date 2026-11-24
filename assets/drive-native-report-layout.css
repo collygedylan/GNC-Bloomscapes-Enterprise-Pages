@@ -1,0 +1,27 @@
+html body #app-wrapper #view-drive #drive-toolbar-rail:has([data-drive-saved-reports]:not([hidden])) {
+    height:auto!important; grid-template-columns:repeat(3,minmax(0,1fr))!important
+}
+html body #app-wrapper #view-drive #drive-toolbar-rail:has([data-drive-assigned-users]:not([hidden]))
+    > [data-inventory-excel-scope="drive"] { display:none!important }
+#drive-toolbar-rail > :is([data-drive-saved-reports],[data-drive-assigned-users])[hidden] { display:none!important }
+#drive-toolbar-rail [data-drive-column-command] { color:var(--text-main); background:var(--bg-surface) }
+#drive-toolbar-rail > :is([data-drive-saved-reports],[data-drive-assigned-users]) {
+    flex:0 0 auto; max-width:min(16rem, 34vw); text-overflow:ellipsis;
+    min-height:2.4rem; border-radius:.5rem; border:1px solid var(--border-subtle);
+    color:var(--text-main); background:var(--bg-surface); padding-inline:.4rem
+}
+[data-field-work-consolidation] [data-consolidation-options] { display:block }
+[data-field-work-consolidation] [data-consolidation-options] > button {
+    display:grid; grid-template-columns:1fr auto; align-items:center; gap:.25rem .6rem;
+    padding:.8rem 1rem; min-height:4rem; text-align:left
+}
+[data-consolidation-options] > button small { grid-row:2; color:var(--text-muted) }
+[data-consolidation-options] > button i { grid-area:1 / 2 / span 2 }
+#drive-toolbar-rail #drive-mobile-mode { order:-3 }
+#drive-toolbar-rail [data-drive-saved-reports] { order:-2 }
+#drive-toolbar-rail [data-drive-assigned-users] { order:-1 }
+
+#drive-content[data-drive-chunk-count] > :is(.drive-card,[data-dom-id]) {
+    content-visibility:auto;
+    contain-intrinsic-block-size:auto 100px;
+}

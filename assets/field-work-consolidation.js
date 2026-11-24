@@ -56,12 +56,12 @@ function renderFieldWorkConsolidationEntry(frame) {
 
 function renderFieldWorkConsolidationPanel() {
     return '<div data-module-subview-rail data-consolidation-subview></div><section data-field-work-consolidation><h3>Sales-Year Consolidation / Bed Space Advisor</h3>'
-        +'<div data-consolidation-picker><label>Search inventory<input type="search" data-consolidation-search placeholder="Item code or common name"></label>'
+        +'<div data-consolidation-picker><div class="sticky-search"><input type="search" aria-label="Search inventory" data-consolidation-search placeholder="Search item code or common name"></div>'
         +'<div class="consolidation-controls"><div role="group" aria-label="Location filter">'
         +'<button type="button" data-consolidation-action="split">Split Across 2+ Locations</button>'
         +'<button type="button" data-consolidation-action="all">All Items</button></div>'
-        +'<label>Browse by <select data-consolidation-mode><option value="common">Common Name</option><option value="block">Block / Location</option></select></label></div>'
-        +'<p data-consolidation-path></p><div data-consolidation-options></div></div>'
+        +'<label>Browse by <select data-consolidation-mode><option value="common">Common Name</option><option value="block">Block / Location</option><option value="card">All Cards</option></select></label></div>'
+        +'<button type="button" data-consolidation-action="back" hidden>← Back</button><p data-consolidation-path></p><div data-consolidation-options></div></div>'
         +'<div data-consolidation-item hidden></div><div data-consolidation-result aria-live="polite"></div></section>';
 }
 
@@ -70,34 +70,31 @@ function mountFieldWorkConsolidation(frame) {
     const host = frame.querySelector('[data-field-work-consolidation]');
     if (!host) return;
     mountFieldWorkConsolidationSubview(frame);
-    const state = {host,mode:'common',path:[],query:'',split:true,page:0,items:[],owner:getSupabaseReadIdentityScope(),subject:activeConsolidationUser()?.username};
+    if (typeof hydrateBloomscapesReferenceSnapshot === 'function') hydrateBloomscapesReferenceSnapshot();
+    const state = {host,mode:'common',path:[],query:'',split:true,items:[],owner:getSupabaseReadIdentityScope(),subject:activeConsolidationUser()?.username};
+    state.frame = frame;
     consolidationWorkspaces.set(frame,state);
     host.onclick = event => dispatchFieldWorkConsolidation(state,event);
     host.querySelector('[data-consolidation-search]').oninput = event => {
         state.query = event.target.value;
-        state.page = 0;
         if (fieldWorkConsolidationActive(state)) paintFieldWorkConsolidationOptions(state);
     };
     host.querySelector('[data-consolidation-mode]').onchange = event => {
         state.mode = event.target.value;
         state.path = [];
-        state.page = 0;
         paintFieldWorkConsolidationPicker(state);
     };
-    state.inventoryRequest = new AbortController();
     paintFieldWorkConsolidationPicker(state);
-    if (!state.items.length) void loadFieldWorkConsolidationInventory(state);
+    if (!isMasterFullProjectionReady()) void loadFieldWorkConsolidationInventory(state);
 }
 
 async function loadFieldWorkConsolidationInventory(state) {
     try {
-        state.inventoryLoading = true;
-        paintFieldWorkConsolidationPicker(state);
-        state.inventoryRows = await readFieldWorkConsolidationInventory(state.inventoryRequest.signal);
+        const ready = await loadCompleteEvalReportInventory(()=>fieldWorkConsolidationActive(state));
+        if (!ready && !bloomscapesWorkBrowserRows().length) state.inventoryError = true;
     } catch {
         state.inventoryError = true;
     } finally {
-        state.inventoryLoading = false;
         paintFieldWorkConsolidationPicker(state);
     }
 }
@@ -114,33 +111,49 @@ function fieldWorkConsolidationSubjectMatches(state) {
 
 function paintFieldWorkConsolidationPicker(state) {
     if (!fieldWorkConsolidationActive(state)) return;
-    const rows = state.inventoryRows || bloomscapesWorkBrowserRows();
-    if (state.rows!==rows) {
-        state.rows = rows;
-        state.items = buildFieldWorkConsolidationIndex(rows);
-    }
+    const rows = bloomscapesWorkBrowserRows();
+    state.items = getCanonicalDriveProjection(rows,'consolidation-index',()=>buildFieldWorkConsolidationIndex(rows));
     paintFieldWorkConsolidationOptions(state);
 }
 
 function paintFieldWorkConsolidationOptions(state) {
-    const {options,many} = fieldWorkConsolidationPicker(state.items,state);
     const host = state.host;
+    const key = JSON.stringify([state.mode,state.path,state.query,state.split,state.inventoryError]);
+    if (state.painted?.items === state.items && state.painted.key === key) return;
+    state.painted = {items:state.items,key};
+    const {options,groups} = fieldWorkConsolidationPicker(state.items,state);
     for (const button of host.querySelectorAll('[data-consolidation-action="split"],[data-consolidation-action="all"]')) {
         button.setAttribute('aria-pressed',String(state.split===(button.dataset.consolidationAction==='split')));
     }
+    host.querySelector('[data-consolidation-action="back"]').hidden = !state.path.length && !state.query.trim();
     host.querySelector('[data-consolidation-path]').textContent = state.query.trim() ? 'Search results' : state.path.join(' → ');
     state.choices = options;
-    host.querySelector('[data-consolidation-options]').innerHTML = renderFieldWorkConsolidationChoices(state,options,many);
+    const list = host.querySelector('[data-consolidation-options]');
+    if (options.length) return paintConsolidationBrowseWindow(list,state,options,groups,key);
+    list.__gncCardWindow?.dispose();
+    list.innerHTML = state.inventoryError
+        ? '<p role="status">Inventory is temporarily unavailable.</p><button type="button" data-consolidation-action="retry">Retry inventory</button>'
+        : state.items.length ? '<p>No matching inventory.</p>' : '';
 }
 
-function renderFieldWorkConsolidationChoices(state,options,many) {
-    if (state.inventoryLoading) return '<p role="status">Opening live inventory…</p>';
-    if (state.inventoryError) return '<p role="status">Inventory is temporarily unavailable.</p><button type="button" data-consolidation-action="retry">Retry inventory</button>';
-    const choices = options.map((entry,index)=>'<button type="button" data-consolidation-action="pick" data-pick="'+index+'">'
-        +esc(typeof entry==='string' ? entry : entry.code+' · '+entry.name+' · '+entry.size)+'</button>').join('');
-    return (choices || '<p>No matching inventory.</p>')
-        +(state.page ? '<button type="button" data-consolidation-action="previous">Previous results</button>' : '')
-        +(many ? '<button type="button" data-consolidation-action="next">Next results</button>' : '');
+function paintConsolidationBrowseWindow(list,state,options,groups,key) {
+    const index = new Map(options.map((entry,i)=>[entry,i]));
+    const render = entry => renderFieldWorkConsolidationChoice(entry,index.get(entry),groups,state);
+    if (!renderInventoryCardWindow(list,options,render,{view:'production',
+        signature:getDriveListSignature(options,'consolidation',key),estimatedHeight:80,progressive:true})) {
+        list.innerHTML = options.slice(0,50).map(render).join('');
+    }
+}
+
+function renderFieldWorkConsolidationChoice(entry,index,groups,state) {
+    const group = groups?.get(entry);
+    const title = group ? entry : entry.name;
+    const unit = state.mode === 'common' ? ' Sizes' : ' Block Numbers';
+    const detail = group ? group.rowCount+' Rows'+(group.children.size ? ' · '+group.children.size+unit : '')
+        : [entry.code,entry.size,...[...entry.years.keys()].sort()].filter(Boolean).join(' · ');
+    return '<button type="button" class="drive-card w-full text-left" data-consolidation-action="pick" data-pick="'+index+'">'
+        +'<span class="text-lg font-black text-[#007a4d]">'+esc(title)+'</span><small>'+esc(detail)+'</small>'
+        +'<i aria-hidden="true" class="ph-bold ph-caret-right text-emerald-500"></i></button>';
 }
 
 function dispatchFieldWorkConsolidation(state,event) {
@@ -151,6 +164,7 @@ function dispatchFieldWorkConsolidation(state,event) {
         state.inventoryError = false;
         return void loadFieldWorkConsolidationInventory(state);
     }
+    if (action==='back') return backFieldWorkConsolidation(state.frame);
     if (action==='pick') return chooseFieldWorkConsolidationItem(state,state.choices[Number(button.dataset.pick)]);
     if (action==='year') return void selectFieldWorkConsolidationYear(state,button.dataset.year);
     if (action==='more') {
@@ -158,16 +172,15 @@ function dispatchFieldWorkConsolidation(state,event) {
         return paintFieldWorkConsolidationYear(state);
     }
     state.split = action==='split' || (action!=='all' && state.split);
-    state.page = action==='previous' ? state.page-1 : action==='next' ? state.page+1 : 0;
     paintFieldWorkConsolidationPicker(state);
 }
 
 function chooseFieldWorkConsolidationItem(state,choice) {
     if (typeof choice==='string') {
         state.path.push(choice);
-        state.page = 0;
         return paintFieldWorkConsolidationPicker(state);
     }
+    if (!choice) return;
     state.item = choice;
     state.host.querySelector('[data-consolidation-picker]').hidden = true;
     const item = state.host.querySelector('[data-consolidation-item]');
@@ -208,7 +221,7 @@ function paintFieldWorkConsolidationYear(state) {
     const status = group.excluded ? '<p class="consolidation-info">Excluded '+consolidationCans.format(group.excluded)+' .Y shift cans staged for upcoming planting</p>' : '';
     const single = group.blocks.size===1 ? [...group.blocks][0] : '';
     const banner = single ? '<p class="consolidation-fits">✓ ALREADY CONSOLIDATED ON '+esc(single)+' — 0 MOVES NEEDED</p>' : '';
-    const lots = renderFieldWorkConsolidationLots(group,data?.cpb);
+    const lots = renderFieldWorkConsolidationLots(group,data?.cpb || getCachedFieldWorkCapacity(state.item)?.cpb);
     const progress = error ? '<p role="alert">'+esc(error)+'</p>' : '<p>Checking live bed capacity…</p>';
     const advice = data ? (single || group.blocks.size===0 ? '' : renderFieldWorkConsolidationAdvice(group,data,state.showAll)) : progress;
     state.host.querySelector('[data-consolidation-result]').innerHTML = banner+status+lots+advice;
@@ -226,9 +239,11 @@ function backFieldWorkConsolidation(frame) {
         state.host.querySelector('[data-consolidation-result]').replaceChildren();
         state.host.querySelector('[data-consolidation-item]').hidden = true;
         state.host.querySelector('[data-consolidation-picker]').hidden = false;
-    } else if (state.path.length && !state.query.trim()) {
+    } else if (state.query.trim()) {
+        state.query = '';
+        state.host.querySelector('[data-consolidation-search]').value = '';
+    } else if (state.path.length) {
         state.path.pop();
-        state.page = 0;
     } else return false;
     paintFieldWorkConsolidationPicker(state);
     return true;
@@ -237,5 +252,5 @@ function backFieldWorkConsolidation(frame) {
 function unmountFieldWorkConsolidation(frame) {
     const state = consolidationWorkspaces.get(frame);
     state?.request?.abort();
-    state?.inventoryRequest?.abort();
+    state?.host.querySelector('[data-consolidation-options]').__gncCardWindow?.dispose();
 }

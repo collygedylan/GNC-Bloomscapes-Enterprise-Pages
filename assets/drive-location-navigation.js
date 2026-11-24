@@ -153,9 +153,7 @@ function buildDriveCurrentExportContext(viewStateOverride = null) {
     const tabLabel = getDriveExportTabLabel(tab);
     const sourceRows = Array.isArray(driveViewState.visibleItems) ? driveViewState.visibleItems : [];
     const scopeParts = [driveModeLabel];
-    let rows = sourceRows;
-    const reportRows = getDriveEvaluatorReportRows();
-    if (reportRows) return {driveViewState,driveModeLabel,tab,tabLabel,scopeLabel:'Evaluator reports',rows:reportRows};
+    let rows = scopeDriveSavedReportRows(sourceRows,driveViewState.resolvedStateKey);
     if (activeDriveMode !== 'ok') {
         return { driveViewState, driveModeLabel, tab, tabLabel, scopeLabel: driveModeLabel, rows: [] };
     }
@@ -181,9 +179,9 @@ function buildDriveCurrentExportContext(viewStateOverride = null) {
         return { driveViewState, driveModeLabel, tab, tabLabel, scopeLabel: scopeParts.join(' > '), rows };
     }
     const forceTopLevelSearchResults = shouldLockDriveSearchToTopLevel();
-    if (tab === 'loc') return {driveViewState,driveModeLabel,tab,tabLabel,rows:driveLocationExportRows(sourceRows,scopeParts,forceTopLevelSearchResults),scopeLabel:scopeParts.join(' > ')};
-    if (tab === 'name') return {driveViewState,driveModeLabel,tab,tabLabel,rows:driveNameExportRows(sourceRows,scopeParts,forceTopLevelSearchResults),scopeLabel:scopeParts.join(' > ')};
-    const resolvedState = buildDriveResolvedCardState(driveModeLabel, driveViewState);
+    if (tab === 'loc') return {driveViewState,driveModeLabel,tab,tabLabel,rows:driveLocationExportRows(rows,scopeParts,forceTopLevelSearchResults),scopeLabel:scopeParts.join(' > ')};
+    if (tab === 'name') return {driveViewState,driveModeLabel,tab,tabLabel,rows:driveNameExportRows(rows,scopeParts,forceTopLevelSearchResults),scopeLabel:scopeParts.join(' > ')};
+    const resolvedState = buildDriveResolvedCardState(driveModeLabel,{...driveViewState,visibleItems:rows});
     rows = Array.isArray(resolvedState.finalItems) ? resolvedState.finalItems : sourceRows;
     const crumbText = String(resolvedState.crumbText || driveModeLabel).replace(/\s*\(\d+\s+items?\)\s*$/i, '').trim();
     return { driveViewState, driveModeLabel, tab, tabLabel, scopeLabel: crumbText || driveModeLabel, rows };

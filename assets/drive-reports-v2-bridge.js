@@ -25,7 +25,6 @@ function openDriveReport2Row(row) {
 }
 
 function getDriveSearchProfile() {
-    if (driveReport2BrowseTab(activeDriveTab) && getActiveDriveReport2()) return 'drive_card';
     if (activeDriveTab === 'name') return 'drive_name';
     if (activeDriveTab === 'loc') return 'drive_loc';
     return 'drive_card';
@@ -124,7 +123,7 @@ function renderDriveReport2Browse(container, crumb, driveModeLabel) {
     const state = getDriveReport2State(context);
     if (activeDriveTab !== 'card') scheduleDriveReport2Saved(state,context.authenticated);
     if (!state.scoped) {
-        syncDriveReport2BrowseBar(crumb, state, null, activeDriveTab);
+        hideDriveReport2BrowseBar();
         return false;
     }
     const viewState = buildDriveVisibleItemsState(false);
@@ -132,7 +131,7 @@ function renderDriveReport2Browse(container, crumb, driveModeLabel) {
     const rows = getDriveReport2PhysicalRows(state);
     if (driveViewLevel) reconcileDriveDrillSelectionWithVisibleItems(rows);
     const scopedView = { visibleItems: rows, reportCards: true, reportSort: state.layout.sorting.length > 0 };
-    syncDriveReport2BrowseBar(crumb, state, rows, activeDriveTab);
+    hideDriveReport2BrowseBar();
     hideDrivePlantFilters();
     renderDriveQuickRequestBar(activeDriveTab === 'card' ? rows : []);
     if (activeDriveTab === 'name') {
@@ -151,24 +150,16 @@ function renderDriveReport2Browse(container, crumb, driveModeLabel) {
     return true;
 }
 
-function renderDrive() {
-    ensureDriveToolbarControls();
+function renderDrive({useVerifiedSnapshot = false,keepToolbar = false} = {}) {
+    if (!keepToolbar) ensureDriveToolbarControls();
     if (activeDriveTab === 'season-sales-notes') activeDriveTab = 'card';
     syncDriveModeTabs();
     syncDriveTabPills();
     const container = document.getElementById('drive-content');
     const crumb = document.getElementById('drive-crumb');
     const driveModeLabel = DRIVE_MODE_LABELS[activeDriveMode] || 'Drive Mode';
-    const drillTabs = document.getElementById('drive-drill-tabs');
-    if (drillTabs) drillTabs.classList.remove('hidden');
-    const evaluator = getDriveEvaluatorReportState();
-    mountDriveSavedReports(getDriveReport2State(driveReport2Context()),evaluator);
-    if (mountDriveEvaluatorReports(container,evaluator)) {
-        hideDriveReport2BrowseBar();
-        hideDrivePlantFilters();
-        return;
-    }
-    if (ensureViewDataForRender('drive')) return;
+    if (!keepToolbar) mountDriveSavedReports(getDriveReport2State(driveReport2Context()),getDriveEvaluatorReportState());
+    if (!useVerifiedSnapshot && ensureViewDataForRender('drive')) return;
     if (!canUseDriveCustomReports() && !driveReport2BrowseTab(activeDriveTab)) return setDriveTab('name',{exitReport:true});
     if (activeDriveMode === 'ok' && driveReport2BrowseTab(activeDriveTab)) {
         releaseDriveReport2Ui(container);
@@ -191,7 +182,7 @@ function renderDriveOrdinaryTab(container,crumb,driveModeLabel) {
         return;
     }
     hideDrivePlantFilters();
-    const driveViewState = buildDriveVisibleItemsState();
+    const driveViewState = {...buildDriveVisibleItemsState(),reportCards:Boolean(getDriveEvaluatorReportState()?.report)};
     const syncControls = () => scheduleDriveTopControlsRender(driveViewState.baseSearchFilteredItems, driveViewState.drivePlantFilterState);
     if (activeDriveTab === 'name') {
         renderDriveQuickRequestBar([]);
@@ -219,9 +210,7 @@ function renderDriveOrdinaryTab(container,crumb,driveModeLabel) {
 function getDriveCurrentReturnedRows() {
     const driveView = document.getElementById('view-drive');
     if (!driveView || driveView.classList.contains('hidden')) return [];
-    const evaluatorRows = getDriveEvaluatorReportRows();
-    if (evaluatorRows) return evaluatorRows;
-    if (activeDriveMode !== 'ok' || activeDriveTab !== 'card') return [];
+    if (activeDriveMode !== 'ok' || !driveReport2BrowseTab(activeDriveTab)) return [];
     const driveModeLabel = DRIVE_MODE_LABELS[activeDriveMode] || 'Drive Mode';
     const driveViewState = buildDriveVisibleItemsState();
     const report = canUseDriveCustomReports() && getActiveDriveReport2();
@@ -229,6 +218,7 @@ function getDriveCurrentReturnedRows() {
         syncDriveReport2Rows(report, driveReport2Source(driveViewState));
         return getDriveReport2PhysicalRows(report);
     }
+    if (activeDriveTab !== 'card') return driveViewState.visibleItems;
     const resolvedState = buildDriveResolvedCardState(driveModeLabel, driveViewState);
     return Array.isArray(resolvedState.finalItems) ? resolvedState.finalItems.filter(Boolean) : [];
 }
@@ -249,7 +239,7 @@ function renderStandardDriveCards(container, crumb, driveModeLabel, driveViewSta
 }
 
 function getDriveFilteredItems(includeQuickFilters = false) {
-    const candidates = filterBloomscapesPreviewInventoryRows(getDriveBaseFilteredItems());
+    const candidates = getDriveAuthorizedBrowseRows(getDriveBaseFilteredItems());
     const baseItems = typeof applyInventoryExcelFilters === 'function' ? applyInventoryExcelFilters('drive',candidates) : candidates;
     if (!includeQuickFilters) return baseItems;
     return applyDriveQuickFiltersToItems(baseItems, `base:${driveBaseFilterCacheKey}`);

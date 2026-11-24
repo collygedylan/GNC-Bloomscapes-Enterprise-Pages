@@ -49,19 +49,8 @@ if (!window.GncRuntimeWatchdog) {
   function reportField(type, scope, code, driveCommand = '', operation = {}) {
     return reportWatchdogField({state,FIELD_TYPES,FIELD_SCOPES,FIELD_CODES,view,fieldSeen,MAX_QUEUED_REPORTS,record},type,scope,code,driveCommand,operation);
   }
-  function inspectIntegrity(root,current) {
-    if (!state.username || document.hidden || !global.innerHeight || current === 'login' || current === 'unknown') return;
-    inspectWatchdogFooter(global, document, reportField);
-    if (!['request','que'].includes(current)) return;
-    const bar = document.getElementById('request-filter-toolbar') || root.querySelector?.('[data-que-tabs]');
-    if (!state.queueAtRoot || state.queueAtRoot()) {
-      const issue = global.inspectWatchdogQueueControls(bar, isVisibleParityNode);
-      if (issue) reportField(issue === 'EMPTY_TABS' ? 'UI_CONTROL_BAR_EMPTY' : 'UI_GEOMETRY_ANOMALY','queue',issue);
-    }
-    const audit = state.getQueueAudit?.(root);
-    inspectQueueBadge(audit);
-    if (audit?.foreign) reportField('QUEUE_BADGE_MISMATCH','queue','FOREIGN_OWNER');
-  }
+  const confirmEmptyQueueControls = createWatchdogQueueEmptyConfirmation(
+      (run,delay)=>global.setTimeout(run,delay),timer=>global.clearTimeout(timer));
   function inspectQueueBadge(audit) {
     const badge = document.getElementById('footer-request-badge') || document.querySelector('#nav-que [data-badge]');
     if (!isVisibleParityNode(badge)) return;
@@ -422,7 +411,8 @@ if (!window.GncRuntimeWatchdog) {
       thumbnail_broken_image_auto_heal(root); docks_no_trip_number_guard(root,current);
     }
     inspectDataParity(root, current, currentSubModule);
-    inspectIntegrity(root,current);
+    inspectWatchdogOperationalIntegrity({state,global,document,view,visible:isVisibleParityNode,reportField,
+      confirm:confirmEmptyQueueControls,inspectQueueBadge},root,current);
     if(state.username && !document.hidden && ['docks','request','que'].includes(current)) docks_suspend_sync_guard();
     const key = `${current}:${currentSubModule}`;
     if (key !== state.viewKey) { state.viewKey = key; state.viewVisitId++; state.viewStartedAt = Date.now(); }

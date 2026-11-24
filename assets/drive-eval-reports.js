@@ -1,72 +1,115 @@
 let driveEvaluatorReport;
-const driveEvalReason = {id:'hold-stop-reason',label:'Hold/Stop Reason'};
+const driveEvalReason = {id:'hold-stop-reason',label:'Hold/Stop by Plant Group & Reason'};
 const driveEvalAudit = {id:'field-audit',label:'Season Y ≤ 2026 Audit'};
 const driveEvalLeaf = {id:'hold-leaf-quality',label:'330 H/S Leaf Quality'};
 
 function driveEvaluatorScope() {
     const {scope,preview} = getActiveEvalReportsAccess();
     if (!['own','all'].includes(scope)) return null;
-    const farm=getBloomscapesFarm();
+    const farm = getBloomscapesFarm();
     return {scope,preview,farm,key:JSON.stringify([getSupabaseReadIdentityScope(),farm,scope,preview,
         appAccessSnapshotState.snapshot?.dataPermissionVersion])};
 }
 
 function currentDriveEvaluatorReport(state) {
-    return driveEvaluatorReport===state && driveEvaluatorScope()?.key===state.key && isViewVisible('drive');
+    return driveEvaluatorReport === state && driveEvaluatorScope()?.key === state.key;
+}
+
+function getDriveEvaluatorReportState() {
+    const scope = driveEvaluatorScope();
+    if (!scope) return driveEvaluatorReport = null;
+    if (driveEvaluatorReport?.key !== scope.key) {
+        driveEvaluatorReport = {...scope,report:'',evaluator:scope.preview || (scope.scope === 'own' ? currentUser : '')};
+    }
+    return driveEvaluatorReport;
 }
 
 function driveEvaluatorReportOptions() {
-    const api=getManagerEvalReports2Api();
+    const api = getManagerEvalReports2Api();
     const names = {'low-stock':'Low Stock','not-in-f1':'Not in F1'};
-    const second=api?.REPORT_IDS.map(id=>({id,label:names[id] || api.REPORT_META[id].label})) || [];
+    const second = api?.REPORT_IDS.map(id=>({id,label:names[id] || api.REPORT_META[id].label})) || [];
     return [...EVAL_ROLE_REPORTS,driveEvalReason,...second.concat(driveEvalAudit,driveEvalLeaf)
-        .map(report=>({id:'eval2:'+report.id,label:'Eval Reports #2 · '+report.label}))];
+        .map(({id,label})=>({id:'eval2:'+id,label:'Eval Reports #2 · '+label}))];
 }
 
-async function loadDriveEvaluatorReport(state) {
-    if (state.pending) return;
-    state.pending=true;
-    state.error='';
-    try {
-        const [receipt,loaded]=await Promise.all([readEvalReportsScope(state.farm,state.preview),
-            loadCompleteEvalReportInventory(()=>currentDriveEvaluatorReport(state))]);
+function loadDriveEvaluatorPicker(state) {
+    if (!state || !currentDriveEvaluatorReport(state)) return;
+    const revision = getDatasetLoadSignature('warehouseAssignedItems');
+    if (state.revision === revision || state.pending) return;
+    state.error = '';
+    state.pending = readEvalReportsScope(state.farm,state.preview).then(receipt=>{
         if (!currentDriveEvaluatorReport(state)) return;
-        if (!loaded || !isMasterFullProjectionReady() || receipt.scope!==state.scope) throw new Error('Evaluator scope could not be verified.');
-        state.receipt=receipt;
-        state.dataset=getDatasetLoadSignature('warehouseAssignedItems');
-        state.evaluator=receipt.evaluators.some(entry=>entry.username===state.evaluator)
-            ? state.evaluator : state.scope === 'all' ? '' : receipt.evaluators[0]?.username || '';
-    } catch (error) {
-        if (currentDriveEvaluatorReport(state)) state.error=error.message;
-    } finally {
-        state.pending=false;
-        if (currentDriveEvaluatorReport(state)) scheduleDriveRender(0,16,true);
+        if (receipt.scope !== state.scope) throw new Error('Assigned user scope could not be verified.');
+        state.revision = revision;
+        state.owners = new Map(receipt.evaluators.map(({username,row_ids})=>[username,new Set(row_ids.map(String))]));
+        state.receipt = receipt;
+        if (state.scope === 'all') mergeDriveAssignedOwners(state);
+    }).catch(error=>{
+        if (currentDriveEvaluatorReport(state)) state.error = error.message;
+    }).finally(()=>{
+        state.pending = null;
+        if (currentDriveEvaluatorReport(state) && isViewVisible('drive')) renderDrive();
+    });
+}
+
+function mergeDriveAssignedOwners(state) {
+    const assigned = new Map();
+    for (const row of warehouseAssignedItemsInventory) {
+        if (!evalReportRowIsInFarm(row,state.farm)) continue;
+        const user = normalizeEvalAssignableUser(row.ASSIGNEDTO);
+        const id = row.MASTER_UNIQUE_ID;
+        if (!user || !id || state.owners.has(user)) continue;
+        if (!assigned.has(user)) assigned.set(user,new Set());
+        assigned.get(user).add(String(id));
     }
+    state.additionalOwners = [...assigned].map(([username,ids])=>{
+        state.owners.set(username,ids);
+        return {username};
+    });
 }
 
-function driveEvaluatorPick(state,key,value) {
-    if (!currentDriveEvaluatorReport(state)) return;
-    state[key]=value;
-    state.path=[];
-    if (key!=='plant') state.plant='';
-    scheduleDriveRender(0,16,true);
+function selectDriveEvaluatorReport(state,report) {
+    if (!state || !currentDriveEvaluatorReport(state)) return;
+    state.report = report;
+    refreshDriveReportSelection();
 }
 
-function driveEvaluatorReportRows(state) {
-    const signature = getDatasetLoadSignature('master');
+function selectDriveEvaluator(state,username) {
+    if (state?.scope !== 'all' || !currentDriveEvaluatorReport(state)) return;
+    if (username && !state.owners?.has(username)) return;
+    state.evaluator = username;
+    refreshDriveReportSelection();
+}
+
+function refreshDriveReportSelection() {
+    resetDriveDrillSelectionState();
+    if (!driveReport2BrowseTab(activeDriveTab)) return setDriveTab('name',{exitReport:true});
+    if (isViewVisible('drive')) renderDrive();
+}
+
+function getDriveEvaluatorReportRows(rows,state = getDriveEvaluatorReportState()) {
+    if (!state || !state.report && !state.evaluator) return rows;
+    const scoped = getDriveEvaluatorAssignmentRows(rows,state);
+    if (!state.report || !scoped.length) return scoped;
     const year = getConfiguredCurrentSalesYearCode();
-    if (state.inventory !== fullInventory || state.signature !== signature || state.year !== year) {
-        Object.assign(state,{inventory:fullInventory,signature,year,
-            rows:fullInventory.filter(row=>evalReportRowIsInFarm(row,state.farm)),eval2:null});
-    }
-    const candidates = state.report.startsWith('eval2:')
-        ? driveEval2CandidateRows(state,state.report.slice(6))
-        : getEvalRoleReportRows(state.rows,state.report === driveEvalReason.id ? 'hold-stop' : state.report,year);
-    if (state.scope === 'all' && !state.evaluator) return candidates;
-    const evaluator = state.receipt.evaluators.find(entry=>entry.username===state.evaluator);
-    if (!evaluator) return [];
-    const owners = new Map(evaluator.row_ids.map(uid=>[uid,evaluator.username]));
-    return candidates.filter(row=>resolveExactOwnerForRow(row,owners,state.farm) === evaluator.username);
+    const key = JSON.stringify(['drive-evaluator',state.key,state.report,state.evaluator,state.revision,year]);
+    return getCanonicalDriveProjection(scoped,key,()=>{
+        const report = state.report;
+        const facts = getPreparedDriveReportFacts();
+        return report.startsWith('eval2:')
+            ? driveEval2CandidateRows({rows:scoped},report.slice(6))
+            : getEvalRoleReportRows(scoped,report === driveEvalReason.id ? 'hold-stop' : report,year,facts);
+    });
+}
+
+function getDriveEvaluatorAssignmentRows(rows,state) {
+    const owners = state.evaluator ? state.owners?.get(state.evaluator) : null;
+    if (state.evaluator && (!owners || state.revision !== getDatasetLoadSignature('warehouseAssignedItems'))) return [];
+    const farmRows = getCanonicalDriveProjection(rows,'drive-report-farm:'+state.farm,()=>
+        rows.filter(row=>evalReportRowIsInFarm(row,state.farm)));
+    if (!owners) return farmRows;
+    const key = JSON.stringify(['drive-assigned',state.key,state.evaluator,state.revision]);
+    return getCanonicalDriveProjection(farmRows,key,()=>farmRows.filter(row=>owners.has(String(row.UNIQUE_ID ?? row.unique_id ?? ''))));
 }
 
 function driveEval2CandidateRows(state,id) {
@@ -83,108 +126,187 @@ function driveEval2CandidateRows(state,id) {
     }
     const api=getManagerEvalReports2Api();
     const next=getConfiguredNextSaleSeasonTarget();
-    state.eval2 ||= api?.classifyScriptCompatibleRows(state.rows,{
+    const eval2 = api?.classifyScriptCompatibleRows(state.rows,{
         currentSeason:getConfiguredCurrentSeasonCode(),currentSalesYear:getConfiguredCurrentSalesYearCode(),
         nextSeason:next.season,nextSalesYear:next.salesYear,settings:managerEvalReportSettings,now:new Date()
     });
-    return state.eval2?.reports[id] || [];
+    return eval2?.reports[id] || [];
 }
 
-function makeDriveEvaluatorControls(root,state) {
-    root.innerHTML='<button type="button" data-drive-eval-exit>Exit evaluator reports</button>' +
-        '<div data-drive-eval-title></div><div data-drive-eval-plant></div>' +
-        evalReportBrowseMarkup()+'<div data-drive-eval-results></div>';
-    root.onclick=event=>{
-        if (!currentDriveEvaluatorReport(state)) return;
-        if (event.target.closest('[data-drive-eval-exit]')) return driveEvaluatorPick(state,'open',false);
-        if (event.target.closest('[data-drive-eval-retry]')) return void loadDriveEvaluatorReport(state);
-        bindEvalReportBrowseClick(event,state,()=>scheduleDriveRender(0,16,true));
-    };
+
+function getPreparedDriveReportFacts() {
+    if (typeof fullInventory === 'undefined') return null;
+    const prepared = typeof getCurrentPreparedMasterRows === 'function' && canonicalPreparedDriveIsCurrent(fullInventory)
+        && getCurrentPreparedMasterRows(fullInventory)?.driveReportFacts;
+    return prepared || getCanonicalDriveProjection(fullInventory,'drive-master-facts',()=>new WeakMap());
 }
 
-function paintDriveEvaluatorFilters(root,state,rows) {
-    const report = driveEvaluatorReportOptions().find(entry=>entry.id===state.report);
-    const title = state.receipt.evaluators.find(entry=>entry.username===state.evaluator);
-    root.querySelector('[data-drive-eval-title]').textContent = report?.label + ' · '
-        + (title ? (title.display_name || title.username)+' (@'+title.username+')' : 'All Evaluators');
-    const plants=root.querySelector('[data-drive-eval-plant]');
-    plants.hidden=!state.report.startsWith('hold-stop');
-    if (plants.hidden) return rows;
-    mountModuleSubviewDropdown(plants,{label:'Plant Group Code',
-        choices:evalReportFacetChoices(rows,evalReportPlantGroup,'All Plant Groups'),
-        value:state.plant,select:value=>driveEvaluatorPick(state,'plant',value)});
-    return state.plant ? rows.filter(row=>evalReportPlantGroup(row)===state.plant) : rows;
+function getDriveAuthorizedBrowseRows(rows,state = getDriveEvaluatorReportState()) {
+    return state?.scope === 'own' ? getDriveEvaluatorAssignmentRows(rows,state) : filterBloomscapesPreviewInventoryRows(rows);
 }
 
-function paintDriveEvaluatorReport(container,state) {
-    let root=container.querySelector('[data-drive-eval-workspace]');
-    if (root?.driveEvaluatorOwner!==state) {
-        resetDriveReportContent(container);
-        root=container.appendChild(document.createElement('section'));
-        root.dataset.driveEvalWorkspace='';
-        root.driveEvaluatorOwner=state;
-        makeDriveEvaluatorControls(root,state);
+function scopeDriveEvaluatorRows(rows) {
+    return getDriveEvaluatorReportRows(getDriveAuthorizedBrowseRows(rows));
+}
+
+function getDriveReportSearchSignature() {
+    const state = getDriveEvaluatorReportState();
+    const saved = getActiveDriveReport2();
+    return JSON.stringify([state?.key,state?.report,state?.evaluator,state?.revision,saved?.savedId,saved?.savedRevision]);
+}
+
+function scopeDriveSavedReportRows(rows,key) {
+    const saved = canUseDriveCustomReports() && getActiveDriveReport2();
+    if (!saved) return rows;
+    syncDriveReport2Rows(saved,{rows,sourceKey:key,projectRow:projectDriveReport2Row});
+    return getDriveReport2PhysicalRows(saved);
+}
+
+function buildDriveUniversalSearchState(term = '') {
+    const safeTerm = String(term || '').trim();
+    let baseItems = scopeDriveEvaluatorRows(getDriveModeItems());
+    normalizeDriveSelectedSeasons();
+    if (!areAllDriveSeasonsSelected()) {
+        baseItems = baseItems.filter((item) => driveSelectedSeasons.has(String(item && item.SEASON || '').trim().toUpperCase()));
     }
-    const result=root.querySelector('[data-drive-eval-results]');
-    if (!state.receipt) {
-        setContainerHtml(result,state.error ? '<p role="status">'+esc(state.error)+'</p><button data-drive-eval-retry>Retry</button>'
-            : '<p role="status">Loading evaluator reports…</p>');
+    if (driveQuickHoldStopOnly) baseItems = baseItems.filter((item) => isDriveHoldStopCodeRow(item));
+    const cacheKey = buildDriveUniversalSearchCacheKey(baseItems,safeTerm)+getDriveReportSearchSignature();
+    if (driveUniversalSearchResultCache.has(cacheKey)) {
+        const cached = driveUniversalSearchResultCache.get(cacheKey);
+        driveUniversalSearchResultCache.delete(cacheKey);
+        driveUniversalSearchResultCache.set(cacheKey, cached);
+        incrementInternalPerfCounter('viewStateCacheHits');
+        return cached;
+    }
+    const drivePlantFilterState = buildDrivePlantFilterState(baseItems);
+    const scopedItems = scopeDriveSearchToLocation(drivePlantFilterState.filteredItems);
+    const searchMatches = filterDriveIndexedRows(scopedItems,safeTerm,'drive_universal');
+    const columnFilteredItems = applyDriveColumnFiltersToItems(searchMatches);
+    const visibleItems = applyDriveQuickFiltersToItems(columnFilteredItems, `universal:${cacheKey}`);
+    const finalItems = sortDriveCardsForActiveFilters(scopeDriveSavedReportRows(visibleItems,cacheKey));
+    const state = { baseItems, drivePlantFilterState, finalItems, cacheKey };
+    setDriveUniversalSearchCacheEntry(cacheKey, state);
+    return state;
+}
+
+
+function scheduleDriveSearchRequest(term = '', fromInputFrame = false) {
+    cancelDriveSearchRenderWork();
+    const requestToken = ++driveSearchRequestToken;
+    const drillStateKey = getDriveDrillSelectionStateKey();
+    if (fromInputFrame) {
+        if (term && paintWarmDriveSearch()) return;
+        scheduleDriveSearchRender(term,{skipDebounce:true,typingDelay:0,requestToken,drillStateKey});
         return;
     }
-    const rows=paintDriveEvaluatorFilters(root,state,driveEvaluatorReportRows(state));
-    state.visibleRows=paintReportInventoryDrill(result,state,rows,[state.key,state.evaluator,state.report,state.plant,
-        getDatasetLoadSignature('master'),state.dataset],'',state.report.startsWith('hold-stop'),
-        row=>generateCard(row,'drive',getDriveCardStatusClass(row),{originView:'drive'}),'drive');
-    syncEvalReportBrowseControls(root,state);
+    const requestDelay = (isIOSDevice() || isStandaloneApp() || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches)) ? 100 : 60;
+    driveSearchDebounceTimer = setTimeout(() => {
+        driveSearchDebounceTimer = null;
+        if (requestToken !== driveSearchRequestToken) return;
+        if (drillStateKey !== getDriveDrillSelectionStateKey()) return;
+        scheduleDriveSearchRender(term, {
+            skipDebounce: true,
+            typingDelay: requestDelay,
+            requestToken,
+            drillStateKey
+        });
+    }, requestDelay);
 }
 
-function getDriveEvaluatorReportState() {
-    const scope = driveEvaluatorScope();
-    if (!scope) {
-        driveEvaluatorReport = null;
-        return null;
-    }
-    if (driveEvaluatorReport?.key !== scope.key) driveEvaluatorReport = {
-        ...scope,...createDriveBrowseState(),open:false,evaluator:scope.preview || '',report:EVAL_ROLE_REPORTS[0].id,plant:''
-    };
-    return driveEvaluatorReport;
-}
-
-function selectDriveEvaluatorReport(state,report) {
-    if (!currentDriveEvaluatorReport(state)) return;
-    state.open = true;
-    driveEvaluatorPick(state,'report',report);
-    if (!state.receipt) void loadDriveEvaluatorReport(state);
-}
-
-function driveEvaluatorReportPicker(state) {
-    if (state?.scope !== 'all') return null;
-    const users = state.receipt?.evaluators || [];
-    return {label:'Evaluator:',value:state.evaluator,choices:[['','All Evaluators'],...users.map(entry=>
-        [entry.username,(entry.display_name || entry.username)+' (@'+entry.username+')'])],
-    select:value=>driveEvaluatorPick(state,'evaluator',value)};
-}
-
-function loadDriveEvaluatorPicker(state) {
-    if (state?.scope === 'all' && !state.receipt) void loadDriveEvaluatorReport(state);
-}
-
-function mountDriveEvaluatorReports(container,state) {
-    if (!container || !state?.open) return false;
-    if (state.receipt && state.dataset !== getDatasetLoadSignature('warehouseAssignedItems')) {
-        state.receipt = null;
-        state.visibleRows = null;
-        void loadDriveEvaluatorReport(state);
-    }
-    paintDriveEvaluatorReport(container,state);
+function paintWarmDriveSearch() {
+    if (!canPaintWarmDriveSearch()) return false;
+    cancelPendingNavigationScrollResets();
+    invalidateDriveResolvedCardState();
+    markViewDirty('drive');
+    renderDrive({keepToolbar:true});
     return true;
 }
 
-function closeDriveEvaluatorReport() {
-    if (driveEvaluatorReport?.open) driveEvaluatorReport.open = false;
+function buildDriveSearchKey(row,cleanCommonName,sizeKey) {
+    const location = String(row.LOCATIONCODE ?? row.locationcode ?? '');
+    const block = location.split('.').slice(0,2).join('.');
+    return [cleanCommonName,row.ITEMCODE ?? row.itemcode,block,location,row.LOTCODE ?? row.lotcode,sizeKey]
+        .join('\t').toLowerCase();
 }
 
-function getDriveEvaluatorReportRows() {
-    const state=driveEvaluatorReport;
-    return state?.open && currentDriveEvaluatorReport(state) ? state.visibleRows || [] : null;
+function filterDriveIndexedRows(rows,term,profile) {
+    const terms = String(term || '').toLowerCase().trim().split(/\s+/).filter(Boolean);
+    if (!terms.length) return rows;
+    return getCanonicalDriveProjection(rows,'drive-search:'+profile+':'+terms.join(' '),()=>{
+        if (!rows[0]?._searchKey) return filterBySearch(rows,term,profile);
+        const matching = rows.filter(row=>terms.every(token=>row._searchKey?.includes(token)));
+        return matching.length ? matching : filterBySearch(rows,term,profile);
+    });
+}
+
+function getDriveBaseFilteredItems() {
+    const cacheKey = getDriveBaseFilterKey();
+    if (driveBaseFilterCacheKey === cacheKey) return driveBaseFilterCacheItems;
+    const contextKey = getDriveBaseFilterContextKey();
+    const profile = getDriveSearchProfile();
+    const base = driveBaseContextCacheKey === contextKey ? driveBaseContextCacheItems : buildDriveBaseSearchRows();
+    const term = activeDriveMode === 'ok' ? getDriveBaseSearchTermForCurrentScope() : '';
+    const result = term ? filterDriveIndexedRows(base,term,profile) : base;
+    driveBaseContextCacheKey = contextKey;
+    driveBaseContextCacheItems = base;
+    driveBaseSearchContextKey = [contextKey,profile].join('::');
+    driveBaseLastSearchTerm = term;
+    driveBaseLastSearchItems = result;
+    driveBaseFilterCacheKey = cacheKey;
+    driveBaseFilterCacheItems = result;
+    return result;
+}
+
+function buildDriveBaseSearchRows() {
+    if (activeDriveMode !== 'ok') return [];
+    let rows = getDriveModeItems();
+    normalizeDriveSelectedSeasons();
+    if (!areAllDriveSeasonsSelected()) rows = rows.filter(row=>driveSelectedSeasons.has(String(row.SEASON || '').toUpperCase()));
+    if (activeDriveTab === 'hold') return rows.filter(row=>isDriveHoldStopReportRow(row,activeDriveHoldStopReport));
+    if (activeDriveTab === 'season-sales-notes') return rows.filter(isDriveSeasonSalesNotesRow);
+    if (driveQuickHoldStopOnly) return rows.filter(isDriveHoldStopCodeRow);
+    return rows;
+}
+
+function canPaintWarmDriveSearch() {
+    if (!isViewVisible('drive')) return false;
+    const state = document.getElementById('drive-content')?.__gncCardWindow;
+    return isMasterFullProjectionReady() || !!(state?.rows.length && state.scope === getSupabaseReadIdentityScope());
+}
+
+function queueNativeDriveSearch(input,event) {
+    if (canPaintWarmDriveSearch()) return handleDriveSearch(event);
+    scheduleFieldSearch(input,()=>handleDriveSearch(event));
+}
+
+function indexDriveSearchRows(rows,source) {
+    const year = normalizeEvalReportSalesYear(getConfiguredCurrentSalesYearCode()) ?? 2027;
+    const prepared = canonicalPreparedDriveIsCurrent(source) && getCurrentPreparedMasterRows(source)?.driveReportFacts;
+    const facts = getCanonicalDriveProjection(source,'drive-master-facts',()=>prepared || new WeakMap());
+    for (const row of rows) {
+        const crop = facts.get(row) || indexDriveRowFacts(row,facts);
+        if (!row._searchKey) row._searchKey = buildDriveSearchKey(row,crop.cleanCommonName,crop.sizeKey);
+        if (row._reportMaskYear !== year) stampEvalRoleReportMask(row,year,crop);
+    }
+    return rows;
+}
+
+function indexDriveRowFacts(row,facts) {
+    const crop = {...prepareEvalReportRowFacts(row),cleanCommonName:getDrivePlantCommonName(row),sizeKey:getDrivePlantContSize(row)};
+    facts.set(row,crop);
+    return crop;
+}
+
+function paintCachedDriveOnNavigation(view,previous) {
+    if (view !== 'drive' || previous === view || !nativeAuthSessionActive || !canAccessView('drive')) return;
+    if (hasConfirmedCurrentAccountRevocation()) return;
+    if (!fullInventory.length) {
+        void restoreBloomscapesBootMaster();
+        return;
+    }
+    const owner = getSupabaseReadIdentityScope();
+    const verified = productionDisplayMasterReceipt?.rows === fullInventory && productionDisplayMasterReceipt.readScope === owner;
+    if (verified || warmAvInventoryOwners.get(fullInventory) === owner || canRenderNavigationSnapshot('drive')) {
+        renderDrive({useVerifiedSnapshot:true});
+    }
 }

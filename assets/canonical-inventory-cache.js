@@ -49,6 +49,8 @@ function dirtyCanonicalInventoryRows(rows) {
         if (group) cache.groups.set(group, (cache.groups.get(group) || 0) + 1);
         cache.rows.delete(row);
         cache.ownerRows.delete(row);
+        row._reportMaskYear = undefined;
+        row._searchKey = undefined;
         if (row._searchProfileValues) row._searchProfileValues = {};
         if (row._searchProfileWordStarts) row._searchProfileWordStarts = {};
     }

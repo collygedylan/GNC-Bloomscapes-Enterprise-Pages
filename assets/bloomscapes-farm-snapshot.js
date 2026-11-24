@@ -89,3 +89,45 @@ async function readBloomscapesFarmPage(table,query,count,signal,background,farm)
         return page;
     }
 }
+
+const bloomscapesReferenceColumns = {
+    ph_item_cpb:'itemcode,cpb,cpb_source',
+    ph_location_beds:'locationcode,total_beds,reserved_2027_beds'
+};
+
+async function readBloomscapesReferencePages(client,table,signal) {
+    const [identity] = bloomscapesReferenceColumns[table].split(',');
+    const rows = [];
+    for (let offset=0;offset<20000;offset+=1000) {
+        let query = client.from(table).select(bloomscapesReferenceColumns[table]).order(identity);
+        if (table === 'ph_location_beds') query = query.eq('active',true).eq('bay','000');
+        const page = bloomscapesData(await query.range(offset,offset+999).abortSignal(signal));
+        rows.push(...page);
+        if (page.length < 1000) return rows;
+    }
+    throw new Error('Reference snapshot exceeds its read limit.');
+}
+
+async function readBloomscapesScheduleSummary(client,farm,signal) {
+    const table = 'gnc_10_ph_production_schedule';
+    const [count,latest] = await Promise.all([
+        client.from(table).select('row_id',{count:'exact',head:true}).eq('farm_code',farm).abortSignal(signal),
+        client.from(table).select('import_id,imported_at,source_file_name').eq('farm_code',farm)
+            .order('imported_at',{ascending:false}).limit(1).abortSignal(signal)
+    ]);
+    if (count.error || !Number.isSafeInteger(count.count)) throw count.error || new Error('Schedule summary count unavailable.');
+    return {count:count.count,latest:bloomscapesData(latest)[0] || null};
+}
+
+async function readBloomscapesReferenceSnapshot(farm,withCapacity) {
+    const {client,owner} = await requireBloomscapesSession();
+    const signal = AbortSignal.timeout(15000);
+    const replies = await Promise.allSettled([
+        readBloomscapesScheduleSummary(client,farm,signal),
+        withCapacity ? readBloomscapesReferencePages(client,'ph_item_cpb',signal) : null,
+        withCapacity ? readBloomscapesReferencePages(client,'ph_location_beds',signal) : null
+    ]);
+    await requireBloomscapesOwner(owner);
+    const value = index=>replies[index].status === 'fulfilled' ? replies[index].value : null;
+    return {scheduleSummary:value(0),cpb:value(1),beds:value(2)};
+}

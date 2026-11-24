@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.53';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.54';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -13644,6 +13644,7 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
             repairAppShellScrollState(`show-view:${safeViewId}`);
             if (targetView && previousViewId !== safeViewId && canUseProductionLiveSync()) {
                 beginProductionVerifiedNavigation(safeViewId, work => afterNavigationPaint(safeViewId, navTransitionSeq, work));
+                paintCachedDriveOnNavigation(safeViewId,previousViewId);
             }
             return targetView;
         }
@@ -19490,6 +19491,7 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
         /* @runtime-fragment assets/confirmed-evaluation-ui.js */
         /* @runtime-fragment assets/canonical-inventory-cache.js */
         /* @runtime-fragment assets/drive-inventory-index.js */
+        /* @runtime-fragment assets/drive-common-name-preparation.js */
         /* @runtime-fragment assets/drive-location-navigation.js */
         /* @runtime-fragment assets/canonical-inventory-current-photo.js */
         /* @runtime-fragment assets/canonical-inventory-evidence.js */
@@ -23256,7 +23258,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.53';
+        const APP_VERSION = '3.1.54';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -25223,67 +25225,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
                     && !!state.liveVerifiedPermission
                     && (!context.dataPermissionSnapshotFresh || state.liveVerifiedPermission === context.dataPermissionVersion);
             });
-        }
-
-        async function readProductionDisplaySnapshot(adapter, meta) {
-            if (!adapter.id.startsWith('core:') && !PRODUCTION_DISPLAY_CACHE_SIDE_ADAPTERS.has(adapter.id)) return null;
-            const owner = getSupabaseReadIdentityScope();
-            const saved = await loadCacheValue(verifiedSnapshotCacheKey(meta));
-            if (owner !== getSupabaseReadIdentityScope() || !saved || saved.meta?.contractVersion !== meta.contractVersion
-                || saved.meta?.scope !== meta.scope
-                || saved.meta?.cacheKey !== meta.cacheKey || saved.meta?.adapterId !== meta.adapterId) return null;
-            if (!meta.dataPermissionVersion || String(saved.meta.dataPermissionVersion || '') !== String(meta.dataPermissionVersion)) return null;
-            const displayKey = productionDisplayGroupKey();
-            const noteVerifiedAt = () => {
-                if (!saved.verifiedAt || !Number.isFinite(Date.parse(saved.verifiedAt))) return;
-                productionDisplaySnapshotTimes.set(`${displayKey}\u001f${adapter.id}`, String(saved.verifiedAt));
-            };
-            if (adapter.id.startsWith('side:')) {
-                if (saved.format !== 'verified-display-v1' || !isBoundedProductionSideDisplayValue(adapter, saved.value)) return null;
-                noteVerifiedAt();
-                return deserializeProductionSideDisplayValue(adapter, saved.value);
-            }
-            if (saved.format !== 'verified-raw-v1' || !Array.isArray(saved.rawRows) || saved.rowCount !== saved.rawRows.length) return null;
-            const key = adapter.id.slice(5);
-            if (key === 'master') {
-                if (saved.rowCompleteness !== 'complete' || (saved.sourceRowCount != null && saved.sourceRowCount !== saved.rawRows.length)) return null;
-                try { validateInventoryReadProjection(saved, { projection: adapter.projection }); }
-                catch (_) { return null; }
-            }
-            noteVerifiedAt();
-            let payload;
-            if (key === 'master') {
-                try {
-                    const prepared = await prepareProductionMasterSnapshot(saved.rawRows, { identity: owner,
-                        permissionVersion: meta.dataPermissionVersion, seasonKey: currentMasterPreparationSeasonKey(), includeRawRows: false,
-                        signal: typeof productionLiveSyncNavigation !== 'undefined' ? productionLiveSyncNavigation.signal : null });
-                    if (owner !== getSupabaseReadIdentityScope()) return null;
-                    payload = prepared.payload;
-                } catch (error) {
-                    if (error?.code === 'DATASET_READ_SCOPE_CHANGED' || error?.code === 'REQUEST_ABORTED') return null;
-                    throw error;
-                }
-            } else payload = buildDatasetPayload(key, saved.rawRows);
-            return { key, payload, rowCompleteness: String(saved.rowCompleteness || ''),
-                projection: String(saved.projection || ''), fieldCoverage: String(saved.fieldCoverage || ''), columns: Array.isArray(saved.columns) ? saved.columns : [],
-                rowCount: saved.rowCount, cached: true };
-        }
-
-
-        function writeProductionVerifiedSnapshot(adapter, value, meta) {
-            if (adapter.id.startsWith('side:')) {
-                const displayValue = serializeProductionSideDisplayValue(adapter, value);
-                if (!isBoundedProductionSideDisplayValue(adapter, displayValue)) return;
-                return saveCacheValue(verifiedSnapshotCacheKey(meta), { format: 'verified-display-v1', meta, value: displayValue, verifiedAt: new Date().toISOString() });
-            }
-            if (!adapter.id.startsWith('core:') || !Array.isArray(value.rawRows) || value.rowCount !== value.rawRows.length) return;
-            if (value.key === 'master') {
-                if (value.rowCompleteness !== 'complete') return;
-                try { validateInventoryReadProjection(value, { projection: adapter.projection }); }
-                catch (_) { return; }
-            }
-            return saveCacheValue(verifiedSnapshotCacheKey(meta), { format: 'verified-raw-v1', meta, rawRows: value.rawRows, rowCount: value.rowCount, sourceRowCount: value.rowCount, rowCompleteness: value.rowCompleteness || '',
-                projection: value.projection || '', fieldCoverage: value.fieldCoverage || '', columns: Array.isArray(value.columns) ? value.columns : [], verifiedAt: new Date().toISOString() });
         }
 
         function getProductionDataStatusMessage(status = {}) {
@@ -29719,12 +29660,8 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         }
 
         function buildDatasetPayload(key, rows) {
-            const definition = DATASET_DEFINITIONS[key];
-            const formatted = formatFetchedRows(rows, definition.sourceTable);
-            if (key === 'master') {
-                if (rows.readMeta) Object.defineProperty(formatted, 'readMeta', { value: rows.readMeta, configurable: true });
-                return { data: formatted };
-            }
+            if (key === 'master') return buildDirectMasterDatasetPayload(rows);
+            const formatted = formatFetchedRows(rows,DATASET_DEFINITIONS[key].sourceTable);
             if (key === 'avOpen') return { avOpenData: formatted };
             if (key === 'requests') {
                 if (rows.requestReadMeta) Object.defineProperty(formatted, 'requestReadMeta', {value:rows.requestReadMeta});
@@ -34030,13 +33967,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             }
         }
 
-        function persistAppAccessSnapshot(snapshot = null, loadedAt = Date.now()) {
-            if (!snapshot || !snapshot.username) return;
-            try {
-                localStorage.setItem(getAppAccessCacheKey(snapshot.username), JSON.stringify({ snapshot, loadedAt, profileId: nativeAuthProfile?.id || '' }));
-            } catch (error) { globalThis.safeIgnoreProbeError?.("persistAppAccessSnapshot"); }
-        }
-
         function getAppAccessSnapshot() {
             const usernameKey = getRequestCapabilityUsernameKey(currentUser);
             if (!usernameKey || appAccessSnapshotState.username !== usernameKey) return null;
@@ -34076,6 +34006,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
                 status: 'loading', snapshot: cached ? cached.snapshot : null, stale: !!cached,
                 errorCode: '', loadedAt: cached ? cached.loadedAt : 0, username: usernameKey, profileId, authEpoch
             };
+            void hydrateIndexedAppAccess(usernameKey,profileId,isCurrentAccount);
             appAccessSnapshotLoadPromise = (async () => {
                 if (navigator.onLine === false) throw new Error('APP_ACCESS_OFFLINE');
                 const result = await supabaseRpc('get_my_app_permissions_v1', {}, { timeoutMs: 10000 });
@@ -34089,7 +34020,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             })().catch((error) => {
                 if (!isCurrentAccount()) return null;
                 const errorCode = String(error && error.message || 'APP_ACCESS_LOAD_FAILED').replace(/[^A-Z0-9_-]+/gi, '_').slice(0, 80);
-                const retained = hasConfirmedCurrentAccountRevocation() ? null : cached;
+                const retained = retainCachedAppAccessAfterFailure(cached);
                 appAccessSnapshotState = {
                     status: retained ? 'ready' : 'error', snapshot: retained ? retained.snapshot : null,
                     stale: !!retained, errorCode, loadedAt: retained ? retained.loadedAt : 0, username: usernameKey, profileId, authEpoch
@@ -42956,66 +42887,6 @@ return false;
             const term = getDriveBaseSearchTermForCurrentScope();
             return [getDriveBaseFilterContextKey(), term ? getDriveSearchProfile() : '', term, getInventoryExcelState('drive').revision].join('::');
         }
-
-        function getDriveBaseFilteredItems() {
-            const cacheKey = getDriveBaseFilterKey();
-            if (driveBaseFilterCacheKey === cacheKey) return driveBaseFilterCacheItems;
-            const contextKey = getDriveBaseFilterContextKey();
-            const searchProfile = getDriveSearchProfile();
-            const searchContextKey = [contextKey, searchProfile].join('::');
-            if (activeDriveMode !== 'ok') {
-                driveBaseContextCacheKey = contextKey;
-                driveBaseContextCacheItems = [];
-                driveBaseSearchContextKey = searchContextKey;
-                driveBaseLastSearchTerm = '';
-                driveBaseLastSearchItems = [];
-                driveBaseFilterCacheKey = cacheKey;
-                driveBaseFilterCacheItems = [];
-                return driveBaseFilterCacheItems;
-            }
-            let baseItems;
-            if (driveBaseContextCacheKey === contextKey) {
-                baseItems = driveBaseContextCacheItems;
-            } else {
-                baseItems = getDriveModeItems();
-                normalizeDriveSelectedSeasons();
-                if (!areAllDriveSeasonsSelected()) {
-                    baseItems = baseItems.filter(i => {
-                        let s = String(i.SEASON || '').toUpperCase();
-                        return driveSelectedSeasons.has(s);
-                    });
-                }
-                if (activeDriveTab === 'hold') {
-                    baseItems = baseItems.filter((i) => isDriveHoldStopReportRow(i, activeDriveHoldStopReport));
-                } else if (activeDriveTab === 'season-sales-notes') {
-                    baseItems = baseItems.filter((i) => isDriveSeasonSalesNotesRow(i));
-                } else if (driveQuickHoldStopOnly) {
-                    baseItems = baseItems.filter((i) => isDriveHoldStopCodeRow(i));
-                }
-                driveBaseContextCacheKey = contextKey;
-                driveBaseContextCacheItems = baseItems;
-                driveBaseSearchContextKey = searchContextKey;
-                driveBaseLastSearchTerm = '';
-                driveBaseLastSearchItems = baseItems;
-            }
-            const term = getDriveBaseSearchTermForCurrentScope();
-            if (!term) {
-                driveBaseSearchContextKey = searchContextKey;
-                driveBaseLastSearchTerm = '';
-                driveBaseLastSearchItems = baseItems;
-                driveBaseFilterCacheKey = cacheKey;
-                driveBaseFilterCacheItems = baseItems;
-                return baseItems;
-            }
-            const filteredItems = filterBySearch(baseItems, term, searchProfile);
-            driveBaseSearchContextKey = searchContextKey;
-            driveBaseLastSearchTerm = term;
-            driveBaseLastSearchItems = filteredItems;
-            driveBaseFilterCacheKey = cacheKey;
-            driveBaseFilterCacheItems = filteredItems;
-            return filteredItems;
-        }
-
 
         function hasActiveDriveQuickFilters() {
             const ltsValue = String(driveQuickFilterLtsValue || '').trim();
@@ -53247,10 +53118,7 @@ function toggleDriveQuickRequestItem(domId) {
         function setRoleAccessReadyState(isReady = false) {
             if (!document || !document.body) return;
             document.body.classList.toggle('role-access-ready', !!isReady);
-            if (isReady) {
-                ensureColdOperationalHydration(getCurrentVisibleViewId() || 'home');
-                void warmColdOperationalDisplay();
-            }
+            if (isReady) void startBloomscapesCachedBoot(getCurrentVisibleViewId() || 'home');
         }
 
 
@@ -78154,9 +78022,11 @@ function toggleDriveQuickRequestItem(domId) {
             container.style.minHeight = '';
             container.classList.remove('performance-windowed-list');
             container.dataset.inventoryWindowSignature = signature;
-            window.GncCardWindow.mount(container, {
+            const chunked = view==='drive' && container.id==='drive-content'
+                && mountDriveCardChunks(container,rows,renderRow,options,signature,scope);
+            if (!chunked) window.GncCardWindow.mount(container, {
                 rows, renderRow, signature, scope, scrollRoot: getMainAreaScrollTarget(),
-                progressive: options.progressive, initialRows: view === 'drive' && container.id === 'drive-content' ? 40 : 1,
+                progressive: options.progressive,
                 estimatedHeight: options.estimatedHeight || 320,
                 prefixHtml: options.prefixHtml || '', footerHtml: options.footerHtml || '',
                 isCurrent: () => getCurrentVisibleViewId() === view && getSupabaseReadIdentityScope() === scope
@@ -121171,33 +121041,6 @@ ${folderNote ? `Folder Note: ${folderNote}
             }
         }
 
-        function buildDriveUniversalSearchState(term = '') {
-            const safeTerm = String(term || '').trim();
-            let baseItems = getDriveModeItems();
-            normalizeDriveSelectedSeasons();
-            if (!areAllDriveSeasonsSelected()) {
-                baseItems = baseItems.filter((item) => driveSelectedSeasons.has(String(item && item.SEASON || '').trim().toUpperCase()));
-            }
-            if (driveQuickHoldStopOnly) baseItems = baseItems.filter((item) => isDriveHoldStopCodeRow(item));
-            const cacheKey = buildDriveUniversalSearchCacheKey(baseItems, safeTerm);
-            if (driveUniversalSearchResultCache.has(cacheKey)) {
-                const cached = driveUniversalSearchResultCache.get(cacheKey);
-                driveUniversalSearchResultCache.delete(cacheKey);
-                driveUniversalSearchResultCache.set(cacheKey, cached);
-                incrementInternalPerfCounter('viewStateCacheHits');
-                return cached;
-            }
-            const drivePlantFilterState = buildDrivePlantFilterState(baseItems);
-            const scopedItems = scopeDriveSearchToLocation(drivePlantFilterState.filteredItems);
-            const searchMatches = filterBySearch(scopedItems, safeTerm, 'drive_universal');
-            const columnFilteredItems = applyDriveColumnFiltersToItems(searchMatches);
-            const visibleItems = applyDriveQuickFiltersToItems(columnFilteredItems, `universal:${cacheKey}`);
-            const finalItems = sortDriveCardsForActiveFilters(visibleItems);
-            const state = { baseItems, drivePlantFilterState, finalItems, cacheKey };
-            setDriveUniversalSearchCacheEntry(cacheKey, state);
-            return state;
-        }
-
         function preserveDriveSearchCaret(callback) {
             const input = document.getElementById('drive-search');
             const wasFocused = !!(input && document.activeElement === input);
@@ -121260,27 +121103,6 @@ ${folderNote ? `Folder Note: ${folderNote}
             return true;
         }
 
-        function scheduleDriveSearchRequest(term = '', fromInputFrame = false) {
-            cancelDriveSearchRenderWork();
-            const requestToken = ++driveSearchRequestToken;
-            const drillStateKey = getDriveDrillSelectionStateKey();
-            if (fromInputFrame) {
-                scheduleDriveSearchRender(term,{skipDebounce:true,typingDelay:0,requestToken,drillStateKey});
-                return;
-            }
-            const requestDelay = (isIOSDevice() || isStandaloneApp() || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches)) ? 100 : 60;
-            driveSearchDebounceTimer = setTimeout(() => {
-                driveSearchDebounceTimer = null;
-                if (requestToken !== driveSearchRequestToken) return;
-                if (drillStateKey !== getDriveDrillSelectionStateKey()) return;
-                scheduleDriveSearchRender(term, {
-                    skipDebounce: true,
-                    typingDelay: requestDelay,
-                    requestToken,
-                    drillStateKey
-                });
-            }, requestDelay);
-        }
 
         function getDriveSearchTerm() {
             const input = document.getElementById('drive-search');
@@ -125439,58 +125261,6 @@ ${folderNote ? `Folder Note: ${folderNote}
             return true;
         }
 
-        function renderDriveCompleteCommonNames(container, crumb, crumbText, entries, renderEntry, renderKey) {
-            ensureDriveToolbarControls();
-            syncDriveCrumb(crumb, crumbText);
-            if (window.GncCardWindow) {
-                if(getCurrentVisibleViewId()!=='drive')return;
-                cancelDriveCommonNamePreparation();
-                renderInventoryCardWindow(container,entries,renderEntry,{view:'drive',signature:renderKey,estimatedHeight:110});
-                container.dataset.driveRenderKey=renderKey;
-                container.dataset.driveCommonnameState='complete';
-                container.dataset.driveCommonnameCount=String(entries.length);
-                container.setAttribute('aria-busy','false');
-                return;
-            }
-            if (container.dataset.driveRenderKey === renderKey && container.dataset.driveCommonnameState === 'complete') return;
-            if (driveCommonNamePreparation?.renderKey === renderKey && isDriveCommonNamePreparationCurrent(driveCommonNamePreparation)) return;
-            if (productionLiveSyncRendering && productionLiveSyncActiveRender && entries.length
-                && container.dataset.driveCommonnameState === 'complete') {
-                return stageProductionRefreshList('drive:name:list', container, crumb, entries, crumbText, renderEntry, {
-                    renderSignature: renderKey, initialRows: 40, chunkSize: 40, perFrameRows: 40,
-                    verifyRowSelector: '[role="button"]',
-                    onComplete: () => {
-                        container.dataset.driveRenderKey = renderKey;
-                        container.dataset.driveCommonnameState = 'complete';
-                        container.dataset.driveCommonnameCount = String(entries.length);
-                        container.setAttribute('aria-busy', 'false');
-                        setContainerUiState(container, 'content');
-                    }
-                });
-            }
-            cancelChunkRenderWorkForContainer(container, 'drive:name:list');
-            const token = bumpChunkRenderTokenByKey('drive:name:list');
-            delete container.dataset.driveRenderKey;
-            // Keep the current cards until the first replacement batch is ready.
-            setContainerChunkRenderState(container, 'drive:name:list', token);
-            container.dataset.driveCommonnameState = 'preparing';
-            const status = getProductionLiveSyncCoordinator()?.getStatus();
-            if (status) renderProductionDataFreshness(status);
-            container.setAttribute('aria-busy', 'true');
-            setContainerUiState(container, 'loading');
-            const pending = { container, renderKey, token, index: 0, frame: 0, fragment: document.createDocumentFragment(),
-                native: canUseProductionLiveSync(), proof: productionVerifiedViewKey(), generation: productionLiveSyncReadGeneration,
-                selection: getDriveDrillSelectionStateKey(), search: String(document.getElementById('drive-search')?.value || ''),
-                filterKey: driveVisibleItemsStateCacheKey, user: String(currentUser || ''), role: String(currentRole || '') };
-            driveCommonNamePreparation = pending;
-            window.GncDriveCommonNamePreparation.prepareDriveCommonNameBatches({
-                pending, entries, renderEntry,
-                isCurrent: () => isDriveCommonNamePreparationCurrent(pending),
-                onStale: () => recoverStaleDriveCommonNamePreparation(pending),
-                onComplete: () => completeDriveCommonNamePreparation(pending, entries),
-                onError: error => failDriveCommonNamePreparation(pending, error)
-            });
-        }
 
         /* @runtime-fragment assets/instant-view-transition.js */
 

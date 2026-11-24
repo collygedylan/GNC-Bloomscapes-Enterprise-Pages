@@ -63,11 +63,14 @@ function resolveEvalReportCrop(row) {
     };
 }
 
-function evalReportRowFacts(row, year) {
-    const {season, salesYear, designation} = resolveEvalReportCrop(row);
-    const shifted = String(designation).toUpperCase().includes('SHFT');
+function prepareEvalReportRowFacts(row) {
+    const {season,salesYear,designation} = resolveEvalReportCrop(row);
+    return {season,salesYear,shifted:String(designation).toUpperCase().includes('SHFT'),hold:Boolean(evalReportHoldCode(row))};
+}
+
+function evalReportRowFacts({season,salesYear,shifted,hold}, year) {
     return {
-        season, shifted, hold: Boolean(evalReportHoldCode(row)),
+        season, shifted, hold,
         transition: evalTransitionSeasons.has(season) && !(season === 'U3' && shifted) && year !== null && salesYear !== null,
         year, salesYear
     };
@@ -90,7 +93,15 @@ const EVAL_ROLE_REPORTS = Object.freeze([
     ['hold-stop', 'Hold/Stop', facts => facts.hold],
     ['shift', 'Shift', facts => (facts.season === 'Y' || facts.season === 'U3') && facts.shifted],
     ['propagation', 'Propagation', facts => facts.season.includes('Z')]
-].map(([id, label, matches]) => Object.freeze({id, label, matches})));
+].map(([id, label, matches], index) => Object.freeze({id, label, matches, bit:1 << index})));
+
+function stampEvalRoleReportMask(row, year, crop = prepareEvalReportRowFacts(row)) {
+    const facts = evalReportRowFacts(crop,year);
+    let mask = 0;
+    for (const {bit,matches} of EVAL_ROLE_REPORTS) if (matches(facts)) mask |= bit;
+    row._reportMask = mask;
+    row._reportMaskYear = year;
+}
 
 function expectedEvalReportsScope(profile, preview = null) {
     if (preview) return preview.role === 'eval' && evalReportKey(preview.username) ? 'own' : 'hidden';
@@ -110,10 +121,13 @@ function resolveExactOwnerForRow(row, owners, farm) {
     return owners.get(uid) || '';
 }
 
-function getEvalRoleReportRows(rows, id, activeAppSalesYear) {
+function getEvalRoleReportRows(rows, id, activeAppSalesYear, prepared) {
     const report = EVAL_ROLE_REPORTS.find(entry=>entry.id === id);
     const year = normalizeEvalReportSalesYear(activeAppSalesYear) ?? 2027;
-    return report ? rows.filter(row=>report.matches(evalReportRowFacts(row, year))) : [];
+    if (!report) return [];
+    return rows.filter(row=>row._reportMaskYear === year
+        ? Boolean(row._reportMask & report.bit)
+        : report.matches(evalReportRowFacts(prepared?.get(row) || prepareEvalReportRowFacts(row),year)));
 }
 
 function buildEvalRoleReportsCatalog({rows, evaluators, farm, activeAppSalesYear}) {
@@ -129,7 +143,7 @@ function buildEvalRoleReportsCatalog({rows, evaluators, farm, activeAppSalesYear
     for (const row of rows) {
         const evaluator = catalog.get(resolveExactOwnerForRow(row, owners, farm));
         if (!evaluator) continue;
-        const facts = evalReportRowFacts(row, year);
+        const facts = evalReportRowFacts(prepareEvalReportRowFacts(row),year);
         for (const {id, matches} of EVAL_ROLE_REPORTS) {
             if (matches(facts)) evaluator.reports.get(id).push(row);
         }
