@@ -80,3 +80,52 @@ async function dispatchConsolidationGrant(select,status,key,current) {
 }
 
 Object.assign(globalThis,{mountConsolidationGrantControl});
+
+function mountDockPipelineAccess(host,type,subject) {
+    if (!subject || borrowedHelpPreview()) return;
+    const identity = getSupabaseReadIdentityScope();
+    const root = document.createElement('fieldset');
+    root.dataset.dockPipelineAccess = subject;
+    root.innerHTML = '<legend>Docks workflow access</legend><p role="status">Loading access…</p>';
+    host.append(root);
+    const current = () => root.isConnected && identity === getSupabaseReadIdentityScope() && !borrowedHelpPreview();
+    const status = root.querySelector('[role="status"]');
+    void requestDockPipelineSettings(type,subject).then(receipt=>{
+        if (!current()) return;
+        status.textContent = '';
+        for (const field of dockPipelineViews) appendDockPipelineAccessField(root,field,receipt,status,current);
+    }).catch(error=>{if (current()) status.textContent = error.message;});
+}
+
+function appendDockPipelineAccessField(root,[key,name],receipt,status,current) {
+    const label = document.createElement('label');
+    label.textContent = name;
+    const select = document.createElement('select');
+    select.name = key;
+    select.add(new Option('N','N'));
+    select.add(new Option('Y','Y'));
+    select.value = receipt.permissions[key] === 'Y' ? 'Y' : 'N';
+    select.disabled = !receipt.editable;
+    label.append(select);
+    root.append(label);
+    select.addEventListener('change',()=>void saveDockPipelineAccessField(select,key,receipt,status,current));
+}
+
+async function saveDockPipelineAccessField(select,key,receipt,status,current) {
+    const former = receipt.permissions[key] === 'Y' ? 'Y' : 'N';
+    const value = select.value;
+    select.disabled = true;
+    try {
+        const saved = await requestDockPipelineSettings(receipt.subject_type,receipt.subject_key,{[key]:value});
+        if (!current()) return;
+        receipt.permissions[key] = saved.permissions[key];
+        select.value = saved.permissions[key] === 'Y' ? 'Y' : 'N';
+        status.textContent = 'Saved';
+    } catch (error) {
+        if (!current()) return;
+        select.value = former;
+        status.textContent = error.message;
+    } finally {
+        if (current()) select.disabled = false;
+    }
+}

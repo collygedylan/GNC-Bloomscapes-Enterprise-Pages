@@ -14,6 +14,7 @@ function renderBloomscapesDocksBrowse() {
     const awaitingProgress = access.isQc && !access.isAdmin && !access.isQcSupervisor;
     requestBloomscapesDockBrowseMetadata();
     const term = document.getElementById('docks-search').value.toLowerCase().trim();
+    if (renderBloomscapesDockPipeline(container,crumb,term)) return;
     if (dockViewMode === 'mistakes' || dockViewMode === 'dropoff') {
         renderBloomscapesLegacyDockExceptions(container,crumb,term);
         return;
@@ -182,8 +183,8 @@ function renderBloomscapesDockDropCard(card, label) {
     const statuses = [['Suspended',summary.suspended],['Approved',summary.approved],['Ready',summary.ready]];
     const badges = statuses.filter(([,qty]) => qty).map(([name,qty]) => `<span>${name} ${pullHtml(qty)}</span>`).join('');
     return `<button type="button" class="mb-2 block w-full space-y-1 rounded-xl border border-gray-200 bg-white p-3 text-left shadow-sm"
-        data-docks-drop-card="${pullHtml(stop)}" ${buildFastInvokeAttrs('selectDockStop',[stop],`Open Drop ${stop}`)}>
-        <span class="flex items-center justify-between"><strong class="text-[#007a4d]">Drop ${pullHtml(stop)}</strong><span class="text-xs">${done}/${items.length} Done</span></span>
+        data-docks-drop-card="${pullHtml(stop)}" ${buildFastInvokeAttrs('selectDockStop',[stop],`Open STOPNUMBER ${stop}`)}>
+        <span class="flex items-center justify-between"><strong class="text-[#007a4d]">STOPNUMBER ${pullHtml(stop)}</strong><span class="text-xs">${done}/${items.length} Done</span></span>
         <span class="block text-xs">${pullHtml(label)} Ã‚Â· ${items.length} Rows Ã‚Â· Qty ${pullHtml(summary.quantity)}</span>
         <strong class="block text-sm">${pullHtml(identity.cust)}${identity.cons && identity.cons !== identity.cust ? ' Ã‚Â· '+pullHtml(identity.cons) : ''}</strong>
         <span class="flex flex-wrap items-center gap-2 text-xs"><span>${pullHtml(identity.rep)} Ã‚Â· ${pullHtml(identity.state)}</span>${badges}${planStarts.map(renderBloomscapesDockDropStart).join('')}</span></button>`;
@@ -194,7 +195,7 @@ function renderBloomscapesDockDropHeader(label, stop, rows) {
     const summary = buildDockBrowseSummary(rows);
     const done = countBloomscapesCompletedDockRows(rows);
     return `<div class="mb-2 space-y-1 rounded-xl border border-emerald-700 bg-emerald-950 p-3 text-white">
-        <div class="flex items-center justify-between"><strong>${pullHtml(label)} Ã‚Â· Drop ${pullHtml(stop)}</strong><span class="text-xs">${done}/${rows.length} Done</span></div>
+        <div class="flex items-center justify-between"><strong>${pullHtml(label)} Ã‚Â· STOPNUMBER ${pullHtml(stop)}</strong><span class="text-xs">${done}/${rows.length} Done</span></div>
         <div class="text-sm font-semibold">${pullHtml(cust)}${cons && cons !== cust ? ' Ã‚Â· '+pullHtml(cons) : ''}</div>
         <div class="text-xs">${rows.length} Rows Ã‚Â· Qty ${pullHtml(summary.quantity)} Ã‚Â· ${pullHtml(rep)} Ã‚Â· ${pullHtml(state)}</div></div>`;
 }
@@ -216,7 +217,7 @@ function renderBloomscapesDockDropRows(container, crumb, label, dockRows) {
         scheduleDocksRender(0);
         return;
     }
-    const crumbText = `${label} > Drop ${selectedDockStop}`;
+    const crumbText = `${label} > STOPNUMBER ${selectedDockStop}`;
     crumb.innerText = crumbText;
     const prefixHtml = renderBloomscapesDockDropHeader(label,selectedDockStop,rows)
         + renderBloomscapesDockDropTools(selectedDockNum,selectedDockStop);
@@ -225,7 +226,7 @@ function renderBloomscapesDockDropRows(container, crumb, label, dockRows) {
     renderBloomscapesDockPage('docks-stop-items',container,crumb,rows,crumbText,
         item => generateCard(getDockCardLiveInventoryDisplayRow(item),'docks','status-orange'),{
             prefixHtml,approxCardHeight:265,
-            emptyHtml:'<div class="p-8 text-center text-gray-400">No rows remain in this Drop.</div>',
+            emptyHtml:'<div class="p-8 text-center text-gray-400">No rows remain in this STOPNUMBER.</div>',
             renderSignature:signature,verifyRowSelector:'[data-docks-stop-card]',reserveSpace:true
         });
     restoreBloomscapesDockDrafts(container);

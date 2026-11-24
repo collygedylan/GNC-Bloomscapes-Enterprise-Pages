@@ -27,9 +27,9 @@ function printBloomscapesCheckerCopy(button) {
         return;
     }
     popup.opener = null;
-    popup.document.title = `Checker Copy · Dock ${drop.dock} · Drop ${drop.drop}`;
+    popup.document.title = `Checker Copy · Dock ${drop.dock} · STOPNUMBER ${drop.drop}`;
     popup.document.body.innerHTML = `<h1>Checker Copy</h1>
-        <p>Dock ${pullHtml(drop.dock)} · ${pullHtml(drop.trip)} · Drop ${pullHtml(drop.drop)}</p>
+        <p>Dock ${pullHtml(drop.dock)} · ${pullHtml(drop.trip)} · STOPNUMBER ${pullHtml(drop.drop)}</p>
         <p>${pullHtml([drop.customer,drop.consignee,drop.rep].filter(Boolean).join(' · '))}</p>${renderBloomscapesDockDocumentRows(tags)}`;
     popup.focus();
     popup.print();
@@ -56,7 +56,7 @@ function renderPullMistakeActions(row,board) {
 
 function renderPullTrafficDrop(drop) {
     return `<details class="${pullWorkspaceCard}"><summary class="cursor-pointer text-sm font-semibold">
-        Drop ${pullHtml(drop.drop)} · ${pullHtml(drop.trip)} · ${pullHtml(drop.consignee)} · Qty ${pullHtml(drop.quantity)}</summary>
+        STOPNUMBER ${pullHtml(drop.drop)} · ${pullHtml(drop.trip)} · ${pullHtml(drop.consignee)} · Qty ${pullHtml(drop.quantity)}</summary>
         ${renderBloomscapesDockDocumentRows(drop.tags)}${pullCheckerCopyButton(drop,true)}</details>`;
 }
 
@@ -82,7 +82,7 @@ function renderPullTrafficReceipt(receipt,open=false) {
 
 function mountPullTrafficReceipt(content,receipt) {
     const drops=trafficReceiptDrops(receipt);
-    renderBloomscapesScrollCards(content,drops,drop=>bloomscapesListNode(renderPullTrafficDrop(drop)),{empty:'No completed drops.',size:3,estimate:200});
+    renderBloomscapesScrollCards(content,drops,drop=>bloomscapesListNode(renderPullTrafficDrop(drop)),{empty:'No completed STOPNUMBERs.',size:3,estimate:200});
 }
 
 function trafficReceiptDrops(receipt) {
@@ -96,7 +96,7 @@ function trafficReceiptDrops(receipt) {
 function dockDropInstruction(drop) {
     const instruction = String(drop.instruction || '');
     if (/palletize/i.test(instruction)) return '🧱 PALLETIZE NOW';
-    if (/ready.to.load/i.test(instruction)) return `🟢 READY TO LOAD (Dock #${drop.dock} · Drop #${drop.drop})`;
+    if (/ready.to.load/i.test(instruction)) return `🟢 READY TO LOAD (Dock #${drop.dock} · STOPNUMBER ${drop.drop})`;
     return instruction;
 }
 
@@ -117,7 +117,7 @@ function renderPullDropWork(drop, board) {
     const tasks = ['checked','inspected','tagged','loaded'];
     const instruction = dockDropInstruction(drop);
     return `<article class="${pullWorkspaceCard}" data-pull-drop>
-        <h3 class="font-bold">${pullHtml(drop.trip)} · Drop ${pullHtml(drop.drop)} · ${pullHtml(drop.status)}</h3>
+        <h3 class="font-bold">${pullHtml(drop.trip)} · STOPNUMBER ${pullHtml(drop.drop)} · ${pullHtml(drop.status)}</h3>
         ${instruction ? `<p class="rounded bg-emerald-950 px-2 py-1 font-bold text-white">${pullHtml(instruction)}</p>` : ''}
         <div class="flex flex-wrap gap-2">${tasks.filter(task => pullAllowed(drop,task)).map(task => pullForm(task,input)).join('')}${pullCheckerCopyButton(drop)}</div>
         ${renderPullDisclosure('drop',pullKey(drop),'Location, quantity and mistake reports')}

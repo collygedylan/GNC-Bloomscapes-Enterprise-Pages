@@ -1,4 +1,3 @@
-
 const pullWorkspacePill = 'dock-dispatch-pill shrink-0 rounded-full px-3 text-xs font-semibold';
 const pullWorkspaceCard = 'dock-dispatch-card space-y-2 rounded-xl p-3';
 const pullTruckLabels = {live:'🚨 Live Driver',trailer:'Trailer',blank:'Blank'};
@@ -116,7 +115,7 @@ function renderPullBorrows(board) {
 
 function renderPullBorrowAssignment(row,board) {
     return `<div class="flex flex-wrap items-center gap-2">
-        ${pullHtml(row.username)} · ${pullHtml(pullActionLabels[row.task] || row.task)} · Dock ${pullHtml(row.dock)} · Drop ${pullHtml(row.drop)}
+        ${pullHtml(row.username)} · ${pullHtml(pullActionLabels[row.task] || row.task)} · Dock ${pullHtml(row.dock)} · STOPNUMBER ${pullHtml(row.drop)}
         ${board.can_borrow ? pullForm('release_borrow',{id:row.id},'','Release help') : ''}</div>`;
 }
 
@@ -124,7 +123,7 @@ function pullTagHeader(row) {
     const urgency = row.urgent || row.truck === 'live' && row.status === 'open'
         ? '<strong class="rounded bg-red-800 px-2 py-1 text-xs text-white">🚨 LIVE DRIVER</strong>' : '';
     return `<div class="flex flex-wrap items-center gap-2"><strong>${pullHtml(row.itemcode)}</strong>
-        ${urgency}<span class="text-xs">Dock ${pullHtml(row.dock)} · ${pullHtml(row.trip)} · Drop ${pullHtml(row.drop)}</span></div>`;
+        ${urgency}<span class="text-xs">Dock ${pullHtml(row.dock)} · ${pullHtml(row.trip)} · STOPNUMBER ${pullHtml(row.drop)}</span></div>`;
 }
 
 function pullPrintLines(row) {
@@ -198,7 +197,7 @@ function bindBloomscapesDockChoiceFields(host,state) {
         'pull-assign':()=>people(person=>person.puller_eligible===true),
         'pull-team':()=>[['','Unassigned'],...people(person=>person.team_eligible===true)],
         'pull-borrow-tag':()=>state.board.tags.filter(row=>row.status==='open' && pullFilterTag(row,state.filters)).map(row=>
-            [row.id,`Dock ${row.dock} · Drop ${row.drop} · ${row.itemcode} · ${row.locationcode}`]),
+            [row.id,`Dock ${row.dock} · STOPNUMBER ${row.drop} · ${row.itemcode} · ${row.locationcode}`]),
         'pull-day-filter':()=>pullDistinctFilters(state.board.tags,pullDockDay,'All days / docks'),
         'pull-worker-filter':()=>pullWorkerFilters(state.board)
     });

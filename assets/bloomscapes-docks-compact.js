@@ -55,7 +55,7 @@ function renderBloomscapesCompactTrip(card, trip, canEdit, workflow) {
         return dockCompactTripPill(label,name,teamEditable ? attrs(label) : '');
     }).join('');
     const editStatus = teamEditable || (workflow && pullAllowed(workflow,'set_truck'));
-    const status = workflow?.truck === 'live' ? '🚨 LIVE DRIVER · ' + workflow.status : (workflow?.status || savedInfo.status);
+    const status = workflow?.truck === 'live' ? '🚨 LIVE DRIVER · ' + workflow.status : savedInfo.status;
     return `<div class="flex min-h-9 flex-nowrap items-center gap-1 overflow-x-auto whitespace-nowrap rounded-lg border border-current px-1.5 text-[10px]" data-dock-trip-strip>
         <strong>${pullHtml(tripNumber)}</strong><span>${pullHtml(status)}</span>${team}
         ${editStatus ? `<button type="button" ${attrs('Team & Status')} class="rounded-full border border-current px-1.5 py-1">✏️ Team &amp; Status</button>` : ''}</div>
@@ -78,7 +78,7 @@ function renderBloomscapesCompactDockCard(card, canEdit, tripIndex = new Map()) 
         <button type="button" class="flex w-full items-center justify-between text-left"
             ${buildFastInvokeAttrs('selectDock',[card.dockNum],`Open ${card.dockLabel}`)}>
             <strong class="${card.textCls}">${pullHtml(card.dockLabel)}</strong>
-            <span class="text-xs">${summary.dropCount} Drops · ${summary.rowCount} Rows · Qty ${pullHtml(summary.quantity)} <i class="ph-bold ph-caret-right"></i></span>
+            <span class="text-xs">${summary.dropCount} STOPNUMBERs · ${summary.rowCount} Rows · Qty ${pullHtml(summary.quantity)} <i class="ph-bold ph-caret-right"></i></span>
         </button>
         <div class="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-xs">${facts}</div>
         ${renderBloomscapesLoadMaximizer({kind:'dock',dock:card.dockNum})}
@@ -91,7 +91,7 @@ function pullTripIdentity(dock, trip) {
 
 function renderBloomscapesDockUrgency(row) {
     const match = getBloomscapesUrgentSuspendTag(row);
-    return match ? `<span class="rounded bg-red-800 px-2 py-1 text-xs font-bold text-white">🚨 LIVE DRIVER · Drop ${pullHtml(match.drop)}</span>` : '';
+    return match ? `<span class="rounded bg-red-800 px-2 py-1 text-xs font-bold text-white">🚨 LIVE DRIVER · STOPNUMBER ${pullHtml(match.drop)}</span>` : '';
 }
 
 function sortBloomscapesUrgentSuspendTags(rows) {

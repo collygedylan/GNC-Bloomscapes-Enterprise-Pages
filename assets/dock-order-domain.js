@@ -58,9 +58,9 @@ function normalizeSocDockIdentifiers(item) {
 function normalizeSocDockStopAndTrip(item) {
     item.STOPNUMBER = firstDockNonEmpty(
         item.STOPNUMBER,
-        item.stopnumber, item.DROP_NUMBER, item.drop_number,
+        item.stopnumber,
         item.STOP_NUMBER,
-        item.stop_number,
+        item.stop_number, item.DROP_NUMBER, item.drop_number,
         item.STOPNO,
         item.stopno,
         item.STOP,
@@ -370,7 +370,7 @@ function mergeLiveInventoryCardRows(rows = [], getPhotos = parsePhotoCsvValues) 
 }
 
 function getDefaultDockTeamInfo() {
-    return { checker: '', inspector: '', mistake: '', status: 'Loading', tripnumber: '', dockNum: '', revision: 0, updatedAt: '' };
+    return { checker: '', inspector: '', mistake: '', status: '', tripnumber: '', dockNum: '', revision: 0, updatedAt: '' };
 }
 
 function normalizeDockTeamTripKey(tripNumber = '') {

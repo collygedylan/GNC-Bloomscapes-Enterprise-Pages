@@ -61,6 +61,7 @@ function expectedDockPageGroups() {
 function getDocksSuspendSyncAudit() {
     const container=document.getElementById('docks-content');
     const mounted=isViewVisible('docks') && container && !String(document.getElementById('docks-search')?.value || '').trim()
+        && !Object.hasOwn(container.dataset || {},'dockPipelineActive')
         && dockViewMode!=='mistakes' && dockViewMode!=='dropoff';
     const pending=!!(mounted && (ensureViewRenderState('docks').dirty || container.dataset?.activeChunkRenderKey
         || container.querySelector('[aria-busy="true"],[data-loading="true"]')));

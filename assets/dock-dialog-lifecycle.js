@@ -33,17 +33,18 @@ function openDockInfoModal(dockNum, tripNumber) {
     document.getElementById('modal-dock-num').innerText = pendingDockNum;
     document.getElementById('modal-dock-trip').innerText = pendingDockTrip;
     let savedInfo = getDockTeamInfo(pendingDockTrip);
-    updateDockAssignableTeamOptions(savedInfo);
-    document.getElementById('dock-status').value = savedInfo.status || "Loading";
+    mountDockTeamStatusChoices(modal.querySelector('#dock-status'));
+    paintDockPipelineTeam(modal,[],savedInfo);
+    document.getElementById('dock-status').value = savedInfo.status || '';
     modal.classList.remove('hidden');
-    ensureDockAssignableUsers().then(() => {
-        if (!modal.classList.contains('hidden') && pendingDockTrip===requestedTrip) updateDockAssignableTeamOptions();
+    readDockPipelineTeam(getBloomscapesFarm()).then(people => {
+        if (!modal.classList.contains('hidden') && pendingDockTrip===requestedTrip) paintDockPipelineTeam(modal,people);
     }).catch(() => {});
     ensureDockTeamStatusLoaded().then(() => {
         if (modal.classList.contains('hidden') || pendingDockTrip!==requestedTrip) return;
         const refreshedInfo = getDockTeamInfo(requestedTrip);
-        updateDockAssignableTeamOptions(refreshedInfo);
-        document.getElementById('dock-status').value = refreshedInfo.status || 'Loading';
+        paintDockPipelineTeam(modal,modal.dockPipelinePeople || [],refreshedInfo);
+        document.getElementById('dock-status').value = refreshedInfo.status || '';
     }).catch(() => {});
 }
 
@@ -57,15 +58,7 @@ async function saveDockInfoModal(button = null) {
     const dockNum = normalizeDockViewDockKey(pendingDockNum);
     const tripNumber = String(pendingDockTrip || '').trim();
     const currentInfo = getDockTeamInfo(tripNumber);
-    const info = normalizeDockTeamInfo({
-        tripnumber: tripNumber,
-        dock_num: dockNum,
-        checker: document.getElementById('dock-checker').value,
-        inspector: document.getElementById('dock-inspector').value,
-        mistake: document.getElementById('dock-mistake').value,
-        status: document.getElementById('dock-status').value,
-        revision: currentInfo.revision
-    });
+    const info = readDockTeamForm(tripNumber,dockNum,currentInfo.revision);
     if (navigator.onLine === false) {
         showToast('Not Saved', 'Reconnect before saving. Dock teams are shared and are never stored only on this device.', true);
         return;
@@ -84,18 +77,10 @@ async function saveDockInfoModal(button = null) {
             checker: info.checker,
             inspector: info.inspector,
             mistake: info.mistake,
-            status: info.status || 'Loading',
+            status: info.status || '',
             expectedRevision: Number(currentInfo.revision || 0)
         });
-        const canonicalRow = getDockTripStatusResponseRow(result.data);
-        const savedInfo = cacheDockTeamInfo(tripNumber, canonicalRow || info);
-        dockTeamStatusLoaded = true;
-        dockTeamSchemaReady = true;
-        if (pendingDockTrip === tripNumber) hideDockInfoModal();
-        queueAppLiveEventForWrite('ph_dock_trip_status', 'POST', [{ unique_id: tripNumber, tripnumber: tripNumber }], '');
-        showToast('Saved for Everyone', `Trip ${savedInfo.tripnumber || tripNumber} team and status are now shared with every Docks user.`);
-        markViewDirty('docks');
-        scheduleDocksRender(0, 0, true);
+        applyDockTeamReceipt(tripNumber,result,info);
     } catch (error) {
         const message = String(error && error.message || '').trim();
         showToast('Not Saved', message.includes('changed') ? message : 'The shared Trip assignment was not saved. Refresh Docks and retry.', true);
@@ -106,6 +91,30 @@ async function saveDockInfoModal(button = null) {
             saveButton.innerHTML = originalLabel || 'SAVE & CONTINUE';
         }
     }
+}
+
+function readDockTeamForm(tripNumber,dockNum,revision) {
+    return normalizeDockTeamInfo({
+        tripnumber: tripNumber,
+        dock_num: dockNum,
+        checker: document.getElementById('dock-checker').value,
+        inspector: document.getElementById('dock-inspector').value,
+        mistake: document.getElementById('dock-mistake').value,
+        status: document.getElementById('dock-status').value,
+        revision: revision
+    });
+}
+
+function applyDockTeamReceipt(tripNumber,result,info) {
+    const canonicalRow = getDockTripStatusResponseRow(result.data);
+    const savedInfo = cacheDockTeamInfo(tripNumber, canonicalRow || info);
+    dockTeamStatusLoaded = true;
+    dockTeamSchemaReady = true;
+    if (pendingDockTrip === tripNumber) hideDockInfoModal();
+    queueAppLiveEventForWrite('ph_dock_trip_status', 'POST', [{ unique_id: tripNumber, tripnumber: tripNumber }], '');
+    showToast('Saved for Everyone', `Trip ${savedInfo.tripnumber || tripNumber} team and status are now shared with every Docks user.`);
+    markViewDirty('docks');
+    scheduleDocksRender(0, 0, true);
 }
 
 function openDockItemMistakeModal(uid) {
@@ -169,4 +178,21 @@ function closeDockMistakeModal() {
     resetDockMistakeIssuePhotoState();
     if (typeof detachBloomscapesStaticBody === 'function') detachBloomscapesStaticBody('dock-mistake-modal');
     return false;
+}
+
+function mountDockTeamStatusChoices(select) {
+    if (select.options.length > 1) return;
+    mountDockStatusChoices(select);
+    select.add(new Option('Loading','Loading'),1);
+    select.add(new Option('Complete','Complete'));
+}
+
+function paintDockPipelineTeam(modal,people,saved) {
+    modal.dockPipelinePeople = people;
+    for (const key of ['checker','inspector','mistake']) {
+        const select = modal.querySelector('#dock-'+key);
+        const requested = saved?.[key] ?? select.value;
+        select.replaceChildren(new Option('Unassigned',''),...people.map(name=>new Option(name,name)));
+        select.value = people.includes(requested) ? requested : '';
+    }
 }

@@ -152,7 +152,8 @@ function scopeDriveEvaluatorRows(rows) {
 function getDriveReportSearchSignature() {
     const state = getDriveEvaluatorReportState();
     const saved = getActiveDriveReport2();
-    return JSON.stringify([state?.key,state?.report,state?.evaluator,state?.revision,saved?.savedId,saved?.savedRevision]);
+    return JSON.stringify([state?.key,state?.report,state?.evaluator,state?.revision,
+        state?.report ? getConfiguredCurrentSalesYearCode() : null,saved?.savedId,saved?.savedRevision]);
 }
 
 function scopeDriveSavedReportRows(rows,key) {
