@@ -84,18 +84,10 @@ function configureBloomscapesCompletionForm(form,job) {
 }
 
 function renderBloomscapesWorkGroups(list,rows,status,kind) {
-    const paint=pageIndex=>{
+    if (kind==='CAN_FILLING') {
         list.replaceChildren();
-        const page=bloomscapesListWindow(rows,pageIndex);
-        if (kind==='CAN_FILLING') renderBloomscapesCanGroups(list,page.rows,status);
-        else list.append(...page.rows.map(row=>renderBloomscapesFieldWorkCard(row,status)));
-        for (const [label,start] of [['Previous',page.index-1],['Next',page.index+1]]) {
-            if (start<0 || start>=page.pages) continue;
-            const button=list.appendChild(document.createElement('button'));
-            button.type='button';button.textContent=label;button.onclick=()=>paint(start);
-        }
-    };
-    paint(0);
+        renderBloomscapesCanGroups(list,rows,status);
+    } else mountChunkedList(list,rows,row=>renderBloomscapesFieldWorkCard(row,status));
 }
 
 function renderBloomscapesCanGroups(list,rows,status) {
@@ -108,7 +100,8 @@ function renderBloomscapesCanGroups(list,rows,status) {
     for (const [recipe,jobs] of groups) {
         const section = list.appendChild(document.createElement('section'));
         section.appendChild(document.createElement('h3')).textContent = recipe+' · '+jobs.reduce((sum,job)=>sum+Number(job.quantity),0)+' cans required';
-        section.append(...jobs.map(job=>renderBloomscapesFieldWorkCard(job,status)));
+        const cards=section.appendChild(document.createElement('div'));
+        mountChunkedList(cards,jobs,job=>renderBloomscapesFieldWorkCard(job,status));
     }
 }
 

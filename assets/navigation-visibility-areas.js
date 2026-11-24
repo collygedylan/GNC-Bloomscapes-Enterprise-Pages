@@ -1,3 +1,72 @@
+const PERSONAL_MODULE_ROUTES = Object.freeze({
+    'production':'studio','field-work-studio':'studio','production-workflow':'studio',
+    'push-to-talk':'walkie','communication':'walkie',
+    'queue-pending':'request','queue-suspend':'request',
+    'po-management':'hl-order','moves':'inventory-office'
+});
+
+function bloomscapesPersonalScope() {
+    const lens=typeof borrowedHelpPreview==='function' ? borrowedHelpPreview() : null;
+    if (lens) return lens.module_access ? lens : null;
+    const state=window.GncUserAccessControl?.getSelfState?.();
+    if (state?.profile?.username!==currentUser || !state?.profile?.module_access) return null;
+    return state.profile;
+}
+
+function bloomscapesPersonalRoute(view,scope=bloomscapesPersonalScope()) {
+    if (!scope) return null;
+    if (view==='home') return true;
+    const key=Object.hasOwn(PERSONAL_MODULE_ROUTES,view) ? PERSONAL_MODULE_ROUTES[view] : view;
+    return ['VIEW_ONLY','FULL_EDIT'].includes(scope.module_access?.[key]);
+}
+
+function rowsInBloomscapesPersonalScope(rows,scope=bloomscapesPersonalScope(),farm=getBloomscapesFarm()) {
+    if (!scope) return rows;
+    if (scope.allowed_warehouses && !scope.allowed_warehouses.includes(farm)) return [];
+    return rows.filter(row=>{
+        const group=String(row.PLANTGROUPCODE ?? row.plantgroupcode ?? '').trim().toUpperCase();
+        return bloomscapesRowFarm(row,'')===farm
+            && (!scope.allowed_plantgroupcodes || scope.allowed_plantgroupcodes.includes(group));
+    });
+}
+
+function bloomscapesPersonalInventoryScopeKey() {
+    const scope=bloomscapesPersonalScope();
+    return scope ? JSON.stringify([scope.username,scope.allowed_warehouses,scope.allowed_plantgroupcodes]) : '';
+}
+
+function bloomscapesVisibleFarmChoices(farms) {
+    const limited=bloomscapesPersonalScope()?.allowed_warehouses;
+    return limited ? farms.filter(farm=>limited.includes(farm)) : farms;
+}
+
+function syncBloomscapesPersonalFooter(footer) {
+    if (!footer) return;
+    if (!bloomscapesPersonalScope()) {
+        footer.querySelectorAll('[data-personal-footer]').forEach(button=>button.remove());
+        return;
+    }
+    const container=footer.querySelector('[data-footer-view="drive"]')?.parentElement;
+    if (!container || container.querySelector('[data-personal-footer]')) return;
+    const routes=[
+        ['studio','Field Work Studio','ph-plant','field-work-studio'],
+        ['borrowed-work','Borrowed Help','ph-users','borrowed-work'],
+        ['time-cards','Time Cards','ph-clock','time-cards']
+    ];
+    for (const [key,label,icon,view] of routes) {
+        const button=container.appendChild(document.createElement('button'));
+        button.type='button';
+        button.dataset.personalFooter='';
+        button.dataset.footerView=key;
+        button.className='footer-nav-btn';
+        button.setAttribute('aria-label',label);
+        const mark=button.appendChild(document.createElement('i'));
+        mark.className='ph-duotone '+icon;
+        button.appendChild(document.createElement('span')).textContent=label;
+        bindFastPressTarget(button,'invoke','switchView',[view],label);
+    }
+}
+
 const BLOOMSCAPES_BUSINESS_AREAS = Object.freeze([
     {id:'INVENTORY', label:'Inventory & Evaluation', icon:'ph-plant', views:[
         ['drive','Drive Mode','drive'], ['av','Available Inventory (AV)','av'],
@@ -124,6 +193,8 @@ function canUseBloomscapesAreaView(key, view) {
 }
 
 function resolveBloomscapesAreaNavigation(view) {
+    const personal = typeof bloomscapesPersonalRoute === 'function' ? bloomscapesPersonalRoute(view) : null;
+    if (personal !== null && view !== 'detail') return personal;
     if (['moves','office','inventory-office'].includes(view)) {
         const access = getBloomscapesReclassAccess();
         if (access) return hasBloomscapesReclassScope(access);
@@ -188,6 +259,8 @@ function allowsBloomscapesAreaSubview(key, required = 'VIEW_ONLY') {
 }
 
 function canShowBloomscapesHomeTile(view) {
+    const personal = typeof bloomscapesPersonalRoute === 'function' ? bloomscapesPersonalRoute(view) : null;
+    if (personal !== null) return personal;
     const preview = typeof borrowedHelpPreview === 'function' && borrowedHelpPreview();
     if (view === 'field-work-consolidation') return canViewFieldWorkConsolidation();
     if (view === 'studio') return preview ? previewShowsAreaView(preview, 'studio') : canUseBloomscapesWorkStudio();

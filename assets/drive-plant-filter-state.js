@@ -13,19 +13,6 @@ function getDrivePlantFilterScopeKey(baseItems) {
         drivePlantDimensionKey(driveLotSelectionMode,selectedDriveLotCodes,driveLotSearchTerm)]);
 }
 
-function buildDriveModeRows(items) {
-    const rows = applyRepU3VisibilityScope(applyForemanPriorityRowScope(items)
-        .filter(item=>!isDepletedReclassRow(item) && !shouldHideNotOnInventoryApprovalRowFromInventory(item)));
-    return indexDriveSearchRows(rows,items);
-}
-function getDriveModeItems() {
-    if (activeDriveMode!=='ok') return [];
-    const prepared = preparedDriveProjection();
-    if (prepared) return prepared.rows;
-    const scope = [getRepU3VisibilityScopeKey(), getRoleAccessState().isForeman].join('|');
-    return getCanonicalDriveProjection(fullInventory, 'drive-rows:' + scope, () => buildDriveModeRows(fullInventory));
-}
-
 function buildDrivePlantOptionLists(items) {
     const genus=new Set(), size=new Set(), location=new Set(), lot=new Set();
     for (const item of items) {
@@ -187,6 +174,21 @@ function getDrivePlantGenusValue(item) {
 function getDrivePlantCommonName(item) {
     const name = String(firstNonEmptyValue(item?.COMMONNAME,item?.DESCRIPTION,item?.PLANT_NAME,item?.ITEMCODE,'')).trim();
     return name.includes('\\') ? normalizeEscapedDisplayText(name) : name;
+}
+
+function buildDriveModeRows(items) {
+    const rows = applyRepU3VisibilityScope(applyForemanPriorityRowScope(items)
+        .filter(item=>!isDepletedReclassRow(item) && !shouldHideNotOnInventoryApprovalRowFromInventory(item)));
+    return indexDriveSearchRows(rows,items);
+}
+function getDriveModeItems() {
+    if (activeDriveMode!=='ok') return [];
+    const prepared = preparedDriveProjection();
+    if (prepared) return typeof rowsInBloomscapesPersonalScope === 'function'
+        ? rowsInBloomscapesPersonalScope(prepared.rows) : prepared.rows;
+    const scope = [getRepU3VisibilityScopeKey(), getRoleAccessState().isForeman].join('|');
+    const rows = getCanonicalDriveProjection(fullInventory, 'drive-rows:' + scope, () => buildDriveModeRows(fullInventory));
+    return typeof rowsInBloomscapesPersonalScope === 'function' ? rowsInBloomscapesPersonalScope(rows) : rows;
 }
 
 function preparedDriveProjection() {

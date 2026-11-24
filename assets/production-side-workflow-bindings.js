@@ -176,9 +176,8 @@ function buildItemLowStockTargetsSideBindings(api, array, read, stateReady) {
             scope: (ctx) => ctx.transactions,
             stage: async (ctx) => {
                 const state = ctx.transactions;
-                const result = await postAppFunctionJson(APP_API_FUNCTION_URL, { action: 'inventory_transaction_history', filter_action: state.action || 'all', search: state.search || managersSearchTerm || '', dateStart: state.dateStart || '', dateEnd: state.dateEnd || '', limit: 100, offset: state.offset || 0 }, { timeoutMs: 45000, label: 'Transaction History' });
-                if (!result || result.ok === false || result.httpOk === false) throw new Error(result?.message || 'Transaction history could not load.');
-                return { rows: array(result.rows, 'Transaction history'), hasMore: result.hasMore === true, count: result.count };
+                const data=await readInventoryTransactionListPage(state,state.offset || 0);
+                return {...data,rows:array(data.rows,'Transaction history')};
             },
             commit: (rows) => { stateReady(inventoryTransactionHistoryState, rows); if (typeof refreshInventoryTransactionHistoryResults === 'function') refreshInventoryTransactionHistoryResults(); }
         }
@@ -217,11 +216,7 @@ function buildTransactionsKeyedSideBindings(array, stateReady) {
         },
         'side:access': {
             enabled: () => canViewAccessControl(), scope: (ctx) => ctx.accessQuery,
-            stage: async (ctx) => {
-                const value = normalizeAccessControlMatrix(await supabaseRpc(isKaylaLimitedAccessManagerUser() ? 'get_limited_access_control_matrix_v1' : 'get_access_control_matrix_v2', { p_query: ctx.accessQuery }, { timeoutMs: 20000 }));
-                if (!value) throw new Error('ACCESS_CONTROL_RESPONSE_INVALID');
-                return value;
-            },
+            stage: (ctx) => readAccessControlMatrixWindow(ctx.accessQuery),
             commit: (value) => { stateReady(accessControlAdminState, { data: value, capabilities: value.capabilities }); }
         },
         'side:codex': {

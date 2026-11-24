@@ -93,8 +93,9 @@ function appendBloomscapesFarmPills(dialog,choose) {
 
 async function syncBloomscapesFarmSelector() {
     const select = document.getElementById('bloomscapes-farm-selector');
-    if (!select || bloomscapesFarmState.busy) return;
-    const allowed = getBloomscapesAllowedFarms();
+    if (!select) return;
+    const farms = getBloomscapesAllowedFarms();
+    const allowed = typeof bloomscapesVisibleFarmChoices==='function' ? bloomscapesVisibleFarmChoices(farms) : farms;
     const signature = allowed.join(',');
     if (select.dataset.farms!==signature) {
         select.replaceChildren(...allowed.map(farm=>new Option(farm,farm)));
@@ -102,14 +103,21 @@ async function syncBloomscapesFarmSelector() {
     }
     select.value = getBloomscapesFarm();
     select.parentElement.hidden = false;
+    if (bloomscapesFarmState.busy) return;
     select.disabled = allowed.length <= 1;
     const initial = bloomscapesFarmNeedsConfirmation();
     if (bloomscapesFarmDialog || !initial && !bloomscapesFarmNeedsHydration()) return;
     if (initial) select.disabled = true;
-    const chosen = initial ? await confirmBloomscapesFarmSwitch(getBloomscapesFarm(),getBloomscapesFarm(),true) : getBloomscapesFarm();
-    select.disabled = getBloomscapesAllowedFarms().length <= 1;
-    if (!chosen || !confirmBloomscapesFarmSession(chosen)) return;
-    select.value = chosen;
-    if (!bloomscapesFarmState.busy) void selectBloomscapesFarm(chosen).catch(error=>showToast('Farm selection',error.message,true));
+    if (initial) {
+        const state = bloomscapesFarmState;
+        const chosen = await confirmBloomscapesFarmSwitch(getBloomscapesFarm(),getBloomscapesFarm(),true);
+        if (!chosen || state !== bloomscapesFarmState || currentUser !== state.owner) return;
+    } else {
+        const farm = getBloomscapesFarm();
+        if (!confirmBloomscapesFarmSession(farm)) return;
+        void selectBloomscapesFarm(farm).catch(error=>showToast('Farm selection',error.message,true));
+    }
+    select.disabled = allowed.length <= 1;
+    select.value = getBloomscapesFarm();
     refreshBloomscapesFarmPanel();
 }

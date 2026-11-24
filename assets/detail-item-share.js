@@ -14,6 +14,7 @@ function syncInlineItemDetailShare(root) {
             };
             const row = document.createElement('div');
             row.className = 'bloomscapes-detail-action-row';row.appendChild(button);root.prepend(row);
+            if (typeof mountDriveTreeGradingAction==='function') mountDriveTreeGradingAction(row,activeItem);
             renderBloomscapesDetailDispatch(activeItem,activeDetailSourceView || lastView);
         }
 

@@ -1,3 +1,20 @@
+function readCompanyDirectoryRelation(table,query) {
+    return supabaseFetch(table,'GET',null,query);
+}
+
+function saveCompanyDirectoryRecord(table,values,key,id) {
+    return id ? supabaseFetch(table,'PATCH',values,companyDirectoryRecordFilter(key,id))
+        : supabaseFetch(table,'POST',values,'');
+}
+
+function deleteCompanyDirectoryRecord(table,key,id) {
+    return supabaseFetch(table,'DELETE',null,companyDirectoryRecordFilter(key,id));
+}
+
+function companyDirectoryRecordFilter(key,id) {
+    return key+'=eq.'+encodeURIComponent(id);
+}
+
 let bloomscapesSelfAccessRequest;
 
 function sendBloomscapesUserAccess(envelope) {
@@ -49,4 +66,11 @@ async function sendBloomscapesUserLifecycle(envelope) {
         throw error;
     }
     return result.data;
+}
+
+async function requestBloomscapesPersonalScope(username,input=null) {
+    const {client,owner}=await requireBloomscapesSession();
+    const response=await client.rpc('gnc_user_personal_scope',{p_subject:username,p_input:input});
+    await requireBloomscapesOwner(owner);
+    return bloomscapesData(response);
 }

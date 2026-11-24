@@ -1,3 +1,67 @@
+const PERSONAL_SCOPE_EDIT_MODULES = Object.freeze({
+    drive:'Drive Mode',studio:'Field Work Studio',request:'Que',walkie:'Push to Talk',
+    'borrowed-work':'Borrowed Help','time-cards':'Time Cards',av:'AV','disease-pest':'QC',
+    'hl-order':'PO Management','smart-moves':'Smart Sales & Move Intelligence',managers:'Managers',
+    messages:'Messages',reports:'Reports',docks:'Docks','historical-requests':'Historical Requests',
+    'flyer-folders':'Flyer Folders','field-work-consolidation':'Consolidate',eval2:'Eval Reports'
+});
+
+async function mountBloomscapesPersonalScopeEditor(host,username) {
+    if (currentUser!=='dylan_collyge' || username===currentUser || borrowedHelpPreview()) return;
+    const owner=getSupabaseReadIdentityScope();
+    const section=host.appendChild(document.createElement('details'));
+    section.innerHTML='<summary>User scope</summary><p role="status"></p>';
+    const status=section.querySelector('p');
+    section.addEventListener('toggle',async()=>{
+        if (!section.open) return;
+        try {
+            status.textContent='Loading user scope…';
+            const scope=await requestBloomscapesPersonalScope(username);
+            if (section.isConnected && owner===getSupabaseReadIdentityScope()) {
+                renderBloomscapesPersonalScopeEditor(section,status,username,scope,owner);
+            }
+        } catch (error) { if (section.isConnected) status.textContent=error.message; }
+    },{once:true});
+}
+
+function renderBloomscapesPersonalScopeEditor(section,status,username,scope,owner) {
+    const form=section.appendChild(document.createElement('form'));
+    form.innerHTML='<label>Allowed warehouses <input name="warehouses" required></label>'
+        +'<label>Allowed plant groups <input name="plantgroups" required></label>'
+        +'<fieldset><legend>Module access</legend></fieldset><button type="submit">Save user scope</button>';
+    form.elements.warehouses.value=scope.allowed_warehouses?.join(', ') || '';
+    form.elements.plantgroups.value=scope.allowed_plantgroupcodes?.join(', ') || '';
+    const fieldset=form.querySelector('fieldset');
+    for (const [key,title] of Object.entries(PERSONAL_SCOPE_EDIT_MODULES)) {
+        const label=fieldset.appendChild(document.createElement('label'));
+        label.textContent=title;
+        const select=label.appendChild(document.createElement('select'));
+        select.name=key;
+        for (const level of ['HIDDEN','VIEW_ONLY','FULL_EDIT']) select.add(new Option(level,level));
+        select.value=scope.module_access?.[key] || 'HIDDEN';
+    }
+    status.textContent='';
+    form.onsubmit=event=>{
+        event.preventDefault();
+        void saveBloomscapesPersonalScopeEditor(form,status,username,owner);
+    };
+}
+
+async function saveBloomscapesPersonalScopeEditor(form,status,username,owner) {
+    const button=form.querySelector('button');
+    const values=new FormData(form);
+    const tokens=name=>String(values.get(name)).split(',').map(value=>value.trim()).filter(Boolean);
+    button.disabled=true;
+    try {
+        await requestBloomscapesPersonalScope(username,{
+            allowed_warehouses:tokens('warehouses'),allowed_plantgroupcodes:tokens('plantgroups'),
+            module_access:Object.fromEntries(Object.keys(PERSONAL_SCOPE_EDIT_MODULES).map(key=>[key,values.get(key)]))
+        });
+        if (form.isConnected && owner===getSupabaseReadIdentityScope()) status.textContent='User scope saved.';
+    } catch (error) { if (form.isConnected) status.textContent=error.message; }
+    finally { if (form.isConnected) button.disabled=false; }
+}
+
 async function mountBloomscapesModuleAccess(host) {
     const owner=getSupabaseReadIdentityScope();
     const root=host.appendChild(document.createElement('details'));

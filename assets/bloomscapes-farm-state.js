@@ -92,6 +92,7 @@ function retryBloomscapesShortcutWrite(state,job,error) {
 }
 
 let bloomscapesFarmState = {owner:'',farm:'10-PH',busy:false,allowed:['10-PH'],confirmed:false,loaded:false};
+let warehouseSwitchSeq = 0;
 const BLOOMSCAPES_FARM_SCOPES = ['10-PH','60-HL','20-TX','40-NC'];
 const BLOOMSCAPES_SESSION_FARM_KEY = 'gnc_bloomscapes_session_farm_v1';
 
@@ -112,27 +113,39 @@ function bloomscapesFarmRowIsVisible(row) {
 function selectBloomscapesFarm(farm) {
     getBloomscapesFarm();
     const state = bloomscapesFarmState;
-    if (!state.loaded) return ensureBloomscapesFarmAccess().then(()=>selectBloomscapesFarm(farm));
-    if (!state.allowed.includes(farm)) return Promise.reject(new Error('Choose one of your permitted farms.'));
+    if (state.loaded && !state.allowed.includes(farm)) return Promise.reject(new Error('Choose one of your permitted farms.'));
     if (state.busy && farm===state.farm) return state.selection;
+    const sequence = ++warehouseSwitchSeq;
+    state.selectionToken = sequence;
+    if (!state.loaded) return ensureBloomscapesFarmAccess().then(()=>{
+        if (!isBloomscapesWarehouseSwitchCurrent(state,sequence)) return false;
+        if (!state.allowed.includes(farm)) throw new Error('Choose one of your permitted farms.');
+        return startBloomscapesFarmSelection(state,farm,sequence);
+    });
+    return startBloomscapesFarmSelection(state,farm,sequence);
+}
+
+function isBloomscapesWarehouseSwitchCurrent(state,sequence) {
+    return state===bloomscapesFarmState && state.owner===String(currentUser) && state.selectionToken===sequence;
+}
+
+function startBloomscapesFarmSelection(state,farm,sequence) {
     const previous = state.readyFarm || state.farm;
     if (state.busy) cancelBloomscapesFarmRead(state.farm);
-    const token = state.selectionToken = Symbol(farm);
     rememberBloomscapesFarmPublication();
     state.farm = farm;
     state.confirmed = true;
-    if (previous===farm) persistBloomscapesSessionFarm(state);
     state.busy = true;
     const selector = document.getElementById('bloomscapes-farm-selector');
     if (selector) selector.value = farm;
     if (previous!==farm) resetBloomscapesFarmNavigation();
     const visit = typeof getCurrentVisibleViewId==='function' ? currentDocksReadVisit() : null;
-    state.selection = hydrateBloomscapesChosenFarm(state,farm,previous,visit,token);
+    state.selection = hydrateBloomscapesChosenFarm(state,farm,previous,visit,sequence);
     return state.selection;
 }
 
 async function hydrateBloomscapesChosenFarm(state,farm,previous,visit,token = state.selectionToken) {
-    const selectionIsCurrent = () => state===bloomscapesFarmState && token===state.selectionToken;
+    const selectionIsCurrent = () => isBloomscapesWarehouseSwitchCurrent(state,token);
     try {
         const snapshot = getBloomscapesWarmFarm(farm) || await ensureBloomscapesWarmFarm(farm);
         if (!selectionIsCurrent() || state.farm!==farm) return false;
@@ -142,7 +155,7 @@ async function hydrateBloomscapesChosenFarm(state,farm,previous,visit,token = st
         globalThis.dispatchEvent?.(new CustomEvent('bloomscapes-farm-ready'));
         renderBloomscapesFarmNavigation();
         globalThis.prepareBloomscapesFarmAvBrowse?.(farm);
-        scheduleBloomscapesFarmRevalidation(state,farm,visit);
+        scheduleBloomscapesFarmRevalidation(state,farm,visit,token);
         return farm;
     } catch (error) {
         if (!selectionIsCurrent() || document.hidden) return false;
@@ -159,9 +172,9 @@ async function hydrateBloomscapesChosenFarm(state,farm,previous,visit,token = st
     }
 }
 
-function scheduleBloomscapesFarmRevalidation(state,farm,visit) {
-    const current = () => state===bloomscapesFarmState && state.farm===farm && state.readyFarm===farm;
-    if (!visit?.aborted) scheduleBloomscapesIdleTask('farm-revalidation',()=>refreshBloomscapesWarmFarm(farm,visit),current);
+function scheduleBloomscapesFarmRevalidation(state,farm,visit,sequence) {
+    const current = () => isBloomscapesWarehouseSwitchCurrent(state,sequence) && state.readyFarm===farm;
+    if (!visit?.aborted) scheduleBloomscapesIdleTask('farm-revalidation',()=>refreshBloomscapesWarmFarm(farm,visit,current),current);
     prewarmBloomscapesFarms();
     if (typeof ensureBloomscapesFieldQueue==='function') {
         scheduleBloomscapesIdleTask('field-work-queue',ensureBloomscapesFieldQueue,current);

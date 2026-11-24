@@ -236,8 +236,10 @@ function backBloomscapesActiveWorkBrowser() {
 function bloomscapesWorkBrowserRows(search='',filters={}) {
     const terms = search.toLowerCase().trim().split(/\s+/).filter(Boolean);
     const source = bloomscapesWorkBrowserDataset();
-    if (!terms.length && !Object.values(filters).some(Boolean)) return source.rows;
-    return source.rows.filter(row=>{
+    const rows = typeof rowsInBloomscapesPersonalScope === 'function'
+        ? rowsInBloomscapesPersonalScope(source.rows) : source.rows;
+    if (!terms.length && !Object.values(filters).some(Boolean)) return rows;
+    return rows.filter(row=>{
         const values = bloomscapesWorkBrowserIdentity(row);
         return Object.entries(filters).every(([key,value])=>!value || values[key]===value)
             && terms.every(term=>Object.values(values).join(' ').toLowerCase().includes(term));

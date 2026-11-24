@@ -30,6 +30,8 @@ function renderBloomscapesWorkStudio() {
         +'<input type="search" data-studio-menu-search placeholder="Search work types…" aria-label="Search work types">'
         +BLOOMSCAPES_STUDIO_PHASES.map(([key,label,kind,,description])=>'<button type="button" data-open-module="'+key+'" data-work-type="'+(kind==='HAULING'?'CONSOLIDATE_INVENTORY':kind)+'"><strong>'+esc(label)+'</strong>'
             +(description ? '<span>'+esc(description)+'</span>' : '')+'</button>').join('')
+        +(typeof canCreateBloomscapesTreeGrading==='function' && canCreateBloomscapesTreeGrading()
+            ? '<button type="button" data-open-module="tree-grading"><strong>Tree Grading</strong></button>' : '')
         +'</nav><div data-studio-module></div></section>';
 }
 
@@ -57,10 +59,11 @@ async function openBloomscapesStudioModule(menu,panel,key) {
     if (!canUseBloomscapesWorkStudio()) return;
     panel.dataset.studioPhase=key;
     menu.hidden=true;
-    const title=BLOOMSCAPES_STUDIO_PHASES.find(([id])=>id===key)[1];
+    const title=key==='tree-grading' ? 'Tree Grading' : BLOOMSCAPES_STUDIO_PHASES.find(([id])=>id===key)[1];
     panel.innerHTML='<header class="studio-breadcrumb"><button type="button" data-module-back>← Work Types</button><h3>'+title+'</h3><span data-module-summary></span></header><div data-module-body></div>';
     const body=panel.querySelector('[data-module-body]');
     panel.querySelector('[data-module-back]').addEventListener('click',()=>{panel.replaceChildren();delete panel.dataset.studioPhase;menu.hidden=false;syncGlobalHeaderChrome({reason:'studio-modules',force:true});});
+    if (key==='tree-grading') return mountBloomscapesTreeGrading(body);
     body.appendChild(document.createElement('div')).dataset.studioExcel='true';
     const browser=body.appendChild(document.createElement('section'));
     browser.dataset.workBrowser='true';

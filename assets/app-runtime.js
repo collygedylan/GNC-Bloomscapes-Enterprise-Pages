@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.65';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.66';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -19511,6 +19511,10 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
         /* @runtime-fragment assets/row-access-policy.js */
         /* @runtime-fragment assets/suspend-exact-owner.js */
         /* @runtime-fragment assets/que-header.js */
+        /* @runtime-fragment assets/company-directory-state.js */
+        /* @runtime-fragment assets/inventory-transaction-list.js */
+        /* @runtime-fragment assets/imported-history-scroll.js */
+        /* @runtime-fragment assets/access-audit-scroll.js */
         /* @runtime-fragment assets/manager-table-workspace.js */
         /* @runtime-fragment assets/erp-action-discrepancies.js */
         /* @runtime-fragment assets/action-discrepancy-table.js */
@@ -23258,7 +23262,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.65';
+        const APP_VERSION = '3.1.66';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -42725,6 +42729,7 @@ return false;
                 activeDriveMode,
                 getRoleAccessState().isForeman ? 'foreman-priority-only' : 'all-priority',
                 getRepU3VisibilityScopeKey(),
+                typeof bloomscapesPersonalInventoryScopeKey==='function' ? bloomscapesPersonalInventoryScopeKey() : '',
                 [...driveSelectedSeasons].sort().join('|'),
                 searchInput ? searchInput.value.toLowerCase().trim() : '',
                 candidateItems.length,
@@ -52951,6 +52956,10 @@ function toggleDriveQuickRequestItem(domId) {
 
         function canAccessView(viewId, userOverride = '') {
             const targetView = String(viewId || '').trim();
+            if (!userOverride && targetView!=='detail' && typeof bloomscapesPersonalRoute==='function') {
+                const scoped=bloomscapesPersonalRoute(targetView);
+                if (scoped!==null) return scoped;
+            }
             if (['messages','push-to-talk'].includes(targetView)) return canOpenCommunicationView(targetView,userOverride);
             if (targetView === 'borrowed-work' || targetView === 'time-cards') {
                 return (!userOverride || userOverride === currentUser) && canOpenBloomscapesHomeLeadership(targetView);
@@ -102784,13 +102793,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return false;
         }
 
-        function pageInventoryTransactionHistory(direction) {
-            const state = inventoryTransactionHistoryState;
-            if (state.loading || (direction > 0 && !state.hasMore)) return false;
-            state.offset = Math.max(0, (state.offset || 0) + direction * 100);
-            return loadInventoryTransactionHistoryRows(true);
-        }
-
         async function loadInventoryTransactionHistoryRows(force = false) {
             if (typeof shouldUseProductionLiveSyncSideLoad === 'function' && shouldUseProductionLiveSyncSideLoad()) {
                 try { await ensureProductionLiveSyncSideData('transactions', force, { state: inventoryTransactionHistoryState }); }
@@ -102804,12 +102806,10 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             if (!force && state.loaded) return state.rows;
             state.loading = true;
             state.error = '';
-            const payload = { action: 'inventory_transaction_history', filter_action: state.action || 'all', search: state.search || managersSearchTerm || '', dateStart: state.dateStart || '', dateEnd: state.dateEnd || '', limit: 100, offset: state.offset || 0 };
-            state.promise = postAppFunctionJson(APP_API_FUNCTION_URL, payload, { timeoutMs: 45000, label: 'Transaction History' })
+            const owner = getSupabaseReadIdentityScope();
+            state.promise = readInventoryTransactionListPage(inventoryTransactionListQuery())
                 .then((responseData) => {
-                    if (!responseData || responseData.ok === false || responseData.httpOk === false) {
-                        throw new Error(firstNonEmptyValue(responseData && responseData.message, responseData && responseData.error, responseData && responseData.rawResponse, 'Could not load transaction history.'));
-                    }
+                    if (owner !== getSupabaseReadIdentityScope()) return [];
                     state.hasMore = responseData.hasMore === true;
                     state.rows = Array.isArray(responseData.rows) ? responseData.rows : [];
                     state.loaded = true;
@@ -102841,21 +102841,19 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
                 ? '<div class="rounded-2xl border border-emerald-100 bg-white p-6 text-center text-sm font-black text-emerald-700">Loading transaction history...</div>'
                 : (state.error
                     ? `<div class="rounded-2xl border border-red-100 bg-red-50 p-6 text-sm font-bold text-red-700">${escapeHtml(state.error)}</div>`
-                    : (rows.length ? rows.map(renderInventoryTransactionHistoryCard).join('') : `<div class="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-10 text-center text-[12px] font-semibold text-slate-400">${escapeHtml(emptyCopy)}</div>`));
+                    : (rows.length ? '' : `<div class="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-10 text-center text-[12px] font-semibold text-slate-400">${escapeHtml(emptyCopy)}</div>`));
             return `                <div class="text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">${rows.length} displayed</div>
-                <div class="space-y-3">${rowsHtml}</div>
-                <div class="flex flex-wrap gap-3">
-                    <button type="button" class="sw-button" ${state.loading || !(state.offset > 0) ? 'disabled' : ''} onclick="pageInventoryTransactionHistory(-1)">Previous page</button>
-                    <span class="self-center">Page ${Math.floor((state.offset || 0) / 100) + 1}</span>
-                    <button type="button" class="sw-button" ${state.loading || !state.hasMore ? 'disabled' : ''} onclick="pageInventoryTransactionHistory(1)">Next page</button>
-                </div>
+                <p role="status">${rows.length && state.error ? escapeHtml(state.error) : ''}</p>
+                <div class="space-y-3" data-transaction-list>${rowsHtml}</div><div data-transaction-end></div>
 `;
         }
 
         function refreshInventoryTransactionHistoryResults() {
             if (getCurrentVisibleViewId() !== 'managers' || activeHomeTab !== INVENTORY_TRANSACTION_HISTORY_VIEW) return;
             const results = document.getElementById('inventory-transaction-history-results');
-            if (results) results.innerHTML = renderInventoryTransactionHistoryResults();
+            if (!results) return;
+            results.innerHTML = renderInventoryTransactionHistoryResults();
+            mountInventoryTransactionList(results);
         }
 
         function renderInventoryTransactionHistoryPanel() {
@@ -107577,7 +107575,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return false;
         }
 
-        async function loadManagerImportedHistoryFiles(force = false, direction = 'next') {
+        async function loadManagerImportedHistoryFiles(force = false) {
             if (!canViewManagerHistoricalReport()) return false;
             const state = getManagerImportedHistoryState();
             if (state.filesLoading) return false;
@@ -107585,7 +107583,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             let cursor = state.filePageCursors[targetIndex] || null;
             if (force) { targetIndex = 0; cursor = null; }
             else if (!state.files.length && !state.filesError && targetIndex === 0) { cursor = null; }
-            else if (direction === 'previous') { targetIndex = Math.max(0, targetIndex - 1); cursor = state.filePageCursors[targetIndex] || null; }
             else {
                 if (!state.hasMoreFiles || !state.nextFileCursor) return false;
                 cursor = state.nextFileCursor;
@@ -107599,7 +107596,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
                 const service = await getManagerImportedHistoryService();
                 const result = await service.listSnapshots(dataset, cursor, force);
                 if (token !== state.fileRequestToken || owner !== managerImportHistoryCurrentOwner() || dataset !== state.dataset) return false;
-                state.files = result.files;
+                state.files = cursor ? [...state.files,...result.files] : result.files;
                 state.filePageNumber = targetIndex + 1;
                 state.filePageCursors = state.filePageCursors.slice(0, targetIndex);
                 state.filePageCursors[targetIndex] = cursor;
@@ -107621,10 +107618,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             }
             if (selectedToLoad) await selectManagerImportedHistorySnapshot(selectedToLoad);
             return false;
-        }
-
-        function loadManagerImportedHistoryPreviousFiles() {
-            return loadManagerImportedHistoryFiles(false, 'previous');
         }
 
         async function selectManagerImportedHistorySnapshot(snapshotId = '') {
@@ -107654,12 +107647,13 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
                 const service = await getManagerImportedHistoryService();
                 const result = await service.readRows(id, columns, afterRow, refresh);
                 if (token !== state.rowRequestToken || owner !== managerImportHistoryCurrentOwner() || id !== state.selectedSnapshotId) return false;
-                state.rows = result.rows; state.nextRow = result.nextRow; state.hasMoreRows = result.hasMore;
+                state.rows = direction === 'next' ? [...state.rows,...result.rows] : result.rows;
+                state.nextRow = result.nextRow; state.hasMoreRows = result.hasMore;
                 if (direction === 'reset') { state.rowPageCursors = [0]; state.rowPageNumber = 1; }
                 else if (direction === 'next') {
                     state.rowPageCursors = state.rowPageCursors.slice(0, state.rowPageNumber);
                     state.rowPageCursors.push(afterRow); state.rowPageNumber += 1;
-                } else if (direction === 'previous') state.rowPageNumber = Math.max(1, state.rowPageNumber - 1);
+                }
             } catch (error) {
                 if (token === state.rowRequestToken && owner === managerImportHistoryCurrentOwner()) {
                     state.rowsError = getFriendlyBackendErrorMessage(error, 'Could not load this imported snapshot page.');
@@ -107671,65 +107665,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
                 }
             }
             return false;
-        }
-
-        function loadManagerImportedHistoryRows(refresh = true) {
-            const state = getManagerImportedHistoryState();
-            return loadManagerImportedHistoryRowsAt(state.rowPageCursors[state.rowPageNumber - 1] || 0, refresh, 'refresh');
-        }
-
-        function loadManagerImportedHistoryNextPage() {
-            const state = getManagerImportedHistoryState();
-            if (!state.hasMoreRows || state.nextRow === null) return false;
-            return loadManagerImportedHistoryRowsAt(state.nextRow, false, 'next');
-        }
-
-        function loadManagerImportedHistoryPreviousPage() {
-            const state = getManagerImportedHistoryState();
-            if (state.rowPageNumber <= 1) return false;
-            return loadManagerImportedHistoryRowsAt(state.rowPageCursors[state.rowPageNumber - 2] || 0, false, 'previous');
-        }
-
-        function toggleManagerImportedHistoryColumn(columnIndex, checked) {
-            const state = getManagerImportedHistoryState(), columns = state.selectedSnapshot?.columns || [];
-            const index = Number(columnIndex);
-            if (!Number.isSafeInteger(index) || index < 0 || index >= columns.length) return false;
-            const selected = new Set(state.selectedColumns);
-            if (checked && !selected.has(index) && selected.size >= 8) state.columnError = 'Choose up to 8 columns for a fast row view.';
-            else {
-                state.columnError = '';
-                if (checked) selected.add(index); else selected.delete(index);
-                state.selectedColumns = columns.map((_, column) => column).filter(column => selected.has(column));
-            }
-            scheduleManagersRender(true);
-            return false;
-        }
-
-        function setManagerImportedHistoryColumnSearch(value = '') {
-            const state = getManagerImportedHistoryState();
-            state.columnSearch = String(value || '').slice(0, 80);
-            const root = document.querySelector('[aria-label="Imported files history"]');
-            if (root) root.querySelectorAll('[data-import-column]').forEach(label => {
-                label.hidden = !!state.columnSearch && !String(label.getAttribute('data-import-column') || '').toLowerCase().includes(state.columnSearch.trim().toLowerCase());
-            });
-            return false;
-        }
-
-        function renderManagerImportedFilesPanel() {
-            const state = getManagerImportedHistoryState();
-            const selected = state.selectedSnapshot;
-            const viewState = {
-                dataset: state.dataset, files: state.files, hasMoreFiles: state.hasMoreFiles,
-                hasPreviousFiles: state.hasPreviousFiles, filePageNumber: state.filePageNumber,
-                filesLoading: state.filesLoading, filesError: state.filesError, selectedSnapshotId: state.selectedSnapshotId,
-                selectedSnapshot: selected, selectedColumnIndexes: state.selectedColumns, columnSearch: state.columnSearch,
-                columnError: state.columnError, rows: state.rows, rowsLoading: state.rowsLoading,
-                rowsRefreshing: state.rowsRefreshing, rowsError: state.rowsError, rowCount: state.rowCount,
-                pageNumber: state.rowPageNumber, pageCount: Math.max(1, Math.ceil(state.rowCount / 50)),
-                hasPrevious: state.rowPageNumber > 1, hasMoreRows: state.hasMoreRows
-            };
-            if (managerImportHistoryModule?.renderImportedFilesPanel) return managerImportHistoryModule.renderImportedFilesPanel(viewState);
-            return '<div class="rounded-xl border border-emerald-100 bg-white p-6 text-center text-sm font-bold text-emerald-700">Loading Imported Files tools…</div>';
         }
 
         // null means All; [] is an intentionally empty selection. Never persist across accounts.
@@ -109323,20 +109258,8 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             state.error = '';
             scheduleManagersRender(true);
             try {
-                const matrixRpc = isKaylaLimitedAccessManagerUser() ? 'get_limited_access_control_matrix_v1' : 'get_access_control_matrix_v2';
-                const result = await supabaseRpc(matrixRpc, { p_query: {
-                    subjectType: state.viewMode,
-                    search: String(managersSearchTerm || '').trim(),
-                    role: state.selectedRole === 'all' ? '' : state.selectedRole,
-                    module: state.selectedModule === 'all' ? '' : state.selectedModule,
-                    subjectOffset: Number(state.subjectOffset || 0),
-                    subjectLimit: Number(state.subjectPageSize || 20),
-                    permissionOffset: Number(state.columnOffset || 0),
-                    permissionLimit: Number(state.columnPageSize || 8)
-                } }, { timeoutMs: 20000 });
+                const normalized = await readAccessControlMatrixWindow(accessControlMatrixQuery(state));
                 if (requestToken !== state.requestToken) return false;
-                const normalized = normalizeAccessControlMatrix(result);
-                if (!normalized) throw new Error('ACCESS_CONTROL_RESPONSE_INVALID');
                 state.data = normalized;
                 state.capabilities = normalized.capabilities;
                 state.loaded = true;
@@ -109380,26 +109303,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             accessControlAdminState.viewMode = !limitedScope && value === 'roles' ? 'roles' : 'users';
             accessControlAdminState.editor = null;
             accessControlAdminState.subjectOffset = 0;
-            loadAccessControlMatrix(true);
-            return false;
-        }
-
-        function setAccessControlColumnWindow(delta = 0) {
-            const page = accessControlAdminState.data && accessControlAdminState.data.page || {};
-            const pageSize = Math.max(1, Number(accessControlAdminState.columnPageSize) || 8);
-            const maxOffset = Math.max(0, Math.floor(Math.max(0, Number(page.permissionTotal || 0) - 1) / pageSize) * pageSize);
-            accessControlAdminState.columnOffset = Math.max(0, Math.min(maxOffset, Number(accessControlAdminState.columnOffset || 0) + Number(delta || 0) * pageSize));
-            accessControlAdminState.editor = null;
-            loadAccessControlMatrix(true);
-            return false;
-        }
-
-        function setAccessControlSubjectWindow(delta = 0) {
-            const page = accessControlAdminState.data && accessControlAdminState.data.page || {};
-            const pageSize = Math.max(1, Number(accessControlAdminState.subjectPageSize) || 20);
-            const maxOffset = Math.max(0, Math.floor(Math.max(0, Number(page.subjectTotal || 0) - 1) / pageSize) * pageSize);
-            accessControlAdminState.subjectOffset = Math.max(0, Math.min(maxOffset, Number(accessControlAdminState.subjectOffset || 0) + Number(delta || 0) * pageSize));
-            accessControlAdminState.editor = null;
             loadAccessControlMatrix(true);
             return false;
         }
@@ -109624,48 +109527,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
         }
 
         
-
-        function renderAccessControlPanel() {
-            if (!canViewAccessControl()) return '<div class="rounded-2xl border border-red-200 bg-red-50 p-8 text-center text-sm font-bold text-red-700">Access Control is available only to active Admin and Manager profiles.</div>';
-            const state = accessControlAdminState;
-            if (!state.loaded && !state.loading) setTimeout(() => loadAccessControlMatrix(false), 0);
-            const data = state.data;
-            if (!data && state.loading) return '<div class="rounded-2xl border border-emerald-100 bg-white p-8 text-center text-sm font-black text-emerald-700">Loading the access audit matrix…</div>';
-            const errorHtml = state.error ? `<div class="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700"><div>${escapeHtml(state.error)}</div><button type="button" class="mt-3 min-h-[44px] rounded-xl border border-red-200 bg-white px-4 text-[10px] font-black uppercase text-red-700" onclick="return refreshAccessControlMatrix()">Retry</button></div>` : '';
-            if (!data) return `${errorHtml}<div class="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-400">The access audit matrix is unavailable.</div>`;
-            const page = data.page || {};
-            const pageSize = Math.max(1, Number(state.columnPageSize) || 8);
-            const permissions = Array.isArray(data.permissions) ? data.permissions : [];
-            const subjects = state.viewMode === 'roles' ? (data.roles || []) : (data.users || []);
-            const modules = Array.isArray(data.filters && data.filters.modules) ? data.filters.modules : [];
-            const roles = Array.isArray(data.filters && data.filters.roles) ? data.filters.roles : [];
-            const summary = data.summary || {};
-            const limitedLive = state.capabilities && state.capabilities.editScope === 'limited-users';
-            const statusCards = [
-                ['Active Users', summary.userCount, 'ph-users-three'],
-                ['Permissions', summary.permissionCount, 'ph-key'],
-                ['Draft Differences', summary.mismatchCount, 'ph-git-diff'],
-                ['Missing Baselines', summary.baselineMissingCount, 'ph-warning-circle']
-            ].map(([label, value, icon]) => `<div class="rounded-2xl border border-emerald-100 bg-white p-3 shadow-sm"><div class="flex items-center justify-between gap-2"><div class="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">${escapeHtml(label)}</div><i class="ph-bold ${icon} text-emerald-500"></i></div><div class="mt-1 text-2xl font-black text-slate-900">${escapeHtml(String(value || 0))}</div></div>`).join('');
-            const auditBanner = limitedLive
-                ? '<div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-950"><div class="text-[10px] font-black uppercase tracking-[0.14em] text-emerald-700">Limited Live Access</div><div class="mt-1">Kayla can manage module access only for active CSR, Sales Rep, and Sales/Marketing users. Manager and security access cannot be granted here.</div></div>'
-                : data.enforcementMode === 'audit'
-                ? '<div class="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm font-bold text-blue-900"><div class="text-[10px] font-black uppercase tracking-[0.14em] text-blue-700">Audit Mode · No Live Access Changes</div><div class="mt-1">Edits build a reviewed policy for comparison. Existing production authorization remains authoritative.</div></div>'
-                : '<div class="rounded-2xl border border-red-300 bg-red-50 p-4 text-sm font-black text-red-800">Centralized enforcement is active.</div>';
-            const publishDisabled = state.publishing || String(state.publishReason || '').trim().length < 4;
-            const permissionTotal = Number(page.permissionTotal || permissions.length);
-            const subjectTotal = Number(page.subjectTotal || subjects.length);
-            const columnWindowHtml = permissionTotal > pageSize ? `<div class="flex items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm" aria-label="Permission column window"><button type="button" class="min-h-[44px] rounded-xl border border-slate-200 px-4 text-[10px] font-black uppercase text-slate-600 disabled:opacity-40" ${state.columnOffset <= 0 ? 'disabled' : ''} onclick="return setAccessControlColumnWindow(-1)">Previous Columns</button><div class="text-center text-[10px] font-black uppercase text-slate-500">Permissions ${state.columnOffset + 1}-${Math.min(permissionTotal, state.columnOffset + permissions.length)} of ${permissionTotal}</div><button type="button" class="min-h-[44px] rounded-xl border border-slate-200 px-4 text-[10px] font-black uppercase text-slate-600 disabled:opacity-40" ${state.columnOffset + pageSize >= permissionTotal ? 'disabled' : ''} onclick="return setAccessControlColumnWindow(1)">Next Columns</button></div>` : '';
-            const subjectWindowHtml = subjectTotal > state.subjectPageSize ? `<div class="flex items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm"><button type="button" class="min-h-[44px] rounded-xl border border-slate-200 px-4 text-[10px] font-black uppercase text-slate-600 disabled:opacity-40" ${state.subjectOffset <= 0 ? 'disabled' : ''} onclick="return setAccessControlSubjectWindow(-1)">Previous Users</button><div class="text-[10px] font-black uppercase text-slate-500">${state.subjectOffset + 1}-${Math.min(subjectTotal, state.subjectOffset + subjects.length)} of ${subjectTotal}</div><button type="button" class="min-h-[44px] rounded-xl border border-slate-200 px-4 text-[10px] font-black uppercase text-slate-600 disabled:opacity-40" ${state.subjectOffset + state.subjectPageSize >= subjectTotal ? 'disabled' : ''} onclick="return setAccessControlSubjectWindow(1)">Next Users</button></div>` : '';
-            const editHelp = canManageAccessControl()
-                ? (limitedLive ? 'Tap a cell to change this user’s live module access.' : 'Tap a cell to edit the audit draft.')
-                : 'Read-only manager view. Dylan, Megan, and JD can edit the audit draft.';
-            const publishHtml = canPublishAccessControl() ? `<section class="rounded-2xl border border-indigo-200 bg-indigo-50 p-4"><div class="text-[10px] font-black uppercase tracking-[0.14em] text-indigo-700">Publish Reviewed Audit Snapshot</div><div class="mt-1 text-sm font-bold text-indigo-950">This records an immutable reviewed version and starts the next draft. It does not enable centralized enforcement.</div><div class="mt-3 flex flex-col gap-2 md:flex-row"><input type="text" maxlength="500" class="min-h-[48px] min-w-0 flex-1 rounded-xl border border-indigo-200 bg-white px-3 text-sm font-bold text-slate-900" value="${escapeHtml(state.publishReason || '')}" placeholder="Required review reason" oninput="return updateAccessControlPublishReason(this.value)"><button type="button" class="min-h-[48px] rounded-xl bg-indigo-700 px-5 text-[10px] font-black uppercase tracking-[0.12em] text-white disabled:opacity-50" ${publishDisabled ? 'disabled' : ''} onclick="return publishAccessControlAuditPolicy()">${state.publishing ? 'Publishing…' : 'Publish Audit Snapshot'}</button></div></section>` : '';
-            const viewControl = limitedLive
-                ? '<div class="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2"><div class="text-[9px] font-black uppercase tracking-[0.12em] text-emerald-600">View</div><div class="mt-1 text-sm font-black text-emerald-900">Managed Users Only</div></div>'
-                : `<label class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">View<select class="mt-1 min-h-[46px] w-full rounded-xl border border-emerald-200 bg-white px-3 text-sm font-black text-slate-900" onchange="return setAccessControlViewMode(this.value)"><option value="users" ${state.viewMode === 'users' ? 'selected' : ''}>Users</option><option value="roles" ${state.viewMode === 'roles' ? 'selected' : ''}>Role Defaults</option></select></label>`;
-            return `<div class="space-y-5">${auditBanner}${errorHtml}<section class="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm"><div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between"><div><div class="text-[10px] font-black uppercase tracking-[0.16em] text-[#007a4d]">Managers · Access Control</div><div class="mt-1 text-xl font-black text-slate-900">Policy v${escapeHtml(String(data.policy.version || 0))} · Revision ${escapeHtml(String(data.policy.revision || 0))}</div><div class="mt-1 text-[12px] font-semibold text-slate-500">Y/N shows effective access. Role supplies the default; a user override takes precedence. ${escapeHtml(editHelp)}</div></div><div class="flex flex-wrap gap-2"><button type="button" class="min-h-[44px] rounded-xl border border-emerald-200 bg-emerald-50 px-4 text-[10px] font-black uppercase text-emerald-800" onclick="return refreshAccessControlMatrix()"><i class="ph-bold ph-arrows-clockwise mr-1"></i>Refresh</button><button type="button" class="min-h-[44px] rounded-xl border border-blue-200 bg-blue-50 px-4 text-[10px] font-black uppercase text-blue-800" onclick="return exportAccessControlCsv()"><i class="ph-bold ph-download-simple mr-1"></i>CSV</button></div></div><div class="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">${statusCards}</div></section>${renderAccessControlEditor()}<section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><div class="grid gap-3 md:grid-cols-4">${viewControl}<label class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">Module<select class="mt-1 min-h-[46px] w-full rounded-xl border border-emerald-200 bg-white px-3 text-sm font-black text-slate-900" onchange="return setAccessControlModuleFilter(this.value)"><option value="all">All Modules</option>${modules.map((moduleKey) => `<option value="${escapeHtml(moduleKey)}" ${state.selectedModule === moduleKey ? 'selected' : ''}>${escapeHtml(moduleKey)}</option>`).join('')}</select></label><label class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">Role Filter<select class="mt-1 min-h-[46px] w-full rounded-xl border border-emerald-200 bg-white px-3 text-sm font-black text-slate-900" onchange="return setAccessControlRoleFilter(this.value)" ${state.viewMode === 'roles' ? 'disabled' : ''}><option value="all">All Roles</option>${roles.map((roleKey) => `<option value="${escapeHtml(roleKey)}" ${state.selectedRole === roleKey ? 'selected' : ''}>${escapeHtml(roleKey)}</option>`).join('')}</select></label><div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"><div class="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">Shown</div><div class="mt-1 text-lg font-black text-slate-900">${escapeHtml(String(subjects.length))} × ${escapeHtml(String(permissions.length))}</div></div></div></section>${columnWindowHtml}${renderAccessControlMatrixTable(subjects, permissions)}${subjectWindowHtml}${publishHtml}</div>`;
-        }
 
         function createCodexOpsUuid() {
             if (window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
@@ -110563,129 +110424,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             if (!document.hidden && isManagerSeasonPriorityVisible()) loadManagerSeasonPriority(true);
         });
         window.addEventListener('online', () => { if (isManagerSeasonPriorityVisible()) loadManagerSeasonPriority(true); });
-
-        const companyDirectoryCache = window.GncCompanyDirectoryCache.create();
-        const managerCompanyDirectoryState = { owner: '', kind: 'contacts', query: '', filterValue: '', reviewOnly: false, page: 0, pageSize: 50, contacts: [], blocks: [], beds: [], codes: [], loading: false, loaded: false, loadGeneration: 0, error: '', formOpen: false, editing: null };
-        function getCompanyDirectoryOwner() {
-            return JSON.stringify([getSupabaseReadIdentityScope(), getProductionLiveSyncContext().dataPermissionVersion || '', getManagersToolAccess().canManageCompanyDirectory]);
-        }
-        function getCompanyDirectoryState() {
-            const state = managerCompanyDirectoryState, owner = getCompanyDirectoryOwner();
-            if (state.owner !== owner) {
-                Object.assign(state, { owner, query: '', filterValue: '', page: 0, contacts: [], blocks: [], beds: [], codes: [], loaded: false, loading: false, error: '', formOpen: false, editing: null, refreshPending: false });
-                state.loadGeneration++;
-            }
-            return state;
-        }
-        const managerCompanyDirectoryMeta = {
-            contacts: { table: 'ph_company_directory_contacts', title: 'Employee contacts', columns: [['name','Name'],['department','Department'],['extension','Extension'],['cell_number','Cell'],['home_number','Home'],['location','Location']], fields: [['name','Name',true],['department','Department',false],['extension','Extension',false],['cell_number','Cell number',false],['home_number','Home number',false],['location','Location',true]] },
-            blocks: { table: 'ph_company_directory_beds', title: 'Blocks & beds', columns: [['block_letter','Block'],['bed_identifier','Bed'],['capacity','Capacity']], fields: [['block_letter','Block',true],['bed_identifier','Bed identifier',true],['capacity','Bed capacity',true,'number']] },
-            codes: { table: 'ph_company_directory_codes', title: 'Production plant & project codes', columns: [['code','Code'],['description','Project / plant description'],['department_reference','Department ID / name']], fields: [['code','Code',true],['description','Project / plant description',true],['department_reference','Department ID / name',false]] }
-        };
-        function companyDirectoryEsc(value) { return typeof esc === 'function' ? esc(value == null ? '' : String(value)) : String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
-        function renderCompanyDirectoryPanel(resultsOnly = false) {
-            const state = getCompanyDirectoryState(), meta = managerCompanyDirectoryMeta[state.kind];
-            const list = state[state.kind] === undefined ? [] : state.kind === 'blocks' ? state.beds : state[state.kind];
-            const filterField = state.kind === 'contacts' ? 'location' : state.kind === 'blocks' ? 'block_letter' : 'department_reference';
-            const filterLabel = state.kind === 'contacts' ? 'location' : state.kind === 'blocks' ? 'block' : 'department';
-            const { filterOptions, rows: matchingRows } = companyDirectoryCache.select(list, filterField, state);
-            const pageCount = Math.max(1, Math.ceil(matchingRows.length / state.pageSize));
-            state.page = Math.min(Math.max(0, Number(state.page) || 0), pageCount - 1);
-            const pageStart = state.page * state.pageSize;
-            const pageRows = matchingRows.slice(pageStart, pageStart + state.pageSize);
-            const options = { contacts: 'Employee contacts', blocks: 'Blocks & beds', codes: 'Production codes' };
-            const totals = state.kind === 'blocks' ? `<div class="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6 mb-3">${state.blocks.map(block => { const beds = state.beds.filter(bed => bed.block_letter === block.letter); const total = beds.reduce((sum, bed) => sum + Number(bed.capacity || 0), 0); return `<div class="rounded-xl border border-emerald-100 bg-white px-3 py-2"><strong class="block text-xs">${companyDirectoryEsc(block.name)}</strong><span class="text-[11px] text-slate-500">${beds.length} beds · ${total.toLocaleString()} total</span><label class="mt-2 grid gap-1 text-[10px] font-bold text-slate-500">Block label<input data-company-directory-block-name="${companyDirectoryEsc(block.letter)}" value="${companyDirectoryEsc(block.name)}" class="min-h-8 rounded border px-2 text-xs font-medium"></label><button type="button" data-company-directory-block-delete="${companyDirectoryEsc(block.letter)}" class="mt-2 rounded border border-red-200 px-2 py-1 text-[10px] font-bold text-red-700">Delete block</button></div>`; }).join('')}<button type="button" data-company-directory-block-add class="min-h-20 rounded-xl border border-dashed border-emerald-300 bg-emerald-50 text-sm font-bold text-emerald-800">＋ Add block</button></div>` : '';
-            const tableRows = pageRows.map(row => `<tr data-row-id="${companyDirectoryEsc(row.id)}">${meta.columns.map(([key]) => `<td>${companyDirectoryEsc(row[key] ?? '—')}</td>`).join('')}<td class="whitespace-nowrap"><button type="button" data-company-directory-edit="${companyDirectoryEsc(row.id)}" class="rounded-lg border border-emerald-200 px-2 py-1 text-xs font-bold">Edit</button> <button type="button" data-company-directory-delete="${companyDirectoryEsc(row.id)}" class="rounded-lg border border-red-200 px-2 py-1 text-xs font-bold text-red-700">Delete</button></td></tr>`).join('');
-            const form = state.formOpen ? `<div class="fixed inset-0 z-[10000] grid place-items-center bg-slate-950/60 p-3" data-company-directory-scrim><form data-company-directory-form class="max-h-[90dvh] w-full max-w-xl overflow-auto rounded-2xl bg-white p-4 shadow-2xl"><div class="mb-4 flex items-center justify-between"><div><div class="text-[10px] font-black uppercase tracking-widest text-emerald-700">${state.editing ? 'Edit record' : 'New record'}</div><h3 class="text-lg font-black">${meta.title}</h3></div><button type="button" data-company-directory-close aria-label="Close" class="rounded-lg border px-3 py-2">×</button></div><div class="grid grid-cols-1 gap-3 sm:grid-cols-2">${meta.fields.map(([key,label,required,type]) => `<label class="grid gap-1 text-xs font-bold text-slate-700">${label}${state.kind === 'blocks' && key === 'block_letter' ? `<select name="${key}" required class="min-h-10 rounded-lg border px-3">${'ABCDEFGHIJKL'.split('').map(letter => `<option value="${letter}" ${state.editing?.[key] === letter ? 'selected' : ''}>Block ${letter}</option>`).join('')}</select>` : `<input name="${key}" type="${type || 'text'}" ${required ? 'required' : ''} ${type === 'number' ? 'min="0.01" step="0.01"' : ''} value="${companyDirectoryEsc(state.editing?.[key] ?? '')}" class="min-h-10 rounded-lg border px-3">`}</label>`).join('')}</div>${state.error ? `<p role="alert" class="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-800">${companyDirectoryEsc(state.error)}</p>` : ''}<div class="mt-4 flex justify-end gap-2"><button type="button" data-company-directory-close class="min-h-10 rounded-xl border px-4 text-sm font-bold">Cancel</button><button class="min-h-10 rounded-xl bg-emerald-700 px-4 text-sm font-black text-white">Save record</button></div></form></div>` : '';
-            const bodyRows = state.loading && !state.loaded ? `<tr><td class="px-3 py-5 text-slate-500" colspan="${meta.columns.length+1}">Loading directory…</td></tr>` : tableRows || `<tr><td class="px-3 py-5 text-slate-500" colspan="${meta.columns.length+1}">No matching records.</td></tr>`;
-            const rangeStart = matchingRows.length ? pageStart + 1 : 0;
-            const rangeEnd = Math.min(pageStart + state.pageSize, matchingRows.length);
-            const pagination = `<nav aria-label="Company directory pagination" class="flex flex-wrap items-center justify-between gap-2 pt-3 text-xs text-slate-600"><span>${matchingRows.length.toLocaleString()} records · Showing ${rangeStart.toLocaleString()}–${rangeEnd.toLocaleString()} · Page ${state.page + 1} of ${pageCount}</span><div class="flex gap-2"><button type="button" data-company-directory-page="previous" aria-label="Previous page" class="min-h-9 rounded-lg border border-emerald-200 px-3 font-bold text-emerald-800" ${state.page === 0 ? 'disabled' : ''}>Previous</button><button type="button" data-company-directory-page="next" aria-label="Next page" class="min-h-9 rounded-lg border border-emerald-200 px-3 font-bold text-emerald-800" ${state.page >= pageCount - 1 ? 'disabled' : ''}>Next</button></div></nav>`;
-            if (resultsOnly) return { bodyRows, pagination };
-            return `<section class="rounded-2xl border border-emerald-100 bg-white p-3 sm:p-4"><header class="mb-3 flex flex-wrap items-center justify-between gap-2"><div><div class="text-[10px] font-black uppercase tracking-widest text-emerald-700">Production reference data · Dylan</div><h2 class="text-lg font-black text-slate-900">Company Directory</h2></div><button type="button" data-company-directory-refresh class="min-h-10 rounded-xl border border-emerald-200 px-3 text-sm font-bold text-emerald-800" ${state.loading ? 'disabled' : ''}>Refresh</button><button type="button" data-company-directory-add class="inline-flex min-h-10 items-center gap-2 rounded-xl bg-emerald-700 px-3 text-sm font-black text-white">＋ Add ${state.kind === 'blocks' ? 'bed row' : 'record'}</button></header><div class="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-[12rem_12rem_minmax(10rem,1fr)]"><select data-company-directory-kind aria-label="Directory category" class="min-h-10 rounded-xl border border-emerald-100 bg-white px-3 text-sm font-bold">${Object.entries(options).map(([key,label]) => `<option value="${key}" ${state.kind === key ? 'selected' : ''}>${label}</option>`).join('')}</select><select data-company-directory-filter aria-label="Filter by ${filterLabel}" class="min-h-10 rounded-xl border border-emerald-100 bg-white px-3 text-sm"><option value="">All ${filterLabel}s</option>${filterOptions.map(value => `<option value="${companyDirectoryEsc(value)}" ${state.filterValue === value ? 'selected' : ''}>${companyDirectoryEsc(value)}</option>`).join('')}</select><input data-company-directory-search aria-label="Search directory" value="${companyDirectoryEsc(state.query)}" placeholder="Search names, departments, extensions, locations, codes…" class="min-h-10 rounded-xl border border-emerald-100 px-3 text-sm"><label class="inline-flex items-center gap-2 text-xs font-bold text-slate-600"><input data-company-directory-review type="checkbox" ${state.reviewOnly ? 'checked' : ''}>Needs review</label></div>${totals}${state.error && !state.formOpen ? `<div role="alert" class="mb-3 rounded-xl bg-red-50 p-3 text-sm text-red-800">${companyDirectoryEsc(state.error)}</div>` : ''}<div class="h-[65dvh] overflow-auto rounded-xl border border-slate-200" style="contain:layout style paint;height:65dvh"><table class="w-full min-w-[700px] border-collapse text-left text-xs" style="table-layout:fixed;overflow-wrap:anywhere"><thead class="sticky top-0 bg-emerald-50 text-[10px] uppercase tracking-wide text-emerald-900"><tr>${meta.columns.map(([,label]) => `<th class="px-3 py-2">${label}</th>`).join('')}<th class="px-3 py-2">Actions</th></tr></thead><tbody>${bodyRows}</tbody></table></div>${pagination}</section>${form}`;
-        }
-        async function loadCompanyDirectory(root) {
-            const state = getCompanyDirectoryState();
-            if (!getManagersToolAccess().canManageCompanyDirectory) return;
-            const owner = state.owner;
-            const cached = companyDirectoryCache.peek(owner);
-            if (cached) Object.assign(state, cached, { loaded: true });
-            const generation = state.loadGeneration = Number(state.loadGeneration || 0) + 1;
-            state.loading = true; state.error = '';
-            if (root && !state.loaded) root.innerHTML = renderCompanyDirectoryPanel();
-            try {
-                const snapshot = await companyDirectoryCache.refresh(owner, (table, query) => supabaseFetch(table, 'GET', null, query));
-                if (generation !== state.loadGeneration || owner !== getCompanyDirectoryOwner() || !getManagersToolAccess().canManageCompanyDirectory) return;
-                Object.assign(state, snapshot, { loaded: true });
-            } catch (error) {
-                if (generation === state.loadGeneration && owner === getCompanyDirectoryOwner()) {
-                    if ([401, 403].includes(Number(error?.status)) || error?.code === '42501') Object.assign(state, { contacts: [], blocks: [], beds: [], codes: [], loaded: false, formOpen: false, editing: null });
-                    state.error = error?.message || 'Unable to load the company directory.';
-                }
-            } finally {
-                if (generation === state.loadGeneration && owner === getCompanyDirectoryOwner()) {
-                    state.loading = false;
-                    if (root?.isConnected && getCurrentVisibleViewId() === 'managers' && activeHomeTab === MANAGER_COMPANY_DIRECTORY_VIEW) {
-                        const next = document.createElement('template'); next.innerHTML = renderCompanyDirectoryPanel();
-                        window.AgMetricStableViewDom.apply(root, next.content);
-                    }
-                }
-            }
-        }
-        function mountCompanyDirectoryPanel(root) {
-            if (!root || root.dataset.companyDirectoryMounted === 'true') return;
-            root.dataset.companyDirectoryMounted='true'; root.dataset.preserveDom='true';
-            const state=managerCompanyDirectoryState;
-            const redraw=()=>{
-                const next=document.createElement('template'); next.innerHTML=renderCompanyDirectoryPanel();
-                window.AgMetricStableViewDom.apply(root,next.content);
-            };
-            const redrawResults=()=>{
-                const parts=renderCompanyDirectoryPanel(true), next=document.createElement('template');
-                next.innerHTML='<table><tbody>'+parts.bodyRows+'</tbody></table>'+parts.pagination;
-                const body=root.querySelector('tbody'), nav=root.querySelector('[aria-label="Company directory pagination"]');
-                if (!body || !nav) { redraw(); return; }
-                window.AgMetricStableViewDom.apply(body,next.content.querySelector('tbody'));
-                window.AgMetricStableViewDom.apply(nav,next.content.querySelector('nav'));
-            };
-            root.addEventListener('gnc-manager-source-revision', event => {
-                if (event.detail?.surface !== 'company-directory' || !getManagersToolAccess().canManageCompanyDirectory) return;
-                if (state.formOpen || root.contains(document.activeElement)) { state.refreshPending=true; return; }
-                void loadCompanyDirectory(root);
-            });
-            root.addEventListener('focusout', () => setTimeout(() => {
-                if (state.refreshPending && !state.formOpen && !root.contains(document.activeElement)) {
-                    state.refreshPending=false; void loadCompanyDirectory(root);
-                }
-            }, 0));
-            root.addEventListener('input', event => { if (event.target.matches('[data-company-directory-search]')) { state.query=event.target.value; state.page=0; redrawResults(); } });
-            root.addEventListener('change', event => { if (event.target.matches('[data-company-directory-kind]')) { state.kind=event.target.value; state.query=''; state.filterValue=''; state.page=0; void loadCompanyDirectory(root); } else if(event.target.matches('[data-company-directory-filter]')) { state.filterValue=event.target.value; state.page=0; redrawResults(); } else if(event.target.matches('[data-company-directory-review]')) { state.reviewOnly=event.target.checked; state.page=0; redrawResults(); } });
-            root.addEventListener('click', async event => {
-                const target=event.target.closest('button'); if (!target) return;
-                const pageAction=target.dataset.companyDirectoryPage;
-                if (pageAction) { state.page=Math.max(0,state.page+(pageAction==='next'?1:-1)); redrawResults(); return; }
-                if (target.matches('[data-company-directory-refresh]')) { await loadCompanyDirectory(root); return; }
-                if (target.matches('[data-company-directory-add]')) { state.editing=null; state.formOpen=true; state.error=''; redraw(); return; }
-                if (target.matches('[data-company-directory-close]') || event.target.matches('[data-company-directory-scrim]')) { state.formOpen=false; state.error=''; redraw(); if(state.refreshPending){state.refreshPending=false;void loadCompanyDirectory(root);} return; }
-                if (target.matches('[data-company-directory-block-add]')) { const next='ABCDEFGHIJKL'.split('').find(letter=>!state.blocks.some(block=>block.letter===letter)); if(!next){state.error='All blocks A through L already exist.';redraw();return;} try { await supabaseFetch('ph_company_directory_blocks','POST',{letter:next,name:`Block ${next}`},''); await loadCompanyDirectory(root); } catch(error) { state.error=error?.message||'Block creation failed.'; redraw(); } return; }
-                const blockDelete=target.dataset.companyDirectoryBlockDelete;
-                if(blockDelete){ const count=state.beds.filter(bed=>bed.block_letter===blockDelete).length; if(!window.confirm(`Delete Block ${blockDelete} and all ${count} bed rows? This cannot be undone.`))return; try { await supabaseFetch('ph_company_directory_blocks','DELETE',null,`letter=eq.${encodeURIComponent(blockDelete)}`); await loadCompanyDirectory(root); } catch(error) { state.error=error?.message||'Block deletion failed.'; redraw(); } return; }
-                const editId=target.dataset.companyDirectoryEdit;
-                if (editId) { const collection=state.kind==='blocks'?state.beds:state[state.kind]; const row=collection.find(item=>String(item.id)===editId); state.editing=row||null; state.formOpen=!!row; state.error=''; redraw(); return; }
-                const deleteId=target.dataset.companyDirectoryDelete;
-                if (deleteId) { const collection=state.kind==='blocks'?state.beds:state[state.kind]; const row=collection.find(item=>String(item.id)===deleteId); const label=row?.name||row?.bed_identifier||row?.code||'this record'; if (!window.confirm(`Delete “${label}”? This cannot be undone.`)) return; try { await supabaseFetch(managerCompanyDirectoryMeta[state.kind].table,'DELETE',null,`id=eq.${encodeURIComponent(deleteId)}`); await loadCompanyDirectory(root); } catch(error) { state.error=error?.message||'Delete failed.'; redraw(); } }
-            });
-            root.addEventListener('change', async event => { const input=event.target.closest('[data-company-directory-block-name]'); if(!input)return; const letter=input.dataset.companyDirectoryBlockName, name=input.value.trim(); if(!name){state.error='Block label is required.';redraw();return;} try { await supabaseFetch('ph_company_directory_blocks','PATCH',{name},`letter=eq.${encodeURIComponent(letter)}`); const block=state.blocks.find(item=>item.letter===letter); if(block)block.name=name; state.error='';redraw(); } catch(error) { state.error=error?.message||'Block label update failed.';redraw(); } });
-            root.addEventListener('submit', async event => {
-                if (!event.target.matches('[data-company-directory-form]')) return;
-                event.preventDefault(); const form=new FormData(event.target); const values={};
-                for(const [key,label,required,type] of managerCompanyDirectoryMeta[state.kind].fields){ const raw=String(form.get(key)||'').trim(); if(required&&!raw){state.error=`${label} is required.`;redraw();return;} values[key]=type==='number'?Number(raw):raw||null; }
-                if(state.kind==='blocks'){ values.block_letter=String(values.block_letter).toUpperCase(); values.bed_identifier=String(values.bed_identifier).toUpperCase(); if(!/^[A-L]$/.test(values.block_letter)) { state.error='Block must be a letter from A through L.'; redraw(); return; } if(!Number.isFinite(Number(values.capacity))||Number(values.capacity)<=0){state.error='Bed capacity must be a positive number.';redraw();return;} }
-                try { const meta=managerCompanyDirectoryMeta[state.kind]; if(state.editing?.id) await supabaseFetch(meta.table,'PATCH',values,`id=eq.${encodeURIComponent(state.editing.id)}`); else await supabaseFetch(meta.table,'POST',values,''); state.formOpen=false; state.editing=null; await loadCompanyDirectory(root); }
-                catch(error) { state.error=error?.message||'Save failed.'; state.formOpen=true; redraw(); }
-            });
-            void loadCompanyDirectory(root);
-        }
 
         function canManageCustomerRepMappings() {
             return canAccessView('managers') && (isFullAppAdministrator() || ['ADMIN', 'ADMINISTRATOR', 'MANAGER'].includes(normalizeRoleAccessToken(currentRole)));
@@ -118850,61 +118588,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             row.DOM_ID = `reqarch_${row.UNIQUE_ID.replace(/[^a-z0-9_-]+/gi, '_')}`;
             buildSearchIndex(row);
             return row;
-        }
-        function renderRequestArchivePageHtml(state = requestArchiveListState) {
-            const rows = Array.isArray(state.rows) ? state.rows : [];
-            const cards = rows.map((row) => {
-                const uid = String(row.UNIQUE_ID || '');
-                const itemLine = [row.CONTSIZE, row.LOCATIONCODE, row.LOTCODE].map((v) => String(v || '').trim()).filter(Boolean).join(' · ');
-                const customer = String(row.REQ_CUSTOMER || row.CUSTOMERNAME || '').trim();
-                return `<article class="request-archive-card"><div class="request-archive-card__copy"><strong>${escapeHtml(row.COMMONNAME || 'Unknown item')}</strong><span>${escapeHtml(itemLine || row.ITEMCODE || uid)}</span>${customer ? `<span>${escapeHtml(customer)}${row.REQ_QTY ? ` · Qty ${escapeHtml(row.REQ_QTY)}` : ''}</span>` : ''}</div><button type="button" class="request-archive-control" aria-label="Restore ${escapeHtml(row.COMMONNAME || 'request')}" onclick="return restoreArchivedRequestRow('${escapeHtml(uid)}')">Restore</button></article>`;
-            }).join('');
-            const limit = Math.max(1, Number(state.limit) || 100), offset = Math.max(0, Number(state.offset) || 0);
-            const pageCount = Math.max(1, Math.ceil(Number(state.total) / limit));
-            const displayPage = Math.min(pageCount, Math.floor(offset / limit) + 1);
-            const pager = Number(state.total) > limit || offset > 0
-                ? `<div class="request-archive-pager"><button type="button" class="request-archive-control" ${offset ? '' : 'disabled'} onclick="return loadRequestArchivePage(${Math.max(0, offset - limit)}, true)">Previous</button><span>${displayPage} / ${pageCount} · ${Number(state.total)} rows</span><button type="button" class="request-archive-control" ${state.hasMore ? '' : 'disabled'} onclick="return loadRequestArchivePage(${offset + limit}, true)">Next</button></div>`
-                : `<div class="request-archive-pager">${Number(state.total) || 0} archived request${Number(state.total) === 1 ? '' : 's'}</div>`;
-            const list = rows.length ? `<div class="request-archive-list">${cards}</div>` : '';
-            return `<div id="request-archive-page-list">${list}</div><div id="request-archive-page-pager">${pager}</div><div id="request-archive-status"></div>`;
-        }
-        function buildRequestArchivePageRenderSignature(state = requestArchiveListState) {
-            const rows = Array.isArray(state && state.rows) ? state.rows : [];
-            return `request:archived:${JSON.stringify([
-                Number(state && state.offset) || 0,
-                Number(state && state.total) || 0,
-                Number(state && state.limit) || 100,
-                !!(state && state.hasMore),
-                rows.map((row) => [
-                    String(row && row.UNIQUE_ID || ''),
-                    String(row && row.COMMONNAME || ''),
-                    String(row && row.CONTSIZE || ''),
-                    String(row && row.LOCATIONCODE || ''),
-                    String(row && row.LOTCODE || ''),
-                    String(row && row.ITEMCODE || ''),
-                    String(row && (row.REQ_CUSTOMER || row.CUSTOMERNAME) || ''),
-                    String(row && row.REQ_QTY || '')
-                ])
-            ])}`;
-        }
-        function syncRequestArchiveStatus(container, state = requestArchiveListState) {
-            const status = container && container.querySelector('#request-archive-status');
-            if (!status) return false;
-            let html = '';
-            if (state.error) {
-                html = `<div class="request-archive-empty request-archive-empty--error" role="alert">${escapeHtml(state.error)}<button type="button" class="request-archive-control" onclick="return loadRequestArchivePage(${Number(state.offset) || 0}, true)">Retry</button></div>`;
-            } else if (state.loading) {
-                const message = state.refreshing ? 'Refreshing archived request rows…' : 'Loading archived request rows…';
-                html = `<div class="request-archive-empty" role="status">${message}</div>`;
-            } else if (state.loaded && !state.rows.length) {
-                const message = Number(state.total) > 0 ? 'No rows on this page.' : 'No archived request rows.';
-                html = `<div class="request-archive-empty">${message}</div>`;
-            }
-            if (status.dataset.requestArchiveStatus !== html) {
-                status.innerHTML = html;
-                status.dataset.requestArchiveStatus = html;
-            }
-            return true;
         }
         function getRequestArchiveClampedPageOffset(total = 0, limit = 100, currentOffset = 0) {
             const safeTotal = Math.max(0, Number(total) || 0);

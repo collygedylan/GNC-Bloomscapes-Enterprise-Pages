@@ -1,3 +1,56 @@
+const TREE_STAGE_COLUMNS='job_id,chain_id,step_order,step_type,warehouse,source_row_id,itemcode,target_itemcode,target_lotcode,'
+    +'common_name,container_size,plantgroupcode,graded_locationcode,from_locationcode,to_locationcode,planted_locationcode,'
+    +'qty,season_y_at_loc_qty,season_y_delta,season_y_match,target_shift_qty,cumulative_graded_qty,target_variance,'
+    +'variance_status,assigned_crew,created_by,completed_by,status,outbox_id,data_entry_warehouse';
+
+async function requestBloomscapesTreeStage(execute) {
+    if (borrowedHelpPreview()) throw new Error('View As is read-only.');
+    const {client,owner}=await requireBloomscapesSession();
+    const farm=getBloomscapesFarm();
+    const result=await execute(client,farm);
+    await requireBloomscapesOwner(owner);
+    if (farm!==getBloomscapesFarm()) throw staleSupabaseReadScopeError();
+    return bloomscapesData(result);
+}
+
+function readBloomscapesTreeStages() {
+    return requestBloomscapesTreeStage((client,farm)=>client.from('gnc_00_core_tree_stage_jobs')
+        .select(TREE_STAGE_COLUMNS).or('warehouse.eq.'+farm+',data_entry_warehouse.eq.'+farm)
+        .order('status',{ascending:false}).order('created_at',{ascending:false}).limit(200));
+}
+
+async function queueBloomscapesTreeGrading(input) {
+    const receipt=await requestBloomscapesTreeStage((client,farm)=>client.rpc('create_tree_grading_job_v1',{
+        p_job_id:input.id,p_warehouse:farm,p_source_row_id:input.sourceId,
+        p_assigned_crew:input.assignedTo,p_target_shift_qty:input.targetQty
+    }));
+    if (receipt?.job_id!==input.id || receipt.source_row_id!==input.sourceId
+        || receipt.step_type!=='GRADING' || receipt.warehouse!==getBloomscapesFarm()) {
+        throw new Error('The grading receipt did not match the selected tree row.');
+    }
+    return receipt;
+}
+
+async function completeBloomscapesTreeStage(job,input) {
+    const receipt=await requestBloomscapesTreeStage(client=>client.rpc('complete_tree_stage_step_v1',{
+        p_job_id:job.job_id,p_qty:input.quantity,p_location:input.location,
+        p_target_itemcode:input.targetItem,p_target_lotcode:input.targetLot
+    }));
+    if (receipt?.job_id!==job.job_id || receipt.chain_id!==job.chain_id
+        || receipt.step_type!==job.step_type || receipt.status!=='completed') {
+        throw new Error('The completion receipt did not match this tree stage.');
+    }
+    return receipt;
+}
+
+async function publishBloomscapesTreeStagePdf(job) {
+    const receipt=await requestBloomscapesTreeStage(client=>client.functions.invoke('request-delivery-worker',
+        {body:{operation:'work_pdf',requestId:job.job_id,rowId:job.job_id,farm:job.warehouse,workType:job.step_type}}));
+    if (receipt?.ok!==true || receipt.pdfId!==job.job_id || !/^[a-f0-9]{64}$/.test(receipt.sha256)
+        || !receipt.signedUrl) throw new Error('The signed PDF receipt has not arrived.');
+    return receipt;
+}
+
 async function readBloomscapesFieldWork(viewAll=false) {
     const {client,owner} = await requireBloomscapesSession();
     const farm = getBloomscapesFarm();

@@ -11,25 +11,42 @@ function mountBloomscapesOrderDocuments(host,audience) {
     details.className='app-smart-card';
     details.appendChild(document.createElement('summary')).textContent=audience==='office'?'Argos Office · split-location orders':'Split-location order documents';
     const content=details.appendChild(document.createElement('div'));
-    const state={offset:0,busy:false,details,content,scope,farm,audience};
-    details.addEventListener('toggle',()=>{if(details.open) void loadSplitOrderDocuments(state);});
+    const end=details.appendChild(document.createElement('div'));
+    const state={offset:0,busy:false,loaded:false,details,content,end,scope,farm,audience};
+    details.addEventListener('toggle',()=>updateSplitDocumentsVisibility(state));
     host.appendChild(details);
 }
 
 async function loadSplitOrderDocuments(state) {
-    if (state.busy) return;
+    if (state.busy || !state.details.open) return;
     state.busy=true;
     try {
         const rows=await readBloomscapesSplitOrderDocuments(state.farm,state.audience,state.offset);
         if (!state.details.isConnected || state.scope!==getSupabaseReadIdentityScope() || state.farm!==getBloomscapesFarm()) return;
-        const fragment=document.createDocumentFragment();
-        rows.forEach(row=>fragment.appendChild(renderSplitOrderDocument(row)));
-        if (!rows.length) fragment.appendChild(document.createTextNode('No split-location orders on this page.'));
-        appendSplitDocumentPager(fragment,state,rows.length);
-        state.content.replaceChildren(fragment);
+        state.content.append(...rows.map(renderSplitOrderDocument));
+        if (!rows.length && !state.loaded) state.content.textContent='No split-location orders.';
+        state.loaded=true;
+        state.hasMore=rows.length===40;
+        state.offset+=rows.length;
+        state.end.replaceChildren();
+        updateSplitDocumentsVisibility(state);
     } catch(error) {
-        if (state.details.isConnected && state.scope===getSupabaseReadIdentityScope()) state.content.textContent=error.message;
+        if (state.details.isConnected && state.scope===getSupabaseReadIdentityScope()) showSplitDocumentsRetry(state,error);
     } finally {state.busy=false;}
+}
+
+function updateSplitDocumentsVisibility(state) {
+    if (!state.details.open) return observeContinuousListEnd(state.end,null);
+    if (!state.loaded) return void loadSplitOrderDocuments(state);
+    observeContinuousListEnd(state.end,state.hasMore ? ()=>loadSplitOrderDocuments(state) : null);
+}
+
+function showSplitDocumentsRetry(state,error) {
+    const button=document.createElement('button');
+    button.type='button';
+    button.textContent='Retry';
+    button.onclick=()=>void loadSplitOrderDocuments(state);
+    state.end.replaceChildren(error.message,button);
 }
 
 function renderSplitOrderDocument(row) {
@@ -40,20 +57,6 @@ function renderSplitOrderDocument(row) {
         item.appendChild(document.createElement('p')).textContent=segment.locationcode+' · Qty '+segment.quantity;
     }
     return item;
-}
-
-function appendSplitDocumentPager(host,state,count) {
-    for(const [label,step] of [['Previous',-40],['Next',40]]) {
-        if ((step<0 && !state.offset) || (step>0 && count<40)) continue;
-        const button=host.appendChild(document.createElement('button'));
-        button.type='button';
-        button.textContent=label;
-        button.addEventListener('click',()=>{
-            if (state.busy) return;
-            state.offset=Math.max(0,state.offset+step);
-            void loadSplitOrderDocuments(state);
-        });
-    }
 }
 
 function mountBloomscapesDockLinks() {

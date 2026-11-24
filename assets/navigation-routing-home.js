@@ -60,20 +60,17 @@ function changeBloomscapesFarmSelection(select) {
     if (select.disabled) return;
     const next = select.value;
     if (next === getBloomscapesFarm() || getBloomscapesAllowedFarms().length <= 1) return;
-    const owner = bloomscapesFarmState.owner;
+    const state = bloomscapesFarmState;
     const selection = selectBloomscapesFarm(next);
-    const token = bloomscapesFarmState.selectionToken;
+    const token = state.selectionToken;
+    const current = () => isBloomscapesWarehouseSwitchCurrent(state,token);
     void selection.then(result => {
-        if (result && isCurrentFarmSelection(owner,token)) refreshBloomscapesFarmPanel();
+        if (result && current()) refreshBloomscapesFarmPanel();
     }).catch(error => {
-        if (isCurrentFarmSelection(owner,token)) showToast('Farm selection',error.message,true);
+        if (current()) showToast('Farm selection',error.message,true);
     }).finally(() => {
-        if (isCurrentFarmSelection(owner,token) && select.isConnected) select.value = getBloomscapesFarm();
+        if (current() && select.isConnected) select.value = getBloomscapesFarm();
     });
-}
-
-function isCurrentFarmSelection(owner,token) {
-    return owner === bloomscapesFarmState.owner && owner === currentUser && token === bloomscapesFarmState.selectionToken;
 }
 
 function refreshBloomscapesFarmPanel() {
@@ -176,8 +173,9 @@ function resolveFooterNavigationSelection(buttons, currentView, access, personal
     for (const button of buttons) {
         const view = String(button.dataset.footerView || '').trim();
         syncBloomscapesFooterCaption(button, view);
-        const allowed = personal || canShowFooterViewButton(view, access);
-        if (!personal) button.classList.toggle('hidden', !allowed);
+        const scope = typeof bloomscapesPersonalRoute==='function' ? bloomscapesPersonalRoute(view) : null;
+        const allowed = scope ?? (personal || canShowFooterViewButton(view, access));
+        if (!personal || scope!==null) button.classList.toggle('hidden', !allowed);
         if (!allowed || button.classList.contains('hidden')) continue;
         if (!selected && view === currentView) selected = button;
         if (view === 'communication' && ['communication','chat','department-calendar'].includes(currentView)) parent = button;
@@ -187,6 +185,7 @@ function resolveFooterNavigationSelection(buttons, currentView, access, personal
 }
 
 function syncFooterNavigationButtons(footer, currentView, access, personal) {
+    if (typeof syncBloomscapesPersonalFooter==='function') syncBloomscapesPersonalFooter(footer);
     const active = resolveFooterNavigationSelection(footer?.querySelectorAll('[data-footer-view]') || [], currentView, access, personal);
     const controls = footer?.querySelectorAll('button, .nav-item, [data-footer-view]') || [];
     for (const button of controls) {

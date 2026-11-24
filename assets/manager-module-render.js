@@ -291,6 +291,7 @@ function updateManagerApprovalCount(host, result) {
 }
 
 function mountManagerAuxiliarySurfaces(container) {
+    if (typeof mountManagerContinuousSurfaces==='function') mountManagerContinuousSurfaces(container,activeHomeTab);
     if (activeHomeTab === MANAGER_SEASON_PRIORITY_VIEW && useManagerReportPages('season-priority')) {
         mountManagerSeasonPriorityReportRows(container.querySelector('#manager-season-priority-report-rows'));
     }

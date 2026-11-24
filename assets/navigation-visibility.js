@@ -70,7 +70,6 @@ function normalizeNavigationAccessRows(result) {
     if (!Array.isArray(result?.data)) return result;
     return { ...result, data: result.data.map(row => ({ ...row, username: normalizeNavigationVisibilityUsername(row.username) })) };
 }
-
 function isNavigationFlagEnabled(value) {
     return /^(?:y|yes|true|1)$/i.test(String(value ?? '').trim());
 }
@@ -188,9 +187,10 @@ function canShowFooterViewButton(viewId = '', access = getRoleAccessState()) {
     if (targetView === 'sales') return false;
     return canDisplayNavigationView(targetView);
 }
-
 function canUseBloomscapesWorkStudio() {
     if (!nativeAuthSessionActive) return false;
+    const personal = typeof bloomscapesPersonalRoute === 'function' ? bloomscapesPersonalRoute('studio') : null;
+    if (personal !== null) return personal;
     if (nativeAuthProfile?.username==='dylan_collyge' && currentUser==='dylan_collyge') return true;
     const profile = typeof bloomscapesAreaProfile === 'function' ? bloomscapesAreaProfile() : null;
     const level = profile?.area_access?.studio;

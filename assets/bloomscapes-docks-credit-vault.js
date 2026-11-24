@@ -11,7 +11,7 @@ function mountBloomscapesDockCreditVault(container) {
         + '<form data-vault-search class="flex flex-wrap items-center gap-2"><label>Search <input name="query" type="search" maxlength="120"></label>'
         + '<button class="sales-card-action" type="submit">Search</button><button class="sales-card-action" type="button" data-vault-action="refresh">Refresh</button>'
         + '<button class="sales-card-action" type="button" data-vault-action="hotspots" hidden>Credit hotspots</button></form>'
-        + '<p role="status"></p><div data-vault-results class="space-y-2"></div><nav data-vault-pages aria-label="Dock Vault pages"></nav>';
+        + '<p role="status"></p><div data-vault-results class="space-y-2"></div><div data-vault-end></div>';
     const state = {panel,scope:{identity:getSupabaseReadIdentityScope(),farm:getBloomscapesFarm()},
         mode:'customers',customer:null,consignee:null,offset:0,search:'',turn:0,rows:[],pending:new Set()};
     dockCreditVaultStates.set(panel,state);
@@ -20,7 +20,6 @@ function mountBloomscapesDockCreditVault(container) {
         if (!event.target.matches('[data-vault-search]')) return;
         event.preventDefault();
         state.search=event.target.elements.query.value.trim();
-        state.offset=0;
         void loadDockCreditVault(state);
     });
     container.prepend(panel);
@@ -36,8 +35,12 @@ function dockCreditVaultStatus(state, message) {
     state.panel.querySelector('[role="status"]').textContent=message;
 }
 
-async function loadDockCreditVault(state,refresh=false) {
+async function loadDockCreditVault(state,refresh=false,append=false) {
     if (!dockCreditVaultCurrent(state)) return;
+    const sentinel=state.panel.querySelector('[data-vault-end]');
+    observeContinuousListEnd(sentinel,null);
+    sentinel.replaceChildren();
+    if (!append) state.offset=0;
     const turn=++state.turn;
     dockCreditVaultStatus(state,'Loading…');
     paintDockCreditVaultBreadcrumb(state);
@@ -46,13 +49,16 @@ async function loadDockCreditVault(state,refresh=false) {
             : await readBloomscapesDockCreditVault(state.scope,state,refresh);
         if (!dockCreditVaultCurrent(state) || turn!==state.turn) return;
         dockCreditVaultStatus(state,'');
-        if (state.receipt===receipt) return;
         state.receipt=receipt;
-        state.rows=receipt.rows || [];
+        state.rows=append ? [...state.rows,...receipt.rows || []] : receipt.rows || [];
         state.panel.querySelector('[data-vault-action="hotspots"]').hidden=receipt.can_review_credit===false;
-        paintDockCreditVaultResults(state,receipt);
+        paintDockCreditVaultResults(state,receipt,append);
     } catch (error) {
-        if (dockCreditVaultCurrent(state) && turn===state.turn) dockCreditVaultStatus(state,error.message);
+        if (!dockCreditVaultCurrent(state) || turn!==state.turn) return;
+        dockCreditVaultStatus(state,error.message);
+        const retry=dockCreditVaultButton('retry','Retry');
+        retry.addEventListener('click',()=>void loadDockCreditVault(state,refresh,append));
+        sentinel.replaceChildren(retry);
     }
 }
 
@@ -75,20 +81,24 @@ function dockCreditVaultButton(action,label,id) {
     return button;
 }
 
-function paintDockCreditVaultResults(state,receipt) {
+function paintDockCreditVaultResults(state,receipt,append) {
     const host=state.panel.querySelector('[data-vault-results]');
-    const pages=state.panel.querySelector('[data-vault-pages]');
-    pages.replaceChildren();
+    const sentinel=state.panel.querySelector('[data-vault-end]');
     if (state.mode==='hotspots') {
         paintDockCreditHotspots(host,receipt);
         return;
     }
     const render=state.mode==='lines' ? renderDockCreditVaultOrder : row => dockCreditVaultButton('folder',
         row.name+' · '+row.orders+' order lines',row.id);
-    host.replaceChildren(...state.rows.map(render));
+    const cards=(receipt.rows || []).map(render);
+    if (append) host.append(...cards);
+    else host.replaceChildren(...cards);
     if (!state.rows.length) host.textContent='No Dock orders match this folder.';
-    if (state.offset>0) pages.append(dockCreditVaultButton('prev','Previous'));
-    if (receipt.has_more) pages.append(dockCreditVaultButton('next','Next'));
+    if (receipt.has_more && cards.length) observeContinuousListEnd(sentinel,()=>{
+        if (!dockCreditVaultCurrent(state)) return;
+        state.offset+=dockCreditPageSize;
+        return loadDockCreditVault(state,false,true);
+    });
 }
 
 function renderDockCreditVaultOrder(order) {
@@ -153,11 +163,7 @@ function handleDockCreditVaultClick(state,event) {
         void sendDockCreditVaultFeedback(state,button,id,action);
         return;
     }
-    if (action==='prev' || action==='next') {
-        state.offset=Math.max(0,state.offset+(action==='prev' ? -dockCreditPageSize : dockCreditPageSize));
-        void loadDockCreditVault(state);
-        return;
-    }
+    if (action==='retry') return;
     if (action==='refresh') void loadDockCreditVault(state,true);
     else if (action==='folder') selectDockCreditVaultFolder(state,id);
     else moveDockCreditVault(state,action);

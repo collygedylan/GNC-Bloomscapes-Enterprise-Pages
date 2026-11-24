@@ -1,3 +1,39 @@
+const chunkedListMounts = new WeakMap();
+
+function mountChunkedList(list,choices,render) {
+    const generation = {};
+    chunkedListMounts.set(list,generation);
+    const first = choices.slice(0,40).map(render);
+    list.replaceChildren(...first);
+    if (choices.length > first.length) appendChunkedList(list,choices,render,generation,first.length);
+}
+
+function appendChunkedList(list,choices,render,generation,start) {
+    requestAnimationFrame(() => {
+        if (!list.isConnected || chunkedListMounts.get(list) !== generation) return;
+        const end = Math.min(start+40,choices.length);
+        list.append(...choices.slice(start,end).map(render));
+        if (end < choices.length) appendChunkedList(list,choices,render,generation,end);
+    });
+}
+
+const continuousListObservers = new WeakMap();
+
+function observeContinuousListEnd(sentinel,load) {
+    const previous=continuousListObservers.get(sentinel);
+    if (previous) previous.disconnect();
+    continuousListObservers.delete(sentinel);
+    if (!load || typeof IntersectionObserver!=='function') return;
+    const observer=new IntersectionObserver(entries=>{
+        if (!sentinel.isConnected) { observer.disconnect(); return; }
+        if (!entries.some(entry=>entry.isIntersecting)) return;
+        observer.disconnect();
+        void load();
+    },{rootMargin:'80px'});
+    continuousListObservers.set(sentinel,observer);
+    observer.observe(sentinel);
+}
+
 const SUPERADMIN_LENS_SESSION_KEY = 'gnc-superadmin-lens-v1';
 const SUPERADMIN_LENS_CACHE_MS = 300000;
 
@@ -80,8 +116,21 @@ function isSuperAdminLensOwner() {
 }
 
 function borrowedHelpPreview() {
-    if (!isSuperAdminLensOwner() || superAdminLens?.owner !== borrowedHelpIdentity()) return null;
+    if (!isSuperAdminLensOwner() || !superAdminLens) return null;
+    const owner=borrowedHelpIdentity();
+    if (superAdminLens.owner!==owner && !rebaseScopedSuperAdminLens(superAdminLens,owner)) return null;
     return superAdminLens.selected || null;
+}
+
+function rebaseScopedSuperAdminLens(state,owner) {
+    const selected=state.selected;
+    if (!selected?.module_access || !selected.allowed_warehouses?.includes(getBloomscapesFarm())
+        || state.profileId!==nativeAuthSessionUserId || state.profileEpoch!==nativeAuthRecoveryEpoch) return false;
+    state.owner=owner;
+    state.selection=null;
+    state.selected={...selected,loans:[]};
+    persistSuperAdminLens(state);
+    return true;
 }
 
 function superAdminPreviewRoles(receipt) {
@@ -103,7 +152,10 @@ function mountSuperAdminViewAs() {
     }
     const owner = borrowedHelpIdentity();
     const changedOwner = owner !== superAdminLens?.owner;
-    if (changedOwner) superAdminLens = {...restoreSuperAdminLens(owner),open:superAdminLens?.open === true};
+    if (changedOwner && !rebaseScopedSuperAdminLens(superAdminLens || {},owner)) {
+        superAdminLens = {...restoreSuperAdminLens(owner),open:superAdminLens?.open===true,
+            profileId:nativeAuthSessionUserId,profileEpoch:nativeAuthRecoveryEpoch};
+    }
     const state = superAdminLens;
     state.roster = getAppAccessSnapshot()?.viewAsRoster || null;
     const picker = host || root.appendChild(document.createElement('div'));
@@ -253,6 +305,7 @@ function finishSuperAdminLens(state,profile,grid) {
     if (state !== superAdminLens || state.selected !== (profile || null) || state.owner !== borrowedHelpIdentity()) return;
     syncBloomscapesDrawerAreaHubs();
     syncNavigationVisibilityUi(getRoleAccessState(),'',grid);
+    if (typeof syncBloomscapesFarmSelector==='function') void syncBloomscapesFarmSelector();
     const view = getCurrentVisibleViewId();
     if (view === 'request') renderRequest();
     if (view === 'drive') renderDrive();
@@ -272,23 +325,4 @@ function previewShowsQueueRow(preview,row,tab) {
     const owner = getAssignedQueueOwner(row);
     const normalize = tab === 'suspend-tag' ? normalizeSuspendQueueOwner : normalizeEvalAssignableUser;
     return normalize(owner) === normalize(preview.username);
-}
-
-const chunkedListMounts = new WeakMap();
-
-function mountChunkedList(list,choices,render) {
-    const generation = {};
-    chunkedListMounts.set(list,generation);
-    const first = choices.slice(0,40).map(render);
-    list.replaceChildren(...first);
-    if (choices.length > first.length) appendChunkedList(list,choices,render,generation,first.length);
-}
-
-function appendChunkedList(list,choices,render,generation,start) {
-    requestAnimationFrame(() => {
-        if (!list.isConnected || chunkedListMounts.get(list) !== generation) return;
-        const end = Math.min(start+40,choices.length);
-        list.append(...choices.slice(start,end).map(render));
-        if (end < choices.length) appendChunkedList(list,choices,render,generation,end);
-    });
 }

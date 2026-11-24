@@ -139,7 +139,6 @@ async function ensureBloomscapesWarmFarm(farm,refresh=false,attempt=0,speculativ
     const cache = getBloomscapesFarmCache();
     assertBloomscapesFarmCache(cache,farm);
     if (!refresh && !speculative && bloomscapesFarmState.confirmed && bloomscapesFarmState.busy && farm===getBloomscapesFarm()) {
-        persistBloomscapesSessionFarm(bloomscapesFarmState);
         hydrateBloomscapesReferenceSnapshot();
     }
     if (!refresh && cache.snapshots.has(farm)) {
@@ -148,17 +147,15 @@ async function ensureBloomscapesWarmFarm(farm,refresh=false,attempt=0,speculativ
         return snapshot;
     }
     const pending = cache.pending.get(farm);
-    if (pending && !pending.visit?.aborted && (!pending.visit || pending.visit===visit)) {
-        if (!speculative) {
-            pending.speculative = false;
-            pending.resume?.();
-        }
+    if (pending && (speculative || !pending.speculative) && !pending.visit?.aborted && (!pending.visit || pending.visit===visit)) {
         return visit && !pending.visit ? waitForDocksRead(visit,()=>pending.promise) : pending.promise;
     }
+    // A speculative HTTP read may already be bound to a paused governor signal.
+    // Start a foreground flight instead of adopting that transport.
     pending?.controller.abort();
     pending?.resume?.();
     const flight = {visit,speculative,resume:null,promise:null,controller:new AbortController(),scope:getSupabaseReadIdentityScope(),
-        epoch:nativeAuthRecoveryEpoch,permission:appAccessSnapshotState.snapshot?.dataPermissionVersion || ''};
+        epoch:nativeAuthRecoveryEpoch,selection:bloomscapesFarmState.selectionToken,permission:appAccessSnapshotState.snapshot?.dataPermissionVersion || ''};
     const read = ()=>loadBloomscapesWarmFarm(cache,farm,refresh,flight);
     flight.promise = Promise.resolve().then(()=>visit ? waitForDocksRead(visit,read) : read()).catch(async error=>{
         if (visit?.aborted) flight.resume?.();
@@ -166,6 +163,7 @@ async function ensureBloomscapesWarmFarm(farm,refresh=false,attempt=0,speculativ
             cache.pending.delete(farm);
             const freshRead = error.code==='DATASET_READ_SCOPE_CHANGED' && !hasVerifiedBloomscapesFarmPermission();
             if (appAccessSnapshotLoadPromise) await appAccessSnapshotLoadPromise;
+            if (flight.selection !== bloomscapesFarmState.selectionToken || farm !== getBloomscapesFarm()) throw error;
             return ensureBloomscapesWarmFarm(farm,refresh || freshRead,attempt+1,false,visit);
         }
         throw error;
@@ -241,17 +239,17 @@ function scheduleBloomscapesWarmAssignments(snapshot) {
     else setTimeout(prepare,200);
 }
 
-async function refreshBloomscapesWarmFarm(farm,visit=null) {
+async function refreshBloomscapesWarmFarm(farm,visit=null,current=()=>farm===getBloomscapesFarm()) {
     const cache = getBloomscapesFarmCache();
     const previous = cache.snapshots.get(farm);
     try {
         const snapshot = await ensureBloomscapesWarmFarm(farm,true,0,false,visit);
         assertBloomscapesFarmCache(cache,farm);
-        if (snapshot===previous || getBloomscapesFarm()!==farm || bloomscapesFarmState.busy) return;
+        if (snapshot===previous || !current() || bloomscapesFarmState.busy) return;
         activateBloomscapesWarmFarm(snapshot);
         refreshAffectedViews(['master','soc','reserves','warehouseAssignedItems']);
     } catch(error) {
-        if (!isObsoleteBloomscapesPreparation(cache,error)) globalThis.reportHandledRuntimeIssue?.('farm_refresh',error.code || 'FARM_REFRESH_FAILED');
+        if (current() && !isObsoleteBloomscapesPreparation(cache,error)) globalThis.reportHandledRuntimeIssue?.('farm_refresh',error.code || 'FARM_REFRESH_FAILED');
     }
 }
 
