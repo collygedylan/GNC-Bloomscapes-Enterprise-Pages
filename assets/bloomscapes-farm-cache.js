@@ -93,7 +93,8 @@ function getBloomscapesAssignmentIndex() {
     const overrides = sameScope ? cached.overrides : null;
     const rows = overrides || warehouseAssignedItemsInventory || [];
     const index = buildBloomscapesAssignmentIndex(farm,rows,(state.defaultOwnersByCode || new Map()).values());
-    state.bloomscapesOwners = {farm,epoch:state.dataEpoch,owner,index,overrides,overrideKey:sameScope ? cached.overrideKey : null};
+    state.bloomscapesOwners = {farm,epoch:state.dataEpoch,owner,index,overrides,
+        overrideKey:sameScope ? cached.overrideKey : null,receipt:sameScope ? cached.receipt : null};
     return index;
 }
 
@@ -200,7 +201,7 @@ async function loadBloomscapesWarmFarm(cache,farm,refresh,flight) {
     }
     const raw = saved?.owners ? saved : saved
         ? {...saved,cacheScope:null,owners:await readBloomscapesAssignedOwnerSnapshot(farm,bloomscapesFarmSnapshotSignal(background),background)}
-        : await readBloomscapesFarmSnapshot(farm,assertCurrent,background);
+        : await readBloomscapesFarmSnapshot(farm,assertCurrent,background,publishVerifiedBloomscapesOwners);
     assertCurrent();
     persistBloomscapesReadyFarm(raw,cache.owner);
     if (background) await background.checkpoint();

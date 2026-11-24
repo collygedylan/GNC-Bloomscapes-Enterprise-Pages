@@ -130,6 +130,10 @@ function publishPreparedBloomscapesFarm(snapshot) {
     fullInventory = snapshot.inventory;
     socInventory = snapshot.soc;
     reservesInventory = snapshot.reserves;
+    if (Array.isArray(snapshot.cav)) {
+        const rows = formatFetchedRows(snapshot.cav,'ph_cav_import');
+        publishLoadedCustomerInventory({cavData:rows,cavAvBlankKeysData:rows});
+    }
     warehouseAssignedItemsInventory = snapshot.assigned;
     avOpenInventory = snapshot.av;
     socRawSourceRows = snapshot.socRaw;

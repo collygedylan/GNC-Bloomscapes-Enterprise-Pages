@@ -1,3 +1,4 @@
+
 const BLOOMSCAPES_LEGACY_COMMUNICATION=`                    <div class="freeze-panel">
                         <div class="flex items-center justify-between gap-3 mb-3">
                             <div>
@@ -165,4 +166,23 @@ function renderLegacyCommunicationHub() {
     root.classList.toggle('hidden', !enabled);
     if (enabled) void mountAlphaCommandCenter('communications', root);
     else unmountAlphaCommandCenter('communications');
+}
+
+function renderBloomscapesTransferCarts(state,dispatch) {
+    if (!bloomscapesTransferVisible(state)) return;
+    const host=state.root.querySelector('[data-transfer-carts]');
+    host.replaceChildren();
+    const {origin,season}=state.filters;
+    const submit=host.appendChild(document.createElement('button'));
+    submit.type='button';
+    submit.dataset.submitOrigin=origin;
+    submit.textContent='Submit to Que';
+    if (origin==='ALL') {
+        submit.disabled=true;
+        return;
+    }
+    const ids=new Set(state.rows.filter(po=>po.origin_farm===origin && matchesBloomscapesPoSeason(po,season)).map(po=>po.po_id));
+    const order=summarizeBloomscapesTransferOrder(origin,ids);
+    submit.disabled=!order.rows || getBloomscapesTransferState().pending.get(origin)?.busy===true;
+    submit.onclick=()=>void dispatch(state,origin,ids);
 }

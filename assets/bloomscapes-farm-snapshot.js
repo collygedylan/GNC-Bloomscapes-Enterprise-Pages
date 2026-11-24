@@ -18,7 +18,7 @@ async function readBloomscapesFarmRevision(farm,background) {
     return JSON.stringify([data.revision,status.rows]);
 }
 
-async function readBloomscapesFarmSnapshot(farm,assertCurrent,background) {
+async function readBloomscapesFarmSnapshot(farm,assertCurrent,background,publishOwners) {
     if (background) await background.checkpoint();
     const [lastSyncRevisionAt,revision] = await Promise.all([
         readBatteryRevisionPulse(farm,bloomscapesFarmSnapshotSignal(background)),readBloomscapesFarmRevision(farm,background)
@@ -26,7 +26,7 @@ async function readBloomscapesFarmSnapshot(farm,assertCurrent,background) {
     assertCurrent();
     const [entries,owners] = await Promise.all([
         readBloomscapesFarmSnapshotTables(farm,assertCurrent,background),
-        readBloomscapesAssignedOwnerSnapshot(farm,bloomscapesFarmSnapshotSignal(background),background)
+        readVerifiedBloomscapesFarmOwners(farm,revision,assertCurrent,background,publishOwners)
     ]);
     assertCurrent();
     const confirmedRevision = await readBloomscapesFarmRevision(farm,background);
@@ -34,6 +34,19 @@ async function readBloomscapesFarmSnapshot(farm,assertCurrent,background) {
     if (confirmedRevision!==revision) throw Object.assign(
         new Error('Inventory was updated during the snapshot read.'),{code:'FARM_SNAPSHOT_REVISION_CHANGED'});
     return {farm,revision,lastSyncRevisionAt,...Object.fromEntries(entries),owners};
+}
+
+async function readVerifiedBloomscapesFarmOwners(farm,revision,assertCurrent,background,publish) {
+    if (typeof appAccessSnapshotLoadPromise !== 'undefined' && appAccessSnapshotLoadPromise) {
+        await appAccessSnapshotLoadPromise;
+    }
+    assertCurrent();
+    const saved = publish && reusableBloomscapesOwnerReceipt(farm,revision);
+    if (saved) return saved;
+    const owners = await readBloomscapesAssignedOwnerSnapshot(farm,bloomscapesFarmSnapshotSignal(background),background);
+    assertCurrent();
+    publish?.(farm,owners,revision);
+    return owners;
 }
 
 async function readBloomscapesFarmSnapshotTables(farm,assertCurrent,background) {
@@ -48,12 +61,26 @@ async function readBloomscapesFarmSnapshotTables(farm,assertCurrent,background) 
 }
 
 async function readBloomscapesAssignedOwnerSnapshot(farm,signal,background) {
+    if (!bloomscapesFarmState.confirmed) throw new DOMException('Session farm is not confirmed.','AbortError');
     if (background) await background.checkpoint();
-    const timeout = AbortSignal.timeout(10000);
     const active = background?.signal() || signal;
-    const request = getSupabaseBrowserClient().rpc('gnc_read_assigned_owner_snapshot',{p_farm:farm});
-    const {data,error} = await request.abortSignal(active ? AbortSignal.any([active,timeout]) : timeout);
-    if (error) throw error;
+    const permission = getPassiveNativeReadPermissionVersion();
+    return runDedupeSupabaseRead('farm-assigned-owners:'+farm+':'+permission,
+        ({signal: shared}) => fetchBloomscapesAssignedOwners(farm,shared),{signal:active,maxAttempts:1});
+}
+
+async function fetchBloomscapesAssignedOwners(farm,signal) {
+    const headers = getPassiveNativeAuthRequestHeaders() || await getNativeAuthRequestHeaders();
+    if (!headers?.Authorization) throw nativeSessionRecoveryError();
+    signal.throwIfAborted();
+    const rpc = 'gnc_read_assigned_owner_snapshot';
+    const send = authorization => window.GncDatabase.fetchRpc(SUPABASE_URL,rpc,{
+        method:'POST',headers:authorization,body:JSON.stringify({p_farm:farm}),signal,
+        cache:'no-store',referrerPolicy:'no-referrer'
+    },10000,rpc);
+    const response = await sendPassiveNativeRead(send,headers,signal);
+    if (!response.ok) throw await createSupabaseReadResponseError(response,'Farm assigned owners unavailable');
+    const data = await response.json();
     if (data?.farm!==farm || !Array.isArray(data.defaults) || !Array.isArray(data.blocks) || !Array.isArray(data.overrides)) {
         throw new Error('Farm owner snapshot was not confirmed.');
     }

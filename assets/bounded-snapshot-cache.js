@@ -1,5 +1,5 @@
-(() => {
-  'use strict';
+'use strict';
+{
 
   const MARKER = '__agMetricBoundedSnapshotCacheV1';
   const INTERNAL_KEY_PREFIX = '__agmetric_bounded_snapshot_cache_v1__';
@@ -101,16 +101,25 @@
     await completed;
   }
 
+  function farmErpRevision(value) {
+    return (readManifest(value)?.metadata || value)?.lastSyncRevisionAt?.erp_sync_max_updated_at;
+  }
+
   async function publish(db, storeName, cacheKey, value) {
     const transaction = db.transaction(storeName, 'readwrite');
     const completed = transactionCompletion(transaction);
     const store = transaction.objectStore(storeName);
     const previousRequest = store.get(cacheKey);
+    let accepted = false;
     previousRequest.onsuccess = () => {
       try {
+        const previousRevision = farmErpRevision(previousRequest.result);
+        const nextRevision = farmErpRevision(value);
+        if (Number.isSafeInteger(previousRevision) && (!Number.isSafeInteger(nextRevision) || nextRevision < previousRevision)) return;
         previousChunkKeys(previousRequest.result, cacheKey).forEach(key => store.delete(key));
         store.put(value, cacheKey);
-      } catch (error) {
+        accepted = true;
+      } catch {
         try { transaction.abort(); } catch { /* The transaction may already be inactive. */ }
       }
     };
@@ -118,6 +127,20 @@
       try { transaction.abort(); } catch { /* The transaction may already be inactive. */ }
     };
     await completed;
+    return accepted;
+  }
+
+  async function storeGenerationChunks(db, storeName, cacheKey, descriptors, writtenKeys) {
+    for (const descriptor of descriptors) {
+      for (let index = 0; index < descriptor.chunkCount; index += 1) {
+        const key = chunkKey(cacheKey, descriptor.generation, index);
+        const chunk = descriptor.rows.slice(index * ROW_CHUNK_SIZE, (index + 1) * ROW_CHUNK_SIZE);
+        await putChunk(db, storeName, key, chunk);
+        writtenKeys.push(key);
+        // Let rendering and input handlers run between bounded clone operations.
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+    }
   }
 
   async function writeSnapshot(db, storeName, cacheKey, value) {
@@ -125,8 +148,7 @@
       ? Object.entries(value).filter(([field, rows]) => !MANIFEST_FIELDS.has(field) && Array.isArray(rows) && rows.length > LARGE_SNAPSHOT_ROW_COUNT)
       : [];
     if (!largeArrays.length) {
-      await publish(db, storeName, cacheKey, value);
-      return true;
+      return publish(db, storeName, cacheKey, value);
     }
 
     const writtenKeys = [];
@@ -147,18 +169,10 @@
     }
 
     try {
-      for (const descriptor of descriptors) {
-        for (let index = 0; index < descriptor.chunkCount; index += 1) {
-          const key = chunkKey(cacheKey, descriptor.generation, index);
-          const chunk = descriptor.rows.slice(index * ROW_CHUNK_SIZE, (index + 1) * ROW_CHUNK_SIZE);
-          await putChunk(db, storeName, key, chunk);
-          writtenKeys.push(key);
-          // Let rendering and input handlers run between bounded clone operations.
-          await new Promise(resolve => setTimeout(resolve, 0));
-        }
-      }
-      await publish(db, storeName, cacheKey, manifest);
-      return true;
+      await storeGenerationChunks(db, storeName, cacheKey, descriptors, writtenKeys);
+      const accepted = await publish(db, storeName, cacheKey, manifest);
+      if (!accepted) await cleanupKeys(db, storeName, writtenKeys);
+      return accepted;
     } catch {
       try { await cleanupKeys(db, storeName, writtenKeys); } catch { /* Failed generations are never published. */ }
       return false;
@@ -235,4 +249,4 @@
     enumerable: false,
     value: api
   });
-})();
+}
