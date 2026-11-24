@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.61';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.62';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -8609,6 +8609,7 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
             if (!item || typeof item !== 'object') return preserveUnknown ? null : '0';
             const snapshot = item.SNAPSHOT && typeof item.SNAPSHOT === 'object' ? item.SNAPSHOT : {};
             const value = firstNonEmptyValue(
+                item.OPEN_STOCK, item.open_stock,
                 item.S_LTS,
                 item.s_lts,
                 snapshot.S_LTS,
@@ -9110,7 +9111,8 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
                 return '';
             }
             const value = normalizedKey === 'SPEC'
-                ? firstNonEmptyValue(item.SPEC, item.spec, item.REQ_SPEC, item.req_spec, item.DOCK_SPEC, item.dock_spec, item.FLYER_SPEC, item.flyer_spec, item.ITEMSPEC, item.itemspec, '')
+                ? (['drive','av','av-photo'].includes(sourceView) ? getMeasuredSpecInputValue(item)
+                    : firstNonEmptyValue(item.SPEC, item.spec, item.REQ_SPEC, item.req_spec, item.DOCK_SPEC, item.dock_spec, item.FLYER_SPEC, item.flyer_spec, item.ITEMSPEC, item.itemspec, ''))
                 : normalizedKey === 'CALIPER'
                 ? firstNonEmptyValue(item.CALIPER, item.caliper, item.REQ_CALIPER, item.req_caliper, item.DOCK_CALIPER, item.dock_caliper, item.FLYER_CALIPER, item.flyer_caliper, '')
                 : firstNonEmptyValue(item[normalizedKey], item[key], '');
@@ -9129,7 +9131,9 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
         }
 
         function getMeasuredSpecInputValue(item = null) {
-            return item ? String(firstNonEmptyValue(item.SPEC, item.spec, '') || '').trim() : '';
+            if (!item || !firstNonEmptyValue(item.DATE_COMPLETED, item.date_completed,
+                item.AV_RULE_SPEC_UPDATED_AT, item.av_rule_spec_updated_at, '')) return '';
+            return String(firstNonEmptyValue(item.SPEC, item.spec, '') || '').trim();
         }
 
         /* @runtime-fragment assets/bloomscapes-photo-evidence.js */
@@ -11132,7 +11136,7 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
         }
 
         function shouldIncludeMasterItemInAvSeasonView(item) {
-            if (!item) return false;
+            if (!item || isDepletedReclassRow(item)) return false;
             const season = getMasterAvOpenSeasonValue(item);
             if (isShiftDesigItemRow(item) && season !== 'S1') return false;
             if (shouldHideNotOnInventoryApprovalRowFromInventory(item)) return false;
@@ -23254,7 +23258,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.61';
+        const APP_VERSION = '3.1.62';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -36759,7 +36763,9 @@ let avTopControlsRenderToken = 0;
                 const destinationSeason = String(split.destinationSeason || '').trim().toUpperCase();
                 if (!RECLASS_ACTION_WORKFLOW_V2_SEASONS.includes(destinationSeason)) throw new Error(`${rule.label} requires a configured destination season for every split.`);
                 if (destinationSeason === getArgosReclassRowCurrentSeason(entry)) throw new Error(`${rule.label} destination season must differ from the current season.`);
-                return { quantity, destinationSeason };
+                const location = String(split.destinationLocation || '').trim();
+                return { quantity, destinationSeason,
+                    ...(location ? { destinationLocation: normalizeReclassDestinationLocation(location) } : {}) };
             });
             if (draft.action === 'move_up') {
                 const cap = getArgosReclassMoveUpLotState(entry);
@@ -36844,25 +36850,7 @@ let avTopControlsRenderToken = 0;
                 const quantity = String(proposal.quantity ?? '').trim();
                 return `<label class="argos-reclass-action-proposal"><span>Sheared Qty</span><input class="argos-reclass-row-input" type="number" inputmode="numeric" min="1" max="${escapeHtml(String(Number.isFinite(originalOh) ? originalOh : ''))}" step="1" value="${escapeHtml(quantity)}" aria-label="Sheared quantity" data-reclass-v3-proposal-action="${escapeHtml(normalized)}" data-reclass-v3-proposal-field="quantity" oninput="return handleArgosReclassV3ProposalInput(this)"><strong data-sheared-request-preview="true">${escapeHtml(quantity ? `${quantity}-->#` : '—')}</strong><small>Enter a whole number from 1 through original OH. The request proposes this quantity to #; inventory is unchanged.</small></label>`;
             }
-            if (rule.kind === 'move') {
-                const originalOh = Number(String(values.ptronhand == null ? '' : values.ptronhand).replace(/,/g, ''));
-                const moveUpState = normalized === 'move_up' ? getArgosReclassMoveUpLotState(entry) : null;
-                const inputMaximum = moveUpState ? moveUpState.rowMaximum : originalOh;
-                const currentSeason = getArgosReclassRowCurrentSeason(entry);
-                Object.assign(proposal, cloneArgosReclassProposal(proposal));
-                const label = normalized === 'move_up' ? 'Move Up' : 'Move Down';
-                const splitCursor = Math.min(argosInventoryTransactionState?.reclassSplitCursor?.[uid + ':' + normalized] || 0, proposal.splits.length - 1);
-                const splitRows = proposal.splits.map((split, index) => {
-                    if (index !== splitCursor) return '';
-                    const options = RECLASS_ACTION_WORKFLOW_V2_SEASONS.filter((season) => season !== currentSeason).map((season) => `<option value="${escapeHtml(season)}" ${String(split.destinationSeason || '').toUpperCase() === season ? 'selected' : ''}>${escapeHtml(season)}</option>`).join('');
-                    const attrs = `data-reclass-v3-proposal-action="${normalized}" data-reclass-split-index="${index}"`;
-                    return `<div class="argos-reclass-move-split"><label class="argos-reclass-action-proposal"><span>Qty</span><input class="argos-reclass-row-input" type="number" inputmode="numeric" min="1" step="1" max="${escapeHtml(String(Number.isFinite(inputMaximum) ? inputMaximum : ''))}" aria-label="${label} quantity ${index + 1}" value="${escapeHtml(String(split.quantity ?? ''))}" ${attrs} data-reclass-v3-proposal-field="quantity" oninput="return handleArgosReclassV3ProposalInput(this)"></label><label class="argos-reclass-action-proposal"><span>Destination Lot / Season</span><select class="argos-reclass-row-input argos-reclass-destination-native" aria-label="${label} destination ${index + 1}" ${attrs} data-reclass-v3-proposal-field="destinationSeason" onchange="return handleArgosReclassV3ProposalInput(this)"><option value="">Select Destination</option>${options}</select><button type="button" class="argos-reclass-destination-trigger" onclick="return toggleArgosReclassDestinationMenu(this)">${escapeHtml(String(split.destinationSeason || 'Select Destination'))} <span>▾</span></button><div class="argos-reclass-destination-menu" hidden></div></label><button type="button" class="argos-reclass-action-btn" aria-label="Remove ${label} destination ${index + 1}" onclick="return changeArgosReclassMoveSplit(this,'${normalized}',${index})" ${proposal.splits.length === 1 ? 'disabled' : ''}>✕</button></div>`;
-                }).join('');
-                const holdHtml = proposal.applyHold
-                        ? '<p class="argos-reclass-action-scope-notice" role="alert">This saved move uses a retired Hold option. Remove and re-add the move, then select On Hold in the action grid.</p>'
-                        : '<p class="argos-reclass-action-scope-notice" role="note">Use On Hold or Off Hold in the action grid for hold changes.</p>';
-                return `<fieldset class="argos-reclass-move-editor" data-reclass-move-action="${normalized}"><legend>${escapeHtml(rule.label)}</legend><div class="argos-reclass-move-heading"><p data-reclass-move-balance title="Open Stock (Max Move Up) is enforced separately from On Hand" data-over-limit="${getArgosReclassMoveBalance(entry).remaining < 0}" role="status">${escapeHtml(getArgosReclassMoveBalanceText(entry))}</p><button type="button" class="argos-reclass-action-btn" onclick="return changeArgosReclassMoveSplit(this,'${normalized}')" ${proposal.splits.length >= 100 ? 'disabled' : ''}>+ Add Split</button></div>${splitRows}${proposal.splits.length > 1 ? `<nav class="argos-reclass-split-pages" aria-label="Move split pages"><button type="button" onclick="return changeArgosReclassSplitPage(this,'${normalized}',${splitCursor - 1})" ${splitCursor === 0 ? 'disabled' : ''}>◂ Previous</button><span>Split ${splitCursor + 1} of ${proposal.splits.length}</span><button type="button" onclick="return changeArgosReclassSplitPage(this,'${normalized}',${splitCursor + 1})" ${splitCursor === proposal.splits.length - 1 ? 'disabled' : ''}>Next ▸</button></nav>` : ''}${proposal.applyHold ? holdHtml : ''}</fieldset>`;
-            }
+            if (rule.kind === 'move') return renderArgosReclassMoveProposal(rule, normalized, proposal, uid, entry, values);
             return `<div class="argos-reclass-action-proposal"><span>Re-Count Request</span><strong>Read-only Item Inquiry</strong><small>No proposed value boxes are added.</small></div>`;
         }
 
@@ -88619,10 +88607,6 @@ function toggleDriveQuickRequestItem(domId) {
             const requestTabLabel = document.getElementById('dtab-request');
             const suspend = isDockSuspendDcRequestMirrorRow(item);
             if (requestTabLabel) requestTabLabel.textContent = suspend ? 'Suspend Tag' : 'Request';
-            const cameraTitle = typeof queryBloomscapesStaticBody === 'function'
-                ? queryBloomscapesStaticBody('det-request-content','#camera-btn-req .detail-camera-upload-title')
-                : document.querySelector('#camera-btn-req .detail-camera-upload-title');
-            if (cameraTitle) cameraTitle.textContent = suspend ? 'Take Suspend Photo' : 'Take Request Photo';
             const safeSourceView = String(detailSourceView || activeDetailSourceView || lastView || '').trim().toLowerCase();
             const detTabsContainer = document.getElementById('det-tabs-container');
             if (detTabsContainer) {
@@ -90747,7 +90731,7 @@ function toggleDriveQuickRequestItem(domId) {
             // fill a partial master cache without turning display data into write proof.
             return [...(masterInventoryByItemCode.get(itemCode) || []), ...(Array.isArray(sourceRows) ? sourceRows : []), item]
                 .filter(row => {
-                    if (!row || getItemInquiryItemCode(row) !== itemCode) return false;
+                    if (!row || isDepletedReclassRow(row) || getItemInquiryItemCode(row) !== itemCode) return false;
                     if (row !== item && (isRequestLikeItem(row) || isDockLikeItem(row) || isSalesOfficeLikeItem(row))) return false;
                     const key = inventoryPhotoLocationKey(row);
                     if (!key) return false;
@@ -90896,7 +90880,7 @@ function toggleDriveQuickRequestItem(domId) {
                 return String(a.season || '').localeCompare(String(b.season || ''), undefined, { numeric: true, sensitivity: 'base' });
             });
 
-            const locationRows = rows.map((row) => {
+            const locationRows = rows.filter(row => !isDepletedReclassRow(row)).map((row) => {
                 const values = {};
                 ITEM_INQUIRY_ROW_FIELDS.forEach((field) => {
                     values[field.key] = getItemInquiryExactValue(row, field.aliases, '');
@@ -97048,11 +97032,9 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
 
         function getPendingRequestChunkRenderOptions(options = {}) {
             const resolved = getRequestChunkRenderOptions(options);
-            // Paint a normal active queue in one pass; large queues retain
-            // bounded chunks, completion checks, and cancellation tokens.
             return {
                 ...resolved,
-                initialRows: 40,
+                initialRows: 60,
                 chunkSize: resolved.chunkSize ?? 8,
                 perFrameRows: resolved.perFrameRows ?? 8
             };
@@ -117972,7 +117954,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
         function getRequestQtyStepData(uid = '') {
             const key = String(uid || '').trim();
             if (!key) return {};
-            if (!requestQtyStepItemsData[key]) requestQtyStepItemsData[key] = {};
+            if (!requestQtyStepItemsData[key]) requestQtyStepItemsData[key] = { spec: 'N/A' };
             return requestQtyStepItemsData[key];
         }
 
@@ -118050,7 +118032,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             const pending = saved && !['review-required', 'mapping-review'].includes(saved.status);
             setRequestSubmissionFormLocked(!!pending);
             if (pending) { submitBtn.disabled = false; submitBtn.innerText = 'RETRY SAVED REQUEST'; return; }
-            const mappingCurrent = isCurrentRequestCustomerContext(resolveRequestCustomerContext(tempReqCust, tempReqAppendToExistingFolder ? tempReqFolder : ''));
             const mappingFeedback = document.getElementById('request-mapping-feedback');
             if (mappingFeedback) mappingFeedback.classList.add('hidden');
             const reuseState = getCurrentRequestReuseDecisionState();
@@ -118070,8 +118051,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
                 submitBtn.innerText = 'NEXT ITEM';
                 return;
             }
-            submitBtn.innerText = canUseRequestEmailChainPicker() ? 'NEXT' : 'SUBMIT REQUEST';
-            if (submitBtn.innerText === 'SUBMIT REQUEST') submitBtn.disabled = false;
+            submitBtn.innerText = 'SUBMIT REQUEST';
         }
 
         function renderRequestQtyStepCurrentItem() {
@@ -118228,7 +118208,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
                 renderRequestQtyStepCurrentItem();
                 return true;
             }
-            if (!requestQtyEmailStepActive && showRequestEmailChainFinalStep()) return true;
             return false;
         }
 

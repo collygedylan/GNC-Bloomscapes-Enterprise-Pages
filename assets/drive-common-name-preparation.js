@@ -122,11 +122,11 @@ function stageDriveCommonNamesDuringRefresh(container,crumb,crumbText,entries,re
     });
 }
 
-const DRIVE_FIRST_CHUNK_SIZE = 50;
+const DRIVE_CARD_CHUNK_SIZE = 60;
 
 function appendDriveCardChunk(state, replace = false) {
     const start = state.end;
-    const end = Math.min(start+DRIVE_FIRST_CHUNK_SIZE,state.rows.length);
+    const end = Math.min(start+DRIVE_CARD_CHUNK_SIZE,state.rows.length);
     const template = state.container.ownerDocument.createElement('template');
     const prefix = replace ? state.options.prefixHtml || '' : '';
     const body = getCanonicalDriveProjection(state.rows,'drive-chunk:'+state.signature+':'+start,
@@ -159,7 +159,7 @@ function connectDriveCardChunks(state) {
     if (state.end === state.rows.length || state.observer || !state.isCurrent()) return;
     state.observer = new IntersectionObserver(entries=>{
         if (entries.some(entry=>entry.isIntersecting) && state.isCurrent()) appendDriveCardChunk(state);
-    },{root:getMainAreaScrollTarget(),rootMargin:'120px'});
+    },{root:getMainAreaScrollTarget(),rootMargin:'900px 0px'});
     state.observer.observe(state.sentinel);
 }
 

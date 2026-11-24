@@ -15,7 +15,7 @@ function getDrivePlantFilterScopeKey(baseItems) {
 
 function buildDriveModeRows(items) {
     const rows = applyRepU3VisibilityScope(applyForemanPriorityRowScope(items)
-        .filter(item=>!shouldHideNotOnInventoryApprovalRowFromInventory(item)));
+        .filter(item=>!isDepletedReclassRow(item) && !shouldHideNotOnInventoryApprovalRowFromInventory(item)));
     return indexDriveSearchRows(rows,items);
 }
 function getDriveModeItems() {

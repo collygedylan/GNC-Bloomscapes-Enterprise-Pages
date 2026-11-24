@@ -62,7 +62,7 @@ function renderDriveRecordResults(tokenKey, container, crumb, rows, crumbText, r
     const nextOptions = options && typeof options === 'object' ? options : {};
     const browsePage = getClientBrowsePage('drive', renderKey || `${tokenKey}:${crumbText}`, safeRows);
     const useSpreadsheet = !nextOptions.reportCards && isDriveSpreadsheetGridMode();
-    const continuous = tokenKey === 'drive-main-card' && !useSpreadsheet && !!window.GncCardWindow;
+    const continuous = ['drive-main-card', 'drive-loc-card', 'drive-name-card'].includes(tokenKey) && !useSpreadsheet && !!window.GncCardWindow;
     const renderedRows = continuous ? safeRows : browsePage.rows;
     const pageFooter = continuous ? '' : renderClientBrowsePageFooter('drive', browsePage.key, safeRows.length, browsePage);
     const prefixHtml = String(nextOptions.prefixHtml || '');

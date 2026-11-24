@@ -1,13 +1,14 @@
 const DEFERRED_CARD_PHOTO_PENDING = 'img[data-deferred-card-photo="1"]:not([data-photo-hydrated="1"]):not([data-photo-observed="1"])';
 
-function hydrateMountedInventoryCardThumbnail(card) {
+function hydrateMountedInventoryCardThumbnail(card, _row, index) {
     configureBloomscapesCardWindowNode(card);
     const isAvCard = card.classList.contains('app-av-catalog-card');
     const selector = isAvCard ? '.app-av-photo-slide img' : 'img.app-drive-card-thumbnail';
     const img = card.querySelector(`${selector}[data-deferred-card-photo="1"]`);
     if (!img) return;
-    if (isElementNearViewport(img)) {
-        img.loading = 'lazy';
+    const firstAvPhoto = isAvCard && Number.isInteger(index) && index < 8;
+    if (firstAvPhoto || isElementNearViewport(img)) {
+        img.loading = firstAvPhoto ? 'eager' : 'lazy';
         img.decoding = 'async';
         hydrateDeferredCardPhoto(img);
     } else {

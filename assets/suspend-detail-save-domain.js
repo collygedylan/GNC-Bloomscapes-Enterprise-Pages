@@ -119,23 +119,13 @@ async function saveDockSuspendDcRequestMirrorData(isComplete = false, item = act
                     ...(completing ? {memoryRollback:options.optimisticCompletion?.rollbackEvidence,onConfirmed:options.optimisticCompletion?.commit} : {})});
                 if (returnToRequestAfterCompletion && returnState === detailReturnState && getDockSuspendDcRequestSourceUid(activeItem) === tagUid) {
                     goBackFromDetail();
-                    showToast('Saving','Task completion is saving in the background.');
                 }
                 const applied = await pendingSave;
                 if (!applied && completing) { undoOptimisticEvidence?.(); options.optimisticCompletion?.rollback(); return false; }
                 if (applied) options.optimisticCompletion?.commit();
-                if (applied && suspendTagFormDrafts.has(draftKey)) {
-                    const nextKey=getSuspendTagFormDraftKey();
-                    if (nextKey!==draftKey) { suspendTagFormDrafts.set(nextKey,suspendTagFormDrafts.get(draftKey)); suspendTagFormDrafts.delete(draftKey); }
-                }
-                restoreSuspendTagFormDraft();
-                if (applied && !isSilentAutoSave && writeScope === getSupabaseReadIdentityScope()) showToast(completing ? 'Success' : 'Saved', completing ? 'Task Completed!' : 'Suspend Tag review saved.');
-                if (applied) {
-                    clearSavedRowEvaluationDraft(row,'req-',savedDraft);
-                    const key = getSuspendTagFormDraftKey(row);
-                    const remaining = readRowEvaluationDraft(row,'req-');
-                    if (Object.keys(remaining).length) suspendTagFormDrafts.set(key,remaining);
-                    else suspendTagFormDrafts.delete(key);
+                finishSavedSuspendDetailDraft(row, draftKey, savedDraft, applied);
+                if (applied && !isSilentAutoSave && writeScope === getSupabaseReadIdentityScope()) {
+                    showToast(completing ? '✓ Completed' : '✓ Saved');
                 }
             } catch (error) {
                 return handleSuspendDetailSaveError(error,options,undoOptimisticEvidence,isSilentAutoSave,writeScope);

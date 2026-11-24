@@ -96,7 +96,7 @@ function buildSuspendTagPageOptions(context, runtime) {
     : (context.hasFilters ? 'No suspend tag rows match these filters.' : 'No suspend tag rows.');
   return runtime.getPendingRequestChunkRenderOptions({
     _backgroundStage: !!context.retainCards,
-    initialRows: Math.min(12, Math.max(1, context.plan.rows.length)),
+    initialRows: Math.min(60, Math.max(1, context.plan.rows.length)),
     renderSignature: context.renderSignature,
     emptyHtml: `<div class="p-8 text-center text-gray-400">${emptyMessage}</div>`,
     onComplete: () => completeSuspendTagPage(context, runtime),
@@ -131,4 +131,19 @@ function renderSuspendTagPage(input = {}, runtime = {}) {
   }
   runtime.syncRequestBrowseFooter(input.footerContainer, plan.footerMarkup);
   return didSchedule;
+}
+
+function finishSavedSuspendDetailDraft(row, draftKey, savedDraft, applied) {
+    if (applied && suspendTagFormDrafts.has(draftKey)) {
+        const nextKey=getSuspendTagFormDraftKey();
+        if (nextKey!==draftKey) { suspendTagFormDrafts.set(nextKey,suspendTagFormDrafts.get(draftKey)); suspendTagFormDrafts.delete(draftKey); }
+    }
+    restoreSuspendTagFormDraft();
+    if (applied) {
+        clearSavedRowEvaluationDraft(row,'req-',savedDraft);
+        const key = getSuspendTagFormDraftKey(row);
+        const remaining = readRowEvaluationDraft(row,'req-');
+        if (Object.keys(remaining).length) suspendTagFormDrafts.set(key,remaining);
+        else suspendTagFormDrafts.delete(key);
+    }
 }

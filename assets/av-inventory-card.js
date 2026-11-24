@@ -108,7 +108,7 @@ function renderAvInventoryCardMarkup(context) {
     const cardActivationAttrs = kiosk ? buildAvCardPhotoActivationAttrs(hasValidAvPhotos)
         : buildAuthorizedAvCardActivationAttrs(item, sourceView, hasValidAvPhotos);
     const contextMenu = kiosk ? '' : `oncontextmenu="return handleCardContextMenu(event, '${escJsAttrValue(item.DOM_ID)}')"`;
-    const specText = String(firstNonEmptyValue(liveEvidenceRow.SPEC, liveEvidenceRow.spec, item.SPEC, item.spec, item.SPECIFICATION, item.AV_SPEC, item.SPECS, '') || '').trim();
+    const specText = getMeasuredSpecInputValue(liveEvidenceRow) || getMeasuredSpecInputValue(item);
     const caliperText = String(firstNonEmptyValue(item.CALIPER, item.caliper, item.AV_CALIPER, '') || '').trim();
     const avNoteDisplay = avNoteText || String(firstNonEmptyValue(item.AVNOTE, item.AV_NOTES, '') || '').trim();
     return `<div class="flex items-start w-full mb-3 item-row app-smart-card app-smart-card--inventory app-smart-card--av app-av-catalog-card app-inventory-card-overhaul ${hasValidAvPhotos ? '' : 'app-av-catalog-card--no-photo'} relative rounded-xl border shadow-sm ${cardActivationAttrs ? 'cursor-pointer' : ''} overflow-hidden ${kiosk ? '' : holdBorderClass}" data-dom-id="${escapeHtml(item.DOM_ID)}" ${contextMenu} ${cardActivationAttrs}>

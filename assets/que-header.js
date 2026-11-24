@@ -80,13 +80,10 @@ function clearRequestHeaderSearch() {
 function buildRequestPagedRenderPlan(mode, crumbText, items) {
     if (typeof rememberOperationalExport === 'function') rememberOperationalExport('request',items);
     const membershipKey = buildRequestBrowseMembershipKey(mode, items);
-    const browsePage = getClientBrowsePage('request', membershipKey, items, 8);
-    const renderKey = buildRequestChunkRenderKey(mode, crumbText, browsePage.rows);
+    const renderKey = buildRequestChunkRenderKey(mode, crumbText, items);
     return {
-        empty: !items.length, crumbText, items, rows: browsePage.rows,
-        pageIndex: Number(browsePage.pageIndex), renderKey,
-        renderSignature: `${renderKey}:page:${Number(browsePage.pageIndex)}:source:${browsePage.key}`,
-        footerMarkup: renderClientBrowsePageFooter('request', browsePage.key, items.length, browsePage)
+        empty: !items.length, crumbText, items, rows: items,
+        pageIndex: 0, renderKey, renderSignature: renderKey + ':source:' + membershipKey, footerMarkup: ''
     };
 }
 

@@ -296,7 +296,7 @@ function handleArgosReclassV3ProposalInput(input = null) {
     if (!proposal || !field) return false;
     if (['move_up', 'move_down'].includes(action)) {
         const splitIndex = Number(input.getAttribute('data-reclass-split-index'));
-        if (['quantity', 'destinationSeason'].includes(field) && Number.isInteger(splitIndex) && proposal.splits && proposal.splits[splitIndex]) proposal.splits[splitIndex][field] = String(input.value ?? '');
+        if (['quantity', 'destinationSeason', 'destinationLocation'].includes(field) && Number.isInteger(splitIndex) && proposal.splits && proposal.splits[splitIndex]) proposal.splits[splitIndex][field] = String(input.value ?? '');
         else return false;
         const entry = getArgosReclassRowEditorEntry(uid);
         card.querySelectorAll('[data-reclass-move-balance]').forEach((node) => {

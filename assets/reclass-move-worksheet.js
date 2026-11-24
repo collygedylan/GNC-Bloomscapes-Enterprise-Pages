@@ -1,4 +1,3 @@
-
 function reclassCommandOverlay(overlay, entries) {
     const proposals = Array.isArray(overlay && overlay.proposals) ? overlay.proposals : [];
     const moveProposals = proposals.filter((proposal) => proposal && ['move_up', 'move_down'].includes(proposal.action));
@@ -17,7 +16,8 @@ function reclassCommandOverlay(overlay, entries) {
     moveProposals.forEach((proposal) => {
         const splits = Array.isArray(proposal.splits) ? proposal.splits : [];
         splits.forEach((split) => lines.push({ direction: proposal.action,
-            destinationSeason: String(split.destinationSeason || '').trim().toUpperCase(), quantity: Number(split.quantity) }));
+            destinationSeason: String(split.destinationSeason || '').trim().toUpperCase(), quantity: Number(split.quantity),
+            ...(split.destinationLocation ? { destinationLocation: normalizeReclassDestinationLocation(split.destinationLocation) } : {}) }));
     });
     return { source: { uniqueId: uid, identity }, lines, sourceRow: entry.sourceRow };
 }
@@ -56,7 +56,8 @@ function validateReclassMoveLineages(moves) {
     for (const move of moves) {
         const row = move.sourceRow;
         for (const line of move.lines) {
-            const destinationLineage = lineageKey(row, reclassDestinationLot(row, line.destinationSeason));
+            const targetRow = line.destinationLocation ? { ...row, locationcode: line.destinationLocation } : row;
+            const destinationLineage = lineageKey(targetRow, reclassDestinationLot(row, line.destinationSeason));
             if (claimedLineages.has(destinationLineage)) {
                 throw new Error('Two selected moves resolve to the same inventory row. Submit those sources separately and review the result.');
             }
@@ -105,6 +106,7 @@ function buildOptimisticInventoryReclassMoveModel(state = null, command = null) 
     command.moves.forEach((move, index) => applyReclassWorksheetMove(context, move, index));
     refreshReclassWorksheetStock(context);
     refreshReclassWorksheetLocations(rows);
+    rows.forEach(projectReclassRowOpenStock);
     return { model: buildItemInquiryViewModel(state.item, rows), movedUids: context.movedUids };
 }
 
@@ -153,15 +155,15 @@ function applyReclassWorksheetMove(context, move, moveIndex) {
         PTRAVAILABLE: String(available - total), ptravailable: String(available - total), __optimisticReclassMove: command.commandId };
     stockDeltas.set(stockKey(source), (stockDeltas.get(stockKey(source)) || 0) - total * effective(source));
     movedUids.push(uid);
-    const grouped = new Map();
-    move.lines.forEach((line) => grouped.set(line.destinationSeason, (grouped.get(line.destinationSeason) || 0) + line.quantity));
-    grouped.forEach((quantity, season) => applyReclassWorksheetTarget(context, source, moveIndex, quantity, season));
+    move.lines.forEach(line => applyReclassWorksheetTarget(context, source, moveIndex, line));
 }
 
-function applyReclassWorksheetTarget(context, source, moveIndex, quantity, season) {
+function applyReclassWorksheetTarget(context, source, moveIndex, line) {
+    const { quantity, destinationSeason: season } = line;
+    const location = line.destinationLocation || source.locationcode || source.LOCATIONCODE;
     const { rows, command, stockDeltas, seasonOpenStocks, salesYear, currentYear, currentSeason, stockKey, currentTargetPools, physicalSeasonKeys, effective, lineageKey } = context;
     const targetLot = reclassDestinationLot(source, season);
-    const targetKey = lineageKey(source, targetLot);
+    const targetKey = lineageKey({ ...source, locationcode: location }, targetLot);
     const targetIndexes = [];
     rows.forEach((row, index) => { if (lineageKey(row) === targetKey) targetIndexes.push(index); });
     if (targetIndexes.length > 1) throw new Error('The destination inventory row is ambiguous. Refresh the worksheet before moving stock.');
@@ -174,13 +176,14 @@ function applyReclassWorksheetTarget(context, source, moveIndex, quantity, seaso
     }
     const baseOnHand = targetOnHand == null ? 0 : targetOnHand;
     const baseAvailable = targetAvailable == null ? 0 : targetAvailable;
-    const pendingUid = current ? String(current.UNIQUE_ID || current.unique_id || '') : `pending-reclass-${command.commandId}-${moveIndex}-${season}`;
+    const pendingUid = current ? String(current.UNIQUE_ID || current.unique_id || '') : `pending-reclass-${command.commandId}-${moveIndex}-${season}-${location}`;
     const destinationSeasonKey = stockKey({ ...source, LOTCODE: targetLot, lotcode: targetLot });
     if (!current && !physicalSeasonKeys.has(destinationSeasonKey)) seasonOpenStocks.set(destinationSeasonKey, 0);
     const destinationOpenStock = current
         ? parseAppNumber(current.S_LTS ?? current.s_lts ?? current.OPEN_STOCK ?? current.open_stock)
         : parseAppNumber(seasonOpenStocks.get(destinationSeasonKey)) ?? 0;
     const target = { ...source, ...(current || {}), UNIQUE_ID: pendingUid, unique_id: pendingUid, LOTCODE: targetLot, lotcode: targetLot,
+        LOCATIONCODE: location, locationcode: location,
         HOLDSTOPCODE: current ? (current.HOLDSTOPCODE ?? current.holdstopcode) : '', holdstopcode: current ? (current.holdstopcode ?? current.HOLDSTOPCODE) : '',
         HOLDSTOPREASON: current ? (current.HOLDSTOPREASON ?? current.holdstopreason) : '', holdstopreason: current ? (current.holdstopreason ?? current.HOLDSTOPREASON) : '',
         HOLDSTOPBEGINDATE: current ? (current.HOLDSTOPBEGINDATE ?? current.holdstopbegindate) : '', holdstopbegindate: current ? (current.holdstopbegindate ?? current.HOLDSTOPBEGINDATE) : '',
@@ -191,7 +194,8 @@ function applyReclassWorksheetTarget(context, source, moveIndex, quantity, seaso
         PTRAVAILABLE: String(baseAvailable + quantity), ptravailable: String(baseAvailable + quantity),
         __optimisticReclassMove: command.commandId };
     if (targetIndex < 0) {
-        target.S_LTS = target.s_lts = target.OPEN_STOCK = target.open_stock = String(destinationOpenStock);
+        target.S_LTS = target.s_lts = String(destinationOpenStock);
+        target.RESERVED_QTY = target.reserved_qty = '0';
     }
     if (season === currentSeason && salesYear(target) != null && salesYear(target) <= currentYear) currentTargetPools.add(String(target.ITEMCODE ?? target.itemcode ?? ''));
     stockDeltas.set(stockKey(target), (stockDeltas.get(stockKey(target)) || 0) + quantity * effective(target));
@@ -233,4 +237,39 @@ function refreshReclassWorksheetLocations(rows) {
         const total = String(quantities.reduce((sum, value) => sum + value, 0));
         group.forEach(row => { row.LOC_ON_HAND = row.loc_on_hand = total; });
     });
+}
+
+function projectReclassRowOpenStock(row) {
+    if (!row.__optimisticReclassMove) return;
+    const onHand = parseAppNumber(row.PTRONHAND ?? row.ptronhand);
+    const review = parseAppNumber(row.PTRREVIEWED ?? row.ptrreviewed) ?? 0;
+    const reserves = parseAppNumber(row.RESERVED_QTY ?? row.reserved_qty) ?? 0;
+    if (onHand == null) return;
+    row.OPEN_STOCK = row.open_stock = String(Math.max(0, onHand - review - reserves));
+}
+
+function isDepletedReclassRow(row) {
+    return !!row && !!(row.__optimisticReclassMove || row.reclass_depleted === true || row.RECLASS_DEPLETED === true)
+        && parseAppNumber(row.PTRONHAND ?? row.ptronhand) === 0
+        && parseAppNumber(row.PTRAVAILABLE ?? row.ptravailable) === 0;
+}
+
+function renderArgosReclassMoveProposal(rule, normalized, proposal, uid, entry, values) {
+    const originalOh = Number(String(values.ptronhand == null ? '' : values.ptronhand).replace(/,/g, ''));
+    const moveUpState = normalized === 'move_up' ? getArgosReclassMoveUpLotState(entry) : null;
+    const inputMaximum = moveUpState ? moveUpState.rowMaximum : originalOh;
+    const currentSeason = getArgosReclassRowCurrentSeason(entry);
+    Object.assign(proposal, cloneArgosReclassProposal(proposal));
+    const label = normalized === 'move_up' ? 'Move Up' : 'Move Down';
+    const splitCursor = Math.min(argosInventoryTransactionState?.reclassSplitCursor?.[uid + ':' + normalized] || 0, proposal.splits.length - 1);
+    const splitRows = proposal.splits.map((split, index) => {
+        if (index !== splitCursor) return '';
+        const options = RECLASS_ACTION_WORKFLOW_V2_SEASONS.filter((season) => season !== currentSeason).map((season) => `<option value="${escapeHtml(season)}" ${String(split.destinationSeason || '').toUpperCase() === season ? 'selected' : ''}>${escapeHtml(season)}</option>`).join('');
+        const attrs = `data-reclass-v3-proposal-action="${normalized}" data-reclass-split-index="${index}"`;
+        return `<div class="argos-reclass-move-split"><label class="argos-reclass-action-proposal"><span>Qty</span><input class="argos-reclass-row-input" type="number" inputmode="numeric" min="1" step="1" max="${escapeHtml(String(Number.isFinite(inputMaximum) ? inputMaximum : ''))}" aria-label="${label} quantity ${index + 1}" value="${escapeHtml(String(split.quantity ?? ''))}" ${attrs} data-reclass-v3-proposal-field="quantity" oninput="return handleArgosReclassV3ProposalInput(this)"></label><label class="argos-reclass-action-proposal"><span>Destination Lot / Season</span><select class="argos-reclass-row-input argos-reclass-destination-native" aria-label="${label} destination ${index + 1}" ${attrs} data-reclass-v3-proposal-field="destinationSeason" onchange="return handleArgosReclassV3ProposalInput(this)"><option value="">Select Destination</option>${options}</select><button type="button" class="argos-reclass-destination-trigger" onclick="return toggleArgosReclassDestinationMenu(this)">${escapeHtml(String(split.destinationSeason || 'Select Destination'))} <span>▾</span></button><div class="argos-reclass-destination-menu" hidden></div></label><label class="argos-reclass-action-proposal"><span>Destination Location</span><input class="argos-reclass-row-input" type="text" maxlength="8" placeholder="Source location" value="${escapeHtml(split.destinationLocation || '')}" ${attrs} data-reclass-v3-proposal-field="destinationLocation" oninput="return handleArgosReclassV3ProposalInput(this)"></label><button type="button" class="argos-reclass-action-btn" aria-label="Remove ${label} destination ${index + 1}" onclick="return changeArgosReclassMoveSplit(this,'${normalized}',${index})" ${proposal.splits.length === 1 ? 'disabled' : ''}>✕</button></div>`;
+    }).join('');
+    const holdHtml = proposal.applyHold
+            ? '<p class="argos-reclass-action-scope-notice" role="alert">This saved move uses a retired Hold option. Remove and re-add the move, then select On Hold in the action grid.</p>'
+            : '<p class="argos-reclass-action-scope-notice" role="note">Use On Hold or Off Hold in the action grid for hold changes.</p>';
+    return `<fieldset class="argos-reclass-move-editor" data-reclass-move-action="${normalized}"><legend>${escapeHtml(rule.label)}</legend><div class="argos-reclass-move-heading"><p data-reclass-move-balance title="Open Stock (Max Move Up) is enforced separately from On Hand" data-over-limit="${getArgosReclassMoveBalance(entry).remaining < 0}" role="status">${escapeHtml(getArgosReclassMoveBalanceText(entry))}</p><button type="button" class="argos-reclass-action-btn" onclick="return changeArgosReclassMoveSplit(this,'${normalized}')" ${proposal.splits.length >= 100 ? 'disabled' : ''}>+ Add Split</button></div>${splitRows}${proposal.splits.length > 1 ? `<nav class="argos-reclass-split-pages" aria-label="Move split pages"><button type="button" onclick="return changeArgosReclassSplitPage(this,'${normalized}',${splitCursor - 1})" ${splitCursor === 0 ? 'disabled' : ''}>◂ Previous</button><span>Split ${splitCursor + 1} of ${proposal.splits.length}</span><button type="button" onclick="return changeArgosReclassSplitPage(this,'${normalized}',${splitCursor + 1})" ${splitCursor === proposal.splits.length - 1 ? 'disabled' : ''}>Next ▸</button></nav>` : ''}${proposal.applyHold ? holdHtml : ''}</fieldset>`;
 }

@@ -24,3 +24,19 @@
 :where(a,button,input,textarea,select,summary,label,[role="button"],[role="tab"],[onclick]) {
     touch-action: manipulation;
 }
+
+#toast-notification.quick-action-pill {
+    top: auto !important;
+    bottom: calc(72px + env(safe-area-inset-bottom));
+    width: max-content;
+    min-width: 0 !important;
+    max-width: calc(100vw - 24px) !important;
+    height: 36px;
+    padding: 0 6px 0 14px !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    white-space: nowrap;
+    pointer-events: none;
+}
+#toast-notification.quick-action-pill .toast-dismiss { pointer-events: auto; }
+#toast-notification.quick-action-pill:not(.show) { transition: none; }

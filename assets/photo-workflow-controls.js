@@ -24,7 +24,7 @@ function updateTaskDetailQuickCameraState(sourceView = activeDetailSourceView ||
     }
     const prefix = tabPrefix || (isRequestContext ? 'req-' : getTaskDetailQuickPhotoPrefix(item, activeTaskTab, safeSourceView));
     const canCapture = prefix === 'ncr-' ? canEditNcrWorkflow(item) : canEditRowDetails(prefix, item);
-    if (!prefix || !isPhotoMutationSurface(prefix,safeSourceView) || !canCapture) {
+    if (!prefix || prefix === 'req-' || !isPhotoMutationSurface(prefix,safeSourceView) || !canCapture) {
         wrapper.classList.add('hidden');
         wrapper.classList.remove('task-detail-camera-quick--request');
         input.dataset.detailPhotoPrefix = '';

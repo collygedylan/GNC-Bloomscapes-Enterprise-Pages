@@ -1550,9 +1550,9 @@ body.viewport-compact #docks-filter-controls.docks-top-inline [data-dock-filter-
         #request-rep-modal.request-qty-active .request-create-panel{height:min(90vh,calc(var(--visual-height,100vh) - max(24px,calc(env(safe-area-inset-top) + 12px)) - max(24px,calc(env(safe-area-inset-bottom) + 12px))));max-height:min(90vh,calc(var(--visual-height,100vh) - max(24px,calc(env(safe-area-inset-top) + 12px)) - max(24px,calc(env(safe-area-inset-bottom) + 12px))))}
         #request-rep-modal.request-qty-active #step-3-qty{flex:1 1 auto;height:auto!important;min-height:0;overflow:hidden}
         #request-rep-modal #request-qty-scroll-body{overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scroll-padding-bottom:8rem}
-        #request-rep-modal.request-qty-active #request-qty-scroll-body{padding-bottom:8rem!important}
-        #request-rep-modal.request-qty-active #request-submit-btn{position:relative;z-index:4;flex:0 0 auto;margin-top:.65rem!important}
-        #request-rep-modal.request-qty-active .request-cancel-btn{position:relative;z-index:4}
+        #request-rep-modal.request-qty-active #request-qty-scroll-body{padding-bottom:.5rem!important}
+        #request-rep-modal.request-qty-active #request-submit-btn{flex:0 0 auto;margin-top:.25rem!important;padding:.5rem;min-height:36px}
+        #request-rep-modal.request-qty-active .request-cancel-btn{flex:0 0 auto;margin-top:0;padding:.25rem}
         #toast-notification{flex-direction:column!important;align-items:flex-start!important;gap:4px!important;min-width:min(18rem,calc(100vw - 2rem));max-width:min(92vw,32rem)!important;border-radius:28px!important;padding:14px 18px!important}
         #toast-notification>div{width:100%;min-width:0}
         #global-action-bar{max-height:calc(100vh - 86px);overflow-y:auto;-webkit-overflow-scrolling:touch}
@@ -2349,7 +2349,6 @@ body.request-detail-av-options-open #view-detail.detail-request-mode #detail-av-
 #view-detail.detail-request-mode .request-av-option-card-shell .item-row{width:100%!important;margin-bottom:0!important}
 #view-detail.detail-request-mode .request-av-option-card-shell .app-card-bottom-rail{display:none!important}
 #view-detail.detail-request-mode .request-av-option-card-shell .app-card-with-bottom-rail{padding-bottom:1rem!important}
-#view-detail.detail-request-mode #det-request-camera-panel{display:none!important}
 #view-detail.detail-request-mode #det-gallery-content{padding:.35rem 0 .75rem!important}
 #view-detail.detail-request-mode .request-gallery-return{display:flex;width:100%;align-items:center;justify-content:center;gap:.45rem;border:1px solid #bbf7d0;background:#ecfdf5;color:#047857;border-radius:14px;padding:.72rem .9rem;font-size:.72rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase;box-shadow:0 10px 20px rgba(15,23,42,.06)}
 #view-detail.detail-request-mode #request-gallery-return-wrap.hidden{display:none!important}

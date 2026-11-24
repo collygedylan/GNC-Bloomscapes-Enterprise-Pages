@@ -98,6 +98,11 @@ function expireToast(toast, token) {
     toastClearTimer = setTimeout(() => clearToastContent(token), 360);
 }
 
+function normalizeToastTitle(value) {
+    const title = String(value ?? '').trim();
+    return title === 'Requests saved' ? '✓ Request Created' : title;
+}
+
 function showToast(title, message = '', isAlert = false, options = {}) {
     if (window.__gncOpsPilot && typeof window.__gncOpsPilot.observeToast === 'function') {
         window.__gncOpsPilot.observeToast(title, message, isAlert);
@@ -105,7 +110,7 @@ function showToast(title, message = '', isAlert = false, options = {}) {
     const toast = document.getElementById('toast-notification');
     if (!toast) return;
 
-    const toastTitle = String(title ?? '').trim();
+    const toastTitle = normalizeToastTitle(title);
     const toastMessage = String(message ?? '').trim();
     const errorPattern = /(error|failed|fail|timeout|missing|required|invalid|not found|unable|denied|blocked|network|dropped|try again)/i;
     const isErrorToast = isAlert === true || errorPattern.test(toastTitle);
@@ -125,7 +130,9 @@ function showToast(title, message = '', isAlert = false, options = {}) {
     const requestedDuration = Number(options.duration || options.timeout || 0);
     const compact = !isErrorToast && toastTitle === 'Tag Complete';
     toast.classList.toggle('tag-complete-pill',compact);
-    const duration = compact ? 1600 : Math.max(isErrorToast ? 9000 : 3600, requestedDuration || 0);
+    const quickAction = !isErrorToast && /^(Added To Bloom Picker|(?:✓ )?(Saved|Request Created|Completed))$/i.test(toastTitle);
+    toast.classList.toggle('quick-action-pill', quickAction);
+    const duration = quickAction ? 750 : compact ? 1600 : Math.max(isErrorToast ? 9000 : 3600, requestedDuration || 0);
 
     toast.classList.remove('toast-dismissing', 'toast-dragging');
     toast.style.setProperty('--toast-drag-y', '0px');
@@ -137,7 +144,7 @@ function showToast(title, message = '', isAlert = false, options = {}) {
     toast.innerHTML = `
         <div class="toast-content">
             <div class="toast-title">${escapeToastHtml(toastTitle || (isErrorToast ? 'Error' : 'Notice'))}</div>
-            ${toastMessage ? `<div class="toast-message">${escapeToastHtml(toastMessage)}</div>` : ''}
+            ${toastMessage && !quickAction ? `<div class="toast-message">${escapeToastHtml(toastMessage)}</div>` : ''}
         </div>
         <button type="button" class="toast-dismiss" data-toast-dismiss aria-label="Dismiss notification"><i class="ph-bold ph-x" aria-hidden="true"></i></button>
     `;

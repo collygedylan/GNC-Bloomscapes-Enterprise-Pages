@@ -29,6 +29,8 @@ function updateDetailMeasurementKeyboardTargetValue(nextValue = '', nextCursor =
     }
     const preview = document.getElementById('detail-measurement-keyboard-value-preview');
     if (preview) preview.textContent = input.value || 'Type value...';
+    const prefix = extractDetailPrefixFromInputId(input.id);
+    if (input.id === prefix + 'match' && prefix !== 'dock-') calculateMatchQty(prefix);
     clearTimeout(input.__measurementDispatchTimer);
     const owner = getSupabaseReadIdentityScope(), rowKey = getDetailEvaluationDraftIdentity(activeItem);
     input.__measurementDispatchTimer = setTimeout(() => {
@@ -36,7 +38,6 @@ function updateDetailMeasurementKeyboardTargetValue(nextValue = '', nextCursor =
         if (document.activeElement === input && detailMeasurementKeyboardTarget === input) {
             input.setSelectionRange?.(cursor,cursor);
         }
-        const prefix = extractDetailPrefixFromInputId(input.id);
         if (shouldUseDebouncedDetailInputSave(input.id)) queueLagSensitiveInputSave(prefix,input.id);
         else dispatchDetailMeasurementKeyboardInput(input);
     },300);

@@ -8560,8 +8560,8 @@ html.outdoor-mode body.ops-precision-pilot #item-inquiry-panel :is(
   body.ops-precision-pilot #view-detail.detail-request-mode:has(> #det-request-content:not(.hidden)) #req-reserve-field-wrap { order: 50; }
   body.ops-precision-pilot #view-detail.detail-request-mode:has(> #det-request-content:not(.hidden)) #req-pick-wrap { order: 60; }
   body.ops-precision-pilot #view-detail.detail-request-mode:has(> #det-request-content:not(.hidden)) #req-comments-wrap { order: 70; }
-  body.ops-precision-pilot #view-detail.detail-request-mode:has(> #det-request-content:not(.hidden)) #request-photo-section { order: 80; }
-  body.ops-precision-pilot #view-detail.detail-request-mode:has(> #det-request-content:not(.hidden)) :is(#inventory-edit-request-detail-action, #req-matching-inventory-container) { order: 85; }
+  body.ops-precision-pilot #view-detail.detail-request-mode:has(> #det-request-content:not(.hidden)) #request-photo-section { order: 26; }
+  body.ops-precision-pilot #view-detail.detail-request-mode:has(> #det-request-content:not(.hidden)) :is(#inventory-edit-request-detail-action, #req-matching-inventory-container) { order: 28; }
   body.ops-precision-pilot #view-detail.detail-request-mode:has(> #det-request-content:not(.hidden)) #detail-shared-panels { order: 90; }
   body.ops-precision-pilot #view-detail.detail-request-mode:has(> #det-request-content:not(.hidden)) #req-save-action-wrap { order: 100; }
   body.ops-precision-pilot #view-detail.detail-request-mode:has(> #det-request-content:not(.hidden)) #req-shear-action { order: 110; }
