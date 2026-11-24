@@ -28,6 +28,10 @@ function goBackUniversal() {
     if (currentView==='docks' && dockViewLevel>0) return backGlobalDocksSurface({restoreViewBack:restoreGlobalViewBack,currentView});
     if (typeof backBloomscapesActiveWorkBrowser==='function' && backBloomscapesActiveWorkBrowser()) return false;
     if (closeOpenInteractiveSurfaceForBack()) return false;
+    if (['historical-requests','request-history'].includes(currentView)) {
+        const archiveBack = document.querySelector('#view-' + currentView + ' [data-completed-archive-back]');
+        if (archiveBack) { archiveBack.click(); return false; }
+    }
     if (typeof backBloomscapesDockCreditVault==='function' && backBloomscapesDockCreditVault()) return false;
     if (typeof backBloomscapesDepartmentWorkspace==='function' && backBloomscapesDepartmentWorkspace(currentView)) return false;
     if (currentView==='managers') return backGlobalManagersSurface({restoreViewBack:restoreGlobalViewBack,currentView});

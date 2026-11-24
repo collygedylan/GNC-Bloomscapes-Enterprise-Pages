@@ -32,7 +32,8 @@ function setDriveTab(tab, { exitReport = false } = {}) {
     lastViewSwitchAt = Date.now();
     cancelDriveSearchRenderWork();
     const requestedTab = String(tab || '').trim();
-    const nextTab = ['name', 'loc', 'card', 'hold', 'reports-v2'].includes(requestedTab) ? requestedTab : 'card';
+    const nextTab = isBloomscapesDriveTour() ? normalizeBloomscapesDriveTourTab(requestedTab)
+        : ['name', 'loc', 'card', 'hold', 'reports-v2'].includes(requestedTab) ? requestedTab : 'card';
     if (!exitReport) prepareDriveReport2Navigation(nextTab);
     const reportTransition = driveReport2BrowseTab(nextTab) || nextTab === 'reports-v2';
     const useReportFastPath = reportTransition && (exitReport || !!getActiveDriveReport2());

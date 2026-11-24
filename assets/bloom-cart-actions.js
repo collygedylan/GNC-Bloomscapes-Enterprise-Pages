@@ -50,12 +50,13 @@ function prepareDriveCardOptionsReader(access,userOverride,displayOverride) {
 
 function canCurrentUserUseDriveCardOptions(item=null,sourceView='drive',roleOverride='',userOverride='',displayOverride='') {
     if (String(sourceView || '').trim().toLowerCase() !== 'drive') return true;
+    if (isBloomscapesDriveTour()) return false;
     const access = getRoleAccessState(roleOverride,userOverride);
     return prepareDriveCardOptionsReader(access,userOverride,displayOverride)(item);
 }
 
 function prepareDriveWorkflowSelection(access,userOverride='',displayOverride='') {
-    if (canUseFullDriveBloomPickerWorkflow(userOverride,displayOverride)) return () => true;
+    if (isBloomscapesDriveTour() || canUseFullDriveBloomPickerWorkflow(userOverride,displayOverride)) return () => true;
     if (access?.isRep && !access.isCsr) return () => false;
     if (access?.isRepLike && canUseDriveQuickRequest()) return () => true;
     return prepareDriveCardOptionsReader(access,userOverride,displayOverride);

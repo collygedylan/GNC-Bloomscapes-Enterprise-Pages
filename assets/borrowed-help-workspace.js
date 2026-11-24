@@ -49,12 +49,17 @@ function updateBorrowedHelpSurfaces(state) {
 function mountBorrowedHelpWorkspace(host) {
     if (!host.querySelector('[data-borrowed-help-workspace]')) {
         host.innerHTML = `<section class="p-3 space-y-2" data-borrowed-help-workspace>
-          <h2 class="font-bold">🤝 Borrowed Help</h2><div data-loan-views></div>
+          <input type="search" data-loan-search aria-label="Search Borrowed Help" placeholder="Search Borrowed Help…"><div data-loan-views></div>
           <button type="button" class="${pullWorkspacePill}" data-loan-new>+ Request Borrowed Help</button>
           <button type="button" class="${pullWorkspacePill}" data-loan-refresh>Refresh</button>
           <p role="status" data-loan-status></p><div data-loan-rows class="space-y-2"></div></section>
           <section class="p-3 space-y-2" data-legacy-borrowed-field></section>`;
         host.querySelector('[data-loan-new]').onclick = requestBorrowedHelp;
+        host.querySelector('[data-loan-search]').oninput = event => {
+            const state = borrowedHelpState();
+            state.search = event.target.value;
+            paintBorrowedHelpWorkspace(state);
+        };
         host.querySelector('[data-loan-refresh]').onclick = () => void refreshBorrowedHelp(borrowedHelpState(),true);
     }
     paintBorrowedHelpWorkspace(borrowedHelpState());
@@ -83,7 +88,9 @@ function paintBorrowedHelpWorkspace(state) {
         paintBorrowedHelpWorkspace(state);
     }});
     const rows = preview ? preview.loans || [] : state.board?.rows || [];
-    const visible = rows.filter(row=>showBorrowedHelpRow(row,state.section,manages));
+    const visible = rows.filter(row => showBorrowedHelpRow(row,state.section,manages)
+        && matchesBloomscapesModuleSearch(state.search, [row.requested_by,row.department,row.status,row.notes,
+            row.reason,row.source_department,row.destination_department,...(row.crew_usernames || [])]));
     host.querySelector('[data-loan-rows]').dataset.section = state.section;
     renderBloomscapesListWindow(host.querySelector('[data-loan-rows]'),visible,
         row=>createBorrowedHelpCard(row,preview ? null : state),'No matching Borrowed Help requests.');

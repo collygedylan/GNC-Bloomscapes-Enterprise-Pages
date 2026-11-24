@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.62';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.63';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -23258,7 +23258,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.62';
+        const APP_VERSION = '3.1.63';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -24549,6 +24549,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         /* @runtime-fragment assets/erp-manual-continuation.js */
         bindManualErpProgressWakeLock(document, window, navigator.wakeLock, getSupabaseReadIdentityScope);
 
+        /* @runtime-fragment assets/bloomscapes-drive-module-shell.js */
         /* @runtime-fragment assets/header-navigation-state.js */
         function syncGlobalHeaderChrome(options = {}) {
             // Navigation visibility is synchronous even when search ownership
@@ -26059,23 +26060,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             return version != null && !(version > 0 && getQueueCompletionVersion(item) > version);
         }
 
-        function applyConfirmedRequestCompletionReceipt(item, result, scope) {
-            if (scope !== getSupabaseReadIdentityScope()) throw staleSupabaseReadScopeError();
-            const id = getItemUniqueId(item), row = result?.row;
-            if (!id || result?.ok === false || result?.error || result?.active === true || result?.lifecycle_state !== 'completed_history'
-                || !row || getItemUniqueId(row) !== id || !hasRequestCompletionState(row)) throw new Error('REQUEST_COMPLETION_RECEIPT_UNCONFIRMED');
-            const saved = formatFetchedRows([row], ACTIVE_REQUEST_TABLE)[0] || row;
-            const receipt = Object.assign({}, saved, { ROW_VERSION:Number(result.row_version ?? row.row_version ?? row.ROW_VERSION) || 0,
-                row_version:Number(result.row_version ?? row.row_version ?? row.ROW_VERSION) || 0,
-                REQ_STATUS:'Complete', req_status:'Complete', REQUEST_ACTIVE:false, REQUEST_HISTORY:true });
-            confirmQueueCompletion(receipt);
-            const version = getQueueCompletionVersion(receipt);
-            if (!version || getQueueCompletionVersion(item) <= version) Object.assign(item, receipt);
-            requestsInventory = requestsInventory.filter(candidate => getItemUniqueId(candidate) !== id || version > 0 && getQueueCompletionVersion(candidate) > version);
-            refreshRealtimeDetailLookupIndexes(ACTIVE_REQUEST_TABLE);
-            refreshLocalRequestViewState('request-completion-confirmed', { forceRender:true, userAction:true });
-            return receipt;
-        }
+        /* @runtime-fragment assets/request-completion-history.js */
 
         function hasRequestCompletionState(item) {
             const statusComplete = normalizeRequestStatus(firstNonEmptyValue(item && item.REQ_STATUS, item && item.req_status, item && item.STATUS, item && item.status, '')) === 'Complete';

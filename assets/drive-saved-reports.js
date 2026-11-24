@@ -10,6 +10,7 @@ function driveSavedReportChoices(state,evaluator,scope) {
 }
 
 function canUseDriveCustomReports(scope = getActiveEvalReportsAccess().scope) {
+    if (isBloomscapesDriveTour()) return false;
     return scope === 'all' || scope === 'legacy';
 }
 

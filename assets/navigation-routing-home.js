@@ -175,6 +175,7 @@ function resolveFooterNavigationSelection(buttons, currentView, access, personal
     let parent = null;
     for (const button of buttons) {
         const view = String(button.dataset.footerView || '').trim();
+        syncBloomscapesFooterCaption(button, view);
         const allowed = personal || canShowFooterViewButton(view, access);
         if (!personal) button.classList.toggle('hidden', !allowed);
         if (!allowed || button.classList.contains('hidden')) continue;

@@ -17,6 +17,7 @@ const GLOBAL_HEADER_SEARCH_CONFIG = {
 
 function getGlobalHeaderChromeState(backState = getGlobalBackState()) {
     const currentView = backState.currentView;
+    clearBloomscapesDriveModuleSearch(currentView);
     mountBloomscapesViewSearch(currentView);
     const baseMeta = AMAZON_HEADER_META[currentView] || { title: formatGlobalHeaderTitle(currentView) };
     const meta = currentView === 'moves' && activeMovesTab === 'office'
@@ -31,7 +32,8 @@ function getGlobalHeaderChromeState(backState = getGlobalBackState()) {
     const searchContainerId = po && !po.closest('[hidden],.hidden') ? getBloomscapesPoHeaderSearch(po) : currentView === 'tasks'
         ? (shouldShowTaskHeaderSearch() ? GLOBAL_HEADER_SEARCH_CONFIG.tasks : '')
         : GLOBAL_HEADER_SEARCH_CONFIG[currentView];
-    const searchContainer = searchContainerId ? document.getElementById(searchContainerId) : null;
+    const searchContainer = getBloomscapesDriveModuleSearch(currentView)
+        || (searchContainerId ? document.getElementById(searchContainerId) : null);
     if (searchContainer) ensureHeaderSearchPlaceholder(searchContainer);
     const searchVisible = !!(searchContainer && !searchContainer.classList.contains('hidden'));
     return {
@@ -39,7 +41,7 @@ function getGlobalHeaderChromeState(backState = getGlobalBackState()) {
         meta,
         resolvedTitle,
         showHomeBack,
-        searchContainerId,
+        searchContainerId: searchContainer?.id || searchContainerId,
         searchContainer,
         searchVisible,
         signature: [
@@ -49,7 +51,7 @@ function getGlobalHeaderChromeState(backState = getGlobalBackState()) {
             cartPanelOpen ? 'cart-open' : 'cart-closed',
             bloomShareMenuOpen ? 'share-open' : 'share-closed',
             bloomCropUpdateModalOpen ? 'crop-update-open' : 'crop-update-closed',
-            searchContainerId || 'no-search',
+            searchContainer?.id || 'no-search',
             searchVisible ? 'search-visible' : 'search-hidden',
             currentUserDisplay || currentUser || 'User',
             APP_VERSION

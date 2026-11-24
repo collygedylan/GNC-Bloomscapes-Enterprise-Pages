@@ -1,4 +1,3 @@
-
 let bloomTimeCardsState;
 
 function bloomTimeHtml(value) {
@@ -106,29 +105,6 @@ function bloomTimeRow(state,row) {
         +commands.join('')+'</div>'+bloomTimeEditForm(state,row)+'</article>';
 }
 
-function bloomTimeRender(state) {
-    const board=state.board;
-    const active=board?.rows.find(row=>row.username===board.username && row.allowed.includes('clock_out'));
-    state.host.innerHTML='<p class="timecard-status" role="status">'+bloomTimeHtml(state.notice)+'</p>'
-        +(board ? bloomTimeEntry(state,active)
-            +'<form class="timecard-panel timecard-controls" data-timecard-range><label>From<input type="date" name="from" required value="'
-            +bloomTimeHtml(state.from)+'"></label><label>Through<input type="date" name="to" required value="'
-            +bloomTimeHtml(state.to)+'"></label><button type="submit">Show Cards</button>'
-            +(board.can_export ? '<button type="button" data-timecard-export>Export CSV</button>' : '')+'</form>'
-            + bloomTimeRenderList(state) : '');
-    if (board) bloomTimeQuickSwitch(state);
-    bloomTimeBusy(state,state.busy);
-}
-
-function bloomTimeRenderList(state) {
-    const {board,page}=state;
-    const window=bloomscapesListWindow(board.rows,page);
-    const cards=window.rows.map(row=>bloomTimeRow(state,row)).join('') || '<p>No time cards for these dates.</p>';
-    const previous=page>0 ? '<button type="button" data-timecard-turn="-1">Previous</button>' : '';
-    const next=board.has_more || page+1<window.pages ? '<button type="button" data-timecard-turn="1">Next</button>' : '';
-    return '<div class="timecard-list">'+cards+'</div><nav aria-label="Time card pages">'+previous+next+'</nav>';
-}
-
 function bloomTimeBusy(state,busy) {
     state.host.setAttribute('aria-busy',String(busy));
     state.host.querySelectorAll('button').forEach(button=>{button.disabled=busy;});
@@ -198,25 +174,6 @@ async function bloomTimeRun(state,command) {
         state.busy=false;
         if (isBloomTimeCurrent(state)) bloomTimeBusy(state,false);
     }
-}
-
-function bloomTimeCsvCell(value) {
-    let text=String(value ?? '');
-    if (/^\s*[=+\-@]/.test(text)) text="'"+text;
-    return '"'+text.replaceAll('"','""')+'"';
-}
-
-async function bloomTimeExport(state) {
-    const rows=await readBloomTimeCardExport(state.farm,state.identity,{p_from:state.from,p_to:state.to});
-    if (!isBloomTimeCurrent(state)) return;
-    const columns=['farm_code','work_date','username','name','department','code','description','clock_in','clock_out','hours','notes','approved_at','approved_by'];
-    const csv=[columns.join(','),...rows.map(row=>columns.map(column=>bloomTimeCsvCell(row[column])).join(','))].join('\r\n');
-    const href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
-    const link=document.createElement('a');
-    link.href=href;
-    link.download='time-cards-'+state.farm+'-'+state.from+'-'+state.to+'.csv';
-    link.click();
-    requestAnimationFrame(()=>URL.revokeObjectURL(href));
 }
 
 function bloomTimeInputs(state,event) {
@@ -294,4 +251,58 @@ function renderBloomscapesTimeCards() {
         await bloomTimeLoad(state);
         if (isBloomTimeCurrent(state)) bloomTimeMessage(state,'');
     });
+}
+
+function bloomTimeRender(state) {
+    const board=state.board;
+    const active=board?.rows.find(row=>row.username===board.username && row.allowed.includes('clock_out'));
+    state.host.innerHTML='<input type="search" data-timecard-search aria-label="Search Time Cards" placeholder="Search Time Cards…" value="'
+        +bloomTimeHtml(state.search || '')+'"><p class="timecard-status" role="status">'+bloomTimeHtml(state.notice)+'</p>'
+        +(board ? bloomTimeEntry(state,active)
+            +'<form class="timecard-panel timecard-controls" data-timecard-range><label>From<input type="date" name="from" required value="'
+            +bloomTimeHtml(state.from)+'"></label><label>Through<input type="date" name="to" required value="'
+            +bloomTimeHtml(state.to)+'"></label><button type="submit">Show Cards</button>'
+            +(board.can_export ? '<button type="button" data-timecard-export>Export CSV</button>' : '')+'</form>'
+            + '<div data-timecard-results>'+bloomTimeRenderList(state)+'</div>' : '');
+    if (board) bloomTimeQuickSwitch(state);
+    bloomTimeBusy(state,state.busy);
+    const search = state.host.querySelector('[data-timecard-search]');
+    search.oninput = () => {
+        state.search = search.value;
+        state.page = 0;
+        state.host.querySelector('[data-timecard-results]')
+            ?.replaceChildren(document.createRange().createContextualFragment(bloomTimeRenderList(state)));
+    };
+    syncGlobalHeaderChrome({reason:'time-cards-search'});
+}
+
+function bloomTimeRenderList(state) {
+    const {page}=state;
+    const rows = state.board.rows.filter(row => matchesBloomscapesModuleSearch(state.search,
+        [row.username,row.display_name,row.code,row.description,row.department,row.clock_in,row.notes]));
+    const board = { ...state.board, rows };
+    const window=bloomscapesListWindow(board.rows,page);
+    const cards=window.rows.map(row=>bloomTimeRow(state,row)).join('') || '<p>No time cards for these dates.</p>';
+    const previous=page>0 ? '<button type="button" data-timecard-turn="-1">Previous</button>' : '';
+    const next=board.has_more || page+1<window.pages ? '<button type="button" data-timecard-turn="1">Next</button>' : '';
+    return '<div class="timecard-list">'+cards+'</div><nav aria-label="Time card pages">'+previous+next+'</nav>';
+}
+
+function bloomTimeCsvCell(value) {
+    let text=String(value ?? '');
+    if (/^\s*[=+\-@]/.test(text)) text="'"+text;
+    return '"'+text.replaceAll('"','""')+'"';
+}
+
+async function bloomTimeExport(state) {
+    const rows=await readBloomTimeCardExport(state.farm,state.identity,{p_from:state.from,p_to:state.to});
+    if (!isBloomTimeCurrent(state)) return;
+    const columns=['farm_code','work_date','username','name','department','code','description','clock_in','clock_out','hours','notes','approved_at','approved_by'];
+    const csv=[columns.join(','),...rows.map(row=>columns.map(column=>bloomTimeCsvCell(row[column])).join(','))].join('\r\n');
+    const href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+    const link=document.createElement('a');
+    link.href=href;
+    link.download='time-cards-'+state.farm+'-'+state.from+'-'+state.to+'.csv';
+    link.click();
+    requestAnimationFrame(()=>URL.revokeObjectURL(href));
 }

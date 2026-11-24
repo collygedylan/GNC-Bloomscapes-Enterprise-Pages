@@ -40,7 +40,10 @@ function getBloomscapesDocksFilterHost(root) {
 }
 
 function getVisibleInventoryExcelFields(scope) {
-    return getInventoryExcelFields(scope).filter(([field]) => scope !== 'av' || getAvPhotoMode() !== 'valid_photos' || field !== 'season');
+    return getInventoryExcelFields(scope).filter(([field]) => {
+        if (scope === 'drive' && isBloomscapesDriveTour()) return field === 'contsize';
+        return scope !== 'av' || getAvPhotoMode() !== 'valid_photos' || field !== 'season';
+    });
 }
 
 function commitActiveRequestExcelFilters(scope) {
@@ -59,7 +62,7 @@ function mountInventoryExcelFilters(scope) {
     if(bar && bar.dataset.inventoryExcelScope!==scope) {bar.remove();bar=null;}
     if(!bar) {bar=document.createElement('section');bar.className='inventory-excel-bar';bar.dataset.inventoryExcelScope=scope;host.appendChild(bar);}
     if(bar.contains(document.activeElement) && bar.querySelector('[data-excel-search]')) return;
-    const state=getInventoryExcelState(scope), signature=JSON.stringify([state.revision,state.rows.length,scope === 'av' && getAvPhotoMode(),getInventoryExcelFields(scope).map(([k])=>[k,state.filters[k]?[...state.filters[k]]:null])]);
+    const state=getInventoryExcelState(scope), signature=JSON.stringify([state.revision,state.rows.length,scope === 'av' && getAvPhotoMode(),getVisibleInventoryExcelFields(scope).map(([k])=>[k,state.filters[k]?[...state.filters[k]]:null])]);
     bar.hidden=false;
     if(bar.dataset.signature===signature) {
         if (scope === 'docks') mountDocksPrimaryFilters(host.closest('#view-docks'),bar);
@@ -71,6 +74,23 @@ function mountInventoryExcelFilters(scope) {
     if (scope === 'docks') mountDocksPrimaryFilters(host.closest('#view-docks'),bar);
 }
 
+function moveDriveAdvancedToolbarFields(rail) {
+    const retained=document.getElementById('drive-advanced-filters');
+    for (const id of ['drive-excel-salesyear-btn','drive-excel-season-btn','drive-excel-lotcode-btn','drive-filters-btn']) {
+        const control=document.getElementById(id);
+        if (control && retained && rail.contains(control)) retained.appendChild(control);
+    }
+}
+
+function restoreDriveAdvancedToolbar(rail) {
+    // Recover controls from older mobile disclosure markup before removing its wrapper.
+    for (const id of ['drive-advanced-filters', 'drive-drill-tabs']) {
+        const control = document.getElementById(id);
+        if (control && rail.contains(control)) rail.after(control);
+    }
+    rail.querySelectorAll(':scope > .mobile-browse-filters,#drive-excel-header-filters').forEach(node => node.remove());
+}
+
 function ensureDriveToolbarControls() {
     const rail = document.getElementById('drive-toolbar-rail');
     if (!rail) return false;
@@ -78,17 +98,14 @@ function ensureDriveToolbarControls() {
     rail.hidden = false;
     const mode = document.getElementById('drive-mobile-mode');
     if (mode && mode.parentElement !== rail) rail.prepend(mode);
+    syncBloomscapesDriveTourToolbar(rail, mode);
 
-    const retained=document.getElementById('drive-advanced-filters');
-    for (const id of ['drive-excel-salesyear-btn','drive-excel-season-btn','drive-excel-lotcode-btn','drive-filters-btn']) {
-        const control=document.getElementById(id);
-        if (control && retained && rail.contains(control)) retained.appendChild(control);
-    }
+    moveDriveAdvancedToolbarFields(rail);
 
     const state = getInventoryExcelState('drive');
     let next = rail.querySelector('[data-inventory-excel-scope="drive"]');
     if (next) next.hidden = false;
-    for (const [key, label] of getDriveExcelHeaderFields().filter(([key])=>['contsize','holdstopcode'].includes(key)).reverse()) {
+    for (const [key, label] of getDriveExcelHeaderFields().filter(([key])=>key==='contsize' || key==='holdstopcode' && !isBloomscapesDriveTour()).reverse()) {
         let button = document.getElementById('drive-excel-' + key + '-btn')
             || rail.querySelector('[data-drive-excel-field="' + key + '"]');
         if (!button) {
@@ -117,12 +134,7 @@ function ensureDriveToolbarControls() {
     }
     if (mode && mode.nextElementSibling !== next) rail.insertBefore(mode, next);
 
-    // Recover controls from older mobile disclosure markup before removing its wrapper.
-    for (const id of ['drive-advanced-filters', 'drive-drill-tabs']) {
-        const control = document.getElementById(id);
-        if (control && rail.contains(control)) rail.after(control);
-    }
-    rail.querySelectorAll(':scope > .mobile-browse-filters,#drive-excel-header-filters').forEach(node => node.remove());
+    restoreDriveAdvancedToolbar(rail);
     placeBloomscapesFarmFilter(document.getElementById('bloomscapes-farm-selector')?.parentElement, 'drive');
     return true;
 }

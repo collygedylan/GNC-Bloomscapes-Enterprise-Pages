@@ -151,8 +151,9 @@ function renderDriveReport2Browse(container, crumb, driveModeLabel) {
 }
 
 function renderDrive({useVerifiedSnapshot = false,keepToolbar = false} = {}) {
+    if (isBloomscapesDriveTour()) activeDriveTab = normalizeBloomscapesDriveTourTab(activeDriveTab);
+    else if (activeDriveTab === 'season-sales-notes') activeDriveTab = 'card';
     if (!keepToolbar) ensureDriveToolbarControls();
-    if (activeDriveTab === 'season-sales-notes') activeDriveTab = 'card';
     syncDriveModeTabs();
     syncDriveTabPills();
     const container = document.getElementById('drive-content');

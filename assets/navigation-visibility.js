@@ -3,8 +3,7 @@ function bloomscapesStrictRoleRoute(view, profile, preview) {
     const evaluator = role === 'eval' || role === 'evaluator';
     if (role === 'rep' || role === 'sales_rep') {
         if (['home','detail','messages','push-to-talk','communication','av','bloom','historical-requests','request-history'].includes(view)) return null;
-        if (view === 'docks') return bloomscapesAreaGrant(profile.area_access?.['dock-credit-vault']);
-        return false;
+        return bloomscapesSalesRepRoute(view,profile,preview);
     }
     if (evaluator && ['av','reports','manager-eval-reports','eval-reports-2'].includes(view)) return false;
     if (evaluator && ['request','queue-pending','queue-suspend'].includes(view)) {

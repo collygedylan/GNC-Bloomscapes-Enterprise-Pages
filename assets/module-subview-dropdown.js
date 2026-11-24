@@ -239,13 +239,6 @@ function mountFieldWorkConsolidationSubview(frame) {
     }});
 }
 
-function mountHistoricalArchiveSubview(root) {
-    mountModuleButtonSubview(root?.querySelector('.historical-archive__tabs'), 'button',
-        button => button.textContent.trim(), buttons => buttons.find(button => button.getAttribute('aria-pressed') === 'true')?.textContent.trim());
-}
-
-globalThis.GncHistoricalArchiveSubview = mountHistoricalArchiveSubview;
-
 function syncManagerModuleSubview(container, {access, managerApprovalTabs, managerToolTabs}) {
     const host = document.getElementById('manager-subview-rail');
     if (!host || !container.parentElement.contains(host)) return;
