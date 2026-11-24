@@ -26,7 +26,8 @@ function selectBloomscapesStudioEntry(key,phase) {
 
 function renderBloomscapesWorkStudio() {
     if (!canUseBloomscapesWorkStudio()) return '';
-    return '<section data-bloomscapes-studio><h2>Field Work Studio</h2><nav data-studio-modules aria-label="Work types">'
+    return '<section data-bloomscapes-studio><nav data-studio-modules aria-label="Work types">'
+        +'<input type="search" data-studio-menu-search placeholder="Search work types…" aria-label="Search work types">'
         +BLOOMSCAPES_STUDIO_PHASES.map(([key,label,kind,,description])=>'<button type="button" data-open-module="'+key+'" data-work-type="'+(kind==='HAULING'?'CONSOLIDATE_INVENTORY':kind)+'"><strong>'+esc(label)+'</strong>'
             +(description ? '<span>'+esc(description)+'</span>' : '')+'</button>').join('')
         +'</nav><div data-studio-module></div></section>';
@@ -40,6 +41,13 @@ function mountBloomscapesWorkStudio(host) {
         const key=event.target.closest('[data-open-module]')?.dataset.openModule;
         if (key) void openBloomscapesStudioModule(menu,panel,key).catch(error=>studioFailure(panel,error));
     });
+    const search = menu.querySelector('[data-studio-menu-search]');
+    search.oninput = () => {
+        for (const control of menu.querySelectorAll('[data-open-module]')) {
+            control.hidden = !matchesBloomscapesModuleSearch(search.value,[control.textContent]);
+        }
+    };
+    syncGlobalHeaderChrome({reason:'studio-module-search',force:true});
     const entry=bloomscapesStudioEntry;
     bloomscapesStudioEntry='';
     if (entry) menu.querySelector('[data-open-module="'+entry+'"]')?.click();
@@ -66,6 +74,7 @@ async function openBloomscapesStudioModule(menu,panel,key) {
     };
     mountBloomscapesWorkBrowser(browser,enter,{locationDrill:true,studioScopes:true,onPathChange:()=>work.replaceChildren()});
     mountInventoryExcelFilters('studio');
+    syncGlobalHeaderChrome({reason:'studio-work-search',force:true});
     if (!bloomscapesWorkBrowserRows().length) {
         await selectBloomscapesFarm(farm);
         if (body.isConnected && owner===getSupabaseReadIdentityScope() && farm===getBloomscapesFarm()) refreshBloomscapesWorkBrowser(browser);

@@ -133,6 +133,7 @@ function mountSalesStudioLots(host,key) {
         renderBloomscapesScrollCards(list,rows,row=>buildBloomscapesSalesInventoryCard(row,key),{empty:'No matching evaluated lots.'});
     };
     search.addEventListener('input',render);render();
+    syncGlobalHeaderChrome({reason:'sales-studio-search',force:true});
 }
 
 function mountSalesRepRecords(host) {

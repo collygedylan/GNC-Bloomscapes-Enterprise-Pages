@@ -18,6 +18,8 @@ function syncBloomscapesDriveTourToolbar(rail, mode) {
     const original = driveTourOptions.get(mode);
     if (active && !original) {
         driveTourOptions.set(mode, [...mode.options]);
+        activeDriveTab = 'name';
+        resetDriveDrillSelectionState();
         mode.replaceChildren(...[...driveTourModes].map(([value, label]) => new Option(label, value)));
     } else if (!active && original) {
         mode.replaceChildren(...original);
@@ -27,18 +29,25 @@ function syncBloomscapesDriveTourToolbar(rail, mode) {
     else if (original) mode.value = activeDriveTab;
 }
 
+function syncBloomscapesDriveTourView() {
+    const rail = document.getElementById('drive-toolbar-rail');
+    if (rail) syncBloomscapesDriveTourToolbar(rail,document.getElementById('drive-mobile-mode'));
+}
+
 const moduleSearchSelectors = {
     reports: '[data-report-query], input[aria-label="Search report inventory"]',
-    managers: '[data-report-query], [data-directory-query], [data-manager-table-search]',
+    managers: '[data-report-query], [data-directory-query], [data-nursery-search], #transactions-keyed-search',
     'inv-consolidation': '#inv-consolidation-search',
-    'field-work-studio': '[data-work-search]',
-    production: '[data-work-search]',
+    'field-work-studio': '[data-work-search], [data-studio-menu-search]',
+    production: '[data-work-search], [data-studio-menu-search]',
     'borrowed-work': '[data-loan-search]',
     'time-cards': '[data-timecard-search]',
     timecards: '[data-timecard-search]',
     'historical-requests': '.historical-archive__search input',
     'request-history': '.historical-archive__search input',
     tasks: '[data-flyer-archive-search]',
+    sales: '[data-sales-content] input[type="search"]',
+    'sales-office': '[data-sales-content] input[type="search"]',
     messages: '[data-message-search], [data-comm-search]',
     docks: '[data-docks-search]',
     communication: '[data-comm-search]'

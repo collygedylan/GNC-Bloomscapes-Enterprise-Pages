@@ -17,6 +17,7 @@ const GLOBAL_HEADER_SEARCH_CONFIG = {
 
 function getGlobalHeaderChromeState(backState = getGlobalBackState()) {
     const currentView = backState.currentView;
+    if (currentView === 'drive') syncBloomscapesDriveTourView();
     clearBloomscapesDriveModuleSearch(currentView);
     mountBloomscapesViewSearch(currentView);
     const baseMeta = AMAZON_HEADER_META[currentView] || { title: formatGlobalHeaderTitle(currentView) };

@@ -8,7 +8,8 @@ function legacyReportBrowseControls(container) {
     const state = legacyReportBrowse;
     const host = document.getElementById('legacy-reports-controls');
     let browse = host.querySelector('[data-legacy-report-browse]');
-    if (!browse) {
+    const created = !browse;
+    if (created) {
         browse = host.appendChild(document.createElement('div'));
         browse.dataset.legacyReportBrowse = '';
         browse.innerHTML = evalReportBrowseMarkup()+'<input type="search" class="input-field" aria-label="Search report inventory">';
@@ -19,6 +20,7 @@ function legacyReportBrowseControls(container) {
     search.oninput = () => updateLegacyReportQuery(state,search.value);
     container.onclick = event=>bindEvalReportBrowseClick(event,state,renderReports);
     syncEvalReportBrowseControls(browse,state);
+    if (created) syncGlobalHeaderChrome({reason:'reports-search',force:true});
     return state;
 }
 
@@ -48,10 +50,11 @@ function paintLegacyReportBrowse(container,crumb,state,reportRenderKey) {
 
 function renderReports() {
     if (renderEvalRoleReports()) return;
-    if (ensureViewDataForRender('reports')) return;
     const container = document.getElementById('reports-content');
     const crumb = document.getElementById('reports-crumb');
     if (!container) return;
+    const browse = legacyReportBrowseControls(container);
+    if (ensureViewDataForRender('reports')) return;
     const reportRenderKey = [
         resolvedViewStateEpoch,
         activeReportTab,
@@ -73,7 +76,6 @@ function renderReports() {
         getDatasetLoadSignature('reserves'),
         getDatasetLoadSignature('soc')
     ].join('|');
-    const browse = legacyReportBrowseControls(container);
     if (browse.mode) {
         paintLegacyReportBrowse(container,crumb,browse,reportRenderKey);
         return;

@@ -1,7 +1,7 @@
 function canUseHistoricalRequests(profile = nativeAuthProfile) {
     const username = String(profile?.username || '');
-    const role = String(profile?.role || '').trim().toUpperCase();
-    if (role.replace(/[^A-Z0-9]/g, '').startsWith('EVAL')) return false;
+    const role = String(profile?.role || '').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
+    if (role.startsWith('EVAL')) return false;
     const locked = profile?.locked_until ? Date.parse(profile.locked_until) : 0;
     return !!(nativeAuthSessionActive && profile?.id && username === String(currentUser || '')
         && !profile.disabled_at && profile.must_change_password === false
@@ -12,7 +12,7 @@ function canUseHistoricalRequests(profile = nativeAuthProfile) {
 
 function getHistoricalRequestsOwnerKey(profile = nativeAuthProfile) {
     return JSON.stringify([profile?.id, profile?.username, profile?.role, profile?.disabled_at,
-        profile?.locked_until, profile?.must_change_password, currentUser, getBloomscapesFarm(),
+        profile?.locked_until, profile?.must_change_password, currentUser, getBloomscapesFarm(), borrowedHelpPreview()?.id,
         typeof getCurrentVisibleViewId === 'function' ? getCurrentVisibleViewId() : 'historical-requests']);
 }
 

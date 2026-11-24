@@ -145,7 +145,13 @@ function initializeSuperAdminPicker(host) {
 }
 
 function openSuperAdminPicker(host,state) {
-    if (!state || state.owner !== borrowedHelpIdentity()) return;
+    if (!isSuperAdminLensOwner()) return;
+    if (state?.owner !== borrowedHelpIdentity()) {
+        mountSuperAdminViewAs();
+        state = superAdminLens;
+        if (currentSuperAdminLens(state)) state.open = false;
+    }
+    if (!currentSuperAdminLens(state)) return;
     if (state.open) return closeSuperAdminPicker(host);
     state.open = true;
     state.query = '';
