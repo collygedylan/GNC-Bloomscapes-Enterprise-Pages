@@ -22,6 +22,7 @@ function nurseryTable_commitBunchMarkup(context, top,body,level){
         context.state.bodySignature=body;scroll.scrollTop=scrollTop;
       }
       shell.querySelector('[data-nursery-status]').textContent=context.state.error||'';
+      observeNurseryTableContinuation(context);
     }
 
 function nurseryTable_drawBunchDrill(context, data){
@@ -53,9 +54,25 @@ function nurseryTable_draw(context){
       context.state.page=Math.min(context.state.page,Math.max(0,Math.ceil(rows.length/100)-1));
       const kpis=context.state.view==='bunch-notes-simulator'?Object.entries({'Selected Block Total Beds':data.kpis['Selected Location Total Beds'],'Occupied Beds (Live WH 10)':data.kpis['Occupied Beds'],'Reserved Beds (Next Planting WH 10)':data.kpis['Reserved Planting Beds'],'Unreserved Open Beds':data.kpis['Unreserved Open Beds'],'Block Utilization %':((data.kpis['Occupied Beds']+data.kpis['Reserved Planting Beds'])/(data.kpis['Selected Location Total Beds']||1)*100).toFixed(1)+'%','Block Row Count':data.groups.filter(row=>row.location===context.state.location).reduce((sum,row)=>sum+row.rowCount,0),'Shade / Orientation':data.kpis['Shade / Orientation']}):Object.entries(data.kpis);
       const filters = nurseryTable_filterControls(context, data, headers, isPlan);
-      context.root.innerHTML=`<section class="nursery-shell"><header><button data-nursery-back>All tables</button><h2>${context.escape(view.label)}</h2><select aria-label="Nursery view" data-nursery-filter="view">${context.model.TABLES.map(t=>`<option value="${t.id}" ${t.id===context.state.view?'selected':''}>${context.escape(t.label)}</option>`).join('')}</select><p>Live Park Hill inventory · Planning changes do not move inventory. Water references are imported workbook claims.</p></header><div class="nursery-toolbar">${context.state.view==='bunch-notes-simulator'?`<nav class="bunch-subviews" aria-label="Bunch Note workspace"><button data-bunch-subview="table" aria-pressed="${context.state.subview==='table'}">📋 Simulator Table (${context.state.currentIssues.length})</button><button data-bunch-subview="issues" aria-pressed="${context.state.subview==='issues'}">⚠️ Issues (${context.state.currentIssues.filter(p=>!p.approved&&p.bunchNoteIssues.length).length})</button><button data-bunch-subview="rules" aria-pressed="${context.state.subview==='rules'}">📏 Bunch Note Rules (13 Rules)</button></nav>`:''}${filters}<label>Search <input type="search" data-nursery-search value="${context.escape(context.state.q)}"></label><button data-nursery-refresh>Refresh reference data</button></div>${isPlan&&(context.state.view!=='bunch-notes-simulator'||context.state.subview==='table')?`<div class="nursery-kpis">${kpis.map(([name,v])=>`<div><span>${context.escape(name)}</span><strong>${context.escape(v)}</strong></div>`).join('')}</div>`:''}<p role="status" data-nursery-status>${context.escape(context.state.error|| (context.state.pending.size?'Saving '+context.state.pending.size+' change(s)…':context.state.loading?'Loading reference data…':'Changes saved'))}</p>${context.state.view==='bunch-notes-simulator'&&context.state.subview!=='table'?context.bunchPanel(rows):`<div class="nursery-scroll"><table><thead><tr>${headers.map(h=>`<th>${context.escape(h)}</th>`).join('')}</tr></thead><tbody>${rows.slice(context.state.page*100,context.state.page*100+100).map((row,i)=>`<tr>${render(row,i).map(v=>`<td>${v}</td>`).join('')}</tr>`).join('')||`<tr><td colspan="${headers.length}">${context.state.loading?'Loading…':'No matching rows.'}</td></tr>`}</tbody></table></div>`}<footer><button data-nursery-page="-1" ${context.state.page===0?'disabled':''}>Previous</button><span>${rows.length.toLocaleString()} rows · Page ${context.state.page+1}</span><button data-nursery-page="1" ${(context.state.page+1)*100>=rows.length?'disabled':''}>Next</button></footer></section>`;
+      context.root.innerHTML=`<section class="nursery-shell"><header><button data-nursery-back>All tables</button><h2>${context.escape(view.label)}</h2><select aria-label="Nursery view" data-nursery-filter="view">${context.model.TABLES.map(t=>`<option value="${t.id}" ${t.id===context.state.view?'selected':''}>${context.escape(t.label)}</option>`).join('')}</select><p>Live Park Hill inventory · Planning changes do not move inventory. Water references are imported workbook claims.</p></header><div class="nursery-toolbar">${context.state.view==='bunch-notes-simulator'?`<nav class="bunch-subviews" aria-label="Bunch Note workspace"><button data-bunch-subview="table" aria-pressed="${context.state.subview==='table'}">📋 Simulator Table (${context.state.currentIssues.length})</button><button data-bunch-subview="issues" aria-pressed="${context.state.subview==='issues'}">⚠️ Issues (${context.state.currentIssues.filter(p=>!p.approved&&p.bunchNoteIssues.length).length})</button><button data-bunch-subview="rules" aria-pressed="${context.state.subview==='rules'}">📏 Bunch Note Rules (13 Rules)</button></nav>`:''}${filters}<label>Search <input type="search" data-nursery-search value="${context.escape(context.state.q)}"></label><button data-nursery-refresh>Refresh reference data</button></div>${isPlan&&(context.state.view!=='bunch-notes-simulator'||context.state.subview==='table')?`<div class="nursery-kpis">${kpis.map(([name,v])=>`<div><span>${context.escape(name)}</span><strong>${context.escape(v)}</strong></div>`).join('')}</div>`:''}<p role="status" data-nursery-status>${context.escape(context.state.error|| (context.state.pending.size?'Saving '+context.state.pending.size+' change(s)…':context.state.loading?'Loading reference data…':'Changes saved'))}</p>${context.state.view==='bunch-notes-simulator'&&context.state.subview!=='table'?context.bunchPanel(rows):`<div class="nursery-scroll"><table><thead><tr>${headers.map(h=>`<th>${context.escape(h)}</th>`).join('')}</tr></thead><tbody>${rows.slice(0,(context.state.page+1)*100).map((row,i)=>`<tr>${render(row,i).map(v=>`<td>${v}</td>`).join('')}</tr>`).join('')||`<tr><td colspan="${headers.length}">${context.state.loading?'Loading…':'No matching rows.'}</td></tr>`}</tbody></table></div>`}<footer><span>${rows.length.toLocaleString()} rows</span>${nurseryTableContinuation(context.state.page,rows.length)}</footer></section>`;
       context.state.currentPlans=data.plans;
+      observeNurseryTableContinuation(context);
     }
+
+function nurseryTableContinuation(page,count) {
+    return (page+1)*100 < count ? '<div data-nursery-table-edge aria-hidden="true"></div>' : '';
+}
+
+function observeNurseryTableContinuation(context) {
+    const edge = context.root.querySelector('[data-nursery-table-edge]');
+    if (!edge || typeof IntersectionObserver !== 'function' || edge.dataset.observed) return;
+    edge.dataset.observed = 'true';
+    observeBloomscapesPageEdge(edge,() => {
+        if (context.state.destroyed) return;
+        context.state.page++;
+        context.draw();
+    });
+}
 
 function nurseryTable_tableProjection(context, view, data) {
     let rows, headers, render;
@@ -78,10 +95,8 @@ function nurseryTable_drillProjection(context, all, q, level, planting, plans, r
         const saved=all.filter(row=>row.approved && !row.saved?._optimistic);
         publishNurseryIssueExcelSnapshot(context,saved);
         const page=Math.min(context.state.page,Math.max(0,Math.ceil(saved.length/100)-1));
-        const cards=saved.slice(page*100,page*100+100).map(context.issueCard).join('');
-        const previous=page>0 ? '<button type="button" data-nursery-page="-1">Previous</button>' : '';
-        const next=(page+1)*100<saved.length ? '<button type="button" data-nursery-page="1">Next</button>' : '';
-        return {body:cards || '<p>No saved bunch notes.</p>',actions:previous+next};
+        const cards=saved.slice(0,(page+1)*100).map(context.issueCard).join('');
+        return {body:(cards || '<p>No saved bunch notes.</p>')+nurseryTableContinuation(page,saved.length),actions};
     }
     if (['issues','rules'].includes(context.state.subview)) {
 body=context.bunchPanel(all)

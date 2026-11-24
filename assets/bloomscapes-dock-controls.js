@@ -50,7 +50,9 @@ async function runBloomscapesDockCandidate(section,input,refresh) {
 
 function mountDockStatusChoices(select) {
     if (!select || select.options.length > 1) return;
-    for (const [value,label] of [['Missing > 10','Missing more than 10'],['Missing < 5','Missing less than 5'],['Palletize','Palletize']]) {
+    const dispatch = ['Live Driver','Driver Waiting','Loading Now','Drop Trailer','Ready','Stage','Hold Trailer','Hold','Do Not Pull'];
+    const statuses = [['Missing > 10','Missing more than 10'],['Missing < 5','Missing less than 5'],['Palletize','Palletize']];
+    for (const [value,label] of [...statuses,...dispatch.map(value => [value,value])]) {
         select.add(new Option(label,value));
     }
 }

@@ -236,10 +236,14 @@ function renderBloomscapesDockPage(key,container,crumb,rows,label,render,options
     const search = document.getElementById('docks-search').value.trim().toLowerCase();
     const page = getClientBrowsePage('docks',dockBrowsePageKey(key,label,search),rows,dockBrowsePageLimit(key));
     const pager = renderClientBrowsePageFooter('docks',page.key,rows.length,page);
-    const prefixHtml = (options.prefixHtml || '')+pager;
+    const prefixHtml = options.prefixHtml || '';
     const renderSignature = (options.renderSignature || buildRowsRenderSignature(key,rows,['stop']))+':'+page.pageIndex;
     const firstGroups = key !== 'docks-stop-items' && getContainerUiState(container) === 'empty';
     return renderMarkupChunkedByKey(key,container,crumb,page.rows,label,render,{
-        ...options,prefixHtml,renderSignature,_backgroundStage:firstGroups
+        ...options,prefixHtml,renderSignature,_backgroundStage:firstGroups,
+        onComplete:()=> {
+            options.onComplete?.();
+            if (pager) container.insertAdjacentHTML('beforeend',pager);
+        }
     });
 }

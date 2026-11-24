@@ -126,20 +126,10 @@ async function bloomTimeLoad(state,append=false) {
     const changed=JSON.stringify(state.board)!==JSON.stringify({...response,rows});
     state.board={...response,rows};
     state.readyAt=Date.now();
-    state.page=append ? state.page+1 : Math.min(state.page,Math.max(0,Math.ceil(rows.length/BLOOMSCAPES_LIST_PAGE_SIZE)-1));
     if (!state.context) state.context=bloomTimeContextKey(state.board.contexts[0] || {});
     if (changed || append) bloomTimeRender(state);
 }
 
-function bloomTimeTurnPage(state,direction) {
-    const page=state.page+direction;
-    const end=(page+1)*BLOOMSCAPES_LIST_PAGE_SIZE;
-    if (direction>0 && end>state.board.rows.length && state.board.has_more) {
-        return bloomTimeRun(state,()=>bloomTimeLoad(state,true));
-    }
-    state.page=page;
-    return bloomTimeRender(state);
-}
 
 function bloomTimeCardInput(state,jobId=state.jobCodeId) {
     const context=bloomTimeContext(state);
@@ -196,7 +186,7 @@ function bloomTimeSubmit(state,event) {
     const active=state.board?.rows.find(row=>row.username===state.board.username && row.allowed.includes('clock_out'));
     try {
         if (form.matches('[data-timecard-range]')) {
-            Object.assign(state,{from:values.from,to:values.to,page:0});
+            Object.assign(state,{from:values.from,to:values.to});
             return bloomTimeRun(state,()=>bloomTimeLoad(state));
         }
         if (form.matches('[data-timecard-hours]')) return bloomTimeSave(state,'log_hours',{...bloomTimeCardInput(state),...values});
@@ -215,7 +205,6 @@ function bloomTimeClick(state,event) {
     const action=button.dataset.timecardAction;
     const row=state.board?.rows.find(card=>card.id===button.dataset.cardId);
     if (button.hasAttribute('data-timecard-export')) return bloomTimeRun(state,()=>bloomTimeExport(state));
-    if (button.dataset.timecardTurn) return bloomTimeTurnPage(state,Number(button.dataset.timecardTurn));
     if (button.hasAttribute('data-timecard-cancel') || (action==='edit' && row)) {
         state.editId=action==='edit' ? row.id : null;
         return bloomTimeRender(state);
@@ -237,7 +226,7 @@ function renderBloomscapesTimeCards() {
     }
     const scope=bloomTimeCurrentScope();
     if (bloomTimeCardsState?.host!==host || bloomTimeCardsState.farm!==scope.farm || bloomTimeCardsState.identity!==scope.identity) {
-        bloomTimeCardsState={...scope,host,from:bloomTimeDate(-13),to:bloomTimeDate(),page:0,generation:0,busy:false,notice:'Loading Time Cards…'};
+        bloomTimeCardsState={...scope,host,from:bloomTimeDate(-13),to:bloomTimeDate(),generation:0,busy:false,notice:'Loading Time Cards…'};
     }
     const state=bloomTimeCardsState;
     host.oninput=event=>bloomTimeInputs(state,event);
@@ -263,29 +252,38 @@ function bloomTimeRender(state) {
             +bloomTimeHtml(state.from)+'"></label><label>Through<input type="date" name="to" required value="'
             +bloomTimeHtml(state.to)+'"></label><button type="submit">Show Cards</button>'
             +(board.can_export ? '<button type="button" data-timecard-export>Export CSV</button>' : '')+'</form>'
-            + '<div data-timecard-results>'+bloomTimeRenderList(state)+'</div>' : '');
+            + '<div data-timecard-results></div>' : '');
     if (board) bloomTimeQuickSwitch(state);
     bloomTimeBusy(state,state.busy);
     const search = state.host.querySelector('[data-timecard-search]');
     search.oninput = () => {
         state.search = search.value;
-        state.page = 0;
-        state.host.querySelector('[data-timecard-results]')
-            ?.replaceChildren(document.createRange().createContextualFragment(bloomTimeRenderList(state)));
+        bloomTimeRenderList(state);
     };
+    if (board) bloomTimeRenderList(state);
     syncGlobalHeaderChrome({reason:'time-cards-search'});
 }
 
 function bloomTimeRenderList(state) {
-    const {page}=state;
-    const rows = state.board.rows.filter(row => matchesBloomscapesModuleSearch(state.search,
-        [row.username,row.display_name,row.code,row.description,row.department,row.clock_in,row.notes]));
-    const board = { ...state.board, rows };
-    const window=bloomscapesListWindow(board.rows,page);
-    const cards=window.rows.map(row=>bloomTimeRow(state,row)).join('') || '<p>No time cards for these dates.</p>';
-    const previous=page>0 ? '<button type="button" data-timecard-turn="-1">Previous</button>' : '';
-    const next=board.has_more || page+1<window.pages ? '<button type="button" data-timecard-turn="1">Next</button>' : '';
-    return '<div class="timecard-list">'+cards+'</div><nav aria-label="Time card pages">'+previous+next+'</nav>';
+    const rows = state.board?.rows.filter(row => matchesBloomscapesModuleSearch(state.search,
+        [row.username,row.display_name,row.code,row.description,row.department,row.clock_in,row.notes])) || [];
+    const list = state.host.querySelector('[data-timecard-results]');
+    if (!list) return;
+    renderBloomscapesScrollCards(list,rows,row => bloomscapesListNode(bloomTimeRow(state,row)),
+        {empty:'No time cards for these dates.',size:20,estimate:126});
+    if (!state.board?.has_more) return;
+    observeTimeCardContinuation(list,state);
+}
+
+function observeTimeCardContinuation(list,state) {
+    if (typeof IntersectionObserver !== 'function') return;
+    const edge = list.appendChild(document.createElement('div'));
+    edge.style.minHeight = '1px';
+    observeBloomscapesPageEdge(edge,() => loadMoreTimeCards(state));
+}
+
+function loadMoreTimeCards(state) {
+    if (isBloomTimeCurrent(state)) void bloomTimeRun(state,() => bloomTimeLoad(state,true));
 }
 
 function bloomTimeCsvCell(value) {

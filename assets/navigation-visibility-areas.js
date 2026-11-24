@@ -132,6 +132,7 @@ function resolveBloomscapesAreaNavigation(view) {
     const preview = typeof borrowedHelpPreview === 'function' && borrowedHelpPreview();
     const restricted = bloomscapesRestrictedViewGrant(view, preview);
     if (restricted !== null) return restricted;
+    if (view === 'request' && typeof canOpenOrderPullQueue === 'function' && canOpenOrderPullQueue()) return true;
     if (view === 'reports' && !preview) {
         const {scope} = getActiveEvalReportsAccess();
         if (scope !== 'legacy') return scope === 'all';

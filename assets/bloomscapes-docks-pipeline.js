@@ -122,7 +122,8 @@ function loadDockPipelinePage(state,query,key,page) {
     state.pages.delete(key);
     if (state.pages.size >= DOCK_PIPELINE_PAGE_LIMIT) state.pages.delete(state.pages.keys().next().value);
     state.pages.set(key,entry);
-    void requestDockPipeline(state.farm,'list',query).then(receipt=>{
+    void readDockPipelineList(state.farm,query,()=>pipelineIsCurrent(state) && state.queryKey === key).then(receipt=>{
+        if (state.queryKey !== key || !pipelineIsCurrent(state)) return;
         entry.page = receipt;
         entry.expiresAt = Date.now() + DOCK_PIPELINE_PAGE_TTL_MS;
     }).catch(error=>{
@@ -151,12 +152,8 @@ function handleDockPipelineClick(event) {
     const button = event.target.closest('button');
     const state = currentDockPipelineState();
     if (!button || !state.view || state.read || state.writing) return;
-    const {dockPipelineGroup:group,dockPipelinePage:page,dockPipelineAction:action,orderId:id} = button.dataset;
+    const {dockPipelineGroup:group,dockPipelineAction:action,orderId:id} = button.dataset;
     if (group !== undefined) return openDockPipelineGroup(state,state.page?.groups[Number(group)]);
-    if (page) {
-        state.offset = Math.max(0,state.offset + Number(page));
-        return scheduleDocksRender(0);
-    }
     if (action && id && !state.preview) void commitDockPipelineAction(state,action,id);
 }
 

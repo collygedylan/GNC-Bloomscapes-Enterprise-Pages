@@ -58,8 +58,8 @@ function renderConsolidationToolbar(key,editable) {
         <label>CPB Source ${consolidationGridSelect('name="source"','',[
             ['','All'],['SCHEDULE','Schedule'],['CONTSIZE_DEFAULT','Container Size Default'],['MANUAL','Manual']
         ])}</label>` : '';
-    return `<form data-consolidation-filters><label>Search
-        <input type="search" name="query" maxlength="120" placeholder="${items ? 'Item code or common name' : 'Location or block'}"></label>
+    return `<form data-consolidation-filters><label>
+        <input aria-label="Search lookup records" type="search" name="query" data-consolidation-query maxlength="120" placeholder="${items ? 'Item code or common name' : 'Location or block'}"></label>
         ${filters}<button type="submit">Search</button>
         ${editable ? `<button type="button" data-consolidation-add>${items ? '+ Add Item CPB' : '+ Add Location'}</button>` : ''}
         </form>`;
@@ -73,8 +73,7 @@ function renderConsolidationGrid(key,editable) {
         ${renderConsolidationToolbar(key,editable)}
         <div class="consolidation-grid-scroll" tabindex="0" aria-label="Lookup rows"><table>
         <thead><tr>${headings}${actions}</tr></thead><tbody></tbody></table></div>
-        <footer><button type="button" data-consolidation-page="-1" disabled>Previous</button>
-        <p role="status"></p><button type="button" data-consolidation-page="1" disabled>Next</button></footer>
+        <footer><p role="status"></p></footer>
         <dialog aria-label="Add lookup row"></dialog></section>`;
 }
 

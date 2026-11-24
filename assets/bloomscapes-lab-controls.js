@@ -18,39 +18,58 @@ function mountBloomscapesLabControls(host,tab) {
 function mountBloomscapesLabArchive(section) {
     const archive = document.createElement('section');
     archive.innerHTML = '<h3>Lab report archive</h3><form><label>Genus, report or result <input name="query" maxlength="200"></label>'
-        + '<button>Search archive</button></form><p role="status"></p><ul></ul><button type="button" data-next hidden>Next 50</button>';
+        + '<button>Search archive</button></form><p role="status"></p><ul></ul><div data-lab-archive-edge></div>';
     section.appendChild(archive);
-    let offset = 0;
-    let generation = 0;
-    const run = async () => {
-        const epoch = ++generation;
-        const status = archive.querySelector('[role="status"]');
-        status.textContent = 'Searching…';
-        try {
-            const rows = await searchBloomscapesLabArchive(archive.querySelector('input').value,offset);
-            if (!archive.isConnected || epoch!==generation) return;
-            renderBloomscapesLabArchive(archive,rows,offset);
-        } catch (error) { if (epoch===generation) status.textContent = error.message; }
-    };
-    archive.querySelector('form').addEventListener('submit',event=>{event.preventDefault();offset=0;void run();});
-    archive.querySelector('[data-next]').addEventListener('click',()=>{offset+=50;void run();});
-    void run();
+    const state = {archive,offset:0,generation:0};
+    archive.querySelector('form').addEventListener('submit',event => {
+        event.preventDefault();
+        state.offset = 0;
+        void readLabArchiveChunk(state);
+    });
+    void readLabArchiveChunk(state);
+}
+
+async function readLabArchiveChunk(state) {
+    const {archive,offset} = state;
+    const generation = ++state.generation;
+    state.observer?.disconnect();
+    const status = archive.querySelector('[role="status"]');
+    status.textContent = 'Searching…';
+    try {
+        const rows = await searchBloomscapesLabArchive(archive.querySelector('input').value,offset);
+        if (!archive.isConnected || generation !== state.generation) return;
+        renderBloomscapesLabArchive(archive,rows,offset);
+        const total = Number(rows[0]?.total_count || 0);
+        if (rows.length && offset+rows.length < total) observeLabArchiveChunk(state,offset+rows.length);
+    } catch (error) {
+        if (generation === state.generation) status.textContent = error.message;
+    }
+}
+
+function observeLabArchiveChunk(state,next) {
+    if (typeof IntersectionObserver !== 'function') return;
+    const edge = state.archive.querySelector('[data-lab-archive-edge]');
+    state.observer = observeBloomscapesPageEdge(edge,() => {
+        state.offset = next;
+        void readLabArchiveChunk(state);
+    });
+}
+
+function labArchiveListEntry(row) {
+    const item = document.createElement('li');
+    const entry = document.createElement(row.url ? 'a' : 'span');
+    entry.textContent = [row.genus_name,row.report_title || row.source_key,row.lab_confirmed_pathogen].filter(Boolean).join(' · ');
+    if (row.url) { entry.href = row.url; entry.target = '_blank'; entry.rel = 'noopener noreferrer'; }
+    item.append(entry);
+    return item;
 }
 
 function renderBloomscapesLabArchive(archive,rows,offset) {
     const list = archive.querySelector('ul');
-    list.replaceChildren();
-    for (const row of rows) {
-        const item = document.createElement('li');
-        const entry = document.createElement(row.url?'a':'span');
-        entry.textContent = [row.genus_name,row.report_title || row.source_key,row.lab_confirmed_pathogen].filter(Boolean).join(' · ');
-        if (row.url) { entry.href=row.url;entry.target='_blank';entry.rel='noopener noreferrer'; }
-        item.appendChild(entry);
-        list.appendChild(item);
-    }
+    if (offset === 0) list.replaceChildren();
+    list.append(...rows.map(labArchiveListEntry));
     const total = Number(rows[0]?.total_count || 0);
-    archive.querySelector('[role="status"]').textContent = total+' indexed files · '+rows.length+' shown';
-    archive.querySelector('[data-next]').hidden = offset+rows.length>=total;
+    archive.querySelector('[role="status"]').textContent = total+' indexed files · '+list.children.length+' shown';
 }
 
 function bindBloomscapesLabForm(section,form,kind) {

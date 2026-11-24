@@ -43,17 +43,17 @@ function paintDockPipeline(container, crumb, {view, page, query, error, busy, re
     const title = level ? 'DOCK '+(query.dock || 'Unassigned') : 'Select a Dock';
     crumb.textContent = level === 2 ? title+' › STOPNUMBER '+(query.stopnumber || 'Unassigned') : title;
     container.setAttribute('aria-busy',String(busy));
-    const cards = rows.slice(0,40).map(row=>renderDockPipelineCard(row,view,readOnly));
     const tag = rows.length && view === 'docks_tagging_view' && !readOnly
         ? `<button type="button" data-dock-pipeline-action="tag" data-order-id="${pullHtml(rows[0].unique_id)}"
             class="rounded-lg border border-emerald-700 p-3">✓ Tagging Done — Send STOPNUMBER to Loading Crew</button>` : '';
-    const previous = query.offset ? '<button type="button" data-dock-pipeline-page="-40">Previous</button>' : '';
-    const next = rows.length > 40 ? '<button type="button" data-dock-pipeline-page="40">Next</button>' : '';
     const summary = page?.summary;
     const completion = summary?.total ? `<p>${summary.completed}/${summary.total} Inspector completed (${Math.floor(summary.completed*100/summary.total)}%)</p>` : '';
     const message = error || (writing ? 'Saving change…' : busy && !page ? 'Loading orders…' : !rows.length && !groups.length ? 'No orders in this view.' : '');
-    container.innerHTML = `<div class="space-y-2"><p role="status">${pullHtml(message)}</p>${completion}${tag}${groups.length ? '<div data-dock-pipeline-directory></div>' : ''}${cards.join('')}
-        <div class="flex justify-between gap-3">${previous}${next}</div></div>`;
+    container.innerHTML = '<div class="space-y-2"><p role="status">'+pullHtml(message)+'</p>'+completion+tag
+        +(groups.length ? '<div data-dock-pipeline-directory></div>' : '<div data-dock-pipeline-cards></div>')+'</div>';
+    const cards = container.querySelector('[data-dock-pipeline-cards]');
+    if (cards) renderBloomscapesScrollCards(cards,rows,row=>bloomscapesListNode(renderDockPipelineCard(row,view,readOnly)),
+        {size:20,estimate:180});
     const list = container.querySelector('[data-dock-pipeline-directory]');
     if (list) renderBloomscapesScrollCards(list,groups.map((group,index)=>({group,index})),
         ({group,index})=>bloomscapesListNode(renderDockPipelineGroup(group,index,level)),{size:40,estimate:60});

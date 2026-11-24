@@ -1,4 +1,4 @@
-const consolidationPageSize = 40;
+const consolidationLookupBatch = 500;
 const consolidationLookupSources = {
     'item-cpb': {
         table:'ph_item_cpb',key:'itemcode',
@@ -17,11 +17,10 @@ function consolidationLookup(key) {
     return source;
 }
 
-async function readConsolidationLookup(key, filters, page) {
+async function consolidationLookupPage(client, key, filters, offset, signal) {
     const {table,key:identity,columns} = consolidationLookup(key);
-    const {client,owner} = await requireBloomscapesSession();
-    const start = page * consolidationPageSize;
-    let request = client.from(table).select(columns,{count:'exact'}).order(identity).range(start,start+consolidationPageSize-1);
+    let request = client.from(table).select(columns,{count:offset === 0 ? 'exact' : undefined}).order(identity)
+        .range(offset,offset+consolidationLookupBatch-1).abortSignal(signal);
     const query = filters.query.trim().replace(/[",()%_*\\]/g,'').slice(0,120);
     if (query) {
         const secondary = key === 'item-cpb' ? 'commonname' : 'blockalpha';
@@ -31,8 +30,24 @@ async function readConsolidationLookup(key, filters, page) {
     if (filters.source) request = request.eq('cpb_source',filters.source);
     const result = await request;
     const rows = bloomscapesData(result);
+    return {rows,total:result.count,identity};
+}
+
+async function readConsolidationLookup(key, filters, signal) {
+    const {client,owner} = await requireBloomscapesSession();
+    const first = await consolidationLookupPage(client,key,filters,0,signal);
+    const rows = [...first.rows];
+    for (let offset = rows.length; offset < first.total;) {
+        const next = await consolidationLookupPage(client,key,filters,offset,signal);
+        if (!next.rows.length) break;
+        rows.push(...next.rows);
+        offset += next.rows.length;
+    }
     await requireBloomscapesOwner(owner);
-    return {rows,total:result.count};
+    if (rows.length !== first.total || new Set(rows.map(row => row[first.identity])).size !== rows.length) {
+        throw new Error('Lookup rows changed while loading. Run the search again.');
+    }
+    return {rows,total:rows.length};
 }
 
 async function writeConsolidationLookup(key, values, expected) {

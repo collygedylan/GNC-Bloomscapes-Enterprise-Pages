@@ -30,8 +30,7 @@ function discrepancyShell() {
         <button type="button" data-command="refresh">Refresh</button></div>
         <p role="status" data-message></p><div class="tm-scroll"><table><thead><tr>
         ${discrepancyColumns.map(label => '<th scope="col">' + label + '</th>').join('')}</tr></thead><tbody></tbody></table></div>
-        <footer><button type="button" data-command="previous">Previous</button>
-        <span data-range></span> <button type="button" data-command="next">Next</button></footer></section>`;
+        <footer><span data-range></span></footer></section>`;
 }
 
 function renderDiscrepancy(entry, escape, busy) {
@@ -66,14 +65,9 @@ function drawDiscrepancies(view) {
     const status = root.querySelector('[data-status]').value;
     const rows = view.entries.filter(({row, text}) => (!type || row.action_type === type)
         && (!status || row.status === status) && tokens.every(token => text.includes(token)));
-    state.page = Math.min(state.page, Math.max(0, Math.ceil(rows.length / 25) - 1));
-    const start = state.page * 25;
     view.filtered = rows;
-    root.querySelector('tbody').innerHTML = rows.slice(start, start + 25).map(entry =>
-        renderDiscrepancy(entry, view.escape, state.busy)).join('');
-    root.querySelector('[data-range]').textContent = rows.length ? `${start + 1}–${Math.min(start + 25, rows.length)} of ${rows.length}` : '0 rows';
-    root.querySelector('[data-command="previous"]').disabled = start === 0;
-    root.querySelector('[data-command="next"]').disabled = start + 25 >= rows.length;
+    root.querySelector('tbody').innerHTML = rows.map(entry => renderDiscrepancy(entry,view.escape,state.busy)).join('');
+    root.querySelector('[data-range]').textContent = rows.length.toLocaleString()+' rows';
     root.querySelector('[data-command="refresh"]').disabled = state.busy;
     root.querySelector('[data-message]').textContent = state.message || (!rows.length && !state.busy ? 'No matching discrepancies.' : '');
 }
@@ -113,10 +107,6 @@ function discrepancyClick(view, event) {
     const button = event.target.closest('button[data-command]');
     if (!button || !view.current()) return;
     const command = button.dataset.command;
-    if (command === 'previous' || command === 'next') {
-        view.state.page = Math.max(0, view.state.page + (command === 'next' ? 1 : -1));
-        return drawDiscrepancies(view);
-    }
     const rowId = button.closest('tr')?.dataset.id;
     const id = view.entries.find(entry => String(entry.row.id) === rowId)?.row.id;
     return runDiscrepancyCommand(view, command, id);
@@ -125,10 +115,10 @@ function discrepancyClick(view, event) {
 function mountActionDiscrepancies(root, source, escape) {
     const lifetime = new AbortController();
     const current = () => !lifetime.signal.aborted && root.isConnected && source.current();
-    const state = {page:0, busy:false, complete:false, message:''};
+    const state = {busy:false, complete:false, message:''};
     const view = {root, source, escape, current, lifetime, state, entries:[], filtered:[]};
     root.innerHTML = discrepancyShell();
-    const filter = () => { state.page = 0; drawDiscrepancies(view); };
+    const filter = () => drawDiscrepancies(view);
     root.querySelector('[data-query]').addEventListener('input', filter, {signal:lifetime.signal});
     root.querySelector('[data-type]').addEventListener('change', filter, {signal:lifetime.signal});
     root.querySelector('[data-status]').addEventListener('change', filter, {signal:lifetime.signal});

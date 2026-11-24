@@ -274,10 +274,21 @@ function previewShowsQueueRow(preview,row,tab) {
     return normalize(owner) === normalize(preview.username);
 }
 
+const chunkedListMounts = new WeakMap();
+
 function mountChunkedList(list,choices,render) {
+    const generation = {};
+    chunkedListMounts.set(list,generation);
     const first = choices.slice(0,40).map(render);
     list.replaceChildren(...first);
-    if (choices.length > first.length) requestAnimationFrame(()=>{
-        if (list.isConnected && list.firstElementChild === first[0]) list.append(...choices.slice(40).map(render));
+    if (choices.length > first.length) appendChunkedList(list,choices,render,generation,first.length);
+}
+
+function appendChunkedList(list,choices,render,generation,start) {
+    requestAnimationFrame(() => {
+        if (!list.isConnected || chunkedListMounts.get(list) !== generation) return;
+        const end = Math.min(start+40,choices.length);
+        list.append(...choices.slice(start,end).map(render));
+        if (end < choices.length) appendChunkedList(list,choices,render,generation,end);
     });
 }

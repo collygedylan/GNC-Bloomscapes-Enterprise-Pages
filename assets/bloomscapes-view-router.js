@@ -12,6 +12,7 @@ function renderViewContent(viewId, forceReset = false, forceRender = false, sync
     if (forceReset || changedView) abortBloomscapesCardThumbnails(document);
     bloomscapesThumbnailView=viewId;
     const state = ensureViewRenderState(viewId);
+    const orderPulling = viewId === 'request' && renderOrderPullQueueShell();
     if (!forceReset && !forceRender && state.initialized && !state.dirty) {
         if (changedView && ['messages','push-to-talk'].includes(viewId)) renderBloomscapesMessagesView(viewId);
         renderBloomscapesPhotoAiWorkspace(viewId);
@@ -26,7 +27,7 @@ function renderViewContent(viewId, forceReset = false, forceRender = false, sync
     }
     const renderStartedAt = beginInternalPerfMeasure();
 
-    if (!renderBloomscapesPhotoAiWorkspace(viewId) && !renderBloomscapesDispatchWorkspaces(viewId) && !renderBloomscapesNativeSalesOffice(viewId) && !renderBloomscapesMessagesView(viewId) && !renderBloomscapesDepartmentWorkspace(viewId) && !renderCoreAppView(viewId, state, forceReset) && !renderRequestAndWorkspaceView(viewId, state, forceReset) && !renderHubAppView(viewId)) {
+    if (!orderPulling && !renderBloomscapesPhotoAiWorkspace(viewId) && !renderBloomscapesDispatchWorkspaces(viewId) && !renderBloomscapesNativeSalesOffice(viewId) && !renderBloomscapesMessagesView(viewId) && !renderBloomscapesDepartmentWorkspace(viewId) && !renderCoreAppView(viewId, state, forceReset) && !renderRequestAndWorkspaceView(viewId, state, forceReset) && !renderHubAppView(viewId)) {
         renderAuxiliaryAppView(viewId, state, forceReset);
     }
 

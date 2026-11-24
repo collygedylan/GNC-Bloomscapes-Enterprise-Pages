@@ -86,12 +86,8 @@ function changeRequestAvOptionPage(direction) {
 }
 
 function renderRequestAvOptionPager(page, total) {
-    if (page.pages <= 1) return '';
-    return `<div class="browse-page-footer flex flex-wrap items-center gap-2">
-        <span>Rows ${page.start + 1}–${page.start + page.rows.length} of ${total}</span>
-        <button type="button" onclick="return changeRequestAvOptionPage(-1)" ${page.index === 0 ? 'disabled' : ''}>Previous</button>
-        <button type="button" onclick="return changeRequestAvOptionPage(1)" ${page.index + 1 === page.pages ? 'disabled' : ''}>Next</button>
-    </div>`;
+    if (page.start+page.rows.length >= total) return '';
+    return '<bloomscapes-page-edge data-page="request-av-options"></bloomscapes-page-edge>';
 }
 
 function prepareRequestAvOptions(item, detailSourceView, options) {
@@ -168,7 +164,7 @@ function renderRequestAvOptionCard(row, index, item, context, existingKeysForRen
 function renderLegacyRequestAvOptions(item, context) {
     const {rows, state, hiddenCurrentSeasonRows, isOpen, suspendFillTag, canAddOptions, page} = context;
     const itemCode = getRequestItemCodeOptionItemCode(item);
-    const visibleRows = isOpen ? page.rows : [];
+    const visibleRows = isOpen ? rows.slice(0,page.start+page.rows.length) : [];
     const existing = isOpen ? getExistingRequestItemCodeOptionKeys(item) : { masterIds:new Set(), exactKeys:new Set() };
     const selectableRowCount = isOpen && !suspendFillTag ? rows.filter(row => getRequestItemCodeOptionCandidateState(row, item, existing).selectable).length : 0;
             const ptrValues = rows.map((row) => getRequestAvailableQty(row)).filter((value) => Number.isFinite(value));
@@ -231,7 +227,7 @@ function renderCompactRequestAvOptions(item, context) {
     const total = values.reduce((sum,value) => sum + value,0);
     const existing = isOpen ? getExistingRequestItemCodeOptionKeys(item) : null;
     const destination = suspendFillTag ? 'Suspend' : 'Request';
-    const candidates = isOpen ? page.rows.map(row => renderCompactAvOption(row,item,existing,canAddOptions)).join('') : '';
+    const candidates = isOpen ? rows.slice(0,page.start+page.rows.length).map(row => renderCompactAvOption(row,item,existing,canAddOptions)).join('') : '';
     const error = state.error ? `<p role="alert">${escapeShareHtml(state.error)}</p>` : '';
     return `<div class="detail-av-dropdown">
         <button type="button" class="detail-av-trigger" aria-expanded="${isOpen}" aria-controls="detail-av-options-list"

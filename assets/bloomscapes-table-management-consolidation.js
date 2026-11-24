@@ -2,7 +2,7 @@ function mountConsolidationManagerGrid(root,key) {
     if (!canViewFieldWorkConsolidation()) return {destroy() {}};
     const identity = getSupabaseReadIdentityScope();
     const preview = borrowedHelpPreview();
-    const state = {key,page:0,rows:[],total:0,revision:0,loading:false,saving:false};
+    const state = {key,rows:[],total:0,read:null,loading:false,saving:false};
     root.innerHTML = renderConsolidationGrid(key,!preview);
     const grid = root.firstElementChild;
     const current = () => grid.isConnected && root.contains(grid) && identity === getSupabaseReadIdentityScope()
@@ -13,24 +13,26 @@ function mountConsolidationManagerGrid(root,key) {
     const context = {state,grid,current,filters,status,dialog,editable:!preview};
     filters.onsubmit = event => {
         event.preventDefault();
-        commandConsolidationPage(context,0);
+        clearTimeout(state.searchTimer);
+        commandConsolidationLoad(context);
+    };
+    filters.querySelector('[data-consolidation-query]').oninput = () => {
+        clearTimeout(state.searchTimer);
+        state.searchTimer = setTimeout(() => commandConsolidationLoad(context),250);
     };
     grid.onclick = event => dispatchConsolidationGridClick(context,event.target);
     dialog.onsubmit = event => {
         event.preventDefault();
         void saveConsolidationGridRow(context,event.target);
     };
-    commandConsolidationPage(context,0);
-    return {destroy:() => grid.remove()};
+    commandConsolidationLoad(context);
+    return {destroy() { clearTimeout(state.searchTimer); state.read?.abort(); grid.remove(); }};
 }
 
 function dispatchConsolidationGridClick(context,target) {
     if (!context.current()) return;
     const button = target.closest('button');
     if (!button) return;
-    if (button.hasAttribute('data-consolidation-page')) {
-        commandConsolidationPage(context,context.state.page+Number(button.dataset.consolidationPage));
-    }
     if (!context.editable || context.state.saving) return;
     if (button.hasAttribute('data-consolidation-save')) void saveConsolidationGridRow(context,button.closest('tr'));
     if (button.hasAttribute('data-consolidation-add')) {
@@ -40,31 +42,31 @@ function dispatchConsolidationGridClick(context,target) {
     if (button.hasAttribute('data-consolidation-cancel')) context.dialog.close();
 }
 
-function commandConsolidationPage(context,page) {
+function commandConsolidationLoad(context) {
     if (context.state.saving || !context.current()) return;
-    void loadConsolidationGridPage(context,Math.max(0,page));
+    void loadConsolidationGrid(context);
 }
 
-async function loadConsolidationGridPage(context,page) {
+async function loadConsolidationGrid(context) {
     const {state,grid,current,filters,status,editable} = context;
-    const revision = ++state.revision;
+    state.read?.abort();
+    const read = state.read = new AbortController();
     const form = new FormData(filters);
     const query = {query:form.get('query'),size:form.get('size')?.trim(),source:form.get('source')};
     state.loading = true;
     status.textContent = 'Loading…';
     try {
-        const result = await readConsolidationLookup(state.key,query,page);
-        if (!current() || revision !== state.revision) return;
-        Object.assign(state,result,{page});
-        grid.querySelector('tbody').innerHTML = state.rows.map((row,index) =>
-            renderConsolidationGridRow(state.key,row,index,editable)).join('');
-        grid.querySelector('[data-consolidation-page="-1"]').disabled = page === 0;
-        grid.querySelector('[data-consolidation-page="1"]').disabled = (page+1)*consolidationPageSize >= state.total;
-        status.textContent = state.total ? `${state.total.toLocaleString()} rows · Page ${page+1}` : 'No rows found.';
+        const result = await readConsolidationLookup(state.key,query,read.signal);
+        if (!current() || state.read !== read) return;
+        Object.assign(state,result);
+        const indices = state.rows.map((_,index) => index);
+        mountChunkedList(grid.querySelector('tbody'),indices,index =>
+            bloomscapesListNode(renderConsolidationGridRow(state.key,state.rows[index],index,editable)).firstElementChild);
+        status.textContent = state.total ? `${state.total.toLocaleString()} rows` : 'No rows found.';
     } catch (error) {
-        if (current() && revision === state.revision) status.textContent = error.message;
+        if (current() && state.read === read) status.textContent = error.message;
     } finally {
-        if (revision === state.revision) state.loading = false;
+        if (state.read === read) state.loading = false;
     }
 }
 
@@ -96,7 +98,7 @@ async function saveConsolidationGridRow(context,container) {
     } finally {
         button.disabled = state.saving = false;
     }
-    if (adding && current() && !dialog.open) commandConsolidationPage(context,state.page);
+    if (adding && current() && !dialog.open) commandConsolidationLoad(context);
 }
 
 function applyConsolidationGridReceipt(context,container,receipt) {

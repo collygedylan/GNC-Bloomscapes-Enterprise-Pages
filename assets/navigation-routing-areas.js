@@ -119,7 +119,7 @@ function openBloomscapesAreaView(area, key) {
     if (key === 'po') return openBloomscapesDepartmentModule('hl-order','bloomscapes-replenishment');
     if (key === 'suspend' || key === 'requests') {
         switchView('request');
-        if (getCurrentVisibleViewId() === 'request') setReqTab(key === 'suspend' ? 'suspend-tag' : 'pending');
+        if (getCurrentVisibleViewId() === 'request') selectQueueOrderPullCategory(key === 'suspend' ? 'suspend-tag' : 'pending');
         return false;
     }
     return switchView(view);

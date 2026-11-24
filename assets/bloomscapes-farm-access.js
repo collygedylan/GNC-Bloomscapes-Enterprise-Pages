@@ -5,12 +5,12 @@ async function mountBloomscapesFarmAccessEditor(container,selected) {
     host.innerHTML='<div class="farm-directory-search"><label>Search directory<input type="search" placeholder="Name, username or role"></label></div>'+
         '<p role="status">Loading farm access…</p><div class="farm-directory-scroll"><table aria-label="Farm access">'+
         '<thead><tr><th scope="col">Display Name / @username</th>'+directoryFarms.map(([farm])=>'<th scope="col">'+farm+'</th>').join('')+
-        '<th scope="col">Changes</th></tr></thead><tbody></tbody></table></div><nav aria-label="Directory pages"></nav>';
+        '<th scope="col">Changes</th></tr></thead><tbody></tbody></table></div>';
     const owner=getSupabaseReadIdentityScope(),status=host.querySelector('[role=status]');
     const current=()=>host.isConnected && owner===getSupabaseReadIdentityScope();
-    const state={host,current,status,rows:[],drafts:new Map(),pending:new Set(),page:0};
+    const state={host,current,status,rows:[],drafts:new Map(),pending:new Set()};
     host.addEventListener('input',event=>{
-        if (event.target.type==='search') {state.page=0;paintFarmDirectory(state);}
+        if (event.target.type==='search') paintFarmDirectory(state);
     });
     host.addEventListener('change',event=>stageFarmSelection(state,event.target));
     host.addEventListener('click',event=>dispatchFarmDirectoryButton(state,event.target.closest('button')));
@@ -31,12 +31,8 @@ function paintFarmDirectory(state) {
     const {host,rows}=state;
     const query=host.querySelector('input[type=search]').value.trim().toLowerCase();
     const matches=rows.filter(row=>(row.name+' '+row.username+' '+(row.role || row.type)).toLowerCase().includes(query));
-    const view=bloomscapesListWindow(matches,state.page);
-    state.page=view.index;
-    host.querySelector('tbody').innerHTML=view.rows.map(row=>farmDirectoryRow(state,row)).join('') ||
+    host.querySelector('tbody').innerHTML=matches.map(row=>farmDirectoryRow(state,row)).join('') ||
         '<tr><td colspan="6">No matching people or roles.</td></tr>';
-    host.querySelector('nav').innerHTML=view.pages>1 ? `<button type="button" data-farm-turn="-1" ${view.index===0?'disabled':''}>Previous</button>
-        <span>${view.index+1} / ${view.pages}</span><button type="button" data-farm-turn="1" ${view.index+1===view.pages?'disabled':''}>Next</button>` : '';
 }
 
 function farmDirectoryRow(state,row) {
@@ -57,10 +53,7 @@ function stageFarmSelection(state,input) {
 
 function dispatchFarmDirectoryButton(state,button) {
     if (!button || !state.current()) return;
-    if (button.dataset.farmTurn) {
-        state.page+=Number(button.dataset.farmTurn);
-        paintFarmDirectory(state);
-    } else if (button.hasAttribute('data-farm-save')) {
+    if (button.hasAttribute('data-farm-save')) {
         const key=button.closest('tr').dataset.farmSubject;
         const row=state.rows.find(item=>item.type+':'+item.username===key);
         if (row) void saveFarmDirectoryAccess(state,row,key);
