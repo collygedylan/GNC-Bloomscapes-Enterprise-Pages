@@ -30,7 +30,7 @@ function homeSyncPresetMarkup() {
     return `<div class="home-sync-presets"><button type="button" data-preset="core">✓ Core 13</button>
         <button type="button" data-run-target="PH_TRANS_KEYED">⚡ Run Trans Keyed Now</button>
         ${farms.map(farm=>`<button type="button" data-preset="${farm}">Only ${farm}</button>`).join('')}
-        <button type="button" data-preset="all">Select All (24)</button>
+        <button type="button" data-preset="all">Select All (${ERP_CLOUD_SYNC_TARGETS.length})</button>
         <button type="button" data-preset="clear">Clear All</button></div>`;
 }
 
@@ -44,9 +44,9 @@ function homeSyncPopoverMarkup() {
     const groups = [['DRIVE_AROUND','Drive Around (PH, HL, TX, NC)'],['SOC_OPEN','SOC Open Orders (PH, TX, NC)'],
         ['SOC_RESERVES','SOC Reserves (PH, TX, NC)'],['PO_REPORTS','P.O Reports (HL PO, NC PO, TX PO)']];
     return `${homeSyncPresetMarkup()}<h3 id="home-sync-core-title">Core Run Script Tables (13)</h3>
-        ${groups.map(([key,title])=>`<section aria-label="${title}"><h4>${title}</h4>${ERP_SYNC_TARGETS.filter(target=>target.group===key).map(homeSyncTargetMarkup).join('')}</section>`).join('')}
-        <h3>On-Demand &amp; Auxiliary TEST BUILD Folders (11)</h3>
-        ${ERP_SYNC_TARGETS.filter(target=>!target.defaultChecked).map(homeSyncTargetMarkup).join('')}
+        ${groups.map(([key,title])=>`<section aria-label="${title}"><h4>${title}</h4>${ERP_CLOUD_SYNC_TARGETS.filter(target=>target.group===key).map(homeSyncTargetMarkup).join('')}</section>`).join('')}
+        <h3>On-Demand &amp; Auxiliary TEST BUILD Folders (${ERP_CLOUD_SYNC_TARGETS.length - DEFAULT_CORE_SYNC_KEYS.length})</h3>
+        ${ERP_CLOUD_SYNC_TARGETS.filter(target=>!target.defaultChecked).map(homeSyncTargetMarkup).join('')}
         <footer><button type="button" data-run-selected>⚡ Run Selected (13)</button><button type="button" data-close>Done</button></footer>`;
 }
 
@@ -83,7 +83,7 @@ function toggleHomeSyncSelection(host) {
 
 function homeSyncPresetKeys(preset) {
     if (preset==='core') return [...DEFAULT_CORE_SYNC_KEYS];
-    if (preset==='all') return ERP_SYNC_TARGETS.map(target=>target.key);
+    if (preset==='all') return ERP_CLOUD_SYNC_TARGETS.map(target=>target.key);
     if (preset==='clear') return [];
     return getErpSyncTargetsForFarm(preset).map(target=>target.key);
 }

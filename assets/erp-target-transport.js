@@ -45,7 +45,7 @@ async function prefetchDashboardSyncMetadataAfterLogin() {
     if (!currentUser || navigator.onLine === false || !canViewDashboardSyncStatus()) return false;
     const owner=getSupabaseReadIdentityScope(),farm=getBloomscapesFarm();
     const query=new URLSearchParams({select:'target_key,last_synced_at,last_file_name',
-        farm_code:'eq.'+farm,order:'target_key.asc',limit:'24'});
+        farm_code:'eq.'+farm,order:'target_key.asc',limit:'25'});
     const result=await fetchDirectPostgrestReadPage('gnc_00_core_erp_sync_status',query.toString(),{timeoutMs:5000},false);
     if (owner!==getSupabaseReadIdentityScope() || farm!==getBloomscapesFarm() || !canViewDashboardSyncStatus()) return false;
     if (!Array.isArray(result?.rows)) throw new Error('ERP Home metadata is unavailable.');
@@ -65,6 +65,7 @@ async function prefetchDashboardSyncMetadataAfterLogin() {
 }
 
 function erpHomeSourceLabel(key) {
+    if (key==='PH_CAV') return 'CAV';
     if (key.endsWith('DRIVE_AROUND')) return 'Drive';
     if (key.endsWith('SOC_OPEN')) return 'SOC';
     if (key.endsWith('SOC_RESERVES')) return 'Reserves';

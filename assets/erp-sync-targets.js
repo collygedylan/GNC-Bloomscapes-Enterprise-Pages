@@ -13,6 +13,7 @@ const ERP_PENDING_FOLDER_IDS = Object.freeze({
     "PH_HL_PO": "1mWk3YQLwyWB-Tr4EPmtdrM3unPQkedtK",
     "PH_NC_PO": "1s0wSrV8LjdbXda6sJDab9P5j6f79nXhJ",
     "PH_TX_PO": "1oR4eU3jC9wjSphkMuX38gYQAcfl--5kM",
+    "PH_CAV": "1-CuAa3SmYTb_J_ppdmLH09sgOl0me8ff",
     "PH_TRANS_KEYED": "1dm2DpnNVG7qtE9aBe4LRc13ctL0qV_94",
     "PH_PRE_POST_PO": "1OuIVsrHNGgDjHBBEn-Taz0L7li3dXHi_",
     "AUX_SHIPPED_CYCLE": "18jkkqZTcuJcmoDp90pn_OmA8cvuhsPrf",
@@ -70,10 +71,10 @@ const ERP_CLOUD_SYNC_TARGETS = Object.freeze([
 const DEFAULT_CORE_SYNC_KEYS = Object.freeze(ERP_SYNC_TARGETS.filter(target=>target.defaultChecked).map(target=>target.key));
 
 function selectErpSyncTargets(keys = DEFAULT_CORE_SYNC_KEYS) {
-    if (!Array.isArray(keys) || keys.some(key=>!ERP_SYNC_TARGETS.some(target=>target.key===key))) {
+    if (!Array.isArray(keys) || keys.some(key=>!ERP_CLOUD_SYNC_TARGETS.some(target=>target.key===key))) {
         throw new Error('Unknown ERP target selection.');
     }
-    return ERP_SYNC_TARGETS.filter(target=>keys.includes(target.key));
+    return ERP_CLOUD_SYNC_TARGETS.filter(target=>keys.includes(target.key));
 }
 
 function getErpSyncTarget(key) {
@@ -82,7 +83,7 @@ function getErpSyncTarget(key) {
 
 function getErpSyncTargetsForFarm(farm) {
     if (!Object.values(ERP_FARM_CODES).includes(farm)) throw new Error('Unknown ERP farm.');
-    return ERP_SYNC_TARGETS.filter(target=>target.farm===farm || target.farm==='ALL');
+    return ERP_CLOUD_SYNC_TARGETS.filter(target=>target.farm===farm || target.farm==='ALL');
 }
 
 function readSelectedErpSyncKeys(storage) {

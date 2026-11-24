@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.57';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.58';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -23253,7 +23253,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.57';
+        const APP_VERSION = '3.1.58';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -33880,86 +33880,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
                 canViewMatrix: canViewAccessControl(),
                 canEditMatrix: canManageAccessControl()
             };
-        }
-
-        function normalizeAppAccessSnapshot(value = null, expectedUsername = currentUser) {
-            const source = Array.isArray(value) ? value.find((entry) => entry && typeof entry === 'object') : value;
-            if (!source || typeof source !== 'object') return null;
-            const username = getRequestCapabilityUsernameKey(firstNonEmptyValue(source.username, expectedUsername, ''));
-            const expectedKey = getRequestCapabilityUsernameKey(expectedUsername);
-            const contractVersion = String(firstNonEmptyValue(source.contractVersion, source.contract_version, '') || '').trim();
-            const enforcementMode = String(firstNonEmptyValue(source.enforcementMode, source.enforcement_mode, '') || '').trim().toLowerCase();
-            if (contractVersion !== APP_ACCESS_CONTRACT_VERSION || !username || (expectedKey && username !== expectedKey)) return null;
-            if (!['audit', 'enforced'].includes(enforcementMode)) return null;
-            const permissions = (Array.isArray(source.permissions) ? source.permissions : []).map((entry) => ({
-                permissionKey: String(firstNonEmptyValue(entry && entry.permissionKey, entry && entry.permission_key, '') || '').trim().toLowerCase(),
-                kind: String(firstNonEmptyValue(entry && entry.kind, entry && entry.permission_kind, '') || '').trim().toLowerCase(),
-                moduleKey: String(firstNonEmptyValue(entry && entry.moduleKey, entry && entry.module_key, '') || '').trim().toLowerCase(),
-                label: String(entry && entry.label || '').trim(),
-                allowed: entry && entry.allowed === true,
-                scope: String(entry && entry.scope || '').trim().toLowerCase(),
-                source: String(entry && entry.source || 'default-deny').trim().toLowerCase()
-            })).filter((entry) => entry.permissionKey);
-            const permissionMap = Object.freeze(Object.fromEntries(permissions.map((entry) => [entry.permissionKey, Object.freeze(entry)])));
-            return Object.freeze({
-                contractVersion,
-                enforcementMode,
-                policyVersion: Number(firstNonEmptyValue(source.policyVersion, source.policy_version, 0)) || 0,
-                policyRevision: Number(firstNonEmptyValue(source.policyRevision, source.policy_revision, 0)) || 0,
-                dataPermissionVersion: String(firstNonEmptyValue(source.dataPermissionVersion, source.data_permission_version, '') || '').trim(),
-                username,
-                role: String(source.role || '').trim(),
-                permissions: Object.freeze(permissions),
-                permissionMap
-            });
-        }
-
-        function readCachedAppAccessSnapshot(username = currentUser) {
-            const usernameKey = getRequestCapabilityUsernameKey(username);
-            if (!usernameKey) return null;
-            try {
-                const cached = JSON.parse(localStorage.getItem(getAppAccessCacheKey(usernameKey)) || 'null');
-                const snapshot = normalizeAppAccessSnapshot(cached && cached.snapshot, usernameKey);
-                let profileId = String(cached?.profileId || '').trim();
-                let adoptedLegacyProfileBinding = cached?.adoptedLegacyProfileBinding === true;
-                if (nativeAuthSessionActive) {
-                    const profile = nativeAuthProfile;
-                    const activeProfileId = String(profile?.id || '').trim();
-                    const lockedUntil = profile?.locked_until ? Date.parse(profile.locked_until) : 0;
-                    if (!activeProfileId || String(nativeAuthSessionUserId || '').trim() !== activeProfileId
-                        || profile.disabled_at != null || profile.must_change_password === true
-                        || (profile.locked_until && (!Number.isFinite(lockedUntil) || lockedUntil > Date.now()))) return null;
-                    if (profileId && profileId !== activeProfileId) return null;
-                    if (!profileId || adoptedLegacyProfileBinding) {
-                        const rawSnapshot = Array.isArray(cached?.snapshot)
-                            ? cached.snapshot.find((entry) => entry && typeof entry === 'object') : cached?.snapshot;
-                        const cachedUsername = getRequestCapabilityUsernameKey(rawSnapshot?.username || '');
-                        const profileUsername = getRequestCapabilityUsernameKey(profile.username || '');
-                        const currentUsername = getRequestCapabilityUsernameKey(currentUser || '');
-                        const snapshotRole = normalizeRoleAccessToken(snapshot?.role || '');
-                        const profileRole = normalizeRoleAccessToken(profile.role || '');
-                        const currentRoleToken = normalizeRoleAccessToken(currentRole || '');
-                        if (!snapshot || !cachedUsername || cachedUsername !== profileUsername || cachedUsername !== usernameKey
-                            || cachedUsername !== currentUsername || !snapshotRole || snapshotRole !== profileRole
-                            || snapshotRole !== currentRoleToken) return null;
-                    }
-                    if (!profileId) {
-                        // Bind only this verified legacy owner. The adopted record remains stale display state
-                        // until the authenticated permission RPC succeeds; it is never fresh write proof.
-                        profileId = activeProfileId;
-                        adoptedLegacyProfileBinding = true;
-                        try {
-                            localStorage.setItem(getAppAccessCacheKey(usernameKey), JSON.stringify({
-                                ...cached, profileId, stale: true, adoptedLegacyProfileBinding: true
-                            }));
-                        } catch (error) { window.GncRuntimeWatchdog?.capture?.(error, 'readCachedAppAccessSnapshot'); /* In-memory adoption remains safe if storage is unavailable. */ }
-                    }
-                }
-                return snapshot ? { snapshot, profileId, loadedAt: Number(cached.loadedAt || 0) || 0,
-                    stale: cached.stale === true || adoptedLegacyProfileBinding, adoptedLegacyProfileBinding } : null;
-            } catch (error) {
-                return null;
-            }
         }
 
         function getAppAccessSnapshot() {
@@ -113162,7 +113082,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
         function refreshRuntimeWatchdogBadge(force = false) { return runtimeWatchdogPanel.refreshBadge(force); }
         function refreshRuntimeWatchdogPanel() { return runtimeWatchdogPanel.refreshPanel(); }
         function copyRuntimeWatchdogFixBrief() { return runtimeWatchdogPanel.copyFixBrief(); }
-        /* @runtime-fragment assets/bloomscapes-farm-identity.js */ /* @runtime-fragment assets/master-snapshot-preparation.js */ /* @runtime-fragment assets/bloomscapes-farm-cache.js */ /* @runtime-fragment assets/bloomscapes-farm-publication.js */ /* @runtime-fragment assets/bloomscapes-farm-snapshot.js */ /* @runtime-fragment assets/drive-plant-filter-state.js */ /* @runtime-fragment assets/bloomscapes-farm-state.js */ /* @runtime-fragment assets/bloomscapes-farm-read.js */ /* @runtime-fragment assets/bloomscapes-transfer-order.js */
+        /* @runtime-fragment assets/bloomscapes-farm-identity.js */ /* @runtime-fragment assets/master-snapshot-preparation.js */ /* @runtime-fragment assets/bloomscapes-farm-cache.js *//* @runtime-fragment assets/inventory-access-snapshot.js */ /* @runtime-fragment assets/bloomscapes-farm-publication.js */ /* @runtime-fragment assets/bloomscapes-farm-snapshot.js */ /* @runtime-fragment assets/drive-plant-filter-state.js */ /* @runtime-fragment assets/bloomscapes-farm-state.js */ /* @runtime-fragment assets/bloomscapes-farm-read.js */ /* @runtime-fragment assets/bloomscapes-transfer-order.js */
 /* @runtime-fragment assets/bloomscapes-transfer-submit.js */
 /* @runtime-fragment assets/bloomscapes-transfer-filters.js */ /* @runtime-fragment assets/bloomscapes-transfer-builder.js */
 /* @runtime-fragment assets/bloomscapes-history.js */

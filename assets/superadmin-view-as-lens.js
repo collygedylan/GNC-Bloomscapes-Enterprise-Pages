@@ -5,15 +5,9 @@ function restoreSuperAdminLens(owner) {
     const state = {owner,selected:null};
     try {
         const saved = JSON.parse(sessionStorage.getItem(SUPERADMIN_LENS_SESSION_KEY) || 'null');
-        if (!owner || saved?.owner !== owner || saved.expires <= Date.now()) return state;
-        state.receipt = saved.receipt;
-        if (saved.selected?.startsWith('role:')) {
-            state.selected = superAdminPreviewRoles(saved.receipt).find(role=>role.id===saved.selected) || null;
-        } else {
-            state.selected = saved.receipt?.users.find(profile=>profile.id===saved.selected) || null;
-        }
+        if (owner && saved?.owner === owner && saved.expires > Date.now()) state.selected = saved.profile || null;
     } catch {
-        return {owner,selected:null};
+        return state;
     }
     return state;
 }
@@ -21,43 +15,49 @@ function restoreSuperAdminLens(owner) {
 function persistSuperAdminLens(state) {
     try {
         sessionStorage.setItem(SUPERADMIN_LENS_SESSION_KEY,JSON.stringify({
-            owner:state.owner,selected:state.selected?.id || '',receipt:state.receipt,
-            expires:Date.now()+SUPERADMIN_LENS_CACHE_MS
+            owner:state.owner,selected:state.selected?.id || '',profile:state.selected,expires:Date.now()+SUPERADMIN_LENS_CACHE_MS
         }));
     } catch {
         // The verified preview remains in memory when session storage is unavailable.
     }
 }
 
-function mergeSuperAdminProfiles(previous = [],incoming) {
-    return [...new Map([...previous,...incoming].map(profile=>[profile.id,profile])).values()];
-}
-
 function searchSuperAdminChoices(host,state) {
     if (!currentSuperAdminLens(state)) return;
     state.searchText = host.querySelector('input').value;
-    const query = state.query = state.searchText.trim().toLowerCase();
+    state.query = state.searchText.trim().toLowerCase();
     paintSuperAdminChoices(host,state);
-    if (!/^@[a-z][a-z0-9_]+_[a-z0-9_]+$/.test(query)) return;
-    const username = query.slice(1);
-    if (state.receipt?.users.some(profile=>profile.username===username) || state.lookup?.username===username) return;
-    const lookup = {username};
-    state.lookup = lookup;
-    void findSuperAdminChoice(host,state,lookup);
 }
 
-async function findSuperAdminChoice(host,state,lookup) {
+function selectSuperAdminChoice(host,state,profile) {
+    if (!currentSuperAdminLens(state)) return;
+    state.selection = null;
+    state.error = '';
+    if (!profile.username) {
+        closeSuperAdminPicker(host);
+        applySuperAdminLens(state,profile.id === 'self' ? null : profile);
+        return;
+    }
+    state.selection = {profile};
+    paintSuperAdminChoices(host,state);
+    void resolveSuperAdminChoice(host,state,state.selection);
+}
+
+async function resolveSuperAdminChoice(host,state,selection) {
+    const profile = selection.profile;
     try {
-        const profile = await readExactSuperAdminPreview(state.owner,lookup.username);
-        if (!profile || !currentSuperAdminLens(state) || state.lookup !== lookup) return;
-        state.receipt = {...state.receipt,users:mergeSuperAdminProfiles(state.receipt?.users,[profile])};
-        persistSuperAdminLens(state);
-        if (host.isConnected) paintSuperAdminLens(host,state);
+        const receipt = await readSuperAdminPreviewPage(state.owner,-Number(profile.id.slice(5)));
+        if (!currentSuperAdminLens(state) || state.selection !== selection) return;
+        const exact = receipt.users.find(row=>row.id===profile.id && row.username===profile.username);
+        if (!exact) throw Error('This profile is no longer available.');
+        state.selection = null;
+        closeSuperAdminPicker(host);
+        applySuperAdminLens(state,exact);
     } catch (error) {
-        if (currentSuperAdminLens(state)) host.title = error.message;
-    } finally {
-        if (state.lookup === lookup) state.lookup = null;
-        warmSuperAdminLens(host,state);
+        if (!currentSuperAdminLens(state) || state.selection !== selection) return;
+        state.selection = null;
+        state.error = error.message;
+        if (host.isConnected) paintSuperAdminChoices(host,state);
     }
 }
 
@@ -105,46 +105,17 @@ function mountSuperAdminViewAs() {
     const changedOwner = owner !== superAdminLens?.owner;
     if (changedOwner) superAdminLens = {...restoreSuperAdminLens(owner),open:superAdminLens?.open === true};
     const state = superAdminLens;
+    state.roster = getAppAccessSnapshot()?.viewAsRoster || null;
     const picker = host || root.appendChild(document.createElement('div'));
     picker.dataset.superadminLens = '';
     paintSuperAdminLens(picker,state);
     if (changedOwner && owner) {
         paintSuperAdminBanner(state.selected);
-        warmSuperAdminLens(picker,state);
     }
 }
 
 function currentSuperAdminLens(state) {
     return state && state === superAdminLens && state.owner === borrowedHelpIdentity() && isSuperAdminLensOwner();
-}
-
-function warmSuperAdminLens(picker,state,delay=800) {
-    if (!currentSuperAdminLens(state) || state.ready || state.flight || state.queued) return;
-    state.queued = true;
-    const current = () => currentSuperAdminLens(state) && picker.isConnected;
-    scheduleBloomscapesIdleTask('preview-roster',()=>prepareSuperAdminLens(picker,state),current,delay,()=>{state.queued=false;});
-}
-
-async function prepareSuperAdminLens(picker,state) {
-    state.queued = false;
-    if (state.flight || state.ready || state.lookup) return;
-    state.flight = true;
-    try {
-        const receipt = await readSuperAdminPreviewPage(state.owner,state.after || 0);
-        if (!currentSuperAdminLens(state)) return;
-        if (receipt.next !== null) state.pageCount = (state.pageCount || 0) + 1;
-        state.ready = receipt.next === null || state.pageCount >= 64;
-        state.after = receipt.next;
-        state.receipt = {...receipt,users:mergeSuperAdminProfiles(state.receipt?.users,receipt.users)};
-        persistSuperAdminLens(state);
-        paintSuperAdminLens(picker,state);
-    } catch (error) {
-        if (currentSuperAdminLens(state)) picker.title = error.message;
-        return;
-    } finally {
-        state.flight = false;
-    }
-    warmSuperAdminLens(picker,state,150);
 }
 
 function paintSuperAdminLens(host,state) {
@@ -181,13 +152,13 @@ function openSuperAdminPicker(host,state) {
     state.searchText = '';
     paintSuperAdminLens(host,state);
     host.querySelector('input').focus();
-    if (!state.receipt) void prepareSuperAdminLens(host,state);
-    else warmSuperAdminLens(host,state);
 }
 
 function closeSuperAdminPicker(host) {
     if (!currentSuperAdminLens(superAdminLens)) return;
     superAdminLens.open = false;
+    superAdminLens.selection = null;
+    superAdminLens.error = '';
     paintSuperAdminLens(host,superAdminLens);
 }
 
@@ -195,15 +166,15 @@ function paintSuperAdminChoices(host,state) {
     const input = host.querySelector('input');
     const query = state.query || '';
     if (input.value !== (state.searchText || '')) input.value = state.searchText || '';
-    const users = [...(state.receipt?.users || [])].sort((left,right)=>left.label.localeCompare(right.label));
+    const users = [...(state.roster?.users || [])].sort((left,right)=>left.label.localeCompare(right.label));
     const self = {id:'self',label:'Myself — dylan_collyge (Super-Admin)'};
     host.querySelector('[data-lens-self]').replaceChildren(superAdminChoiceButton(host,state,self));
-    const profiles = [...superAdminPreviewRoles(state.receipt),...users];
+    const profiles = [...superAdminPreviewRoles(state.roster),...users];
     const list = host.querySelector('[data-lens-choices]');
     const choices = profiles.filter(profile => matchesSuperAdminPreview(profile,query));
     const status = host.querySelector('[data-lens-status]');
-    status.textContent = state.ready ? '' : 'Loading active users…';
-    list.replaceChildren(...choices.map(profile=>superAdminChoiceButton(host,state,profile)));
+    status.textContent = state.error || (state.selection ? 'Loading access preview…' : state.roster ? '' : 'Loading active users…');
+    mountChunkedList(list,choices,profile=>superAdminChoiceButton(host,state,profile));
     if (!choices.length) list.textContent = 'No matching profiles.';
 }
 
@@ -220,8 +191,7 @@ function superAdminChoiceButton(host,state,profile) {
     button.textContent = describeSuperAdminPreview(profile);
     button.setAttribute('aria-pressed',String((state.selected?.id || 'self') === profile.id));
     button.onclick = () => {
-        closeSuperAdminPicker(host);
-        applySuperAdminLens(state,profile.id === 'self' ? null : profile);
+        selectSuperAdminChoice(host,state,profile);
     };
     return button;
 }
@@ -296,4 +266,12 @@ function previewShowsQueueRow(preview,row,tab) {
     const owner = getAssignedQueueOwner(row);
     const normalize = tab === 'suspend-tag' ? normalizeSuspendQueueOwner : normalizeEvalAssignableUser;
     return normalize(owner) === normalize(preview.username);
+}
+
+function mountChunkedList(list,choices,render) {
+    const first = choices.slice(0,40).map(render);
+    list.replaceChildren(...first);
+    if (choices.length > first.length) requestAnimationFrame(()=>{
+        if (list.isConnected && list.firstElementChild === first[0]) list.append(...choices.slice(40).map(render));
+    });
 }

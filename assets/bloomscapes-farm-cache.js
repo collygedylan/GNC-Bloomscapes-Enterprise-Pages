@@ -366,34 +366,3 @@ function getCachedFieldWorkCapacity(item) {
     const cpb = snapshot?.cpb?.find(row=>row.itemcode===item.code);
     return cpb ? {cpb,locations:snapshot.beds || []} : null;
 }
-
-function appAccessIndexedKey(username,profileId) {
-    return 'bloomscapes-access-v1:'+profileId+':'+username;
-}
-
-function persistAppAccessSnapshot(snapshot = null, loadedAt = Date.now()) {
-    const profileId = nativeAuthProfile?.id || '';
-    if (!snapshot?.username) return;
-    const cached = {snapshot,loadedAt,profileId};
-    try {
-        localStorage.setItem(getAppAccessCacheKey(snapshot.username),JSON.stringify(cached));
-    } catch { globalThis.safeIgnoreProbeError?.('persistAppAccessSnapshot'); }
-    if (profileId) void saveCacheValue(appAccessIndexedKey(snapshot.username,profileId),cached);
-}
-
-async function hydrateIndexedAppAccess(username,profileId,isCurrentAccount) {
-    if (!profileId || appAccessSnapshotState.snapshot) return;
-    const cached = await loadCacheValue(appAccessIndexedKey(username,profileId));
-    if (!isCurrentAccount() || !nativeAuthSessionActive || hasConfirmedCurrentAccountRevocation()
-        || appAccessSnapshotState.snapshot || cached?.profileId !== profileId) return;
-    const snapshot = normalizeAppAccessSnapshot(cached.snapshot,username);
-    if (!snapshot || normalizeRoleAccessToken(snapshot.role) !== normalizeRoleAccessToken(currentRole)) return;
-    Object.assign(appAccessSnapshotState,{snapshot,stale:true,loadedAt:Number(cached.loadedAt)||0});
-    if (appAccessSnapshotState.status === 'error') appAccessSnapshotState.status = 'ready';
-    if (typeof promoteNavigationDisplayAfterAccess === 'function') promoteNavigationDisplayAfterAccess();
-}
-
-function retainCachedAppAccessAfterFailure(cached) {
-    if (hasConfirmedCurrentAccountRevocation()) return null;
-    return cached || (appAccessSnapshotState.snapshot ? appAccessSnapshotState : null);
-}
