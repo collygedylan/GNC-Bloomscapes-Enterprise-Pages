@@ -16,14 +16,35 @@ async function prepareBloomscapesFarmPublication(raw,owner,assertCurrent,checkpo
     const soc = await prepareBloomscapesSupportRows(raw.soc,'soc',resolveMaster,assertCurrent,checkpoint,socRaw);
     const reserves = await prepareBloomscapesSupportRows(raw.reserves,'reserves',resolveMaster,assertCurrent,checkpoint);
     if (checkpoint) await checkpoint();
-    const assigned = formatFetchedRows(raw.assigned,'ph_inventory_row_assignments').map((row,index)=>normalizeWarehouseAssignedItemRow(row,index)).filter(Boolean);
-    const assignedMap = buildBloomscapesAssignmentIndex(raw.farm,raw.assigned,raw.defaults);
-    const defaultOwnersByCode = new Map(raw.defaults.map(row=>[buildManagerEvalAssignmentKey(row.itemcode_normalized),row]));
+    const {assigned,assignedMap,defaultOwnersByCode} = prepareBloomscapesFarmOwners(raw);
     const driveProjection = prepareBloomscapesDriveProjection(inventory);
     const reportTabs = collectInventoryReportTabs(inventory,raw.farm,resolveMaster);
     assertCurrent();
     return {owner,farm:raw.farm,revision:raw.revision,lastSyncRevisionAt:raw.lastSyncRevisionAt,inventory,soc,reserves,assigned,assignedMap,defaultOwnersByCode,
-        purchaseOrders:raw.purchaseOrders || [],indexes,av:master.avOpenRows,socRaw,driveProjection,reportTabs,loadedAt:Date.now()};
+        purchaseOrders:raw.purchaseOrders || [],owners:raw.owners,indexes,av:master.avOpenRows,socRaw,driveProjection,reportTabs,loadedAt:Date.now()};
+}
+
+function prepareBloomscapesFarmOwners(raw) {
+    const defaults = raw.owners ? expandBloomscapesOwnerDefaults(raw.owners) : raw.defaults;
+    const overrides = raw.owners ? expandBloomscapesOwnerOverrides(raw.owners) : raw.assigned;
+    const assignedMap = buildBloomscapesAssignmentIndex(raw.farm,overrides,defaults);
+    const defaultOwnersByCode = new Map(defaults.map(row=>[buildManagerEvalAssignmentKey(row.itemcode_normalized),row]));
+    const assigned = raw.owners ? deriveBloomscapesFarmAssignedRows(raw.inventory,assignedMap,defaultOwnersByCode)
+        : formatFetchedRows(raw.assigned,'ph_inventory_row_assignments').map(normalizeWarehouseAssignedItemRow).filter(Boolean);
+    return {assigned,assignedMap,defaultOwnersByCode};
+}
+
+function deriveBloomscapesFarmAssignedRows(inventory,index,defaults) {
+    return inventory.map((row,position)=>{
+        const ledger = defaults.get(buildManagerEvalAssignmentKey(row.itemcode || row.ITEMCODE));
+        const assignedto = resolveIndexedBloomscapesOwner(row,index);
+        const scope = getBloomscapesIndexedOwnerOverride(row,index);
+        return normalizeWarehouseAssignedItemRow({
+            ...row,master_unique_id:row.unique_id || row.UNIQUE_ID,assignedto,
+            default_assignedto:ledger?.assignedto ?? '',default_revision:ledger?.revision ?? 0,
+            zone_override_active:!!scope,assignment_reason:scope ? (row.assignment_reason || 'zone_zoe') : assignedto ? 'itemcode_default' : 'unassigned'
+        },position);
+    }).filter(Boolean);
 }
 
 async function prepareBloomscapesSupportRows(rows,kind,resolveMaster,assertCurrent,checkpoint,rawProjection) {

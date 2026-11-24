@@ -16,7 +16,7 @@ function getViewLoadingConfig(viewId) {
 
 function getLegacyInventoryViewLoading(viewId) {
     if (viewId === 'home' && canUseProductionLiveSync()) return { required: [], background: [], label: 'Opening Home...' };
-    if (viewId === 'drive') return withEvalInventoryEditRequestsForRowView({ required: [{ key: 'master', mode: 'full' }], background: [{ key: 'warehouseAssignedItems', mode: 'full' }], label: 'Loading verified Drive rows...' });
+    if (viewId === 'drive') return withEvalInventoryEditRequestsForRowView({ required: [{ key: 'master', mode: 'full' }], background: [], label: 'Loading verified Drive rows...' });
     if (viewId === 'building') return { required: [{ key: 'master', mode: 'full' }], background: [], label: 'Loading building workbench rows...' };
     if (viewId === 'av') {
         if (activeAVTab === 'reserves') {

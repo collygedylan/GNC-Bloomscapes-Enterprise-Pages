@@ -87,11 +87,21 @@ function getBloomscapesAssignmentIndex() {
     const state = getManagerAssignedColumnState();
     const cached = state.bloomscapesOwners;
     const farm = getBloomscapesFarm();
-    if (cached?.index && cached.farm===farm && cached.epoch===state.dataEpoch && cached.owner===bloomscapesFarmCacheOwner()) return cached.index;
-    const index = buildBloomscapesAssignmentIndex(farm,warehouseAssignedItemsInventory || [],
-        [...(state.defaultOwnersByCode || new Map()).values()]);
-    state.bloomscapesOwners = {farm,epoch:state.dataEpoch,owner:bloomscapesFarmCacheOwner(),index};
+    const owner = getSupabaseReadIdentityScope();
+    const sameScope = cached?.owner===owner && cached.farm===farm;
+    if (sameScope && cached.index && cached.epoch===state.dataEpoch) return cached.index;
+    const overrides = sameScope ? cached.overrides : null;
+    const rows = overrides || warehouseAssignedItemsInventory || [];
+    const index = buildBloomscapesAssignmentIndex(farm,rows,(state.defaultOwnersByCode || new Map()).values());
+    state.bloomscapesOwners = {farm,epoch:state.dataEpoch,owner,index,overrides,overrideKey:sameScope ? cached.overrideKey : null};
     return index;
+}
+
+function publishBloomscapesOwnerIndex(state, snapshot, index) {
+    const overrides = expandBloomscapesOwnerOverrides(snapshot);
+    state.bloomscapesOwners = {farm:snapshot.farm,epoch:state.dataEpoch,owner:getSupabaseReadIdentityScope(),
+        index:index || buildBloomscapesAssignmentIndex(snapshot.farm,overrides,state.defaultOwnersByCode.values()),
+        overrides,overrideKey:JSON.stringify([snapshot.blocks,snapshot.overrides])};
 }
 
 function getBloomscapesWarmFarm(farm) {
@@ -188,14 +198,16 @@ async function loadBloomscapesWarmFarm(cache,farm,refresh,flight) {
         await restoreBloomscapesBootMaster();
         assertCurrent();
     }
-    const raw = saved || await readBloomscapesFarmSnapshot(farm,assertCurrent,background);
+    const raw = saved?.owners ? saved : saved
+        ? {...saved,cacheScope:null,owners:await readBloomscapesAssignedOwnerSnapshot(farm,bloomscapesFarmSnapshotSignal(background),background)}
+        : await readBloomscapesFarmSnapshot(farm,assertCurrent,background);
     assertCurrent();
     persistBloomscapesReadyFarm(raw,cache.owner);
     if (background) await background.checkpoint();
     const snapshot = await prepareBloomscapesFarmPublication(raw,cache.owner,assertCurrent,background?.checkpoint);
     assertCurrent();
     cache.snapshots.set(farm,snapshot);
-    if (raw !== saved) snapshot.verifiedAt = Date.now();
+    if (!saved) snapshot.verifiedAt = Date.now();
     return snapshot;
 }
 

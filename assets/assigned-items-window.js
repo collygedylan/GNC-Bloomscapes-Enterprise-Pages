@@ -35,6 +35,36 @@ function appendManagerAssignedFallbackPage(scroller) {
     });
 }
 
+function assignedFallbackRowHtml(row, { state, columns, editable, preview }) {
+            const code = buildManagerEvalAssignmentKey(row.ITEMCODE), attr = escapeHtml(JSON.stringify(code));
+            return '<tr style="height:48px;white-space:nowrap" data-manager-assigned-item-row="' + escapeHtml(code) + '">'
+                + (editable ? '<td><input type="checkbox" aria-label="Select ' + escapeHtml(code) + ' for bulk assignment" data-itemcode="' + escapeHtml(code) + '"' + (preview ? ' disabled' : '') + (managerEvalAssignmentSelection.has(code) ? ' checked' : '') + ' onchange="toggleManagerEvalAssignmentItem(' + attr + ',&quot;&quot;,this.checked);updateManagerAssignedItemsView()"></td>' : '')
+                + columns.map(([field]) => assignedFallbackCellHtml(row, field, code, { state, editable, preview })).join('') + '</tr>';
+}
+
+function assignedFallbackCellHtml(row, field, code, { state, editable, preview }) {
+    if (field === 'DEFAULT_ASSIGNEDTO' && editable && !preview) {
+        const value = String(state.defaultDrafts?.[code]?.assignedto ?? row[field] ?? '');
+        return '<td><button type="button" aria-haspopup="dialog" aria-label="Itemcode Default Owner ' + escapeHtml(code)
+            + '" data-default-owner="' + escapeHtml(code) + '" data-owner-value="' + escapeHtml(value) + '">'
+            + escapeHtml(value || 'Unassigned') + ' ▾</button></td>';
+    }
+    return '<td>' + escapeHtml(row[field] || (field === 'LOCATIONCODE' ? '—' : row[field] ?? '')) + '</td>';
+}
+
+
+function renderAssignedItemsFirstFrame(host, rows) {
+    host.innerHTML = renderManagerTableManagementWorkspace(renderManagerAssignedFallbackRows([], true), 'assigned-items');
+    const body = host.querySelector('[data-assigned-fallback] tbody');
+    if (!body) return;
+    const state = getManagerAssignedColumnState();
+    const columns = getManagerAssignedColumnDefinitions().slice(0, 9);
+    const editable = canManageEvalItemcodeAssignments();
+    mountChunkedList(body, rows, row => (
+        bloomscapesListNode(assignedFallbackRowHtml(row, {state, columns, editable, preview:true})).firstElementChild
+    ));
+}
+
 async function mountManagerAssignedItemsView(host, rows = null, totalRows = null) {
     if (!host || !canViewAssignedItemsExport()) return null;
     const state = getManagerAssignedColumnState();
@@ -109,7 +139,7 @@ function openAssignedItemsFirstFrame(state) {
     }
     const ticket = state.opening = {};
     const rows = getManagerAssignedItemsDisplayRows(input.slice(0, BLOOMSCAPES_LIST_PAGE_SIZE), { useMaster: input === fullInventory });
-    host.innerHTML = renderManagerTableManagementWorkspace(renderManagerAssignedFallbackRows(rows, true), 'assigned-items');
+    renderAssignedItemsFirstFrame(host, rows);
     requestAnimationFrame(() => setTimeout(() => finishAssignedItemsFirstFrame(state, ticket), 0));
 }
 
@@ -119,23 +149,6 @@ function finishAssignedItemsFirstFrame(state, ticket) {
     prewarmAssignedItems(state);
     state.opening = null;
     renderManagers();
-}
-
-function assignedFallbackRowHtml(row, { state, columns, editable, preview }) {
-            const code = buildManagerEvalAssignmentKey(row.ITEMCODE), attr = escapeHtml(JSON.stringify(code));
-            return '<tr style="height:48px;white-space:nowrap" data-manager-assigned-item-row="' + escapeHtml(code) + '">'
-                + (editable ? '<td><input type="checkbox" aria-label="Select ' + escapeHtml(code) + ' for bulk assignment" data-itemcode="' + escapeHtml(code) + '"' + (preview ? ' disabled' : '') + (managerEvalAssignmentSelection.has(code) ? ' checked' : '') + ' onchange="toggleManagerEvalAssignmentItem(' + attr + ',&quot;&quot;,this.checked);updateManagerAssignedItemsView()"></td>' : '')
-                + columns.map(([field]) => assignedFallbackCellHtml(row, field, code, { state, editable, preview })).join('') + '</tr>';
-}
-
-function assignedFallbackCellHtml(row, field, code, { state, editable, preview }) {
-    if (field === 'DEFAULT_ASSIGNEDTO' && editable && !preview) {
-        const value = String(state.defaultDrafts?.[code]?.assignedto ?? row[field] ?? '');
-        return '<td><button type="button" aria-haspopup="dialog" aria-label="Itemcode Default Owner ' + escapeHtml(code)
-            + '" data-default-owner="' + escapeHtml(code) + '" data-owner-value="' + escapeHtml(value) + '">'
-            + escapeHtml(value || 'Unassigned') + ' ▾</button></td>';
-    }
-    return '<td>' + escapeHtml(row[field] || (field === 'LOCATIONCODE' ? '—' : row[field] ?? '')) + '</td>';
 }
 
 function restoreAssignedMountedScroll(state, ticket, host, restoreScroll) {

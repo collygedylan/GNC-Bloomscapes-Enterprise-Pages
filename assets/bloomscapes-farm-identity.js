@@ -14,51 +14,65 @@ function bloomscapesOwnerValue(row) {
     return ['none','null','unassigned','n_a'].includes(value) ? '' : value;
 }
 
-function buildBloomscapesAssignmentIndex(farm,rows,defaults) {
-    const index = {farm,location:new Map(),block:new Map(),item:new Map(),normalized:new Map(),size:new Map(),family:new Map()};
-    const scoped = [...defaults,...rows].filter(row=>(row.farm_code || row.FARM_CODE || bloomscapesRowFarm(row))===farm);
-    scoped.sort((a,b)=>Number(a.revision || a.default_revision || 0)-Number(b.revision || b.default_revision || 0)
-        || String(a.master_unique_id || '').localeCompare(String(b.master_unique_id || '')));
-    for (const row of scoped) rememberBloomscapesAssignment(index,row);
-    const votes = new Map();
-    for (const [code,owner] of index.size) {
-        const prefix = code.split('.')[0];
-        if (!votes.has(prefix)) votes.set(prefix,new Map());
-        const counts = votes.get(prefix);
-        counts.set(owner,(counts.get(owner) || 0)+1);
+function bloomscapesAssignmentBlock(location) {
+    return location.split('.').slice(0, 2).join('.');
+}
+
+function expandBloomscapesOwnerDefaults(snapshot) {
+    return snapshot.defaults.flatMap(([owner,revision,plantGroup,codes])=>codes.map(code=>({
+        farm_code:snapshot.farm,itemcode:code,itemcode_normalized:code,revision,
+        assignedto:owner,default_owner_username:owner,plant_group_code:plantGroup
+    })));
+}
+
+function expandBloomscapesOwnerOverrides(snapshot) {
+    const {farm,blocks,overrides} = snapshot;
+    return [
+        ...blocks.map(([locationcode,assignedto])=>({farm_code:farm,locationcode,assignedto,assignment_reason:'zone_zoe'})),
+        ...overrides.map(([unique_id,itemcode,locationcode,assignedto,assignment_reason])=>({
+            farm_code:farm,master_unique_id:unique_id,itemcode,locationcode,assignedto,assignment_reason,zone_override_active:true
+        }))
+    ];
+}
+
+function buildBloomscapesAssignmentIndex(farm, rows, defaults) {
+    const index = {farm, location:new Map(), block:new Map(), item:new Map()};
+    for (const row of defaults) {
+        if (bloomscapesRowFarm(row) !== farm) continue;
+        const code = buildManagerEvalAssignmentKey(row.itemcode_normalized || row.itemcode || row.ITEMCODE);
+        if (code) index.item.set(code, bloomscapesOwnerValue({assignedto:row.default_owner_username ?? row.assignedto}));
     }
-    for (const [prefix,counts] of votes) {
-        index.family.set(prefix,[...counts].sort((a,b)=>b[1]-a[1] || a[0].localeCompare(b[0]))[0][0]);
+    for (const row of rows) {
+        if (bloomscapesRowFarm(row) === farm) rememberBloomscapesAssignment(index, row);
     }
     return index;
 }
 
-function rememberBloomscapesAssignment(index,row) {
-    const code = bloomscapesOwnerCode(row.itemcode_normalized || row.itemcode || row.ITEMCODE);
-    const owner = bloomscapesOwnerValue(row);
-    const block = bloomscapesOwnerCode(row.blockalpha || row.BLOCKALPHA);
-    if (owner && block) index.block.set(block,owner);
-    if (!code || !owner) return;
-    const normalized = buildManagerEvalAssignmentKey(code);
+function rememberBloomscapesAssignment(index, row) {
+    const code = buildManagerEvalAssignmentKey(row.itemcode_normalized || row.itemcode || row.ITEMCODE);
     const location = bloomscapesOwnerCode(row.locationcode || row.LOCATIONCODE);
-    if (location) index.location.set(normalized+'@'+location,owner);
-    else index.item.set(code,owner);
-    if (!index.normalized.has(normalized) || !location) index.normalized.set(normalized,owner);
-    const size = normalized.split('.').slice(0,2).join('.');
-    if (!index.size.has(size) || !location) index.size.set(size,owner);
+    const owner = bloomscapesOwnerValue(row);
+    const reason = row.assignment_reason || row.ASSIGNMENT_REASON;
+    if (owner && location && reason === 'zone_zoe' && (!code || owner === 'zoe_green')) index.block.set(bloomscapesAssignmentBlock(location), owner);
+    if (code && location && owner && (row.zone_override_active === true || row.ZONE_OVERRIDE_ACTIVE === true)) {
+        index.location.set(code + '@' + location, owner);
+    }
 }
 
-function resolveBloomscapesAssignedOwner(row,index) {
-    if (!index || bloomscapesRowFarm(row)!==index.farm) return '';
+function resolveBloomscapesAssignedOwner(row, index) {
+    if (!row || !index || bloomscapesRowFarm(row) !== index.farm) return '';
     return readCanonicalAssignedOwner(row, index, () => resolveIndexedBloomscapesOwner(row, index));
 }
 
+function getBloomscapesIndexedOwnerOverride(row, index) {
+    const code = buildManagerEvalAssignmentKey(row.ITEMCODE || row.itemcode || row.ITEM || row.item);
+    const location = bloomscapesOwnerCode(row.LOCATIONCODE || row.locationcode || row.location_code);
+    return index.location.get(code + '@' + location) || index.block.get(bloomscapesAssignmentBlock(location));
+}
+
 function resolveIndexedBloomscapesOwner(row, index) {
-    const code = bloomscapesOwnerCode(row.ITEMCODE || row.itemcode);
-    const normalized = buildManagerEvalAssignmentKey(code);
-    const location = bloomscapesOwnerCode(row.LOCATIONCODE || row.locationcode);
-    return index.location.get(normalized+'@'+location) || index.block?.get(bloomscapesOwnerCode(row.blockalpha || row.BLOCKALPHA || location.split('.')[0])) || index.item.get(code) || index.normalized.get(normalized)
-        || index.size.get(normalized.split('.').slice(0,2).join('.')) || index.family.get(normalized.split('.')[0]) || '';
+    const code = buildManagerEvalAssignmentKey(row.ITEMCODE || row.itemcode || row.ITEM || row.item);
+    return getBloomscapesIndexedOwnerOverride(row,index) || index.item.get(code) || '';
 }
 
 function getInventoryCardItemLocationKey(item = null) {
@@ -88,4 +102,11 @@ function getMasterInventoryExactKey(item) {
     const rowFarm = bloomscapesRowFarm(item);
     const farm = rowFarm === '10-PH' ? '' : '__' + rowFarm;
     return `${itemCode}__${locationCode}__${lotCode}__${sourceCode}${farm}`;
+}
+
+function projectOptimisticAssignedItemOwner(row, fields, assignee) {
+    fields.slice(0, 4).forEach(field => { row[field] = assignee; });
+    if (isManagerEvalZoneAssignment(row)) return;
+    fields.slice(4, 8).forEach(field => { row[field] = assignee; });
+    row.assignment_reason = assignee ? 'itemcode_default' : 'unassigned';
 }

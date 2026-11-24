@@ -146,7 +146,8 @@ function publishPreparedBloomscapesFarm(snapshot) {
     acceptedLocOnHandAggregateReceipt.valid = false;
     invalidateMasterDerivedInventories();
     invalidateResolvedViewStateCaches();
-    state.bloomscapesOwners = {farm:snapshot.farm,epoch:state.dataEpoch,owner:snapshot.owner,index:snapshot.assignedMap};
+    if (snapshot.owners) publishBloomscapesOwnerIndex(state,snapshot.owners,snapshot.assignedMap);
+    else state.bloomscapesOwners = {farm:snapshot.farm,epoch:state.dataEpoch,owner:getSupabaseReadIdentityScope(),index:snapshot.assignedMap};
     for (const [key,rows] of [['master',fullInventory],['soc',socInventory],['reserves',reservesInventory],['warehouseAssignedItems',warehouseAssignedItemsInventory]]) {
         Object.assign(getDatasetState(key),{initialLoaded:true,fullLoaded:true,rowCompleteness:'complete',fieldCoverage:'full',
             expectedRowCount:rows.length,lastLoadedAt:new Date(snapshot.loadedAt).toISOString()});

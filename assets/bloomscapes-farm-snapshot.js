@@ -24,17 +24,20 @@ async function readBloomscapesFarmSnapshot(farm,assertCurrent,background) {
         readBatteryRevisionPulse(farm,bloomscapesFarmSnapshotSignal(background)),readBloomscapesFarmRevision(farm,background)
     ]);
     assertCurrent();
-    const entries = await readBloomscapesFarmSnapshotTables(farm,assertCurrent,background);
+    const [entries,owners] = await Promise.all([
+        readBloomscapesFarmSnapshotTables(farm,assertCurrent,background),
+        readBloomscapesAssignedOwnerSnapshot(farm,bloomscapesFarmSnapshotSignal(background),background)
+    ]);
     assertCurrent();
     const confirmedRevision = await readBloomscapesFarmRevision(farm,background);
     assertCurrent();
     if (confirmedRevision!==revision) throw Object.assign(
         new Error('Inventory was updated during the snapshot read.'),{code:'FARM_SNAPSHOT_REVISION_CHANGED'});
-    return {farm,revision,lastSyncRevisionAt,...Object.fromEntries(entries)};
+    return {farm,revision,lastSyncRevisionAt,...Object.fromEntries(entries),owners};
 }
 
 async function readBloomscapesFarmSnapshotTables(farm,assertCurrent,background) {
-    const contracts = getErpFarmReadContracts(farm);
+    const contracts = getErpFarmReadContracts(farm).filter(([key])=>key!=='assigned' && key!=='defaults');
     const read = async ([key,table,column,order])=>[key,await readBloomscapesFarmTable(table,column,order,farm,assertCurrent,undefined,background)];
     const completed = [];
     for (let index=0;index<contracts.length;index++) {
@@ -42,6 +45,19 @@ async function readBloomscapesFarmSnapshotTables(farm,assertCurrent,background) 
         if (index + 1 < contracts.length) await new Promise(resolve=>setTimeout(resolve,150));
     }
     return completed;
+}
+
+async function readBloomscapesAssignedOwnerSnapshot(farm,signal,background) {
+    if (background) await background.checkpoint();
+    const timeout = AbortSignal.timeout(10000);
+    const active = background?.signal() || signal;
+    const request = getSupabaseBrowserClient().rpc('gnc_read_assigned_owner_snapshot',{p_farm:farm});
+    const {data,error} = await request.abortSignal(active ? AbortSignal.any([active,timeout]) : timeout);
+    if (error) throw error;
+    if (data?.farm!==farm || !Array.isArray(data.defaults) || !Array.isArray(data.blocks) || !Array.isArray(data.overrides)) {
+        throw new Error('Farm owner snapshot was not confirmed.');
+    }
+    return data;
 }
 
 async function readBloomscapesFarmTable(table,column,order,farm,assertCurrent,signal = window.BloomscapesBatteryGovernor.viewSignal(),background) {

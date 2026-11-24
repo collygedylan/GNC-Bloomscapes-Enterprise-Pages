@@ -162,62 +162,6 @@ function hydrateNextHomeTab(nextTab) {
     if (nextTab === MANAGER_SEASON_PRIORITY_VIEW) loadManagerSeasonPriority(true);
 }
 
-function hydrateAssignedItemsHomeTab() {
-    const loadAssignmentSources = () => {
-        if (activeHomeTab !== MANAGER_ASSIGNED_ITEMS_EXPORT_VIEW || !canViewAssignedItemsExport()) return;
-        const ready = () => { refreshAssignedItemLookups(); scheduleHydratedViewRender('managers'); };
-        refreshAssignedItemLookups();
-        void loadManagerItemcodeDefaultOwners();
-        ensureDatasetLoaded('master', 'full', { preserveRequestedMode: true })
-            .then(ready).catch(() => {});
-        ensureDatasetLoaded('warehouseAssignedItems', 'full', {
-            force: !warehouseAssignedItemsInventory.length,
-            bypassLiveSyncCoordinator: !warehouseAssignedItemsInventory.length,
-            retryOnCancellation: !warehouseAssignedItemsInventory.length,
-            preserveRequestedMode: true
-        }).then(ready).catch(() => {});
-    };
-    if (getManagerAssignedColumnState().opening) requestAnimationFrame(() => setTimeout(loadAssignmentSources, 0));
-    else loadAssignmentSources();
-}
-
-
-function resolveManagerAssignedOwnerEvidence(row, state, useMaster) {
-    const code = buildManagerEvalAssignmentKey(row.ITEMCODE || row.itemcode);
-    const ledger = state.defaultOwnersByCode?.get(code);
-    const exact = useMaster ? getWarehouseAssignedRowForItem(row) : row;
-    const exactDefault = exact?.default_assignedto ?? exact?.DEFAULT_ASSIGNEDTO;
-    const mirrorDefault = row.default_owner ?? row.DEFAULT_OWNER ?? row.default_assignedto ?? row.DEFAULT_ASSIGNEDTO;
-    const mirrorWorker = row.effective_worker ?? row.EFFECTIVE_WORKER ?? row.assignedto ?? row.ASSIGNEDTO;
-    const revision = Number(exact?.default_revision ?? exact?.DEFAULT_REVISION ?? row.default_revision ?? row.DEFAULT_REVISION ?? 0);
-    const ledgerCurrent = ledger && Number(ledger.revision || 0) >= revision;
-    const owner = ledgerCurrent ? ledger.assignedto ?? '' : exactDefault ?? mirrorDefault ?? '';
-    const exactWorker = exact?.assignedto ?? exact?.ASSIGNEDTO;
-    const pending = state.defaultPending?.has(code) === true;
-    const zone = exact ? isManagerEvalZoneAssignment(exact) || (pending && exact.ASSIGNMENT_REASON === 'zone_zoe')
-        : mirrorWorker === 'zoe_green' && mirrorWorker !== mirrorDefault;
-    const worker = zone ? (pending ? 'zoe_green' : exactWorker ?? mirrorWorker)
-        : ledgerCurrent && exact ? owner : exactWorker ?? mirrorWorker;
-    const known = useMaster || !!exact || mirrorWorker != null;
-    const exactReason = exact?.assignment_reason ?? exact?.ASSIGNMENT_REASON;
-    const reason = zone ? exactReason || 'zone_zoe' : exactReason ?? row.assignment_reason ?? (owner ? 'itemcode_default' : 'unassigned');
-    return { owner, worker: worker ?? owner, revision: ledgerCurrent ? Number(ledger.revision || 0) : revision, zone, known, reason };
-}
-
-function projectManagerAssignedOwnerRow(row, index, state, useMaster) {
-    const evidence = resolveManagerAssignedOwnerEvidence(row, state, useMaster);
-    if (!evidence.known) return null;
-    const draft = state.defaultDrafts?.[buildManagerEvalAssignmentKey(row.ITEMCODE || row.itemcode)];
-    const hasDraft = draft && !draft.error;
-    const owner = hasDraft ? draft.assignedto : evidence.owner;
-    const worker = hasDraft && !evidence.zone ? owner : evidence.worker;
-    const uid = String(row.MASTER_UNIQUE_ID || row.master_unique_id || (useMaster ? row.UNIQUE_ID || row.unique_id : '') || '');
-    return normalizeWarehouseAssignedItemRow({ ...row, MASTER_UNIQUE_ID: uid, master_unique_id: uid,
-        ASSIGNEDTO: worker, assignedto: worker, effective_worker: worker, DEFAULT_ASSIGNEDTO: owner, default_assignedto: owner,
-        DEFAULT_REVISION: evidence.revision, default_revision: evidence.revision, assignment_reason: evidence.reason,
-        zone_override_active: evidence.zone }, index);
-}
-
 function appendManagerAssignedCandidateGroup(groups, lists, total) {
     if (lists.some(list => list.length === total)) return;
     groups.push(lists.length === 1 ? lists[0] : [...new Set(lists.flat())].sort((a, b) => a - b));

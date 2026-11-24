@@ -41,7 +41,7 @@ function resolveSuspendOwner(item) {
     const code = buildManagerEvalAssignmentKey(item?.ITEMCODE || item?.itemcode || item?.ITEM || item?.item);
     const state = getManagerAssignedColumnState();
     if (typeof nativeAuthSessionActive!=='undefined' && nativeAuthSessionActive && typeof getBloomscapesAssignmentIndex==='function') {
-        return resolveBloomscapesAssignedOwner(item,getBloomscapesAssignmentIndex()) || bloomscapesOwnerValue(item) || 'Unassigned';
+        return resolveBloomscapesAssignedOwner(item,getBloomscapesAssignmentIndex()) || 'Unassigned';
     }
     if (item?.DOCK_SUSPEND_DC_REQUEST === true || isDockSuspendDcRequestSource(item)) {
         return resolveExactSuspendOwner(item, code, state);

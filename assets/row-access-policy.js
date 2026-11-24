@@ -96,6 +96,9 @@ function canEditDockMirrorEvidence(item, capability) {
 }
 
 function resolveInventoryRowOwner(row) {
+    if (typeof nativeAuthSessionActive !== 'undefined' && nativeAuthSessionActive && typeof getBloomscapesAssignmentIndex === 'function') {
+        return resolveBloomscapesAssignedOwner(row, getBloomscapesAssignmentIndex());
+    }
     const code = buildManagerEvalAssignmentKey(row?.ITEMCODE || row?.itemcode || row?.ITEM || row?.item);
     const assigned = getCardEvalOwnerIndex(getManagerAssignedColumnState(),true).exact.get(code);
     if (assigned) return normalizeEvidenceActor(assigned);

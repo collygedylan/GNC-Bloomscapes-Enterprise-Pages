@@ -121,12 +121,7 @@ function hasBloomscapesReclassScope(access = getBloomscapesReclassAccess()) {
 function exactBloomscapesReclassOwner(row,farm) {
     const raw = row?.__reclassIdentityRaw || row;
     if (!raw || (raw.farm_code || raw.FARM_CODE || bloomscapesRowFarm(raw)) !== farm) return '';
-    const code = String(raw.ITEMCODE || raw.itemcode || '').trim();
-    if (!code) return '';
-    const assignments = getManagerAssignedColumnState().defaultOwnersByCode;
-    const assignment = assignments?.get(code.toUpperCase()) || assignments?.get(buildManagerEvalAssignmentKey(code));
-    if (assignment?.farm_code !== farm || String(assignment.itemcode || '').trim() !== code) return '';
-    return reclassAccessKey(assignment.effective_worker_username) || reclassAccessKey(assignment.default_owner_username);
+    return reclassAccessKey(resolveBloomscapesAssignedOwner(raw,getBloomscapesAssignmentIndex()));
 }
 
 function canShowBloomscapesReclassRow(row, access = getBloomscapesReclassAccess()) {

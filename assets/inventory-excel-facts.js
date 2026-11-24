@@ -44,7 +44,7 @@ function buildInventoryExcelFact(item) {
 
 function inventoryFacetOwners(item,ownerIndex) {
     if (Array.isArray(item.assigned_usernames)) return item.assigned_usernames;
-    if (ownerIndex) return resolveBloomscapesAssignedOwner(item,ownerIndex) || bloomscapesOwnerValue(item) || 'Unassigned';
+    if (ownerIndex) return resolveBloomscapesAssignedOwner(item,ownerIndex) || 'Unassigned';
     return resolveSuspendOwner(item);
 }
 

@@ -334,71 +334,14 @@ function mergeActiveItemDetailPhotoFields(row, prefix = '') {
             refreshAssignedItemSelection(snapshot);
             refreshAssignedItemBulkActions(snapshot,state);
         }
-
-        function applyOptimisticItemcodeOwners(codes, assignee) {
-            const state = getManagerAssignedColumnState(), wanted = new Set(codes), snapshots = [];
-            const fields = ['DEFAULT_ASSIGNEDTO','default_assignedto','DEFAULT_OWNER','default_owner','ASSIGNEDTO','assignedto','effective_worker','EFFECTIVE_WORKER','zone_override_active','assignment_reason'];
-            const defaults = state.defaultOwnersByCode ||= state.itemcodeDefaultOwners instanceof Map ? state.itemcodeDefaultOwners : new Map();
-            const previousDefaults = new Map();
-            for (const code of wanted) {
-                const previous = defaults.get(code);
-                const optimistic = { ...previous, itemcode_normalized: code, assignedto: assignee };
-                previousDefaults.set(code, {previous, optimistic});
-                defaults.set(code, optimistic);
-            }
-            state.itemcodeDefaultOwners = defaults;
-            const seen = new Set();
-            [warehouseAssignedItemsInventory, fullInventory, state.warehouseAssignedItems, state.itemcodeDefaultOwners, state.inventoryRowAssignments, state.fullInventory, state.rows, state.data, state.displayCache?.rows].filter(Array.isArray).forEach(rows => rows.forEach(row => {
-                if (seen.has(row) || !wanted.has(buildManagerEvalAssignmentKey(row.ITEMCODE || row.itemcode || row.itemcode_normalized))) return;
-                seen.add(row); const before = Object.fromEntries(fields.map(field => [field, { exists: Object.hasOwn(row, field), value: row[field] }]));
-                snapshots.push({ row, before });
-                fields.slice(0,8).forEach(field => { row[field] = assignee; }); row.zone_override_active = false; row.assignment_reason = assignee ? 'itemcode_default' : 'unassigned';
-            }));
-            state.dataEpoch = (state.dataEpoch || 0) + 1;
-            clearWarehouseAssignedItemCaches();
-            if (state.displayCache) {
-                const targets = getManagerItemLowStockTargetsState();
-                state.displayCache.signature = getManagerAssignedDisplaySignature(state, state.displayCache.input === fullInventory, targets.revision);
-                state.filteredCache = new Map();
-            }
-            invalidateManagerEvalReport2Cache();
-            const refreshOwners = () => {
-                state.assignedFilterIndex = null;
-                state.filteredCache = new Map();
-                if (typeof getCardEvalOwnerIndex === 'function') getCardEvalOwnerIndex(state, true);
-                if (state === getManagerAssignedColumnState() && typeof refreshSuspendOwnerViews === 'function') refreshSuspendOwnerViews();
-            };
-            refreshOwners();
-            return () => {
-                for (const [code, {previous, optimistic}] of previousDefaults) {
-                    const active = state.defaultOwnersByCode;
-                    if (active?.get(code) !== optimistic) continue;
-                    if (previous === undefined) active.delete(code);
-                    else active.set(code, previous);
-                }
-                snapshots.forEach(({row,before}) => {
-                    if (row.default_owner !== assignee) return;
-                    for (const [field, prior] of Object.entries(before)) {
-                        if (prior.exists) row[field] = prior.value;
-                        else delete row[field];
-                    }
-                });
-                state.dataEpoch++;
-                clearWarehouseAssignedItemCaches();
-                invalidateManagerEvalReport2Cache();
-                refreshOwners();
-            };
-        }
-
-
-        function getManagerAssignedItemsViewProps(rows = null, totalRows = null) {
+        function getManagerAssignedItemsViewProps(_rows = null, totalRows = null) {
             const state = getManagerAssignedColumnState();
             const low = getManagerItemLowStockTargetsState();
             const pageSource = state.viewPageSource && useManagerReportPages('assigned-items') ? { ...state.viewPageSource,
                 query: buildManagerReportPageQuery('assigned-items', 'rows'), refreshKey: state.viewRefreshKey || 0 } : null;
             if (pageSource) {
                 state.viewNormalizeRow ||= (row, index) => normalizeWarehouseAssignedItemRow(enrichManagerAssignedPlantGroups([row])[0], index);
-                state.viewPageStateHandler ||= (page, offset, result) => {
+                state.viewPageStateHandler ||= (page, _offset, result) => {
                     const nextRevision = page?.sourceRevision || state.viewPageRevision || '';
                     const nextError = result?.error ? String(result.error.message || result.error) : '';
                     const nextMetadata = page?.metadata || state.viewMetadata || {};
@@ -782,24 +725,28 @@ function getInventoryLocationPhotos(row) {
         async function loadManagerItemcodeDefaultOwners(force = false) {
             const state = getManagerAssignedColumnState(), scope = getSupabaseReadIdentityScope();
             if (state.defaultOwnersPromise) return state.defaultOwnersPromise;
+            if (bloomscapesFarmState.busy) return state.defaultOwnersByCode;
             const ownerEpoch = state.ownerWriteAt;
             if (!force && Date.now() - Number(state.defaultOwnersCheckedAt || 0) < 60000) return state.defaultOwnersByCode;
             state.defaultOwnersCheckedAt = Date.now();
-            state.defaultOwnersPromise = fetchAllSupabaseRows('ph_itemcode_default_owners', 'select=*&order=itemcode_normalized.asc').then(rows => {
-                if (state !== getManagerAssignedColumnState() || scope !== getSupabaseReadIdentityScope()) return null;
+            const farm = getBloomscapesFarm();
+            state.defaultOwnersPromise = readBloomscapesAssignedOwnerSnapshot(farm).then(snapshot => {
+                if (state !== getManagerAssignedColumnState() || scope !== getSupabaseReadIdentityScope() || farm !== getBloomscapesFarm()) return null;
                 if (ownerEpoch !== state.ownerWriteAt || state.defaultPending?.size) { state.defaultOwnersCheckedAt = 0; return state.defaultOwnersByCode; }
                 const previous = state.defaultOwnersByCode || new Map();
-                const next = new Map(rows.map(row => {
+                const next = new Map(expandBloomscapesOwnerDefaults(snapshot).map(row => {
                     const code = buildManagerEvalAssignmentKey(row.itemcode_normalized), old = previous.get(code);
                     return [code, old && Number(old.revision) > Number(row.revision) ? old : row];
                 }));
-                if (state.itemcodeDefaultOwners && previous.size === next.size && [...next].every(([code, row]) => {
+                const overridesUnchanged = state.bloomscapesOwners?.overrideKey === JSON.stringify([snapshot.blocks,snapshot.overrides]);
+                if (overridesUnchanged && state.itemcodeDefaultOwners && previous.size === next.size && [...next].every(([code, row]) => {
                     const old = previous.get(code);
                     return old && old.revision === row.revision && old.assignedto === row.assignedto && old.plant_group_code === row.plant_group_code;
                 })) return previous;
                 state.defaultOwnersByCode = next;
                 state.dataEpoch = (state.dataEpoch || 0) + 1;
                 state.itemcodeDefaultOwners = state.defaultOwnersByCode;
+                publishBloomscapesOwnerIndex(state,snapshot);
                 getCardEvalOwnerIndex(state, true);
                 refreshSuspendOwnerViews();
                 if (isViewVisible('managers')) scheduleHydratedViewRender('managers');

@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.59';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.60';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -19503,6 +19503,7 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
 /* @runtime-fragment assets/detail-field-inputs.js */
 /* @runtime-fragment assets/request-evaluation-publication.js */
 /* @runtime-fragment assets/row-workflow-functions.js */
+/* @runtime-fragment assets/assigned-items-optimistic-owners.js */
         /* @runtime-fragment assets/row-access-policy.js */
         /* @runtime-fragment assets/suspend-exact-owner.js */
         /* @runtime-fragment assets/que-header.js */
@@ -23253,7 +23254,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.59';
+        const APP_VERSION = '3.1.60';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -108581,18 +108582,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return true;
         }
 
-        function renderManagerAssignedItemsExportPanel() {
-            if (!canViewAssignedItemsExport()) {
-                return '<div class="rounded-2xl border border-dashed border-slate-200 bg-white/80 p-8 text-center text-sm font-bold text-slate-400">AssignedTo export is available to managers only.</div>';
-            }
-            const allRows = getManagerAssignedItemsDisplayRows();
-            const filteredRows = getFilteredManagerAssignedItemsExportRows(allRows);
-            return '<div class="assigned-items-workspace"><div data-manager-assigned-chrome><div class="assigned-items-toolbar" role="region" aria-label="Assigned Items controls">'
-                + renderAssignedItemActions(filteredRows) + renderAssignmentCsvToolbar()
-                + '</div></div>'
-                + renderManagerAssignedItemsPreviewTable(filteredRows, allRows.length) + '</div>';
-        }
-
         function canViewManagerShortageCancel(userOverride = '') {
             return [userOverride, currentUser, currentUserDisplay]
                 .filter((value) => String(value || '').trim())
@@ -118616,7 +118605,8 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             const fullSnapshot = isDatasetLoaded('warehouseAssignedItems', 'full') || typeof fullInventory !== 'undefined' && fullInventory.length > 0 && isDatasetLoaded('master', 'full');
             const pagedSnapshot = !!(state.viewPageSource && state.viewPageRevision && !state.viewPageError
                 && useManagerReportPages('assigned-items'));
-            return fullSnapshot || pagedSnapshot;
+            return (fullSnapshot || pagedSnapshot) && (!nativeAuthSessionActive || (!!state.bloomscapesOwners?.overrideKey
+                && state.bloomscapesOwners.owner === getSupabaseReadIdentityScope()));
         }
 
         function isManagerEvalAssignmentLocked(itemcode = '', genusname = '') {

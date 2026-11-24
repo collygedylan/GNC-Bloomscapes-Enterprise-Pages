@@ -183,6 +183,7 @@ function buildProductionLiveBackgroundAdapters(context,view,adapters,foregroundC
     // Assignment reads authorize card actions, not catalog visibility.
     // Until loaded the existing action checks remain denied.
     if ((view === 'drive' || view === 'detail' && context.driveDetail) && context.driveAssignmentsRequired
+        && (typeof nativeAuthSessionActive === 'undefined' || !nativeAuthSessionActive)
         && !foregroundIds.has('core:warehouseAssignedItems')) {
         backgroundAdapters.push(createProductionCoreLiveAdapter('warehouseAssignedItems', 'browse', { pageConcurrency: 1 }));
     }
