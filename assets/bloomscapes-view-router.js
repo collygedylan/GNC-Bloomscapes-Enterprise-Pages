@@ -14,9 +14,11 @@ function renderViewContent(viewId, forceReset = false, forceRender = false, sync
     const state = ensureViewRenderState(viewId);
     if (!forceReset && !forceRender && state.initialized && !state.dirty) {
         if (changedView && ['messages','push-to-talk'].includes(viewId)) renderBloomscapesMessagesView(viewId);
+        renderBloomscapesPhotoAiWorkspace(viewId);
         renderBloomscapesDispatchWorkspaces(viewId);
         mountBloomscapesFieldBorrowing(viewId);
         mountBloomscapesInventoryBrowse(viewId);
+        if (viewId==='drive') mountBloomscapesDrivePhotoAiBadges();
         syncGlobalHeaderChrome({reason:syncHeader ? 'view-switch:'+viewId : 'view-content-ready',force:syncHeader});
         incrementInternalPerfCounter('warmViewReuseHits');
         if(changedView)scheduleDeferredCardPhotoHydration(document.getElementById('view-'+viewId));
@@ -24,7 +26,7 @@ function renderViewContent(viewId, forceReset = false, forceRender = false, sync
     }
     const renderStartedAt = beginInternalPerfMeasure();
 
-    if (!renderBloomscapesDispatchWorkspaces(viewId) && !renderBloomscapesNativeSalesOffice(viewId) && !renderBloomscapesMessagesView(viewId) && !renderBloomscapesDepartmentWorkspace(viewId) && !renderCoreAppView(viewId, state, forceReset) && !renderRequestAndWorkspaceView(viewId, state, forceReset) && !renderHubAppView(viewId)) {
+    if (!renderBloomscapesPhotoAiWorkspace(viewId) && !renderBloomscapesDispatchWorkspaces(viewId) && !renderBloomscapesNativeSalesOffice(viewId) && !renderBloomscapesMessagesView(viewId) && !renderBloomscapesDepartmentWorkspace(viewId) && !renderCoreAppView(viewId, state, forceReset) && !renderRequestAndWorkspaceView(viewId, state, forceReset) && !renderHubAppView(viewId)) {
         renderAuxiliaryAppView(viewId, state, forceReset);
     }
 
@@ -32,6 +34,7 @@ function renderViewContent(viewId, forceReset = false, forceRender = false, sync
     if (viewId==='office') mountBloomscapesOrderDocuments(document.getElementById('view-office'),'office');
     mountBloomscapesFieldBorrowing(viewId);
     mountBloomscapesInventoryBrowse(viewId);
+    if (viewId==='drive') mountBloomscapesDrivePhotoAiBadges();
     syncGlobalHeaderChrome({reason:syncHeader ? 'view-switch:'+viewId : 'view-content-ready',force:syncHeader});
     state.initialized = true;
     state.dirty = false;

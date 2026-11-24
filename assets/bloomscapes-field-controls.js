@@ -88,6 +88,7 @@ function mountBloomscapesRowChoices(host) {
 function renderInventoryEditDetailAction(item = activeItem, detailSourceView = '') {
     renderBloomscapesDetailDispatch(item,detailSourceView);
     renderPlantHealthDetail(item,detailSourceView);
+    mountBloomscapesDetailPhotoAiBadge(item);
     const sharedPanel = document.getElementById('detail-inventory-checks-panel');
     const tabPanel = document.getElementById('inventory-edit-tab-detail-action');
     const legacyPanels = ['inventory-edit-detail-action', 'inventory-edit-request-detail-action']

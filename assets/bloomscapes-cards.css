@@ -431,3 +431,57 @@ html body #view-pull-tags [aria-label="Pull Tag filters"] :is(select,button) {
   box-sizing:border-box;width:auto;height:36px!important;min-height:36px!important;max-height:36px;
   margin-block:0;padding-block:0;
 }
+
+[data-photo-ai-workspace] {
+    display: grid;
+    gap: .65rem;
+    min-inline-size: 0;
+    inline-size: 100%;
+}
+.photo-ai-toolbar, .photo-ai-filters, .photo-ai-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .4rem;
+}
+.photo-ai-toolbar { padding: .25rem 0; }
+.photo-ai-filters button[aria-pressed="true"] {
+    background: #166542;
+    color: white;
+}
+.photo-ai-status { margin: 0; }
+.photo-ai-status:empty { display: none; }
+.photo-ai-card {
+    inline-size: 100%;
+    min-inline-size: 0;
+    padding: .75rem;
+    margin-block-end: .55rem;
+}
+.photo-ai-card-header {
+    display: grid;
+    grid-template-columns: minmax(3rem,5rem) minmax(0,1fr);
+    gap: .75rem;
+    align-items: center;
+}
+.photo-ai-card p { margin-block: .2rem; overflow-wrap: anywhere; }
+.photo-ai-thumb {
+    width: 100%;
+    min-height: 44px;
+    border-radius: .6rem;
+    overflow: hidden;
+    font-size: .76rem;
+}
+.photo-ai-thumb img {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+}
+.photo-ai-actions { margin-block-start: .45rem; }
+.photo-ai-badge {
+    max-inline-size: 100%;
+    margin-block-start: .3rem;
+    text-align: start;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    font-size: .7rem;
+}

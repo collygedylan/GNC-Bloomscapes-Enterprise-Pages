@@ -124,6 +124,8 @@ function renderDriveInventoryCardMarkup(context) {
     const driveReclassMetaHtml = `${driveTagColorHtml}${driveSourceChipHtml}`;
     const driveReclassActionHtml = driveArgosRailHtml || driveReclassMetaHtml ? `<div class="app-drive-card-reclass" onclick="event.stopPropagation();">${driveArgosRailHtml}${driveTagColorHtml ? `<div class="app-drive-card-tag-row" data-inventory-card-field="fieldtagcolor">${driveTagColorHtml}</div>` : ''}${driveSourceChipHtml ? `<div class="app-drive-card-source-row">${driveSourceChipHtml}</div>` : ''}</div>` : '';
     const driveRoleAccess = getRoleAccessState();
+    const scanIdentity = sourceView==='drive' && !isBloomscapesDriveTour() ? getItemUniqueId(item) : '';
+    const scanAttribute = scanIdentity ? ' data-photo-ai-drive-row="'+esc(scanIdentity)+'"' : '';
     const includeDriveBloomPickerBtn = !renderMeta.workBuilder && canAddItemToBloomPicker(item, sourceView) && (
         (driveRoleAccess.isRep && !driveRoleAccess.isCsr)
         || (canSelectDriveWorkflow && (canUseDriveBloomPickerForTakeBack() || isWarehouseAssignedDriveCardForCurrentUser(item)))
@@ -139,7 +141,7 @@ function renderDriveInventoryCardMarkup(context) {
     const driveChipRowHtml = `${buildCompletedRowBadge(item)}${buildEvalOwnerBadge(item)}${buildDriveEarlyABadgeHtml(item)}${driveFieldChipsHtml}`.trim();
     const driveCardActionClass = `${quickRequestBtn ? 'app-card-with-bottom-rail' : ''} ${driveReclassActionHtml ? 'app-drive-card-with-reclass' : ''}`.trim();
 
-    return `<div class="flex items-center w-full mb-3 item-row app-smart-card app-smart-card--inventory app-drive-compact-card ${sourceView === 'drive' ? 'app-shared-drive-layout' : ''} app-inventory-card-overhaul ${seasonCardShellClass} ${driveCardActionClass} relative ${inventoryCardToneClass} p-4 rounded-xl border shadow-sm active:scale-[0.99] transition-transform cursor-pointer overflow-hidden ${holdBorderClass}" data-dom-id="${item.DOM_ID}" oncontextmenu="return handleCardContextMenu(event, '${item.DOM_ID}')" ${bloomscapesDriveCardActivation(item,renderMeta,sourceView)}>${driveCheckboxHtml}${buildSharedInventoryCardLayout(item, { photoHtml: inlineThumbHtml, actionsHtml: driveReclassActionHtml, headerHtml: driveListPriceHtml, metricsHtml: driveQuantityRowHtml, detailsHtml: `${driveSpecHtml}${driveAvNoteHtml}${quickRequestBtn ? `<div class="app-drive-card-bottom">${quickRequestBtn}</div>` : ''}${driveHoldDataHtml}${driveChipRowHtml ? `<div class="app-drive-card-chip-row">${driveChipRowHtml}</div>` : ''}${noteHtml}${customerOutreachHtml}${inventoryEditActionHtml}` })}</div>`;
+    return `<div class="flex items-center w-full mb-3 item-row app-smart-card app-smart-card--inventory app-drive-compact-card ${sourceView === 'drive' ? 'app-shared-drive-layout' : ''} app-inventory-card-overhaul ${seasonCardShellClass} ${driveCardActionClass} relative ${inventoryCardToneClass} p-4 rounded-xl border shadow-sm active:scale-[0.99] transition-transform cursor-pointer overflow-hidden ${holdBorderClass}" data-dom-id="${item.DOM_ID}"${scanAttribute} oncontextmenu="return handleCardContextMenu(event, '${item.DOM_ID}')" ${bloomscapesDriveCardActivation(item,renderMeta,sourceView)}>${driveCheckboxHtml}${buildSharedInventoryCardLayout(item, { photoHtml: inlineThumbHtml, actionsHtml: driveReclassActionHtml, headerHtml: driveListPriceHtml, metricsHtml: driveQuantityRowHtml, detailsHtml: `${driveSpecHtml}${driveAvNoteHtml}${quickRequestBtn ? `<div class="app-drive-card-bottom">${quickRequestBtn}</div>` : ''}${driveHoldDataHtml}${driveChipRowHtml ? `<div class="app-drive-card-chip-row">${driveChipRowHtml}</div>` : ''}${noteHtml}${customerOutreachHtml}${inventoryEditActionHtml}` })}</div>`;
 }
 
 function renderDriveInventoryCard(context) {
@@ -201,4 +203,87 @@ function renderNonSaleableBucketsReportCard(row = null) {
         ? `<div class="mt-3 rounded-xl border border-orange-100 bg-orange-50 px-3 py-2 text-[12px] font-bold text-orange-900">Hold/Stop: ${esc(holdCode || '-')} ${holdReason ? `- ${esc(holdReason)}` : ''}</div>`
         : '';
     return `<div class="rounded-2xl border border-orange-200 bg-white p-4 shadow-sm"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="text-[10px] font-black uppercase tracking-[0.16em] text-orange-600">${esc(row && row.__NON_SALEABLE_BUCKET_LABEL ? row.__NON_SALEABLE_BUCKET_LABEL : 'Non Saleable')}</div><div class="mt-1 text-xl font-black leading-tight text-slate-900">${esc(row && row.COMMONNAME ? row.COMMONNAME : 'Unknown')}</div><div class="mt-2 flex flex-wrap gap-2">${chips}</div></div><div class="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-700">${esc(row && row.SOURCE ? row.SOURCE : 'Source -')}</div></div><div class="mt-3 grid grid-cols-3 gap-2">${metrics}</div>${noteHtml}</div>`;
+}
+
+function bloomscapesPhotoAiBadgeRow(state,item,exactPhotos) {
+    if (!item || !state) return null;
+    const canonical = resolveCanonicalInventoryRow(item) || item;
+    const uid = getItemUniqueId(canonical);
+    const photos = exactPhotos ? new Set(getInventoryLocationPhotos(item)) : null;
+    return (state.byRow.get(uid) || []).find(row=>row.scanned_at && (!photos || photos.has(row.photo_url))) || null;
+}
+
+function paintBloomscapesPhotoAiBadge(host,state,row) {
+    const previous = host.querySelector(':scope > [data-photo-ai-badge]');
+    if (!row) {
+        previous?.remove();
+        return;
+    }
+    const key = row.scan_id+':'+row.disposition;
+    if (previous?.dataset.photoAiBadge===key) return;
+    previous?.remove();
+    const healthy = row.disposition==='dismissed_healthy' || row.scan_status==='healthy';
+    const label = healthy ? '🌿 AI Clear' : '⚠️ AI Plant Check: '+row.ai_summary;
+    const button = photoAiButton(host,label,event=>{
+        event.stopPropagation();
+        showPhotoAiCardImage(state,row,event.currentTarget);
+    });
+    button.dataset.photoAiBadge = key;
+    button.classList.add('photo-ai-badge');
+}
+
+function mountBloomscapesDrivePhotoAiBadges(addedCards) {
+    const root = document.getElementById('drive-content');
+    if (!root || getCurrentVisibleViewId()!=='drive') return;
+    const state = currentBloomscapesPhotoScanState();
+    const cards = addedCards || root.querySelectorAll('[data-photo-ai-drive-row]');
+    if (!state) {
+        root.querySelectorAll('[data-photo-ai-badge]').forEach(badge=>badge.remove());
+        return;
+    }
+    if (!cards.length) return;
+    const paint = () => paintBloomscapesDrivePhotoAiBadges(cards,state);
+    if (state.rows.length) paint();
+    void loadBloomscapesPhotoScans(state).then(paint);
+}
+
+function paintBloomscapesDrivePhotoAiBadges(cards,state) {
+    if (getCurrentVisibleViewId()!=='drive' || state!==currentBloomscapesPhotoScanState()) return;
+    for (const card of cards) {
+        if (!card.isConnected) continue;
+        const item = masterInventoryById.get(card.dataset.photoAiDriveRow);
+        const row = bloomscapesPhotoAiBadgeRow(state,item,true);
+        const slot = card.querySelector('.app-drive-card-photo');
+        if (slot) paintBloomscapesPhotoAiBadge(slot,state,row);
+    }
+}
+
+function mountBloomscapesDetailPhotoAiBadge(item) {
+    const root = document.getElementById('det-overview-content');
+    if (!root) return;
+    const state = currentBloomscapesPhotoScanState();
+    if (!state || !item) {
+        root.querySelector('[data-photo-ai-detail]')?.remove();
+        return;
+    }
+    const paint = () => {
+        if (activeItem!==item || !root.isConnected || state!==currentBloomscapesPhotoScanState()) return;
+        paintBloomscapesDetailPhotoAiBadge(root,state,item);
+    };
+    if (state.rows.length) paint();
+    void loadBloomscapesPhotoScans(state).then(paint);
+}
+
+function paintBloomscapesDetailPhotoAiBadge(root,state,item) {
+    const row = bloomscapesPhotoAiBadgeRow(state,item,false);
+    const prior = root.querySelector('[data-photo-ai-detail]');
+    const photo = root.querySelector('[id$="-photo-preview"]:not(.hidden)');
+    if (!row || !photo) {
+        prior?.remove();
+        return;
+    }
+    const host = prior || photoAiNode('div','');
+    host.dataset.photoAiDetail = '';
+    if (host.previousElementSibling!==photo) photo.after(host);
+    paintBloomscapesPhotoAiBadge(host,state,row);
 }

@@ -132,12 +132,13 @@ function appendDriveCardChunk(state, replace = false) {
     const body = getCanonicalDriveProjection(state.rows,'drive-chunk:'+state.signature+':'+start,
         ()=>state.rows.slice(start,end).map(state.renderRow).join(''));
     template.innerHTML = prefix+body;
+    const scanCards = template.content.querySelectorAll('[data-photo-ai-drive-row]');
     state.end = end;
     state.container.dataset.driveChunkCount = String(end);
     if (replace) state.container.replaceChildren(template.content,state.sentinel);
     else state.sentinel.before(template.content);
     if (end === state.rows.length) finishDriveCardChunks(state);
-    hydrateDriveCardChunk(state,start,end);
+    hydrateDriveCardChunk(state,start,end,scanCards);
 }
 
 function finishDriveCardChunks(state) {
@@ -146,12 +147,13 @@ function finishDriveCardChunks(state) {
     state.sentinel.remove();
 }
 
-function hydrateDriveCardChunk(state,start,end) {
+function hydrateDriveCardChunk(state,start,end,scanCards) {
     requestAnimationFrame(()=>{
         if (!state.isCurrent()) return;
         const ids = state.rows.slice(start,end).map(row=>row.DOM_ID).filter(Boolean);
         if (ids.length) refreshCartButtons(ids);
         refreshInventoryCardWindowPhotos(state.container,'drive');
+        mountBloomscapesDrivePhotoAiBadges(scanCards);
     });
 }
 

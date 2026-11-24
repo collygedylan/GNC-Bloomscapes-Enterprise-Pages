@@ -238,3 +238,89 @@ function createBloomscapesLabSampleRunner(host,status,load) {
         } finally { busy = false; }
     };
 }
+
+const photoAiFilters = [
+    ['issues','⚠️ Issues Flagged'],['all','All Scanned'],['healthy','🌿 Healthy'],['lab','Lab Samples']
+];
+const photoAiStatusLabels = {
+    pending:'Pending',healthy:'Healthy',issue_detected:'Issues flagged',needs_review:'Needs review',
+    dismissed_healthy:'Dismissed as healthy',escalated:'Escalated',lab_sampled:'Lab sampled'
+};
+
+function photoAiNode(tag,text,parent) {
+    const node = document.createElement(tag);
+    if (text) node.textContent = text;
+    parent?.append(node);
+    return node;
+}
+
+function photoAiButton(parent,label,run) {
+    const button = photoAiNode('button',label,parent);
+    button.type = 'button';
+    button.className = 'drive-field-chip rounded-full border px-3 py-2 font-bold';
+    button.onclick = run;
+    return button;
+}
+
+function photoAiMatchesFilter(row,filter) {
+    if (filter==='lab') return Boolean(row.lab_sample_id);
+    if (!row.scanned_at) return false;
+    if (filter==='healthy') return row.disposition==='dismissed_healthy' || row.scan_status==='healthy';
+    if (filter==='issues') return row.disposition!=='dismissed_healthy'
+        && (row.scan_status==='issue_detected' || row.scan_status==='needs_review');
+    return true;
+}
+
+function showPhotoAiCardImage(state,row,button) {
+    void getBloomscapesPhotoScanImage(state,row).then(url=>{
+        if (!url || !button.isConnected) return;
+        openAvPhotoViewer([url],row.common_name || 'Plant photo',0,button);
+    }).catch(error=>{
+        if (button.isConnected) button.title = error.message;
+    });
+}
+
+function renderPhotoAiScanCard(state,row) {
+    const article = photoAiNode('article');
+    article.className = 'app-smart-card app-drive-compact-card app-shared-drive-layout photo-ai-card p-3 rounded-xl border';
+    article.dataset.photoAiScan = row.scan_id;
+    const badge = row.disposition==='open' ? row.scan_status : row.disposition;
+    const header = photoAiNode('div','',article);
+    header.className = 'photo-ai-card-header';
+    const thumb = photoAiButton(header,'',event=>showPhotoAiCardImage(state,row,event.currentTarget));
+    thumb.className = 'photo-ai-thumb';
+    thumb.setAttribute('aria-label','View plant photo');
+    renderPhotoAiScanThumbnail(thumb,row);
+    const details = photoAiNode('div','',header);
+    photoAiNode('strong',row.common_name || row.itemcode || 'Plant photo',details);
+    photoAiNode('p',[row.itemcode,row.locationcode,row.lotcode].filter(Boolean).join(' · '),details);
+    photoAiNode('p',[photoAiStatusLabels[badge],row.severity==='none' ? '' : row.severity,
+        row.confidence==null ? '' : row.confidence+'% screening confidence'].filter(Boolean).join(' · '),details);
+    photoAiNode('p',row.ai_summary,article);
+    if (row.recommended_action) photoAiNode('p',row.recommended_action,article);
+    if (row.lab_sample_id) photoAiNode('p',row.lab_sample_id,article);
+    return article;
+}
+
+function renderPhotoAiScanThumbnail(button,row) {
+    if (row.storage_bucket!=='bloomscapes-evaluation-photos') {
+        button.textContent = 'View photo';
+        return;
+    }
+    const thumb = photoAiNode('img','',button);
+    thumb.src = row.photo_url;
+    thumb.alt = '';
+    thumb.loading = 'lazy';
+    thumb.decoding = 'async';
+}
+
+function appendPhotoAiReviewActions(card,state,row,dispatch) {
+    if (!state.canReview || row.lab_sample_id || !row.scanned_at) return;
+    const actions = photoAiNode('div','',card);
+    actions.className = 'photo-ai-actions';
+    photoAiButton(actions,'Dismiss / Healthy',()=>dispatch(row,'dismissed_healthy'));
+    photoAiButton(actions,'Escalate',()=>dispatch(row,'escalated'));
+    if (state.canSample && row.row_uid && row.itemcode && row.locationcode && row.lotcode) {
+        photoAiButton(actions,'Generate GNC-LAB-YY-XXXX Sample',()=>dispatch(row,'lab_sampled'));
+    }
+}

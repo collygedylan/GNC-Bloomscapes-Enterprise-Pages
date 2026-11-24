@@ -75,3 +75,119 @@ async function submitPlantHealthReview(entry,verdict,corrected) {
     return verdict === 'sample' ? {...entry,sample_id:data} : data;
 }
 
+const plantPhotoScanRoles = new Set(['super-admin','admin','manager','grower','qc','qc-supervisor','eval','evaluator']);
+const plantPhotoPageSize = 120;
+const plantPhotoReadTtl = 60_000;
+let plantPhotoState;
+
+function bloomscapesPhotoScanScope() {
+    if (!nativeAuthSessionActive || isBloomscapesDriveTour()) return null;
+    const preview = borrowedHelpPreview();
+    const profile = preview || nativeAuthProfile;
+    const role = String(profile?.role || '').replaceAll('_','-');
+    if (!plantPhotoScanRoles.has(role)) return null;
+    const grant = profile?.area_access?.lab;
+    const matrix = resolveUserAccessMatrix(profile.username);
+    if (matrix?.view_permissions?.view_qc === 'N' || grant === 'HIDDEN') return null;
+    if (preview && !['VIEW_ONLY','FULL_EDIT'].includes(grant)) return null;
+    const farm = getBloomscapesFarm();
+    const owner = getSupabaseReadIdentityScope();
+    return farm && owner ? {farm,owner,key:JSON.stringify([owner,farm,preview?.id || '']),preview:Boolean(preview)} : null;
+}
+
+function currentBloomscapesPhotoScanState(scope = bloomscapesPhotoScanScope()) {
+    if (!scope) return null;
+    if (plantPhotoState?.key !== scope.key) {
+        plantPhotoState = {...scope,rows:[],byRow:new Map(),canReview:false,refreshedAt:0,retryAt:0};
+    }
+    return plantPhotoState;
+}
+
+function plantPhotoStateCurrent(state) {
+    return plantPhotoState === state && bloomscapesPhotoScanScope()?.key === state.key;
+}
+
+function reindexPlantPhotoScans(state,rows) {
+    const byRow = new Map();
+    for (const row of rows) {
+        if (!row.row_uid) continue;
+        if (!byRow.has(row.row_uid)) byRow.set(row.row_uid,[]);
+        byRow.get(row.row_uid).push(row);
+    }
+    state.rows = rows;
+    state.byRow = byRow;
+}
+
+async function readPlantPhotoScans(state,onFirstPage) {
+    const {client,owner} = await requireBloomscapesSession();
+    const rows = new Map();
+    let offset = 0;
+    let received;
+    do {
+        if (!plantPhotoStateCurrent(state)) return null;
+        const receipt = bloomscapesData(await client.rpc('list_photo_ai_scans_v1',{
+            p_warehouse:state.farm,p_offset:offset,p_limit:plantPhotoPageSize
+        }));
+        await requireBloomscapesOwner(owner);
+        if (!plantPhotoStateCurrent(state)) return null;
+        state.canReview = receipt.can_review === true && !state.preview;
+        state.canSample = receipt.can_sample === true && state.canReview;
+        if (!receipt.allowed) {
+            reindexPlantPhotoScans(state,[]);
+            return state;
+        }
+        received = receipt.rows;
+        received.forEach(row => rows.set(row.scan_id,row));
+        if (offset === 0 && !state.rows.length) {
+            reindexPlantPhotoScans(state,[...rows.values()]);
+            onFirstPage?.(state);
+        }
+        offset += received.length;
+    } while (received.length === plantPhotoPageSize);
+    reindexPlantPhotoScans(state,[...rows.values()]);
+    return state;
+}
+
+function loadBloomscapesPhotoScans(state,onFirstPage) {
+    if (!state || !plantPhotoStateCurrent(state)) return Promise.resolve(null);
+    if (state.flight) return state.flight;
+    if (Math.max(state.refreshedAt+plantPhotoReadTtl,state.retryAt)>Date.now()) return Promise.resolve(state);
+    state.flight = readPlantPhotoScans(state,onFirstPage).then(receipt => {
+        if (receipt) {
+            state.refreshedAt = Date.now();
+            state.error = '';
+        }
+        return receipt;
+    }).catch(error => {
+        if (!plantPhotoStateCurrent(state)) return null;
+        state.error = error.message || 'Photo scans could not be refreshed.';
+        state.retryAt = Date.now()+plantPhotoReadTtl;
+        return state;
+    }).finally(() => {state.flight = null;});
+    return state.flight;
+}
+
+async function reviewBloomscapesPhotoScan(state,row,disposition) {
+    if (!plantPhotoStateCurrent(state) || !state.canReview || row.warehouse!==state.farm) {
+        throw new Error('Photo review access changed.');
+    }
+    const {client,owner} = await requireBloomscapesSession();
+    const data = bloomscapesData(await client.rpc('update_photo_ai_scan_disposition_v1',{
+        p_scan_id:row.scan_id,p_disposition:disposition
+    }));
+    await requireBloomscapesOwner(owner);
+    if (!plantPhotoStateCurrent(state)) return null;
+    if (data.scan_id !== row.scan_id || data.disposition !== disposition) throw new Error('Photo review receipt did not match.');
+    const updated = {...row,...data};
+    reindexPlantPhotoScans(state,state.rows.map(entry=>entry.scan_id===row.scan_id ? updated : entry));
+    return updated;
+}
+
+async function getBloomscapesPhotoScanImage(state,row) {
+    if (!plantPhotoStateCurrent(state) || row.warehouse!==state.farm) return '';
+    if (row.storage_bucket==='bloomscapes-evaluation-photos') return row.photo_url;
+    const {client,owner} = await requireBloomscapesSession();
+    const link = bloomscapesData(await client.storage.from(row.storage_bucket).createSignedUrl(row.storage_path,120));
+    await requireBloomscapesOwner(owner);
+    return plantPhotoStateCurrent(state) ? link.signedUrl : '';
+}

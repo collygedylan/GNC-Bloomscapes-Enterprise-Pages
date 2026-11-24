@@ -35,6 +35,8 @@ function syncBloomscapesDriveTourView() {
 }
 
 const moduleSearchSelectors = {
+    qc: '[data-photo-ai-header-origin]',
+    'disease-pest': '[data-photo-ai-header-origin]',
     reports: '[data-report-query], input[aria-label="Search report inventory"]',
     managers: '[data-report-query], [data-directory-query], [data-nursery-search], #transactions-keyed-search',
     'inv-consolidation': '#inv-consolidation-search',
@@ -60,6 +62,8 @@ function matchesBloomscapesModuleSearch(value, fields) {
 
 const archiveSearchViews = new Set(['historical-requests', 'request-history']);
 const earlyModuleSearch = {
+    qc: {placeholder:'Search AI photo scans…', input:value => setBloomscapesPhotoAiSearch(value)},
+    'disease-pest': {placeholder:'Search AI photo scans…', input:value => setBloomscapesPhotoAiSearch(value)},
     reports: {placeholder:'Search report inventory…', input:value => setLegacyReportHeaderSearch(value)}
 };
 let activeModuleSearch;
@@ -88,6 +92,7 @@ function createModuleSearch(view, origin) {
 }
 
 function getBloomscapesDriveModuleSearch(view) {
+    if ((view==='qc' || view==='disease-pest') && !bloomscapesPhotoAiHeaderEnabled(view)) return null;
     const selector = moduleSearchSelectors[view];
     const root = document.getElementById('view-' + view);
     if (!root || (!selector && !archiveSearchViews.has(view))) return null;

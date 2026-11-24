@@ -223,3 +223,153 @@ async function savePlantHealthAction(panel,state,verdict,correction) {
     } finally { state.busy = false; }
 }
 
+let photoAiWorkspace;
+
+function photoAiView(view) {
+    return view==='qc' || view==='disease-pest';
+}
+
+function bloomscapesPhotoAiHeaderEnabled(view) {
+    return photoAiView(view) && Boolean(bloomscapesPhotoScanScope());
+}
+
+function setBloomscapesPhotoAiSearch(value) {
+    const workspace = photoAiWorkspace;
+    if (!workspace || !photoAiWorkspaceCurrent(workspace)) return;
+    workspace.query = value;
+    paintPhotoAiWorkspace(workspace);
+}
+
+function renderBloomscapesPhotoAiWorkspace(view) {
+    if (!photoAiView(view)) return false;
+    const root = document.getElementById('view-'+view);
+    const state = currentBloomscapesPhotoScanState();
+    if (!root || !state) {
+        if (root) restorePhotoAiWorkspace(root);
+        return false;
+    }
+    if (photoAiWorkspace?.root===root && photoAiWorkspace.state===state && photoAiWorkspace.host.isConnected) {
+        refreshPhotoAiWorkspace(photoAiWorkspace);
+        return true;
+    }
+    restorePhotoAiWorkspace(root);
+    for (const child of root.children) {
+        if (child.hidden) continue;
+        child.dataset.photoAiPrevious = '';
+        child.hidden = true;
+    }
+    const workspace = mountPhotoAiWorkspace(root,state);
+    photoAiWorkspace = workspace;
+    paintPhotoAiWorkspace(workspace);
+    refreshPhotoAiWorkspace(workspace);
+    return true;
+}
+
+function restorePhotoAiWorkspace(root) {
+    root.querySelector(':scope > [data-photo-ai-workspace]')?.remove();
+    for (const child of root.querySelectorAll(':scope > [data-photo-ai-previous]')) {
+        child.hidden = false;
+        delete child.dataset.photoAiPrevious;
+    }
+}
+
+function mountPhotoAiWorkspace(root,state) {
+    const host = photoAiNode('section','',root);
+    host.dataset.photoAiWorkspace = '';
+    const toolbar = photoAiNode('div','',host);
+    toolbar.className = 'photo-ai-toolbar';
+    const select = photoAiNode('div','',toolbar);
+    const filters = photoAiNode('div','',toolbar);
+    filters.className = 'photo-ai-filters';
+    const status = photoAiNode('p','',host);
+    status.className = 'photo-ai-status';
+    status.setAttribute('role','status');
+    const list = photoAiNode('div','',host);
+    list.className = 'plant-health-card-list photo-ai-list';
+    const legacy = photoAiNode('div','',host);
+    return {root,host,state,select,filters,status,list,legacy,mode:'scans',filter:'all',query:'',notice:'',busy:false};
+}
+
+function photoAiWorkspaceCurrent(workspace) {
+    return workspace===photoAiWorkspace && workspace.host.isConnected
+        && workspace.root.id==='view-'+getCurrentVisibleViewId()
+        && currentBloomscapesPhotoScanState()===workspace.state;
+}
+
+function refreshPhotoAiWorkspace(workspace) {
+    if (workspace.flight || workspace.mode!=='scans') return;
+    const paint = () => {if (photoAiWorkspaceCurrent(workspace)) paintPhotoAiWorkspace(workspace);};
+    workspace.flight = loadBloomscapesPhotoScans(workspace.state,paint).then(paint)
+        .finally(()=>{workspace.flight=null;});
+}
+
+function choosePhotoAiMode(workspace,mode) {
+    workspace.mode = mode;
+    if (mode==='legacy' && !workspace.legacy.firstElementChild) {
+        workspace.legacy.innerHTML = renderBloomscapesWorkflowPanel('bloomscapes-lab');
+        mountBloomscapesWorkflowPanel(workspace.legacy,'bloomscapes-lab');
+    }
+    paintPhotoAiWorkspace(workspace);
+    refreshPhotoAiWorkspace(workspace);
+}
+
+function paintPhotoAiPills(workspace,rows) {
+    const {filters,filter} = workspace;
+    filters.replaceChildren();
+    for (const [key,label] of photoAiFilters) {
+        const count = rows.filter(row=>photoAiMatchesFilter(row,key)).length;
+        const text = key==='lab' ? label : label+' ('+count+')';
+        const button = photoAiButton(filters,text,()=>{
+            workspace.filter = key;
+            paintPhotoAiWorkspace(workspace);
+        });
+        button.setAttribute('aria-pressed',String(filter===key));
+    }
+}
+
+function paintPhotoAiWorkspace(workspace) {
+    const {select,mode,filters,status,list,legacy,state,query,notice} = workspace;
+    mountModuleSubviewDropdown(select,{choices:[['scans','AI Photo Scans'],['legacy','Plant Health & Lab Review']],
+        value:mode,select:next=>choosePhotoAiMode(workspace,next)});
+    const scans = mode==='scans';
+    for (const node of [filters,status,list]) node.hidden = !scans;
+    legacy.hidden = scans;
+    if (!scans) return;
+    const rows = state.rows.filter(row=>matchesBloomscapesModuleSearch(query,[
+        row.common_name,row.itemcode,row.locationcode,row.lotcode,row.genus,row.ai_summary,row.lab_sample_id
+    ]));
+    paintPhotoAiPills(workspace,rows);
+    const shown = rows.filter(row=>photoAiMatchesFilter(row,workspace.filter));
+    status.textContent = notice || state.error || photoAiListStatus(state,shown);
+    mountBloomscapesScrollWindow(list,shown,{size:20,estimate:176,mount:(section,entries)=>{
+        mountChunkedList(section,entries,row=>buildPhotoAiWorkspaceCard(workspace,row));
+    }});
+}
+
+function photoAiListStatus(state,shown) {
+    if (shown.length) return '';
+    if (!state.refreshedAt && !state.rows.length) return 'Loading photo scans…';
+    const pending = state.rows.filter(row=>row.scan_status==='pending').length;
+    return pending ? pending+' photos awaiting AI review.' : 'No scans match this view.';
+}
+
+function buildPhotoAiWorkspaceCard(workspace,row) {
+    const card = renderPhotoAiScanCard(workspace.state,row);
+    appendPhotoAiReviewActions(card,workspace.state,row,(entry,action)=>void applyPhotoAiReview(workspace,entry,action));
+    return card;
+}
+
+async function applyPhotoAiReview(workspace,row,action) {
+    if (workspace.busy || !photoAiWorkspaceCurrent(workspace)) return;
+    workspace.busy = true;
+    workspace.status.textContent = 'Saving review…';
+    try {
+        const receipt = await reviewBloomscapesPhotoScan(workspace.state,row,action);
+        if (receipt) workspace.notice = receipt.lab_sample_id || photoAiStatusLabels[action];
+    } catch (error) {
+        workspace.notice = error.message || 'Photo review could not be saved.';
+    } finally {
+        workspace.busy = false;
+        if (photoAiWorkspaceCurrent(workspace)) paintPhotoAiWorkspace(workspace);
+    }
+}
