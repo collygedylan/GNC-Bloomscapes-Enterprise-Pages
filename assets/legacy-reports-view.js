@@ -1,11 +1,19 @@
 let legacyReportBrowse;
 
-function legacyReportBrowseControls(container) {
+function getLegacyReportBrowseState() {
     const owner = getSupabaseReadIdentityScope();
     if (legacyReportBrowse?.owner !== owner || legacyReportBrowse?.tab !== activeReportTab) {
         legacyReportBrowse = {...createDriveBrowseState(''),owner,tab:activeReportTab};
     }
-    const state = legacyReportBrowse;
+    return legacyReportBrowse;
+}
+
+function setLegacyReportHeaderSearch(query) {
+    updateLegacyReportQuery(getLegacyReportBrowseState(),query);
+}
+
+function legacyReportBrowseControls(container) {
+    const state = getLegacyReportBrowseState();
     const host = document.getElementById('legacy-reports-controls');
     let browse = host.querySelector('[data-legacy-report-browse]');
     const created = !browse;

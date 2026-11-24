@@ -59,6 +59,9 @@ function matchesBloomscapesModuleSearch(value, fields) {
 }
 
 const archiveSearchViews = new Set(['historical-requests', 'request-history']);
+const earlyModuleSearch = {
+    reports: {placeholder:'Search report inventory…', input:value => setLegacyReportHeaderSearch(value)}
+};
 let activeModuleSearch;
 
 function createModuleSearch(view, origin) {
@@ -68,14 +71,14 @@ function createModuleSearch(view, origin) {
     input.type = 'search';
     input.className = 'input-field';
     input.value = origin?.value || '';
-    input.placeholder = origin?.placeholder || 'Search completed requests…';
+    input.placeholder = origin?.placeholder || earlyModuleSearch[view]?.placeholder || 'Search completed requests…';
     input.setAttribute('aria-label', origin?.getAttribute('aria-label') || input.placeholder);
     input.autocomplete = 'off';
     input.enterKeyHint = 'search';
     if (origin) origin.hidden = true;
     input.addEventListener('input', () => {
         const source = activeModuleSearch?.host === host ? activeModuleSearch.origin : null;
-        if (!source) return;
+        if (!source) return earlyModuleSearch[view]?.input(input.value);
         const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')?.set;
         valueSetter?.call(source,input.value);
         source.dispatchEvent(new Event('input', {bubbles:true}));
@@ -105,7 +108,7 @@ function getBloomscapesDriveModuleSearch(view) {
         active.host.remove();
         activeModuleSearch = undefined;
     }
-    if (!origin && !archiveSearchViews.has(view)) return null;
+    if (!origin && !archiveSearchViews.has(view) && !earlyModuleSearch[view]) return null;
     activeModuleSearch = createModuleSearch(view, origin);
     return activeModuleSearch.host;
 }

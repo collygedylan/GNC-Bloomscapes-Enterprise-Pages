@@ -1,6 +1,6 @@
 {
   "schemaVersion": "gnc-release-artifact-v1",
-  "commit": "bc6e296a0139c5191f180c532435a928873fbe78",
+  "commit": "42573d044efa71294706f1a5e5d72378ea757a66",
   "release": "AgData v3.1.63",
   "files": [
     {
@@ -710,8 +710,8 @@
     },
     {
       "path": "assets/bloomscapes-drive-module-shell.js",
-      "bytes": 6870,
-      "sha256": "3cfd3855cb53903e4b4a99fb33b943a3c46cc880bad92cabb615f7e9d3ff6d0e"
+      "bytes": 7120,
+      "sha256": "09be7d113458955f9be7034470afa3af501798b27b8594279b9029e7159f9476"
     },
     {
       "path": "assets/bloomscapes-farm-access.js",
@@ -1975,13 +1975,13 @@
     },
     {
       "path": "assets/legacy-reports-view.js",
-      "bytes": 7947,
-      "sha256": "dd7b16c839bad2fcb603d3e8cbcc34e1e8765c325d215b3aef0b079ec0bd4459"
+      "bytes": 8145,
+      "sha256": "9947fdf08448548e74876fcb157b4b9c6c66fc3227bb4343fd59dcbb3d5fda60"
     },
     {
       "path": "assets/live-app-runtime-v2026082010.min.js",
-      "bytes": 9870801,
-      "sha256": "1c375f8ddb6efd483a995cdc6ec6a19676ee1b49da1bd2e99544e86432ea1d65"
+      "bytes": 9871212,
+      "sha256": "bf59b2255b00bc0d32e2e8abf89442cceea46a0a367436b73a48e6f08aeba118"
     },
     {
       "path": "assets/live-app-styles-authority-v2026090503.css",
@@ -3806,12 +3806,12 @@
     {
       "path": "deployment-fingerprint.json",
       "bytes": 187,
-      "sha256": "5fe722dfc892f3177e1d5bf1d94c30c84fd4a366ebcdd92ab6ba861fd03c62c1"
+      "sha256": "bd6f73ee87008e5c892253a833727a045cc5bfe8be31549b5de2531af2733144"
     },
     {
       "path": "deployment.json",
       "bytes": 187,
-      "sha256": "5fe722dfc892f3177e1d5bf1d94c30c84fd4a366ebcdd92ab6ba861fd03c62c1"
+      "sha256": "bd6f73ee87008e5c892253a833727a045cc5bfe8be31549b5de2531af2733144"
     },
     {
       "path": "deployments/00605449467180cae09703db28b9c9aeb53f25a8.json",
@@ -3987,6 +3987,11 @@
       "path": "deployments/3fcd235b457e0afe38497f9e0ed46646ada63b3d.json",
       "bytes": 0,
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "deployments/42573d044efa71294706f1a5e5d72378ea757a66.json",
+      "bytes": 187,
+      "sha256": "bd6f73ee87008e5c892253a833727a045cc5bfe8be31549b5de2531af2733144"
     },
     {
       "path": "deployments/42beeac08255fe552a60c2dedcc51c0854df31ab.json",
@@ -4335,8 +4340,8 @@
     },
     {
       "path": "deployments/bc6e296a0139c5191f180c532435a928873fbe78.json",
-      "bytes": 187,
-      "sha256": "5fe722dfc892f3177e1d5bf1d94c30c84fd4a366ebcdd92ab6ba861fd03c62c1"
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
       "path": "deployments/bcd2904814665420bf12bed72595ac4fae19405b.json",
@@ -4456,7 +4461,7 @@
     {
       "path": "index.html",
       "bytes": 342891,
-      "sha256": "b30f9c049d10196851a2e03cb2485283f0db2c8b830a4f351a87fc9d31cb30c0"
+      "sha256": "caa18441257cfcbfc4168c975403237b2b60b48c634489f87311c2c2694de5e2"
     },
     {
       "path": "manifest.json",
@@ -4556,7 +4561,7 @@
     {
       "path": "sw.js",
       "bytes": 38154,
-      "sha256": "81eff54a25e9d67a55c29c3265fa1ce4af5b247ae996982d6a9bdbfb34de677c"
+      "sha256": "e1325f3ab158f6b5b5e6e91c362be7c2aacea3d50647163ebb0595352b8b3922"
     },
     {
       "path": "utils/auraIntentParser.js",
@@ -4806,12 +4811,12 @@
     {
       "path": "version-parity.json",
       "bytes": 132,
-      "sha256": "c4cd7cf54872e7f36c0134cc51f8f16559d9140b10b91b920f9a28d22e1feab5"
+      "sha256": "8653d36f04e4768b3691464d5fded6bc0380fae7f8ffe4002a95555b7b59a36d"
     },
     {
       "path": "version.json",
       "bytes": 134,
-      "sha256": "3380afc6d8d599182fe90af10d8d63c1d6dd40dff5d1fa188f485e2d5acfa187"
+      "sha256": "3356c97a063f0803bcd477de6c02640e6b9647f0bc01209d3893d55e7c1bbee0"
     }
   ],
   "sourceInputs": {
@@ -4821,6 +4826,6 @@
       "v2": 85,
       "assets": 693
     },
-    "sha256": "4fba45c9126be3865e17db8db41c0bd99eea0eafb9cf413e8ea09e5f90cdd0c4"
+    "sha256": "5feb3e5a5bbf276f1ddae2ab3f568fbcf9e10bf29f70af6240e491d483e26868"
   }
 }
