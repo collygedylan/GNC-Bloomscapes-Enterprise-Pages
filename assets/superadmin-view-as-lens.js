@@ -1,3 +1,66 @@
+const SUPERADMIN_LENS_SESSION_KEY = 'gnc-superadmin-lens-v1';
+const SUPERADMIN_LENS_CACHE_MS = 300000;
+
+function restoreSuperAdminLens(owner) {
+    const state = {owner,selected:null};
+    try {
+        const saved = JSON.parse(sessionStorage.getItem(SUPERADMIN_LENS_SESSION_KEY) || 'null');
+        if (!owner || saved?.owner !== owner || saved.expires <= Date.now()) return state;
+        state.receipt = saved.receipt;
+        if (saved.selected?.startsWith('role:')) {
+            state.selected = superAdminPreviewRoles(saved.receipt).find(role=>role.id===saved.selected) || null;
+        } else {
+            state.selected = saved.receipt?.users.find(profile=>profile.id===saved.selected) || null;
+        }
+    } catch {
+        return {owner,selected:null};
+    }
+    return state;
+}
+
+function persistSuperAdminLens(state) {
+    try {
+        sessionStorage.setItem(SUPERADMIN_LENS_SESSION_KEY,JSON.stringify({
+            owner:state.owner,selected:state.selected?.id || '',receipt:state.receipt,
+            expires:Date.now()+SUPERADMIN_LENS_CACHE_MS
+        }));
+    } catch {
+        // The verified preview remains in memory when session storage is unavailable.
+    }
+}
+
+function mergeSuperAdminProfiles(previous = [],incoming) {
+    return [...new Map([...previous,...incoming].map(profile=>[profile.id,profile])).values()];
+}
+
+function searchSuperAdminChoices(host,state) {
+    if (!currentSuperAdminLens(state)) return;
+    state.searchText = host.querySelector('input').value;
+    const query = state.query = state.searchText.trim().toLowerCase();
+    paintSuperAdminChoices(host,state);
+    if (!/^@[a-z][a-z0-9_]+_[a-z0-9_]+$/.test(query)) return;
+    const username = query.slice(1);
+    if (state.receipt?.users.some(profile=>profile.username===username) || state.lookup?.username===username) return;
+    const lookup = {username};
+    state.lookup = lookup;
+    void findSuperAdminChoice(host,state,lookup);
+}
+
+async function findSuperAdminChoice(host,state,lookup) {
+    try {
+        const profile = await readExactSuperAdminPreview(state.owner,lookup.username);
+        if (!profile || !currentSuperAdminLens(state) || state.lookup !== lookup) return;
+        state.receipt = {...state.receipt,users:mergeSuperAdminProfiles(state.receipt?.users,[profile])};
+        persistSuperAdminLens(state);
+        if (host.isConnected) paintSuperAdminLens(host,state);
+    } catch (error) {
+        if (currentSuperAdminLens(state)) host.title = error.message;
+    } finally {
+        if (state.lookup === lookup) state.lookup = null;
+        warmSuperAdminLens(host,state);
+    }
+}
+
 const previewRoleOptions = [
     ['admin','Admin',['drive','av','inventory-office','studio','po','docks','suspend','requests','tables'],true],
     ['manager','Manager — Production',['studio','production-schedule','po'],true],
@@ -39,31 +102,59 @@ function mountSuperAdminViewAs() {
         return;
     }
     const owner = borrowedHelpIdentity();
-    if (owner !== superAdminLens?.owner) superAdminLens = {owner,selected:null};
+    const changedOwner = owner !== superAdminLens?.owner;
+    if (changedOwner) superAdminLens = {...restoreSuperAdminLens(owner),open:superAdminLens?.open === true};
     const state = superAdminLens;
     const picker = host || root.appendChild(document.createElement('div'));
     picker.dataset.superadminLens = '';
     paintSuperAdminLens(picker,state);
+    if (changedOwner && owner) {
+        paintSuperAdminBanner(state.selected);
+        warmSuperAdminLens(picker,state);
+    }
 }
 
-function prepareSuperAdminLens(picker,state) {
-    const publish = receipt => {
-        if (state !== superAdminLens || state.owner !== borrowedHelpIdentity()) return;
-        state.receipt = receipt;
-        state.ready = receipt.next === null;
-        if (picker.isConnected) paintSuperAdminLens(picker,state);
-    };
-    state.flight = readSuperAdminPreview(state.owner,publish).catch(error=>{
-        state.retryAt = Date.now()+30000;
-        if (picker.isConnected && state === superAdminLens) picker.title = error.message;
-    }).finally(()=>{ state.flight = null; });
+function currentSuperAdminLens(state) {
+    return state && state === superAdminLens && state.owner === borrowedHelpIdentity() && isSuperAdminLensOwner();
+}
+
+function warmSuperAdminLens(picker,state,delay=800) {
+    if (!currentSuperAdminLens(state) || state.ready || state.flight || state.queued) return;
+    state.queued = true;
+    const current = () => currentSuperAdminLens(state) && picker.isConnected;
+    scheduleBloomscapesIdleTask('preview-roster',()=>prepareSuperAdminLens(picker,state),current,delay,()=>{state.queued=false;});
+}
+
+async function prepareSuperAdminLens(picker,state) {
+    state.queued = false;
+    if (state.flight || state.ready || state.lookup) return;
+    state.flight = true;
+    try {
+        const receipt = await readSuperAdminPreviewPage(state.owner,state.after || 0);
+        if (!currentSuperAdminLens(state)) return;
+        if (receipt.next !== null) state.pageCount = (state.pageCount || 0) + 1;
+        state.ready = receipt.next === null || state.pageCount >= 64;
+        state.after = receipt.next;
+        state.receipt = {...receipt,users:mergeSuperAdminProfiles(state.receipt?.users,receipt.users)};
+        persistSuperAdminLens(state);
+        paintSuperAdminLens(picker,state);
+    } catch (error) {
+        if (currentSuperAdminLens(state)) picker.title = error.message;
+        return;
+    } finally {
+        state.flight = false;
+    }
+    warmSuperAdminLens(picker,state,150);
 }
 
 function paintSuperAdminLens(host,state) {
     if (!host.firstElementChild) initializeSuperAdminPicker(host);
     const trigger = host.querySelector('[data-lens-trigger]');
     trigger.textContent = '👁️ View As: '+(state.selected?.label || 'Myself (Super-Admin)')+' ▾';
-    if (!host.querySelector('[data-lens-menu]').hidden) paintSuperAdminChoices(host,state);
+    const menu = host.querySelector('[data-lens-menu]');
+    menu.hidden = !state.open;
+    trigger.setAttribute('aria-expanded',String(Boolean(state.open)));
+    if (state.open) paintSuperAdminChoices(host,state);
 }
 
 function initializeSuperAdminPicker(host) {
@@ -76,7 +167,7 @@ function initializeSuperAdminPicker(host) {
         <div data-lens-choices></div></div>`;
     host.querySelector('[data-lens-trigger]').onclick = () => openSuperAdminPicker(host,superAdminLens);
     host.querySelector('[data-lens-close]').onclick = () => closeSuperAdminPicker(host);
-    host.querySelector('input').oninput = () => paintSuperAdminChoices(host,superAdminLens);
+    host.querySelector('input').oninput = () => searchSuperAdminChoices(host,superAdminLens);
     host.querySelector('[data-lens-menu]').onkeydown = event => {
         if (event.key === 'Escape') closeSuperAdminPicker(host);
     };
@@ -84,23 +175,26 @@ function initializeSuperAdminPicker(host) {
 
 function openSuperAdminPicker(host,state) {
     if (!state || state.owner !== borrowedHelpIdentity()) return;
-    const menu = host.querySelector('[data-lens-menu]');
-    if (!menu.hidden) return closeSuperAdminPicker(host);
-    host.querySelector('input').value = '';
-    host.querySelector('[data-lens-trigger]').setAttribute('aria-expanded','true');
-    menu.hidden = false;
-    paintSuperAdminChoices(host,state);
+    if (state.open) return closeSuperAdminPicker(host);
+    state.open = true;
+    state.query = '';
+    state.searchText = '';
+    paintSuperAdminLens(host,state);
     host.querySelector('input').focus();
-    if (!state.ready && !state.flight && Date.now() >= (state.retryAt || 0)) prepareSuperAdminLens(host,state);
+    if (!state.receipt) void prepareSuperAdminLens(host,state);
+    else warmSuperAdminLens(host,state);
 }
 
 function closeSuperAdminPicker(host) {
-    host.querySelector('[data-lens-trigger]').setAttribute('aria-expanded','false');
-    host.querySelector('[data-lens-menu]').hidden = true;
+    if (!currentSuperAdminLens(superAdminLens)) return;
+    superAdminLens.open = false;
+    paintSuperAdminLens(host,superAdminLens);
 }
 
 function paintSuperAdminChoices(host,state) {
-    const query = host.querySelector('input').value.toLowerCase().trim();
+    const input = host.querySelector('input');
+    const query = state.query || '';
+    if (input.value !== (state.searchText || '')) input.value = state.searchText || '';
     const users = [...(state.receipt?.users || [])].sort((left,right)=>left.label.localeCompare(right.label));
     const self = {id:'self',label:'Myself — dylan_collyge (Super-Admin)'};
     host.querySelector('[data-lens-self]').replaceChildren(superAdminChoiceButton(host,state,self));
@@ -158,6 +252,7 @@ function paintSuperAdminBanner(profile) {
 function applySuperAdminLens(state,profile) {
     if (!state || state !== superAdminLens || state.owner !== borrowedHelpIdentity() || !isSuperAdminLensOwner()) return;
     state.selected = profile || null;
+    persistSuperAdminLens(state);
     avResolvedBaseStateKey = '';
     driveVisibleItemsStateCache = null;
     driveVisibleItemsStateCacheKey = '';

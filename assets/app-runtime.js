@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.56';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.57';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -19320,13 +19320,8 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
         function getOpsPilotBridge(reason = '') {
             const safeReason = String(reason || '').trim().replace(/[^a-z0-9_-]+/gi, '-').slice(0, 48);
             return {
-                request: (action, payload = {}) => postAppFunctionJson(APP_API_FUNCTION_URL, {
-                    ...(payload && typeof payload === 'object' ? payload : {}),
-                    action: String(action || '').trim()
-                }, {
-                    timeoutMs: 18000,
-                    label: safeReason ? `User preferences (${safeReason})` : 'User preferences'
-                }),
+                request: (action, payload = {}) => callBloomscapesPreferences({...payload,action},safeReason || 'User preferences'),
+                deferRead: run => deferBloomscapesPreferenceRead('appearance-preferences',run),
                 getActiveView: () => getCurrentVisibleViewId(),
                 getUserKey: () => normalizeSessionIdentity(currentUser)
             };
@@ -23258,7 +23253,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.56';
+        const APP_VERSION = '3.1.57';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -70507,7 +70502,7 @@ function toggleDriveQuickRequestItem(domId) {
             navigationPreferencesAccount = currentUser;
             preferences.configure({
                 username: () => currentUser,
-                call: envelope => postAppFunctionJson(APP_API_FUNCTION_URL, envelope, { timeoutMs: 30000, label: 'Navigation preferences', idempotencyKey: envelope.commandId || undefined }),
+                call: envelope => callBloomscapesPreferences(envelope,'Navigation preferences'),
                 canAccess: canAccessQuickAccessView,
                 canDisplay: canDisplayQuickAccessView,
                 fullVisibility: hasFullNavigationVisibility,
@@ -70520,7 +70515,7 @@ function toggleDriveQuickRequestItem(domId) {
                     if (shouldRedirectForConfirmedViewDenial(getCurrentVisibleViewId())) switchView('home');
                 }
             });
-            void preferences.refresh().catch(() => {});
+            void deferBloomscapesPreferenceRead('navigation-preferences',()=>preferences.refresh().catch(()=>null));
         }
         function renderNavigationPreferencesEditor(kind, container) {
             if (!container) return;

@@ -1,3 +1,84 @@
+const snapshotCacheWorkerScript = typeof document === 'undefined' ? '' : document.currentScript?.src;
+const SNAPSHOT_WORKER_START_TIMEOUT_MS = 2500;
+const SNAPSHOT_WORKER_OPERATION_TIMEOUT_MS = 30000;
+let snapshotCacheWorkerConnection;
+
+function closeSnapshotCacheWorker(connection) {
+    connection.worker.terminate();
+    connection.accept(false);
+    for (const complete of connection.pending.values()) complete(undefined);
+    connection.pending.clear();
+}
+
+function receiveSnapshotCacheWorkerMessage(connection,{id,result,ready}) {
+    if (ready === true) {
+        connection.accept(true);
+        return;
+    }
+    connection.pending.get(id)?.(result);
+}
+
+function getSnapshotCacheWorker() {
+    if (snapshotCacheWorkerConnection !== undefined) return snapshotCacheWorkerConnection;
+    snapshotCacheWorkerConnection = null;
+    if (!snapshotCacheWorkerScript || typeof Worker !== 'function') return null;
+    const source = new URL(snapshotCacheWorkerScript);
+    const url = new URL('snapshot-cache-worker.js',source);
+    url.search = source.search;
+    try {
+        const worker = new Worker(url);
+        const connection = {worker,pending:new Map(),sequence:0,available:false};
+        connection.ready = new Promise(resolve => {
+            const deadline = setTimeout(() => closeSnapshotCacheWorker(connection),SNAPSHOT_WORKER_START_TIMEOUT_MS);
+            connection.accept = available => {
+                clearTimeout(deadline);
+                connection.available = available;
+                resolve(available);
+            };
+        });
+        worker.onmessage = event => receiveSnapshotCacheWorkerMessage(connection,event.data);
+        worker.onerror = () => closeSnapshotCacheWorker(connection);
+        worker.onmessageerror = () => closeSnapshotCacheWorker(connection);
+        snapshotCacheWorkerConnection = connection;
+        return connection;
+    } catch {
+        return null;
+    }
+}
+
+function sendSnapshotCacheWorkerOperation(connection,operation,key,value) {
+    return new Promise(resolve => {
+        const id = ++connection.sequence;
+        const deadline = setTimeout(() => closeSnapshotCacheWorker(connection),SNAPSHOT_WORKER_OPERATION_TIMEOUT_MS);
+        connection.pending.set(id,result => {
+            clearTimeout(deadline);
+            connection.pending.delete(id);
+            resolve(result);
+        });
+        try {
+            connection.worker.postMessage({id,operation,key,value});
+        } catch {
+            connection.pending.get(id)?.(undefined);
+        }
+    });
+}
+
+async function readFarmSnapshotCache(key) {
+    const connection = getSnapshotCacheWorker();
+    if (connection && await connection.ready && connection.available) {
+        const result = await sendSnapshotCacheWorkerOperation(connection,'read',key);
+        if (result !== undefined && result !== "unavailable") return redactEvalSensitiveData(result);
+    }
+    return loadCacheValue(key);
+}
+
+async function writeFarmSnapshotCache(key,value) {
+    const connection = getSnapshotCacheWorker();
+    if (!connection || !await connection.ready || !connection.available) return saveCacheValue(key,value);
+    const result = await sendSnapshotCacheWorkerOperation(connection,'write',key,value);
+    return result === 'unavailable' ? saveCacheValue(key,value) : result === true;
+}
+
 async function prepareProductionMasterSnapshot(sourceRows = [], options = {}) {
     const identity = String(options.identity || getSupabaseReadIdentityScope());
     const permissionVersion = String(options.permissionVersion ?? appAccessSnapshotState.snapshot?.dataPermissionVersion ?? '');

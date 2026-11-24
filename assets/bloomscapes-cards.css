@@ -85,6 +85,13 @@ html body[data-ops-theme] :is(.report-tabs,[data-transfer-filter-bar]) button[ar
   background:#10B981;color:#071710;border-color:transparent;
 }
 
+#view-docks [data-dock-pipeline-row] {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 240px;
+  contain: layout style paint;
+  backdrop-filter: none;
+}
+
 [data-division-weather]{box-sizing:border-box;height:52px;min-height:52px;flex:none;padding:4px 8px;border:1px solid var(--bloom-border);border-radius:12px;background:var(--bloom-card,#113624);color:var(--bloom-ink,#ecfdf5);font:500 clamp(10px,2.55vw,13px)/1.25 system-ui;font-variant-numeric:tabular-nums;}
 [data-weather-report]{display:grid;height:100%;align-items:center;grid-template-columns:auto minmax(0,1fr) auto;column-gap:5px;grid-template-rows:1fr 1fr;}
 [data-weather-report] strong,[data-weather-report] span{min-width:0;}

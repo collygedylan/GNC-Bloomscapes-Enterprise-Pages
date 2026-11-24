@@ -121,7 +121,7 @@ function canRetryBloomscapesFarmSnapshot(error,cache,farm,flight) {
         const permission = appAccessSnapshotState.snapshot?.dataPermissionVersion;
         return Boolean(permission && permission!==flight.permission && flight.scope===getSupabaseReadIdentityScope());
     }
-    return ['FARM_SNAPSHOT_SCOPE_CHANGED','FARM_SNAPSHOT_REVISION_CHANGED'].includes(error.code);
+    return isRetryableFarmReadTransport(error) || ['FARM_SNAPSHOT_SCOPE_CHANGED','FARM_SNAPSHOT_REVISION_CHANGED'].includes(error.code);
 }
 
 async function ensureBloomscapesWarmFarm(farm,refresh=false,attempt=0,speculative=false,visit=null) {
@@ -246,7 +246,7 @@ function prewarmBloomscapesFarms() {
     const cache = getBloomscapesFarmCache();
     const governor = window.BloomscapesBatteryGovernor;
     if (cache.cancelPrewarm || !bloomscapesFarmState.loaded || getBloomscapesAllowedFarms().length < 2 || !governor) return;
-    cache.cancelPrewarm = governor.schedule('farm-prewarm',()=>runBloomscapesFarmPrewarm(cache),BLOOMSCAPES_FARM_PREWARM_RETRY_MS);
+    cache.cancelPrewarm = governor.schedule('farm-prewarm',()=>queueBloomscapesFarmPrewarm(cache),BLOOMSCAPES_FARM_PREWARM_RETRY_MS);
 }
 
 async function runBloomscapesFarmPrewarm(cache) {
@@ -298,7 +298,7 @@ function bloomscapesFarmStorageKey(farm,owner = bloomscapesFarmCacheOwner()) {
 
 async function readBloomscapesPersistedFarm(farm,owner) {
     const scope = bloomscapesFarmStorageScope(owner);
-    const saved = await loadCacheValue(bloomscapesFarmStorageKey(farm,owner));
+    const saved = await readFarmSnapshotCache(bloomscapesFarmStorageKey(farm,owner));
     if (isReusableBloomscapesFarmSnapshot(saved,scope,farm)) return saved;
     const legacyScope = JSON.stringify(JSON.parse(owner).filter((_,index)=>index!==3));
     const legacy = await loadCacheValue('bloomscapes-farm-v3111:'+legacyScope+':'+farm);
@@ -308,7 +308,7 @@ async function readBloomscapesPersistedFarm(farm,owner) {
 function persistBloomscapesReadyFarm(raw,owner) {
     const scope = bloomscapesFarmStorageScope(owner);
     if (raw.cacheScope === scope) return;
-    void saveCacheValue(bloomscapesFarmStorageKey(raw.farm,owner),{...raw,cacheScope:scope,
+    void writeFarmSnapshotCache(bloomscapesFarmStorageKey(raw.farm,owner),{...raw,cacheScope:scope,
         inventoryRowCount:raw.inventory.length,loadedAt:raw.loadedAt || Date.now()});
 }
 

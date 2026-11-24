@@ -7,18 +7,20 @@ function readBorrowedHelp(owner) {
     return borrowedHelpRpc(owner,'gnc_list_borrowed_help');
 }
 
-async function readSuperAdminPreview(owner, publish) {
-    const users = [];
-    let after = 0;
-    for (let page = 0; page < 64; page += 1) {
-        const receipt = await borrowedHelpRpc(owner,'gnc_preview_access',{p_after:after},18000);
-        users.push(...receipt.users);
-        publish({...receipt,users:users.slice()});
-        if (receipt.next === null) return;
-        if (!Number.isInteger(receipt.next) || receipt.next <= after) throw Error('Preview roster did not advance.');
-        after = receipt.next;
+async function readSuperAdminPreviewPage(owner,after) {
+    const receipt = await borrowedHelpRpc(owner,'gnc_preview_access',{p_after:after},18000);
+    if (receipt.next !== null && (!Number.isInteger(receipt.next) || receipt.next <= after)) {
+        throw Error('Preview roster did not advance.');
     }
-    throw Error('Preview roster exceeds the supported page count.');
+    return receipt;
+}
+
+async function readExactSuperAdminPreview(owner,username) {
+    const {rows} = await runBloomscapesUserDirectory('list');
+    const row = rows.find(entry=>entry.id > 0 && entry.fields?.username === username);
+    if (!row || !Number.isSafeInteger(row.id)) return null;
+    const receipt = await readSuperAdminPreviewPage(owner,row.id-1);
+    return receipt.users.find(profile=>profile.username === username && profile.id === 'user:'+row.id) || null;
 }
 
 async function submitBorrowedHelp(owner, action, id, input) {

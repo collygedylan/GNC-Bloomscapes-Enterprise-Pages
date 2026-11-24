@@ -279,7 +279,6 @@ async function handleFailedAppFunctionAttempt(url, body, safeOptions, response, 
 
     throw createAppFunctionError(message,response,payload,responseCode,safeOptions);
 }
-
 async function postAppFunctionAttempt(url, body, options = {}) {
     if (!isAllowedAppHostname()) throw Object.assign(new Error('Origin not allowed'), { code: 'APP_ORIGIN_DENIED' });
     const safeOptions = (options && typeof options === 'object' && !Array.isArray(options)) ? options : {};
@@ -318,7 +317,8 @@ async function postAppFunctionAttempt(url, body, options = {}) {
         body: JSON.stringify(body || {}),
         cache: 'no-store',
         signal: detached ? undefined : safeOptions.signal,
-        keepalive: safeOptions.keepalive === true
+        keepalive: safeOptions.keepalive === true,
+        recoverableRpcAttempt:safeOptions.preferenceAttempt === true
     }, Number(safeOptions.timeoutMs || 18000), String(safeOptions.label || 'App Function'), detached);
     if (!current()) throw staleSupabaseReadScopeError();
     if (!response.ok) {

@@ -1,22 +1,28 @@
+const FARM_SNAPSHOT_PAGE_SIZE = 1000;
+const INTERACTIVE_SOC_READ_WIDTH = 3;
+
 function bloomscapesFarmSnapshotSignal(background) {
     return background ? background.signal() : window.BloomscapesBatteryGovernor.viewSignal();
 }
 
 async function readBloomscapesFarmRevision(farm,background) {
     if (background) await background.checkpoint();
-    const {data,error} = await getSupabaseBrowserClient().rpc('gnc_read_farm_snapshot_revision',{p_farm:farm}).abortSignal(bloomscapesFarmSnapshotSignal(background));
+    const signal = bloomscapesFarmSnapshotSignal(background);
+    const revisionRead = getSupabaseBrowserClient().rpc('gnc_read_farm_snapshot_revision',{p_farm:farm}).abortSignal(signal);
+    const statusRead = readBloomscapesFarmPage('gnc_00_core_erp_sync_status',
+        'select=target_key,last_synced_at&farm_code=eq.'+farm+'&order=target_key.asc',false,signal,background,farm);
+    const [{data,error},status] = await Promise.all([revisionRead,statusRead]);
     if (error) throw error;
     if (data?.farm_code!==farm || typeof data.revision!=='string') throw new Error('Farm revision scope was not confirmed.');
-    const status=await readBloomscapesFarmPage('gnc_00_core_erp_sync_status',
-        'select=target_key,last_synced_at&farm_code=eq.'+farm+'&order=target_key.asc',false,bloomscapesFarmSnapshotSignal(background),background,farm);
     if (!status) throw new Error('ERP snapshot revision was not confirmed.');
     return JSON.stringify([data.revision,status.rows]);
 }
 
 async function readBloomscapesFarmSnapshot(farm,assertCurrent,background) {
     if (background) await background.checkpoint();
-    const lastSyncRevisionAt = await readBatteryRevisionPulse(farm,bloomscapesFarmSnapshotSignal(background));
-    const revision = await readBloomscapesFarmRevision(farm,background);
+    const [lastSyncRevisionAt,revision] = await Promise.all([
+        readBatteryRevisionPulse(farm,bloomscapesFarmSnapshotSignal(background)),readBloomscapesFarmRevision(farm,background)
+    ]);
     assertCurrent();
     const entries = await readBloomscapesFarmSnapshotTables(farm,assertCurrent,background);
     assertCurrent();
@@ -32,29 +38,39 @@ async function readBloomscapesFarmSnapshotTables(farm,assertCurrent,background) 
     const read = async ([key,table,column,order])=>[key,await readBloomscapesFarmTable(table,column,order,farm,assertCurrent,undefined,background)];
     const completed = [];
     for (let index=0;index<contracts.length;index++) {
-        if (!background?.isSpeculative()) return completed.concat(await Promise.all(contracts.slice(index).map(read)));
         completed.push(await read(contracts[index]));
+        if (index + 1 < contracts.length) await new Promise(resolve=>setTimeout(resolve,150));
     }
     return completed;
 }
 
 async function readBloomscapesFarmTable(table,column,order,farm,assertCurrent,signal = window.BloomscapesBatteryGovernor.viewSignal(),background) {
-    const rows = [];
-    let total = null;
-    for (let offset=0;offset<100000;offset+=1000) {
-        assertCurrent();
-        const query = erpFarmReadQuery(table,column,order,farm,offset);
-        const page = await readBloomscapesFarmPage(table,query,offset===0,signal,background,farm);
-        if (!page) throw new Error('Authenticated farm read unavailable.');
-        const {rows:data,total:count}=page;
-        assertCurrent();
-        if (!Array.isArray(data) || offset===0 && !Number.isSafeInteger(count)) throw new Error('Farm snapshot count was not confirmed.');
-        if (offset===0) total = count;
-        rows.push(...data);
-        if (rows.length===total) return rows;
-        if (!data.length || rows.length>total) break;
+    const read = offset => readBloomscapesFarmPage(table,erpFarmReadQuery(table,column,order,farm,offset),offset===0,signal,background,farm);
+    assertCurrent();
+    const first = await read(0);
+    assertCurrent();
+    const total = first?.total;
+    if (!Number.isSafeInteger(total) || total < 0 || total > 100000 || !isCompleteFarmSnapshotPage(first,0,total)) {
+        throw new Error('Farm snapshot count was not confirmed.');
     }
-    throw new Error('Complete farm snapshot could not be verified; previous inventory retained.');
+    const rows = first.rows;
+    for (let offset=FARM_SNAPSHOT_PAGE_SIZE;offset<total;) {
+        const width = table === 'gnc_all_soc_master' && !background?.isSpeculative() ? INTERACTIVE_SOC_READ_WIDTH : 1;
+        const count = Math.min(width,Math.ceil((total-offset)/FARM_SNAPSHOT_PAGE_SIZE));
+        const offsets = Array.from({length:count},(_,index)=>offset+index*FARM_SNAPSHOT_PAGE_SIZE);
+        const pages = await Promise.all(offsets.map(read));
+        assertCurrent();
+        if (!pages.every((page,index)=>isCompleteFarmSnapshotPage(page,offsets[index],total))) {
+            throw new Error('Complete farm snapshot could not be verified; previous inventory retained.');
+        }
+        for (const page of pages) rows.push(...page.rows);
+        offset += count * FARM_SNAPSHOT_PAGE_SIZE;
+    }
+    return rows;
+}
+
+function isCompleteFarmSnapshotPage(page,offset,total) {
+    return Array.isArray(page?.rows) && page.rows.length === Math.min(FARM_SNAPSHOT_PAGE_SIZE,total-offset);
 }
 
 function captureBloomscapesFarmPageOwner(farm,signal) {
@@ -82,12 +98,17 @@ async function readBloomscapesFarmPage(table,query,count,signal,background,farm)
             await background.checkpoint();
             return read();
         }
-        if (error.code!=='TRANSPORT_TIMEOUT' || background?.isSpeculative() || !current()
+        if (!isRetryableFarmReadTransport(error) || background?.isSpeculative() || !current()
             || error.status===401 || error.status===403) throw error;
         const page=await read();
         if (!current()) throw staleSupabaseReadScopeError();
         return page;
     }
+}
+
+function isRetryableFarmReadTransport(error) {
+    if (error?.name === 'AbortError' || [401,403].includes(Number(error?.status))) return false;
+    return error?.code === 'TRANSPORT_TIMEOUT' || (!Number(error?.status) && /failed to fetch|networkerror|load failed/i.test(error?.message || ''));
 }
 
 const bloomscapesReferenceColumns = {

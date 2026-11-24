@@ -12,7 +12,7 @@
     let hooks = {}, state = null, inflight = null, generation = 0, bound = false;
     let footerObserver = null, lastFooter = null;
     let confirmedFooter = null;
-    let refreshFailures = 0, retryNotBefore = 0;
+    let refreshFailures = 0, retryNotBefore = 0, shortcutWriter;
     const text = value => String(value == null ? '' : value);
     const esc = value => text(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const username = () => text(typeof hooks.username === 'function' ? hooks.username() : hooks.username).trim().toLowerCase();
@@ -140,6 +140,15 @@
         container.querySelectorAll('button,input,select,textarea').forEach(node => { node.disabled = busy || node.dataset.protected === 'true'; });
         container.setAttribute('aria-busy', String(busy));
     }
+    function queueShortcutSave(shortcuts,container) {
+        shortcutWriter ||= createBloomscapesShortcutWriter({
+            revision:()=>currentState()?.footerRevision,commandId,
+            send:(draft,command)=>call('save_shortcuts',{shortcuts:draft},command),
+            adopt,message,status
+        });
+        const user = username(), token = generation;
+        shortcutWriter(shortcuts,container,()=>token===generation && user===username());
+    }
     async function renderShortcutEditor(container) {
         if (!container) return;
         container.classList.add('gnc-navigation-editor');
@@ -147,37 +156,72 @@
         try {
             await refresh();
             const snapshot = currentState(); if (!snapshot) throw new Error('NAVIGATION_AUTH_REQUIRED');
-            const available = snapshot.views.filter(item => item.selectable && !FIXED_VIEWS.has(item.view) && permitted(item.view));
-            const storageKey = `gnc-navigation-shortcuts-v1:${username()}`;
-            let draft = normalizedShortcuts(snapshot.shortcuts, key => available.some(item => item.view === key));
-            try { const retained = JSON.parse(root.localStorage?.getItem(storageKey) || 'null'); if (Array.isArray(retained)) draft = normalizedShortcuts(retained, key => available.some(item => item.view === key)); } catch {}
-            let selected = Math.min(Math.max(draft.length - 1, 0), 3), saving = false;
-            const labelFor = view => available.find(item => item.view === view)?.label || LABELS[view] || view || 'Empty slot';
-            const persistLocal = () => { try { root.localStorage?.setItem(storageKey, JSON.stringify(draft)); } catch {} };
-            const save = async () => {
-                if (saving) return;
-                saving = true; markBusy(container, true); status(container, 'Saving shortcuts…');
-                try {
-                    const saved = await call('save_shortcuts', { shortcuts: draft }, { commandId: commandId(), expectedRevision: snapshot.footerRevision });
-                    adopt(saved); snapshot.footerRevision = saved.footerRevision; draft = normalizedShortcuts(saved.shortcuts, key => available.some(item => item.view === key)); persistLocal();
-                    renderMarkup(); status(container, 'Shortcuts saved and the dock is updated.');
-                } catch (error) { status(container, message(error), true); }
-                finally { saving = false; markBusy(container, false); }
-            };
-            const change = next => { draft = normalizedShortcuts(next, key => available.some(item => item.view === key)); persistLocal(); renderMarkup(); void save(); };
-            const renderMarkup = () => {
-                container.innerHTML = `<h2>Footer shortcuts</h2><p>Tap or click a slot, then choose its module. Menu, Home, Comm and AURA stay fixed.</p><div class="gnc-navigation-slots">${Array.from({ length: 4 }, (_, i) => `<button type="button" class="gnc-navigation-slot" data-nav-slot="${i}" aria-selected="${selected===i}"><span>Slot ${[3,4,6,7][i]}</span><strong>${esc(labelFor(draft[i]))}</strong></button>`).join('')}</div><div class="gnc-navigation-reorder" aria-label="Selected slot controls"><button type="button" data-nav-left aria-label="Move selected shortcut left">←</button><button type="button" data-nav-remove>× Remove</button><button type="button" data-nav-right aria-label="Move selected shortcut right">→</button></div><button type="button" data-nav-add>+ Add to first empty slot</button><div class="gnc-navigation-modules" aria-label="Available modules">${available.map(item=>`<button type="button" data-nav-module="${esc(item.view)}" aria-pressed="${draft[selected]===item.view}">${esc(item.label)}</button>`).join('')}</div><p data-nav-status role="status"></p><div class="gnc-navigation-actions"><button type="button" data-nav-defaults>Use defaults</button><button type="button" data-nav-reload>Reload saved settings</button></div>`;
-                container.querySelectorAll('[data-nav-slot]').forEach(node => { node.onclick=()=>{selected=Number(node.dataset.navSlot);renderMarkup();}; });
-                container.querySelectorAll('[data-nav-module]').forEach(node => { node.onclick=()=>{const view=node.dataset.navModule;const next=draft.filter(value=>value!==view);next.splice(Math.min(selected,next.length),0,view);change(next.slice(0,4));}; });
-                container.querySelector('[data-nav-left]').onclick=()=>{if(selected<1||selected>=draft.length)return;const next=[...draft];[next[selected-1],next[selected]]=[next[selected],next[selected-1]];selected--;change(next);};
-                container.querySelector('[data-nav-right]').onclick=()=>{if(selected<0||selected>=draft.length-1)return;const next=[...draft];[next[selected],next[selected+1]]=[next[selected+1],next[selected]];selected++;change(next);};
-                container.querySelector('[data-nav-remove]').onclick=()=>{if(selected>=draft.length)return;const next=[...draft];next.splice(selected,1);selected=Math.min(selected,Math.max(0,next.length-1));change(next);};
-                container.querySelector('[data-nav-add]').onclick=()=>{selected=Math.min(draft.length,3);renderMarkup();};
-                container.querySelector('[data-nav-defaults]').onclick=()=>{selected=0;change(normalizedShortcuts(null,key=>available.some(item=>item.view===key)));};
-                container.querySelector('[data-nav-reload]').onclick=()=>{try{root.localStorage?.removeItem(storageKey);}catch{}renderShortcutEditor(container);};
-            };
-            renderMarkup();
+            installShortcutEditor(container,snapshot);
         } catch { container.innerHTML = '<p role="alert">Unable to load shortcuts.</p><button type="button" data-nav-retry>Retry</button>'; container.querySelector('button').onclick = () => renderShortcutEditor(container); }
+    }
+    function installShortcutEditor(container,snapshot) {
+        const available = snapshot.views.filter(item => item.selectable && !FIXED_VIEWS.has(item.view) && permitted(item.view));
+        const storageKey = 'gnc-navigation-shortcuts-v1:' + username();
+        const editor = {container,available,storageKey,user:username(),generation};
+        editor.draft = normalizeShortcutDraft(editor,readShortcutDraft(storageKey) || snapshot.shortcuts);
+        editor.selected = Math.min(Math.max(editor.draft.length - 1,0),3);
+        drawShortcutEditor(editor);
+        container.onclick = event => dispatchShortcutEditor(editor,event.target.closest('button'));
+    }
+    function readShortcutDraft(key) {
+        try {
+            const stored = JSON.parse(root.localStorage?.getItem(key) || 'null');
+            return Array.isArray(stored) ? stored : null;
+        } catch { return null; }
+    }
+    function normalizeShortcutDraft(editor,draft) {
+        return normalizedShortcuts(draft,key=>editor.available.some(item=>item.view===key));
+    }
+    function drawShortcutEditor(editor) {
+        const {container,available,draft,selected} = editor;
+        const labelFor = view => available.find(item=>item.view===view)?.label || LABELS[view] || view || 'Empty slot';
+        container.innerHTML = `<h2>Footer shortcuts</h2><p>Tap or click a slot, then choose its module. Menu, Home, Comm and AURA stay fixed.</p><div class="gnc-navigation-slots">${Array.from({ length: 4 }, (_, i) => `<button type="button" class="gnc-navigation-slot" data-nav-slot="${i}" aria-selected="${selected===i}"><span>Slot ${[3,4,6,7][i]}</span><strong>${esc(labelFor(draft[i]))}</strong></button>`).join('')}</div><div class="gnc-navigation-reorder" aria-label="Selected slot controls"><button type="button" data-nav-left aria-label="Move selected shortcut left">←</button><button type="button" data-nav-remove>× Remove</button><button type="button" data-nav-right aria-label="Move selected shortcut right">→</button></div><button type="button" data-nav-add>+ Add to first empty slot</button><div class="gnc-navigation-modules" aria-label="Available modules">${available.map(item=>`<button type="button" data-nav-module="${esc(item.view)}" aria-pressed="${draft[selected]===item.view}">${esc(item.label)}</button>`).join('')}</div><p data-nav-status role="status"></p><div class="gnc-navigation-actions"><button type="button" data-nav-defaults>Use defaults</button><button type="button" data-nav-reload>Reload saved settings</button></div>`;
+    }
+    function dispatchShortcutEditor(editor,button) {
+        if (!button || editor.user!==username() || editor.generation!==generation) return;
+        const next = [...editor.draft];
+        const {selected,container,storageKey} = editor;
+        if (button.hasAttribute('data-nav-reload')) {
+            try { root.localStorage?.removeItem(storageKey); } catch { return; }
+            return void renderShortcutEditor(container);
+        }
+        if (button.dataset.navSlot !== undefined || button.hasAttribute('data-nav-add')) {
+            editor.selected = button.dataset.navSlot === undefined ? Math.min(next.length,3) : Number(button.dataset.navSlot);
+            return drawShortcutEditor(editor);
+        }
+        if (button.hasAttribute('data-nav-defaults')) {
+            editor.selected = 0;
+            return saveShortcutEditorDraft(editor,null);
+        }
+        if (button.hasAttribute('data-nav-remove')) {
+            if (selected>=next.length) return;
+            next.splice(selected,1);
+            editor.selected = Math.min(selected,Math.max(0,next.length-1));
+            return saveShortcutEditorDraft(editor,next);
+        }
+        if (button.dataset.navModule) {
+            const view = button.dataset.navModule;
+            const ordered = next.filter(value=>value!==view);
+            ordered.splice(Math.min(selected,ordered.length),0,view);
+            return saveShortcutEditorDraft(editor,ordered.slice(0,4));
+        }
+        const index = selected + (button.hasAttribute('data-nav-left') ? -1 : 1);
+        if (selected>=next.length || index<0 || index>=next.length) return;
+        [next[selected],next[index]] = [next[index],next[selected]];
+        editor.selected = index;
+        saveShortcutEditorDraft(editor,next);
+    }
+    function saveShortcutEditorDraft(editor,next) {
+        editor.draft = normalizeShortcutDraft(editor,next);
+        try { root.localStorage?.setItem(editor.storageKey,JSON.stringify(editor.draft)); } catch {}
+        drawShortcutEditor(editor);
+        status(editor.container,'Shortcuts updated on this device.');
+        queueShortcutSave(editor.draft,editor.container);
     }
     function lockedView(row, user) {
         return ['home', 'access-control'].includes(row.view)

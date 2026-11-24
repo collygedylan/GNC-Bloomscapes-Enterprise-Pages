@@ -195,15 +195,18 @@ function scheduleQueCategoryRefresh(tab, navigationSeq) {
         if (tab === 'eval-work') return void loadEvalWorkAssignments(true).catch(() => {});
         if (tab === 'suspend-tag') refreshQueSuspendCategory(navigationSeq);
         forceRefreshRequestsForView('request-tab', {
-            force: true,
+            force: false,
             allowWhileInteractive: true,
-            minIntervalMs: 0
+            minIntervalMs: 45000
         }).catch(() => {});
     });
 }
 
 function refreshQueSuspendCategory(navigationSeq) {
-    loadDatasetTargetsWithLimit([{ key: 'suspendTag', mode: 'full' }, { key: 'master', mode: 'initial' }, { key: 'soc', mode: 'full' }], {
+    const targets = [{ key: 'suspendTag', mode: 'full' }, { key: 'master', mode: 'initial' }, { key: 'soc', mode: 'full' }]
+        .filter(({key,mode}) => !isDatasetLoaded(key,mode) || shouldRefreshQueueDataset(key,45000));
+    if (!targets.length) return;
+    loadDatasetTargetsWithLimit(targets, {
         force: true,
         preserveRequestedMode: true,
         allowWhileInteractive: true,

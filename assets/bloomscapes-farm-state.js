@@ -1,3 +1,96 @@
+const BLOOMSCAPES_IDLE_STAGGER_MS = 150;
+const BLOOMSCAPES_IDLE_EXPIRY_MS = 120000;
+const bloomscapesIdleJobs = new Map();
+let bloomscapesIdleTimer;
+let bloomscapesIdleRunning = false;
+
+function scheduleBloomscapesIdleTask(key, run, current, delay = 0, discard) {
+    bloomscapesIdleJobs.get(key)?.discard?.();
+    bloomscapesIdleJobs.set(key,{run,current,discard,expires:Date.now()+BLOOMSCAPES_IDLE_EXPIRY_MS,due:Date.now()+delay});
+    armBloomscapesIdleTasks(delay);
+}
+
+function armBloomscapesIdleTasks(delay = BLOOMSCAPES_IDLE_STAGGER_MS) {
+    if (bloomscapesIdleTimer || bloomscapesIdleRunning || !bloomscapesIdleJobs.size) return;
+    bloomscapesIdleTimer = setTimeout(drainBloomscapesIdleTasks,Math.max(BLOOMSCAPES_IDLE_STAGGER_MS,delay));
+}
+
+function busyBloomscapesIdleTasks() {
+    return document.hidden || navigator.onLine === false || shouldDeferInteractiveBackgroundWork();
+}
+
+async function drainBloomscapesIdleTasks() {
+    bloomscapesIdleTimer = null;
+    const now = Date.now();
+    for (const [key,job] of bloomscapesIdleJobs) {
+        if (!job.current() || job.expires <= now) {
+            bloomscapesIdleJobs.delete(key);
+            job.discard?.();
+        }
+    }
+    const next = [...bloomscapesIdleJobs].find(([,job])=>job.due <= now);
+    if (!next || busyBloomscapesIdleTasks()) return armBloomscapesIdleTasks();
+    bloomscapesIdleJobs.delete(next[0]);
+    bloomscapesIdleRunning = true;
+    try { await next[1].run(); }
+    catch (error) { globalThis.GncRuntimeWatchdog?.capture(error,'idle-prewarm'); }
+    finally {
+        bloomscapesIdleRunning = false;
+        armBloomscapesIdleTasks();
+    }
+}
+
+function queueBloomscapesFarmPrewarm(cache) {
+    const current = () => cache===getBloomscapesFarmCache() && nativeAuthSessionActive;
+    scheduleBloomscapesIdleTask('farm-prewarm',()=>runBloomscapesFarmPrewarm(cache),current);
+}
+
+const SHORTCUT_WRITE_DEBOUNCE_MS = 800;
+
+function createBloomscapesShortcutWriter(hooks) {
+    const state = {hooks,pending:null,flight:false,timer:null};
+    return (shortcuts,container,current) => {
+        state.pending = {shortcuts,container,current,retries:0};
+        scheduleBloomscapesShortcutWrite(state);
+    };
+}
+
+function scheduleBloomscapesShortcutWrite(state) {
+    clearTimeout(state.timer);
+    if (state.flight || !state.pending) return;
+    const delay = SHORTCUT_WRITE_DEBOUNCE_MS * 2 ** state.pending.retries;
+    state.timer = setTimeout(()=>flushBloomscapesShortcutWrite(state),delay);
+}
+
+async function flushBloomscapesShortcutWrite(state) {
+    const job = state.pending;
+    state.pending = null;
+    if (!job?.current() || state.hooks.revision() == null) return;
+    state.flight = true;
+    try {
+        job.command ||= {commandId:state.hooks.commandId(),expectedRevision:state.hooks.revision()};
+        const saved = await state.hooks.send(job.shortcuts,job.command);
+        if (!job.current()) return;
+        state.hooks.adopt(saved);
+        if (!state.pending) state.hooks.status(job.container,'Shortcuts saved and the dock is updated.');
+    } catch (error) {
+        if (job.current() && !state.pending) retryBloomscapesShortcutWrite(state,job,error);
+    } finally {
+        state.flight = false;
+        scheduleBloomscapesShortcutWrite(state);
+    }
+}
+
+function retryBloomscapesShortcutWrite(state,job,error) {
+    const transient = error.code==='TRANSPORT_TIMEOUT' || error.name==='TypeError';
+    if (transient && job.retries < 3) {
+        job.retries++;
+        state.pending = job;
+    } else {
+        state.hooks.status(job.container,'Shortcuts kept on this device. '+state.hooks.message(error));
+    }
+}
+
 let bloomscapesFarmState = {owner:'',farm:'10-PH',busy:false,allowed:['10-PH'],confirmed:false,loaded:false};
 const BLOOMSCAPES_FARM_SCOPES = ['10-PH','60-HL','20-TX','40-NC'];
 const BLOOMSCAPES_SESSION_FARM_KEY = 'gnc_bloomscapes_session_farm_v1';
@@ -28,6 +121,7 @@ function selectBloomscapesFarm(farm) {
     rememberBloomscapesFarmPublication();
     state.farm = farm;
     state.confirmed = true;
+    if (previous===farm) persistBloomscapesSessionFarm(state);
     state.busy = true;
     const selector = document.getElementById('bloomscapes-farm-selector');
     if (selector) selector.value = farm;
@@ -51,12 +145,13 @@ async function hydrateBloomscapesChosenFarm(state,farm,previous,visit,token = st
         scheduleBloomscapesFarmRevalidation(state,farm,visit);
         return farm;
     } catch (error) {
-        if (!selectionIsCurrent()) return false;
+        if (!selectionIsCurrent() || document.hidden) return false;
         if (state.readyFarm!==farm) {
             state.farm=previous;
             if (farm!==previous) renderBloomscapesFarmNavigation();
         }
         if (error.name==='AbortError' || ['REQUEST_ABORTED','FARM_SNAPSHOT_SCOPE_CHANGED','DATASET_READ_SCOPE_CHANGED'].includes(error.code)) return false;
+        if (globalThis.navigator?.onLine === false) return false;
         if (previous===farm && error.code==='FARM_SNAPSHOT_REVISION_CHANGED') return farm;
         throw error;
     } finally {
@@ -65,14 +160,12 @@ async function hydrateBloomscapesChosenFarm(state,farm,previous,visit,token = st
 }
 
 function scheduleBloomscapesFarmRevalidation(state,farm,visit) {
-    const refresh = () => {
-        if (state!==bloomscapesFarmState || state.farm!==farm || state.readyFarm!==farm) return;
-        if (!visit?.aborted) void refreshBloomscapesWarmFarm(farm,visit);
-        void prewarmBloomscapesFarms();
-        if (typeof ensureBloomscapesFieldQueue==='function') void ensureBloomscapesFieldQueue(true).catch(error=>
-            globalThis.reportHandledRuntimeIssue?.('field_work_queue',error.code || 'FIELD_WORK_READ_FAILED'));
-    };
-    requestAnimationFrame(()=>setTimeout(refresh,0));
+    const current = () => state===bloomscapesFarmState && state.farm===farm && state.readyFarm===farm;
+    if (!visit?.aborted) scheduleBloomscapesIdleTask('farm-revalidation',()=>refreshBloomscapesWarmFarm(farm,visit),current);
+    prewarmBloomscapesFarms();
+    if (typeof ensureBloomscapesFieldQueue==='function') {
+        scheduleBloomscapesIdleTask('field-work-queue',ensureBloomscapesFieldQueue,current);
+    }
 }
 
 function bloomscapesFarmNeedsHydration() {

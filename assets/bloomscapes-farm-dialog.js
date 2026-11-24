@@ -105,14 +105,11 @@ async function syncBloomscapesFarmSelector() {
     select.disabled = allowed.length <= 1;
     const initial = bloomscapesFarmNeedsConfirmation();
     if (bloomscapesFarmDialog || !initial && !bloomscapesFarmNeedsHydration()) return;
-    select.disabled = true;
+    if (initial) select.disabled = true;
     const chosen = initial ? await confirmBloomscapesFarmSwitch(getBloomscapesFarm(),getBloomscapesFarm(),true) : getBloomscapesFarm();
-    if (!chosen) return;
-    try {
-        await selectBloomscapesFarm(chosen);
-        confirmBloomscapesFarmSession(chosen);
-        select.value = chosen;
-        refreshBloomscapesFarmPanel();
-    } catch (error) { showToast('Farm selection',error.message,true); }
-    finally { select.disabled = getBloomscapesAllowedFarms().length <= 1; }
+    select.disabled = getBloomscapesAllowedFarms().length <= 1;
+    if (!chosen || !confirmBloomscapesFarmSession(chosen)) return;
+    select.value = chosen;
+    if (!bloomscapesFarmState.busy) void selectBloomscapesFarm(chosen).catch(error=>showToast('Farm selection',error.message,true));
+    refreshBloomscapesFarmPanel();
 }

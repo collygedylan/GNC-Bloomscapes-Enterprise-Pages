@@ -1,4 +1,4 @@
-const consolidationPageSize = 60;
+const consolidationPageSize = 40;
 const consolidationLookupSources = {
     'item-cpb': {
         table:'ph_item_cpb',key:'itemcode',

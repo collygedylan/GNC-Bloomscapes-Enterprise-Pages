@@ -56,23 +56,24 @@ function mountBloomscapesFarmSelector() {
 }
 
 
-async function changeBloomscapesFarmSelection(select) {
+function changeBloomscapesFarmSelection(select) {
     if (select.disabled) return;
-    const previous = getBloomscapesFarm();
     const next = select.value;
-    select.value = previous;
-    if (next===previous || getBloomscapesAllowedFarms().length===1) return;
-    select.disabled = true;
-    try {
-        select.value = next;
-        select.value = await selectBloomscapesFarm(next);
-        refreshBloomscapesFarmPanel();
-    } catch (error) {
-        showToast('Farm selection',error.message,true);
-    } finally {
-        select.value = getBloomscapesFarm();
-        select.disabled = getBloomscapesAllowedFarms().length <= 1;
-    }
+    if (next === getBloomscapesFarm() || getBloomscapesAllowedFarms().length <= 1) return;
+    const owner = bloomscapesFarmState.owner;
+    const selection = selectBloomscapesFarm(next);
+    const token = bloomscapesFarmState.selectionToken;
+    void selection.then(result => {
+        if (result && isCurrentFarmSelection(owner,token)) refreshBloomscapesFarmPanel();
+    }).catch(error => {
+        if (isCurrentFarmSelection(owner,token)) showToast('Farm selection',error.message,true);
+    }).finally(() => {
+        if (isCurrentFarmSelection(owner,token) && select.isConnected) select.value = getBloomscapesFarm();
+    });
+}
+
+function isCurrentFarmSelection(owner,token) {
+    return owner === bloomscapesFarmState.owner && owner === currentUser && token === bloomscapesFarmState.selectionToken;
 }
 
 function refreshBloomscapesFarmPanel() {

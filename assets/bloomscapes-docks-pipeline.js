@@ -1,11 +1,14 @@
+const DOCK_PIPELINE_PAGE_TTL_MS = 45000;
+const DOCK_PIPELINE_PAGE_LIMIT = 24;
 let dockPipelineState;
 
 function currentDockPipelineState() {
     const identity = getSupabaseReadIdentityScope();
     const preview = borrowedHelpPreview()?.username || '';
     const farm = getBloomscapesFarm();
-    const key = JSON.stringify([identity,farm,preview]);
-    if (dockPipelineState?.key !== key) dockPipelineState = {key,farm,preview,view:'',trip:'',offset:0};
+    const permission = appAccessSnapshotState.snapshot?.dataPermissionVersion || '';
+    const key = JSON.stringify([identity,farm,preview,permission]);
+    if (dockPipelineState?.key !== key) dockPipelineState = {key,farm,preview,view:'',trip:'',offset:0,pages:new Map()};
     return dockPipelineState;
 }
 
@@ -73,7 +76,7 @@ function refreshPipelineSelection(event) {
     if (!event.target.closest('[data-dock-pipeline-refresh]')) return;
     const state = currentDockPipelineState();
     if (!state.view || state.read || state.writing) return;
-    state.queryKey = '';
+    state.pages.delete(state.queryKey);
     scheduleDocksRender(0);
 }
 
@@ -97,31 +100,39 @@ function renderBloomscapesDockPipeline(container,crumb,term) {
         return false;
     }
     const query = pipelineInputs(state,term);
-    startDockPipelineRead(state,query);
-    paintDockPipeline(container,crumb,{...state,query,busy:!!state.read,readOnly:!!state.preview || !!state.writing});
+    const read = getDockPipelinePage(state,query);
+    paintDockPipeline(container,crumb,{...state,...read,query,readOnly:!!state.preview || !!state.writing});
     return true;
 }
 
-function startDockPipelineRead(state,query) {
+function getDockPipelinePage(state,query) {
     const key = JSON.stringify(query);
-    if (state.read || state.queryKey === key) return;
-    if (state.page && state.pageLevel !== state.level) state.page = null;
     state.queryKey = key;
-    state.error = '';
-    const pending = requestDockPipeline(state.farm,'list',query);
-    state.read = pending;
-    void pending.then(receipt=>{
-        if (!pipelineIsCurrent(state) || state.read !== pending || state.queryKey !== key) return;
-        state.page = receipt;
-        state.pageLevel = state.level;
+    let entry = state.pages.get(key);
+    if (!state.writing && !entry?.pending && !(entry?.expiresAt > Date.now())) {
+        entry = loadDockPipelinePage(state,query,key,entry?.page);
+    }
+    state.page = entry?.page;
+    state.read = entry?.pending && !entry.page;
+    return {page:state.page,busy:!!entry?.pending,error:state.writeError || entry?.error};
+}
+
+function loadDockPipelinePage(state,query,key,page) {
+    const entry = {page,expiresAt:0,pending:true};
+    state.pages.delete(key);
+    if (state.pages.size >= DOCK_PIPELINE_PAGE_LIMIT) state.pages.delete(state.pages.keys().next().value);
+    state.pages.set(key,entry);
+    void requestDockPipeline(state.farm,'list',query).then(receipt=>{
+        entry.page = receipt;
+        entry.expiresAt = Date.now() + DOCK_PIPELINE_PAGE_TTL_MS;
     }).catch(error=>{
-        if (pipelineIsCurrent(state) && state.read === pending) state.error = error.message;
+        entry.error = error.message;
+        entry.expiresAt = Date.now() + 5000;
     }).finally(()=>{
-        if (state.read !== pending) return;
-        state.read = null;
-        if (pipelineIsCurrent(state)) scheduleDocksRender(0);
-        else state.queryKey = '';
+        entry.pending = false;
+        if (state.pages.get(key) === entry && state.queryKey === key && pipelineIsCurrent(state)) scheduleDocksRender(0);
     });
+    return entry;
 }
 
 function openDockPipelineGroup(state,group) {
@@ -151,17 +162,16 @@ function handleDockPipelineClick(event) {
 
 async function commitDockPipelineAction(state,action,id) {
     state.writing = true;
+    state.writeError = '';
     scheduleDocksRender(0);
     try {
         await requestDockPipeline(state.farm,action,{id});
-        if (pipelineIsCurrent(state)) {
-            state.page = null;
-            state.queryKey = '';
-            state.offset = 0;
-            signalProductionLiveSync('dock-pipeline-receipt',0);
-        }
+        state.pages.clear();
+        state.page = null;
+        state.offset = 0;
+        if (state === currentDockPipelineState()) signalProductionLiveSync('dock-pipeline-receipt',0);
     } catch (error) {
-        if (pipelineIsCurrent(state)) state.error = error.message;
+        state.writeError = error.message;
     } finally {
         state.writing = false;
         if (pipelineIsCurrent(state)) scheduleDocksRender(0);
