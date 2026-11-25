@@ -56,6 +56,10 @@ function normalizeAccessProfile(value, {key,text,normalizeRole}) {
         role: text(source.role), canonical_role: normalizeRole(source.role),
         area_scopes: Array.isArray(source.area_scopes) ? source.area_scopes.filter(area => typeof area === 'string') : null,
         area_access: source.area_access && typeof source.area_access === 'object' ? {...source.area_access} : {},
+        allowed_warehouses: Array.isArray(source.allowed_warehouses) ? source.allowed_warehouses.filter(value => typeof value === 'string') : null,
+        allowed_plantgroupcodes: Array.isArray(source.allowed_plantgroupcodes) ? source.allowed_plantgroupcodes.filter(value => typeof value === 'string') : null,
+        module_access: source.module_access && typeof source.module_access === 'object' && !Array.isArray(source.module_access)
+            ? Object.fromEntries(Object.entries(source.module_access).filter(([,level])=>['HIDDEN','VIEW_ONLY','FULL_EDIT'].includes(level))) : undefined,
         email: text(source.email).toLowerCase(), salesrep_id: salesrepId,
         salesrep_match_names: [...new Set([...names, username, key(source.display_name), key(salesrepId)])]
     };

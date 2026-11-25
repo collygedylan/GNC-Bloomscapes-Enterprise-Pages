@@ -1,7 +1,7 @@
 /* AG DATA SOLUTIONS PROFESSIONAL SERVICE WORKER
    Optimized for: Instant Load, Offline Stability, Push Notifications, and staged shell updates.
 */
-// AgData source commit: 17406e5dead5010b3e6eba923539d4297e0760ce
+// AgData source commit: d97b7937168d24b1c08f38dd60bab60e163498ae
 const APP_SHELL_BUILD = 'AgData v3.1.66';
 const APP_SHELL_RUNTIME_REVISION = 'cloud-relay-cache-r2';
 const APP_ASSET_VERSION = '3.1.66';
@@ -17,7 +17,7 @@ const INSTALL_ASSET_TIMEOUT_MS = 8500;
 const INSTALL_REMOTE_ASSET_TIMEOUT_MS = 4500;
 // A fresh root cache cannot inherit a /v2 response cached by the older broad worker.
 const CACHE_VERSION = 'agdata-v3.1.66';
-const CACHE_RUNTIME_REVISION = '17406e5dead5010b3e6eba923539d4297e0760ce';
+const CACHE_RUNTIME_REVISION = 'd97b7937168d24b1c08f38dd60bab60e163498ae';
 const CACHE_NAME = CACHE_VERSION + '-' + CACHE_RUNTIME_REVISION;
 const SHELL_FETCH_TIMEOUT_MS = 1200;
 const IMAGE_CACHE_NAME = 'agdata-photo-cache-v1';
@@ -259,7 +259,7 @@ const ASSETS_TO_CACHE = [
   if (!/\.(?:css|js|mjs)(?:\?|$)/i.test(asset)) return asset;
   const revision = new URL(asset, 'https://cache.invalid/').searchParams.get('v') || '';
   const version = revision.startsWith(APP_ASSET_VERSION + '.') ? revision : APP_ASSET_VERSION;
-  return asset.split('?')[0] + '?v=' + version + '&rev=17406e5dead5010b3e6eba923539d4297e0760ce';
+  return asset.split('?')[0] + '?v=' + version + '&rev=d97b7937168d24b1c08f38dd60bab60e163498ae';
 });
 const RUNTIME_CACHE_EXTENSION_REGEX = /\.(?:css|js|mjs|json|png|jpg|jpeg|webp|svg|ico|woff2?)$/i;
 const CONTENT_VERSION_REGEX = /(?:[._-](?:v?20\d{6,}|[a-f0-9]{8,})[._-]|\/assets\/vendor\/)/i;

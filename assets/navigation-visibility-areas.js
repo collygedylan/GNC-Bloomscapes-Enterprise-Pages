@@ -129,8 +129,10 @@ function allowedScopedAreaChoice(profile,key) {
 
 function bloomscapesAreaChoices(area) {
     const preview = typeof borrowedHelpPreview === 'function' && borrowedHelpPreview();
+    const verified = bloomscapesAreaProfile();
+    if (!preview && !verified && isBloomscapesAreaScoped(verified)) return [];
     const access = getBloomscapesReclassAccess();
-    const profile = preview || bloomscapesAreaProfile() || nativeAuthProfile;
+    const profile = preview || verified || nativeAuthProfile;
     const views = area.views.filter(([key,,view]) => {
         if (key === 'inventory-office' && access && !hasBloomscapesReclassScope(access)) return false;
         if (['rep','sales_rep'].includes(profile?.role) && view === 'docks' && key !== 'dock-credit-vault') return false;
