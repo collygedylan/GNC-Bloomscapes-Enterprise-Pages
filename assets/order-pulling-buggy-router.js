@@ -6,11 +6,13 @@ function isParkHillOrderPuller(profile = typeof nativeAuthProfile === 'undefined
 
 function orderPullEligible(profile, access, farm, preview) {
     if (!profile || preview || farm !== '10-PH' || profile.disabled_at) return false;
+    const farms = profile.allowed_warehouses ?? profile.allowed_farms ?? profile.farm_scopes;
+    if (Array.isArray(farms) && !farms.includes(farm)) return false;
     if (profile.role === 'order_puller') return isParkHillOrderPuller(profile);
     const role = String(profile.role || '').toLowerCase().replace(/[-_\s]/g,'');
     if (['rep','salesrep'].includes(role)) return false;
-    return access?.que_order_pulling === 'Y' || profile.department === '161'
-        || ['admin','superadmin','shippingsupervisor'].includes(role) || profile.username === 'dylan_collyge';
+    return !profile.must_change_password && (access?.que_order_pulling === 'Y' || profile.department === '161'
+        || phPullSupervisorAllowed(profile,farm,preview));
 }
 
 function orderPullRows(receipt, mode, query) {
@@ -28,13 +30,18 @@ function orderPullUnloadStops(receipt) {
     const stops = new Map();
     for (const row of orderPullRows(receipt,'buggy','')) {
         if (row.pull_status !== 'on_buggy') continue;
-        const key = JSON.stringify([row.dock,row.stopnumber,row.tripnumber]);
-        stops.set(key, {
-            dock:row.dock,stopnumber:row.stopnumber,tripnumber:row.tripnumber,
-            buggy_id:receipt.buggy.buggy_id
-        });
+        const key = JSON.stringify([row.dock,row.stopnumber]);
+        stops.set(key,{dock:row.dock,stopnumber:row.stopnumber,buggy_id:receipt.buggy.buggy_id});
     }
-    return [...stops.values()];
+    return [...stops.values()].sort(compareOrderPullStops);
+}
+
+function compareOrderPullStops(a,b) {
+    if (a.dock !== b.dock) return a.dock.localeCompare(b.dock,undefined,{numeric:true});
+    const number = stop => /^\d{1,9}(\.\d{1,12})?$/.test(stop) ? Number(stop) : -1;
+    const byNumber = number(b.stopnumber)-number(a.stopnumber);
+    if (byNumber) return byNumber;
+    return a.stopnumber === b.stopnumber ? 0 : a.stopnumber < b.stopnumber ? 1 : -1;
 }
 
 const PH_PULL_CAP = 650;

@@ -1,13 +1,16 @@
 const orderPullButtonClass = 'rounded-full border border-emerald-500 px-3 py-1.5 text-xs font-semibold whitespace-nowrap';
 
-function orderPullButton(label, action, key = '') {
+function orderPullButton(label, action, key = '', disabled = false) {
     return '<button type="button" class="'+orderPullButtonClass+'" data-pull-action="'+action
-        +'" data-pull-key="'+esc(key)+'">'+esc(label)+'</button>';
+        +'" data-pull-key="'+esc(key)+'"'+(disabled ? ' disabled' : '')+'>'+esc(label)+'</button>';
 }
 
 function orderPullPhotos(row) {
     const identity = {ITEMCODE:row.itemcode,LOCATIONCODE:row.locationcode,LOTCODE:row.lotcode,WAREHOUSEID:row.warehouse};
-    return currentCanonicalAvPhotoUrls(resolveCanonicalInventoryRow(identity));
+    const inventory = resolveCanonicalInventoryRow(identity) || {...identity,PTRONHAND:row.onhand,
+        LOC_PHOTO_MATCH:row.av_photo_match,PHOTO_LINK:row.av_photo_links,PHOTO_DATE:row.av_photo_date,
+        PHOTO_EXPIRES_AT:row.av_photo_expires_at};
+    return currentCanonicalAvPhotoUrls(inventory);
 }
 
 function orderPullWeekday(value) {
@@ -28,10 +31,15 @@ function orderPullCard(row, buggy) {
         +'" class="space-y-2 rounded-xl border border-emerald-700 bg-emerald-950 p-3 text-white">'
         +'<h3 class="font-bold">'+title+'</h3><p class="text-sm">'+esc(row.itemcode)+'</p>'
         +'<p class="text-sm"><strong>Pick location · Lot</strong> '+esc(row.locationcode+' · '+row.lotcode)+'</p>'
-        +'<p class="text-sm"><strong>Pull qty</strong> '+row.pull_qty+' · '+Number(row.wingdingunits)+' WDU'+trip+'</p>'
+        +'<p class="text-sm"><strong>On Hand</strong> '+esc(String(row.onhand ?? '—'))
+        +' · <strong>Qty Ordered</strong> '+esc(String(row.quantityordered ?? '—'))
+        +' · <strong>Pull qty</strong> '+row.pull_qty+' · '+Number(row.wingdingunits)+' WDU'+trip+'</p>'
         +'<p class="text-sm"><strong>Dock '+esc(row.dock)+' · Stop '+esc(row.stopnumber)+'</strong> · '
-        +esc(row.dock_status || 'Blank')+'</p><p class="text-xs">Plan start '+orderPullWeekday(row.plan_start_date)
-        +' · '+status+'</p><div class="flex flex-wrap gap-2">'+photo+action+'</div></article>');
+        +esc(row.dock_status || '—')+'</p><p class="text-sm">Consignee '+esc(row.consignee || '—')
+        +(row.unit_number ? ' · Unit #'+esc(row.unit_number) : '')+'</p>'
+        +'<p class="text-sm">Spec '+esc(row.spec || '—')+' · Pick Note '+esc(row.pick_note || '—')+'</p>'
+        +'<p class="flex flex-wrap items-center gap-2 text-xs"><span class="'+orderPullButtonClass+'">Plan Start '
+        +orderPullWeekday(row.plan_start_date)+'</span>'+status+'</p><div class="flex flex-wrap gap-2">'+photo+action+'</div></article>');
 }
 
 function openOrderPullPhoto(receipt, key, trigger) {
@@ -44,20 +52,23 @@ function orderPullUnloadMarkup(receipt) {
     if (!groups.length) return '';
     const wdu = Number(receipt.buggy.current_wdu);
     return '<div class="space-y-2 rounded-lg border border-emerald-500 p-3"><strong>'
-        +(wdu === 650 ? '🏁 Full Buggy (650 WDU)' : '🏁 Buggy ready to unload ('+wdu+' WDU)')
-        +'</strong><div class="flex flex-wrap gap-2">'
-        +groups.map((stop,index) => orderPullButton('✓ Unloaded at Dock '+stop.dock+' · Stop '+stop.stopnumber
-            +(stop.tripnumber ? ' · '+stop.tripnumber : ''),'unload',String(index))).join('')
-        +'</div></div>';
+        +(wdu === 650 ? 'Full Buggy (650 WDU)' : 'Buggy ready to unload ('+wdu+' WDU)')+'</strong>'
+        +groups.map((stop,index) => '<div class="flex flex-wrap items-center gap-2" data-order-pull-stop>'
+            +'<span>Dock '+esc(stop.dock)+' · Drop / Stop '+esc(stop.stopnumber)+'</span>'
+            +orderPullButton('Drop Off','drop_off',String(index),groups[index-1]?.dock === stop.dock)
+            +'</div>').join('')+'</div>';
 }
 
 function paintOrderPullToolbar(host, state) {
     const buggy = state.receipt?.buggy;
     const unit = state.receipt?.unit_number;
-    host.innerHTML = '<span class="'+orderPullButtonClass+'" aria-live="polite">🛺 '+(unit ? 'Unit '+esc(unit) : 'Buggy')+': '
+    const partner = state.receipt?.partner;
+    const title = unit ? 'Unit #'+esc(unit)+' · Partner: '+esc(partner || '—')+' · ' : 'Buggy: ';
+    const all = state.supervisor ? 'All Assigned / Active Queue' : 'All Queue';
+    host.innerHTML = '<span class="'+orderPullButtonClass+'" aria-live="polite">🛺 '+title
         +Number(buggy?.current_wdu || 0)+' / 650 WDU</span>'
         +(state.teamOnly ? orderPullButton('Refresh Assigned Batch','list')
-            : orderPullButton('My Buggy','mode','buggy')+orderPullButton('All Queue','mode','all'));
+            : orderPullButton('My Buggy','mode','buggy')+orderPullButton(all,'mode','all'));
     host.querySelector('[data-pull-key="'+state.mode+'"]')?.setAttribute('aria-pressed','true');
 }
 
@@ -88,8 +99,9 @@ function orderPullState() {
     const owner = getSupabaseReadIdentityScope();
     if (orderPullQueueState?.owner !== owner) {
         const teamOnly = isParkHillOrderPuller();
+        const supervisor = phPullSupervisorAllowed(nativeAuthProfile,getBloomscapesFarm(),borrowedHelpPreview());
         const active = canOpenOrderPullQueue() && (teamOnly || nativeAuthProfile?.department === '161');
-        orderPullQueueState = {owner,active,teamOnly,mode:'buggy',query:'',receipt:null,error:'',pending:null};
+        orderPullQueueState = {owner,active,teamOnly,supervisor,mode:supervisor?'all':'buggy',query:'',receipt:null,error:'',pending:null};
     }
     return orderPullQueueState;
 }
@@ -158,7 +170,7 @@ function orderPullClickInput(state, button) {
     if (button.dataset.pullAction === 'pull') {
         return state.receipt?.buggy && {buggy_id:state.receipt.buggy.buggy_id,tag_id:key};
     }
-    if (button.dataset.pullAction === 'unload') return orderPullUnloadStops(state.receipt)[Number(key)];
+    if (button.dataset.pullAction === 'drop_off') return orderPullUnloadStops(state.receipt)[Number(key)];
     return {};
 }
 
@@ -187,7 +199,7 @@ async function runOrderPullCommand(state, action, input = {}) {
         const receipt = await state.pending;
         if (orderPullState() !== state) return;
         state.receipt = receipt;
-        if (action === 'deal' || action === 'unload') state.mode = 'buggy';
+        if (action === 'deal') state.mode = 'buggy';
     } catch (error) {
         if (orderPullState() === state) state.error = error.message || 'Order Pulling could not load.';
     } finally {
