@@ -1,3 +1,17 @@
+function canWakeRequestQueueLiveData() {
+    if (typeof isParkHillOrderPuller === 'function' && isParkHillOrderPuller()) return false;
+    try {
+        if (!currentUser || navigator.onLine === false || document.hidden) return false;
+        const access = getRoleAccessState();
+        const allowedViews = access && access.allowedViews && typeof access.allowedViews.has === 'function'
+            ? access.allowedViews
+            : new Set(access && access.allowedViews || []);
+        return !!(canAccessView('request') || allowedViews.has('reports') || canUseRequestRepScopedAccess());
+    } catch {
+        return false;
+    }
+}
+
 async function runRequestViewLiveSync(options = {}) {
     const navigationSeq = navTransitionSeq;
     if (typeof canUseProductionLiveSync === 'function' && canUseProductionLiveSync()) return getProductionLiveSyncCoordinator().check('request-check');

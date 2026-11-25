@@ -317,7 +317,7 @@ function synchronizeHistoricalArchiveLens(key) {
 }
 
 function canReadBloomscapesSuspendApprovals() {
-    if (isBloomscapesAreaScoped()) return false;
+    if (isBloomscapesAreaScoped() || typeof isParkHillOrderPuller === 'function' && isParkHillOrderPuller()) return false;
     return canonicalFeaturePermission('can_access_que') !== false;
 }
 

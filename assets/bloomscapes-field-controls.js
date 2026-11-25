@@ -5,6 +5,7 @@ function renderBloomscapesFieldExtras(item,tab,row) {
 
 function resetBloomscapesFarmNavigation() {
     if (typeof restoreBloomscapesStaticBodiesForScopeReset === 'function') restoreBloomscapesStaticBodiesForScopeReset();
+    if (typeof syncOrderPullFarmScope === 'function') syncOrderPullFarmScope();
     if (typeof syncPhBuildWorkVisibility === 'function') syncPhBuildWorkVisibility();
     globalThis.dispatchEvent?.(new CustomEvent('bloomscapes-farm-changing'));
     cancelDriveSearchRenderWork();

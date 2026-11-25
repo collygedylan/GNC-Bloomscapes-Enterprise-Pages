@@ -98614,19 +98614,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
         let requestRecountMasterRowIds = new Set();
         let lastRequestLiveWakeAt = 0;
 
-        function canWakeRequestQueueLiveData() {
-            try {
-                if (!currentUser || navigator.onLine === false || document.hidden) return false;
-                const access = getRoleAccessState();
-                const allowedViews = access && access.allowedViews && typeof access.allowedViews.has === 'function'
-                    ? access.allowedViews
-                    : new Set(access && access.allowedViews || []);
-                return !!(canAccessView('request') || allowedViews.has('reports') || canUseRequestRepScopedAccess());
-            } catch (error) {
-                return false;
-            }
-        }
-
         function wakeRequestQueueLiveData(reason = 'request-live', options = {}) {
             if (!canWakeRequestQueueLiveData()) return false;
             const safeOptions = options && typeof options === 'object' ? options : {};

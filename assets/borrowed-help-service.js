@@ -48,6 +48,7 @@ async function borrowedHelpRpc(scope, name, args = {}, timeout = 6500) {
 }
 
 function prefetchRequestModalCustomerOptions(force = false) {
+    if (typeof isParkHillOrderPuller === 'function' && isParkHillOrderPuller()) return Promise.resolve(false);
     if (nativeAuthProfile?.role === 'crew' && canOpenBloomscapesDocksWorkspace('borrowed-work')
         && !getAuthorizedRequestCategories().length) return Promise.resolve(false);
     if (!currentUser || (!canAccessView('request') && !canUseRequestRepScopedAccess())) return Promise.resolve(false);

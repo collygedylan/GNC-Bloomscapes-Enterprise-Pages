@@ -158,6 +158,12 @@ function renderOrderPullQueueShell() {
     return true;
 }
 
+function syncOrderPullFarmScope() {
+    if (getCurrentVisibleViewId() !== 'request') return;
+    renderOrderPullQueueShell();
+    syncQueActiveCategory();
+}
+
 function redrawOrderPullQueue(state) {
     const {host,toolbar} = orderPullHosts();
     if (!host || !toolbar || host.hidden || getCurrentVisibleViewId() !== 'request') return;
