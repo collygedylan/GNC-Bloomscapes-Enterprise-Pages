@@ -90,7 +90,9 @@ function paintPhWorkState(state, rows) {
 let bloomscapesStudioEntry = '';
 
 function openBloomscapesFieldWorkStudio(phase='') {
-    return switchView('field-work-studio',{studioPhase:phase});
+    const parkHillStudio=typeof canBuildPhOrderPullWork==='function' && canBuildPhOrderPullWork()
+        && canUseBloomscapesWorkStudio();
+    return switchView('field-work-studio',{studioPhase:phase,parkHillStudio});
 }
 
 function prepareBloomscapesStudioNavigation(requested,options) {
@@ -146,11 +148,12 @@ function mountBloomscapesWorkStudio(host) {
     if (entry) menu.querySelector('[data-open-module="'+entry+'"]')?.click();
 }
 
-function resetPhBuildWorkOnFarmChange() {
-    const button = document.querySelector('[data-open-module="ph-pull-work"]');
-    if (button) button.hidden = !canBuildPhOrderPullWork();
-    const opened = document.querySelector('[data-studio-phase="ph-pull-work"]');
-    if (opened && !canBuildPhOrderPullWork()) opened.querySelector('[data-module-back]')?.click();
+function syncPhBuildWorkVisibility(root = document) {
+    const available = canBuildPhOrderPullWork();
+    const button = root.querySelector('[data-open-module="ph-pull-work"]');
+    if (button) button.hidden = !available;
+    const opened = root.querySelector('[data-studio-phase="ph-pull-work"]');
+    if (opened && !available) opened.querySelector('[data-module-back]')?.click();
 }
 
 async function openBloomscapesStudioModule(menu,panel,key) {

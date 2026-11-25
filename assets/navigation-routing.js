@@ -1,6 +1,7 @@
 let pendingNavigationDisplay = null;
 function switchView(viewId, options = {}) {
     const target = String(BLOOMSCAPES_SHELL_ROUTE_ALIASES[viewId] || (viewId==='field-work-consolidation' && 'production')
+        || (viewId === 'field-work-studio' && options.parkHillStudio === true && 'production')
         || (nativeAuthSessionActive && viewId === 'sales-office' && 'sales')
         || (nativeAuthSessionActive && viewId === 'production' && currentUser !== 'dylan_collyge' && currentUser !== 'megan_kelly'
             && !BLOOMSCAPES_FIELD_ENTRY_ROLES[nativeAuthProfile?.role] && 'drive')
@@ -48,39 +49,6 @@ function switchView(viewId, options = {}) {
     return false;
 }
 
-function preparePrimaryNavigationOrigin(context) {
-    const { nextViewId, currentViewId, switchOptions, fromHistory } = context;
-    let targetScrollTop = switchOptions.targetScrollTop == null ? null : Math.max(0, Number(switchOptions.targetScrollTop) || 0);
-    targetScrollTop = prepareManagerAssignedNavigation(currentViewId, nextViewId, targetScrollTop);
-    if (shouldResetIosPhoneMainScrollForView(nextViewId)) targetScrollTop = 0;
-    repairAppShellScrollState(`view-switch-start:${currentViewId || 'none'}:${nextViewId}`, { resetGestureState: currentViewId !== nextViewId });
-    if (nextViewId === 'request') {
-        clearIosPhoneRequestFlowState('request-switch-start', { resetScroll: true });
-    }
-    const switchGuardKey = `${currentViewId || 'none'}->${nextViewId}`;
-    const switchNow = Date.now();
-    if (!fromHistory && !switchOptions.force && currentViewId !== nextViewId && switchGuardKey === lastGuardedViewSwitchKey && (switchNow - lastGuardedViewSwitchAt) < VIEW_SWITCH_DUPLICATE_GUARD_MS) {
-        return false;
-    }
-    lastGuardedViewSwitchKey = switchGuardKey;
-    lastGuardedViewSwitchAt = switchNow;
-    const rememberCurrentView = !fromHistory && currentViewId !== nextViewId && currentViewId && currentViewId !== 'detail';
-    // Capture after scroll repair, before teardown/body writes invalidate
-    // layout and can change the outgoing view's scroll anchoring.
-    const leavingAssignedItems = currentViewId === 'managers' && activeHomeTab === MANAGER_ASSIGNED_ITEMS_EXPORT_VIEW;
-    const fittedHome = currentViewId === 'home' && document.getElementById('view-home')?.dataset.homeFitComplete === 'true';
-    const originScrollTop = rememberCurrentView && !leavingAssignedItems ? (fittedHome ? 0 : getMainAreaScrollTop()) : null;
-    const historyScroll = rememberCurrentView && leavingAssignedItems ? getManagerAssignedColumnState().scroll : originScrollTop;
-    if (currentViewId === 'managers' && nextViewId !== 'managers') { cancelManagerModuleReads(); destroyManagerAssignedItemsView(); }
-    if (currentViewId === 'communication' && nextViewId !== 'communication') unmountAlphaCommandCenter('communications');
-    if (currentViewId === 'managers' && nextViewId !== 'managers' && activeHomeTab === MANAGER_HR_COMMAND_VIEW) unmountAlphaCommandCenter('hr');
-    if (currentViewId === 'managers' && nextViewId !== 'managers' && activeHomeTab === MANAGER_PRODUCTION_SCHEDULE_VIEW) {
-        window.GncProductionSchedule?.unmount();
-    }
-    Object.assign(context, { targetScrollTop, rememberCurrentView, historyScroll, originScrollTop });
-    return true;
-}
-
 function mountPrimaryNavigation(context) {
     const { nextViewId, currentViewId, rememberCurrentView, historyScroll } = context;
     const targetView = getViewElementById(nextViewId);
@@ -117,6 +85,39 @@ function mountPrimaryNavigation(context) {
     lastViewSwitchAt = Date.now();
     if (nextViewId !== 'home') ensureNativeBackGuard();
     Object.assign(context, { targetView, nextState });
+}
+
+function preparePrimaryNavigationOrigin(context) {
+    const { nextViewId, currentViewId, switchOptions, fromHistory } = context;
+    let targetScrollTop = switchOptions.targetScrollTop == null ? null : Math.max(0, Number(switchOptions.targetScrollTop) || 0);
+    targetScrollTop = prepareManagerAssignedNavigation(currentViewId, nextViewId, targetScrollTop);
+    if (shouldResetIosPhoneMainScrollForView(nextViewId)) targetScrollTop = 0;
+    repairAppShellScrollState(`view-switch-start:${currentViewId || 'none'}:${nextViewId}`, { resetGestureState: currentViewId !== nextViewId });
+    if (nextViewId === 'request') {
+        clearIosPhoneRequestFlowState('request-switch-start', { resetScroll: true });
+    }
+    const switchGuardKey = `${currentViewId || 'none'}->${nextViewId}`;
+    const switchNow = Date.now();
+    if (!fromHistory && !switchOptions.force && currentViewId !== nextViewId && switchGuardKey === lastGuardedViewSwitchKey && (switchNow - lastGuardedViewSwitchAt) < VIEW_SWITCH_DUPLICATE_GUARD_MS) {
+        return false;
+    }
+    lastGuardedViewSwitchKey = switchGuardKey;
+    lastGuardedViewSwitchAt = switchNow;
+    const rememberCurrentView = !fromHistory && currentViewId !== nextViewId && currentViewId && currentViewId !== 'detail';
+    // Capture after scroll repair, before teardown/body writes invalidate
+    // layout and can change the outgoing view's scroll anchoring.
+    const leavingAssignedItems = currentViewId === 'managers' && activeHomeTab === MANAGER_ASSIGNED_ITEMS_EXPORT_VIEW;
+    const fittedHome = currentViewId === 'home' && document.getElementById('view-home')?.dataset.homeFitComplete === 'true';
+    const originScrollTop = rememberCurrentView && !leavingAssignedItems ? (fittedHome ? 0 : getMainAreaScrollTop()) : null;
+    const historyScroll = rememberCurrentView && leavingAssignedItems ? getManagerAssignedColumnState().scroll : originScrollTop;
+    if (currentViewId === 'managers' && nextViewId !== 'managers') { cancelManagerModuleReads(); destroyManagerAssignedItemsView(); }
+    if (currentViewId === 'communication' && nextViewId !== 'communication') unmountAlphaCommandCenter('communications');
+    if (currentViewId === 'managers' && nextViewId !== 'managers' && activeHomeTab === MANAGER_HR_COMMAND_VIEW) unmountAlphaCommandCenter('hr');
+    if (currentViewId === 'managers' && nextViewId !== 'managers' && activeHomeTab === MANAGER_PRODUCTION_SCHEDULE_VIEW) {
+        window.GncProductionSchedule?.unmount();
+    }
+    Object.assign(context, { targetScrollTop, rememberCurrentView, historyScroll, originScrollTop });
+    return true;
 }
 
 function reusePrimaryNavigation(context) {

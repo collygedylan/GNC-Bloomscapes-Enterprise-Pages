@@ -78,7 +78,7 @@ function renderBloomscapesDepartmentWorkspace(view) {
     if (mounted?.dataset.departmentScope===key+':'+tab && !mounted.querySelector('[data-radio-disposed]')
         && (!advisor || isCurrentFieldWorkConsolidationFrame(mounted))) {
         if (tab==='bloomscapes-radio') renderBloomscapesComm();
-        if (tab==='bloomscapes-studio') renderFieldWorkConsolidationEntry(mounted);
+        if (tab==='bloomscapes-studio') syncBloomscapesStudioFrame(mounted);
         return true;
     }
     if (mounted) unmountFieldWorkConsolidation(mounted);
@@ -99,8 +99,13 @@ function renderBloomscapesDepartmentWorkspace(view) {
     root.appendChild(frame);
     if (advisor) mountFieldWorkConsolidation(frame);
     else if (fresh || tab==='bloomscapes-replenishment') mountBloomscapesWorkflowPanel(frame,tab);
-    if (tab==='bloomscapes-studio') renderFieldWorkConsolidationEntry(frame);
+    if (tab==='bloomscapes-studio') syncBloomscapesStudioFrame(frame);
     return true;
+}
+
+function syncBloomscapesStudioFrame(frame) {
+    renderFieldWorkConsolidationEntry(frame);
+    if (typeof syncPhBuildWorkVisibility === 'function') syncPhBuildWorkVisibility(frame);
 }
 
 function restoreBloomscapesDepartmentChildren(root) {

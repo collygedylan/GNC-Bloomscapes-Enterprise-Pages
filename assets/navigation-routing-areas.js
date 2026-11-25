@@ -167,7 +167,7 @@ function preparePermittedStudioNavigation(view, options) {
     if (!canUseBloomscapesWorkStudio()) return true;
     const requested = view === 'production' && !options.fromHistory ? 'field-work-studio' : view;
     const phase = options.studioPhase || bloomscapesStudioRoute(requested);
-    if (phase && !allowsBloomscapesAreaSubview(bloomscapesStudioPermission(phase))) return false;
+    if (phase && !canDisplayFieldWorkSubview(phase)) return false;
     prepareBloomscapesStudioNavigation(requested, options);
     return true;
 }

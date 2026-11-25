@@ -227,6 +227,7 @@ function syncBloomscapesLegacySubview(view) {
 }
 
 function canDisplayFieldWorkSubview(key) {
+    if (key === 'ph-pull-work') return canBuildPhOrderPullWork();
     return key === 'consolidate' ? canViewFieldWorkConsolidation()
         : allowsBloomscapesAreaSubview(bloomscapesStudioPermission(key));
 }
