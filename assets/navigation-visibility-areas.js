@@ -14,6 +14,9 @@ function bloomscapesPersonalScope() {
 }
 
 function bloomscapesPersonalRoute(view,scope=bloomscapesPersonalScope()) {
+    if (typeof isParkHillOrderPuller === 'function' && isParkHillOrderPuller()) {
+        return view === 'request' && getBloomscapesFarm() === '10-PH';
+    }
     if (!scope) return null;
     if (view==='home') return true;
     const key=Object.hasOwn(PERSONAL_MODULE_ROUTES,view) ? PERSONAL_MODULE_ROUTES[view] : view;

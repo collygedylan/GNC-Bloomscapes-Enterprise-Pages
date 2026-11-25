@@ -40,8 +40,8 @@ const moduleSearchSelectors = {
     reports: '[data-report-query], input[aria-label="Search report inventory"]',
     managers: '[data-report-query], [data-directory-query], [data-nursery-search], [data-schedule-search], [data-managed-table-search], [data-consolidation-query], #transactions-keyed-search',
     'inv-consolidation': '#inv-consolidation-search',
-    'field-work-studio': '[data-work-search], [data-studio-menu-search]',
-    production: '[data-work-search], [data-studio-menu-search], [data-schedule-search]',
+    'field-work-studio': '[data-work-search], [data-studio-menu-search], [data-ph-work-search]',
+    production: '[data-work-search], [data-studio-menu-search], [data-ph-work-search], [data-schedule-search]',
     'borrowed-work': '[data-loan-search]',
     'time-cards': '[data-timecard-search]',
     timecards: '[data-timecard-search]',
@@ -98,7 +98,8 @@ function getBloomscapesDriveModuleSearch(view) {
     if (!root || (!selector && !archiveSearchViews.has(view))) return null;
     const active = activeModuleSearch;
     const inputs = selector ? [...root.querySelectorAll(selector)] : [];
-    const origin = inputs.find(input => input === active?.origin || !input.closest('[hidden],.hidden'));
+    const origin = inputs.find(input => !input.parentElement?.closest('[hidden],.hidden')
+        && (input === active?.origin || !input.hidden || input.hasAttribute('data-ph-work-search')));
     if (active?.view === view && active.host.isConnected) {
         if (active.origin !== origin) {
             if (active.origin) active.origin.hidden = false;

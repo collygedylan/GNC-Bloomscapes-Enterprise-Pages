@@ -1,3 +1,92 @@
+const phWorkButtonClass = 'rounded-lg border border-emerald-600 px-3 py-2 text-sm font-semibold';
+const phWorkSelectClass = 'input-field w-full';
+
+function phWorkMarkup() {
+    return '<div class="space-y-3" data-ph-pull-work data-drive-layout-active>'
+        +'<input type="search" data-ph-work-search hidden aria-label="Search unassigned pull tags">'
+        +'<div class="flex flex-wrap gap-2 items-end"><label>View<select data-ph-view class="'+phWorkSelectClass+'">'
+        +'<option value="pull-tags">Pull Tags & Teams</option><option value="teams">Teams</option></select></label>'
+        +'<button type="button" data-ph-action="refresh" class="'+phWorkButtonClass+'">Refresh</button></div>'
+        +'<p data-ph-status role="status"></p><section data-ph-teams></section>'
+        +'<section data-ph-pool class="space-y-3"><div class="flex flex-wrap gap-2 items-end">'
+        +'<button type="button" data-ph-action="auto" class="'+phWorkButtonClass+'">Auto-Group Full Buggy (≤ 650 WDU)</button>'
+        +'<output data-ph-total aria-live="polite"></output><label>Assign Batch to Team (Unit #)'
+        +'<select data-ph-dispatch-team class="'+phWorkSelectClass+'"></select></label>'
+        +'<button type="button" data-ph-action="dispatch" class="'+phWorkButtonClass+'">Assign Batch to Team</button>'
+        +'</div><div data-ph-rows class="grid gap-2 md:grid-cols-2 xl:grid-cols-3"></div></section></div>';
+}
+
+function phWorkOptions(options, selected = '') {
+    return options.map(value => '<option'+(value === selected ? ' selected' : '')+'>'+esc(value)+'</option>').join('');
+}
+
+function phWorkTeamCard(team) {
+    const id = esc(team.team_id);
+    return '<article class="rounded-lg border border-emerald-700 p-3 space-y-2">'
+        +'<strong>Unit '+esc(team.unit_number)+' · '+esc(team.puller_primary)
+        +(team.puller_helper ? ' + '+esc(team.puller_helper) : '')+'</strong>'
+        +'<div class="flex flex-wrap gap-2">'
+        +'<button type="button" class="'+phWorkButtonClass+'" data-ph-action="edit" data-team-id="'+id+'">Change Unit / Partner</button>'
+        +'<button type="button" class="'+phWorkButtonClass+'" data-ph-action="release" data-team-id="'+id+'">Release</button>'
+        +'</div></article>';
+}
+
+function paintPhWorkTeams(state) {
+    const {snapshot,draft,root} = state;
+    const choices = phPullTeamChoices(snapshot,draft.id,draft.primary);
+    const select = (label,name,options,value,prompt) => '<label>'+label+'<select data-ph-field="'+name
+        +'" class="'+phWorkSelectClass+'"><option value="">'+prompt+'</option>'+phWorkOptions(options,value)+'</select></label>';
+    root.querySelector('[data-ph-teams]').innerHTML = '<div class="flex flex-wrap gap-2 items-end">'
+        +select('Unit #','unit',choices.units,draft.unit,'Select a unit')
+        +select('Puller 1','primary',choices.primary,draft.primary,'Select a puller')
+        +select('Puller Helper (Puller 2)','helper',choices.helper,draft.helper,'None')
+        +'<button type="button" class="'+phWorkButtonClass+'" data-ph-action="save">'
+        +(draft.id ? 'Save Changes' : 'Assign Team')+'</button>'
+        +(draft.id ? '<button type="button" class="'+phWorkButtonClass+'" data-ph-action="cancel">Cancel Edit</button>' : '')
+        +'</div><div class="grid gap-2 my-3 sm:grid-cols-2 xl:grid-cols-3">'+snapshot.teams.map(phWorkTeamCard).join('')+'</div>';
+}
+
+function phWorkTagCard(row, selected) {
+    const id = esc(row.pull_tag_id);
+    return bloomscapesListNode('<article class="rounded-lg border border-emerald-700 p-3">'
+        +'<label class="flex gap-2 items-start"><input type="checkbox" data-ph-tag="'+id+'"'
+        +(selected.has(row.pull_tag_id) ? ' checked' : '')+'>'
+        +'<span><strong>'+esc(row.common_name || row.itemcode)+'</strong> · '+esc(row.container_size)
+        +'<br>'+esc(row.itemcode)+' · '+esc(row.locationcode)+' · Lot '+esc(row.lotcode)
+        +'<br>On Hand '+esc(String(row.onhand ?? '—'))+' · Quantity Ordered '+esc(String(row.quantityordered ?? '—'))
+        +'<br>Dock '+esc(row.dock)+' · Stop '+esc(row.stopnumber)+' · '+esc(String(row.wingdingunits))+' WDU'
+        +(row.trip_total>1 ? '<br>Trip '+row.trip_index+'/'+row.trip_total+' · Pull '+row.pull_qty : '')
+        +'</span></label></article>');
+}
+
+function paintPhWorkRows(state,rows) {
+    const {root,selected} = state;
+    mountChunkedList(root.querySelector('[data-ph-rows]'),rows,row => phWorkTagCard(row,selected));
+    paintPhWorkSelection(state);
+}
+
+function paintPhWorkSelection(state) {
+    const {root,selected,snapshot,pending} = state;
+    const total = phPullSelectedWdu(snapshot.rows,selected)/1e12;
+    root.querySelector('[data-ph-total]').textContent = 'Selected: '+total+' / '+PH_PULL_CAP+' WDU';
+    const team = root.querySelector('[data-ph-dispatch-team]');
+    root.querySelector('[data-ph-action="dispatch"]').disabled = Boolean(pending || !selected.size || !team.value);
+}
+
+function paintPhWorkState(state, rows) {
+    const {root,snapshot,pending} = state;
+    const dispatch = root.querySelector('[data-ph-dispatch-team]');
+    const current = dispatch.value;
+    dispatch.replaceChildren(new Option('Select a team',''),...snapshot.teams
+        .filter(team => !team.batch_open).map(team => new Option('Unit '+team.unit_number,team.team_id)));
+    if (snapshot.teams.some(team => team.team_id === current && !team.batch_open)) dispatch.value = current;
+    paintPhWorkTeams(state);
+    paintPhWorkRows(state,rows);
+    for (const control of root.querySelectorAll('[data-ph-action]:not([data-ph-action="dispatch"])')) {
+        control.disabled = Boolean(pending);
+    }
+}
+
 let bloomscapesStudioEntry = '';
 
 function openBloomscapesFieldWorkStudio(phase='') {
@@ -32,6 +121,8 @@ function renderBloomscapesWorkStudio() {
             +(description ? '<span>'+esc(description)+'</span>' : '')+'</button>').join('')
         +(typeof canCreateBloomscapesTreeGrading==='function' && canCreateBloomscapesTreeGrading()
             ? '<button type="button" data-open-module="tree-grading"><strong>Tree Grading</strong></button>' : '')
+        +(typeof canBuildPhOrderPullWork==='function' && canBuildPhOrderPullWork()
+            ? '<button type="button" data-open-module="ph-pull-work"><strong>Build Work Que</strong></button>' : '')
         +'</nav><div data-studio-module></div></section>';
 }
 
@@ -55,15 +146,25 @@ function mountBloomscapesWorkStudio(host) {
     if (entry) menu.querySelector('[data-open-module="'+entry+'"]')?.click();
 }
 
+function resetPhBuildWorkOnFarmChange() {
+    const button = document.querySelector('[data-open-module="ph-pull-work"]');
+    if (button) button.hidden = !canBuildPhOrderPullWork();
+    const opened = document.querySelector('[data-studio-phase="ph-pull-work"]');
+    if (opened && !canBuildPhOrderPullWork()) opened.querySelector('[data-module-back]')?.click();
+}
+
 async function openBloomscapesStudioModule(menu,panel,key) {
     if (!canUseBloomscapesWorkStudio()) return;
+    if (key==='ph-pull-work' && !canBuildPhOrderPullWork()) return;
     panel.dataset.studioPhase=key;
     menu.hidden=true;
-    const title=key==='tree-grading' ? 'Tree Grading' : BLOOMSCAPES_STUDIO_PHASES.find(([id])=>id===key)[1];
+    const title=key==='tree-grading' ? 'Tree Grading' : key==='ph-pull-work' ? 'Build Work Que'
+        : BLOOMSCAPES_STUDIO_PHASES.find(([id])=>id===key)[1];
     panel.innerHTML='<header class="studio-breadcrumb"><button type="button" data-module-back>← Work Types</button><h3>'+title+'</h3><span data-module-summary></span></header><div data-module-body></div>';
     const body=panel.querySelector('[data-module-body]');
     panel.querySelector('[data-module-back]').addEventListener('click',()=>{panel.replaceChildren();delete panel.dataset.studioPhase;menu.hidden=false;syncGlobalHeaderChrome({reason:'studio-modules',force:true});});
     if (key==='tree-grading') return mountBloomscapesTreeGrading(body);
+    if (key==='ph-pull-work') return mountPhBuildWorkOrderPulling(body);
     body.appendChild(document.createElement('div')).dataset.studioExcel='true';
     const browser=body.appendChild(document.createElement('section'));
     browser.dataset.workBrowser='true';

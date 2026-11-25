@@ -120,6 +120,12 @@ function confirmBloomscapesHomeMount() {
 }
 
 function finishBloomscapesShellStartup(touchShell) {
+    if (typeof isParkHillOrderPuller === 'function' && isParkHillOrderPuller()) {
+        applyRolePermissions();
+        updateFooterNavState();
+        syncGlobalHeaderChrome({reason:'login-order-pulling',force:true});
+        return void runAppUpdateRestoreAfterShell();
+    }
     runLoginInitializationStep('AURA widget', () => syncAuraWidgetForSession());
     if (getCurrentVisibleViewId() === 'home') {
         syncGoogleScriptButton();
@@ -175,12 +181,14 @@ function openAppShellAfterLogin() {
 
     blurActiveField();
     revealBloomscapesLoginShell();
-    runLoginInitializationStep('Home view',()=>showOnlyPrimaryView('home'));
-    runLoginInitializationStep('Home render',()=>renderHome(true));
-    runLoginInitializationStep('Role controls',()=>synchronizeLoginRoleControls(getRoleAccessState(),true));
+    const puller = typeof isParkHillOrderPuller === 'function' && isParkHillOrderPuller();
+    runLoginInitializationStep('Initial view',()=>showOnlyPrimaryView(puller ? 'request' : 'home'));
+    if (puller) runLoginInitializationStep('Order Pulling',()=>renderViewContent('request',true,true,true));
+    else runLoginInitializationStep('Home render',()=>renderHome(true));
+    runLoginInitializationStep('Role controls',()=>synchronizeLoginRoleControls(getRoleAccessState(),!puller));
     document.body.classList.add('role-access-ready');
     if (loginView) loginView.style.display='none';
-    confirmBloomscapesHomeMount();
+    if (!puller) confirmBloomscapesHomeMount();
     finishInitialAppLoad();
     document.getElementById('login-inputs')?.classList.remove('hidden');
     document.getElementById('loading-spinner')?.classList.add('hidden');
