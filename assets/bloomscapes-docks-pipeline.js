@@ -17,17 +17,17 @@ function pipelineIsCurrent(state) {
 }
 
 function applyPipelinePermissions(state, rail) {
-    if (state.permissions || state.meta || !nativeAuthSessionActive) return;
+    if (state.permissions || state.meta || state.metaRetryAt > Date.now() || !nativeAuthSessionActive) return;
     const input = state.preview ? {preview:state.preview} : {};
     state.meta = requestDockPipeline(state.farm,'meta',input).then(receipt=>{
         if (!pipelineIsCurrent(state)) return;
         state.permissions = receipt.permissions;
         drawPipelineSelector(rail,state);
     }).catch(error=>{
-        if (pipelineIsCurrent(state)) {
-            window.GncRuntimeWatchdog?.capture?.(error,{rpcName:'gnc_dock_pipeline',action:'meta'});
-            state.permissions = {};
-        }
+        if (!pipelineIsCurrent(state)) return;
+        window.GncRuntimeWatchdog?.capture?.(error,{rpcName:'gnc_dock_pipeline',action:'meta'});
+        if (Number(error.status) === 403 || error.code === '42501') state.permissions = {};
+        else state.metaRetryAt = Date.now() + 3000;
     }).finally(()=>{state.meta = null;});
 }
 

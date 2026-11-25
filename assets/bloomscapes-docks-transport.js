@@ -63,12 +63,11 @@ function retireSupersededRead(key,previous,identity) {
 const bloomscapesDockBoardLists = ['tags','drops','trips','suspend','people','borrows','traffic'];
 
 async function readBloomscapesDockBoard(farm, identity) {
-    const {client, owner} = await requireBloomscapesSession();
+    const {owner} = await requireBloomscapesSession();
     assertBloomscapesDockScope(farm, identity);
-    const result = await client.rpc('gnc_pull_board', {p_farm:farm});
+    const board = await supabaseRpc('gnc_pull_board',{p_farm:farm},{timeoutMs:12000});
     await requireBloomscapesOwner(owner);
     assertBloomscapesDockScope(farm, identity);
-    const board = bloomscapesData(result);
     if (board?.farm_code !== farm || !bloomscapesDockBoardLists.every(key => Array.isArray(board[key]))) {
         throw new Error('The Dock board did not match the selected farm.');
     }

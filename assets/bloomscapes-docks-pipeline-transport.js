@@ -1,6 +1,9 @@
 async function requestDockPipeline(farm, action, input) {
     const {client,owner} = await requireBloomscapesSession();
-    const receipt = bloomscapesData(await client.rpc('gnc_dock_pipeline',{p_farm:farm,p_action:action,p_input:input}));
+    const payload = {p_farm:farm,p_action:action,p_input:input};
+    const receipt = operationalRpcIsReplaySafe('gnc_dock_pipeline',payload)
+        ? await supabaseRpc('gnc_dock_pipeline',payload,{timeoutMs:12000})
+        : bloomscapesData(await client.rpc('gnc_dock_pipeline',payload));
     await requireBloomscapesOwner(owner);
     if (receipt?.ok !== true || receipt.farm_code !== farm || receipt.action !== action
         || action === 'list' && (!Array.isArray(receipt.rows) || !Array.isArray(receipt.groups))

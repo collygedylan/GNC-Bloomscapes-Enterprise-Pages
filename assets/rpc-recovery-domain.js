@@ -8,14 +8,6 @@ function isOperationalTransientError(error) {
         || /lock timeout|lock_not_available|failed to fetch|network|timed out/i.test(message);
 }
 
-function operationalRpcIsReplaySafe(name, body = {}) {
-    if (/^(get_|read_|list_)/.test(name)) return true;
-    if (name === 'unlock_drive_evidence_v1') return !!body.p_master_uid;
-    if (name === 'save_drive_evidence_v3') return !!body.p_idempotency_key;
-    if (['create_request_batch','create_av_request_batch'].includes(name)) return !!body.client_batch_id;
-    return name === 'set_itemcode_default_owners_v1' && !!body.p_request_id;
-}
-
 async function waitForOperationalRetry(delay, signal) {
     if (signal?.aborted) throw Object.assign(new Error('RPC retry cancelled.'), {code:'REQUEST_ABORTED'});
     await new Promise((resolve, reject) => {

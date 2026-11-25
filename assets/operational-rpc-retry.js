@@ -1,3 +1,12 @@
+function operationalRpcIsReplaySafe(name, body = {}) {
+    if (/^(get_|read_|list_)/.test(name) || name === 'gnc_pull_board') return true;
+    if (name === 'gnc_dock_pipeline') return ['meta','list'].includes(body.p_action);
+    if (name === 'unlock_drive_evidence_v1') return !!body.p_master_uid;
+    if (name === 'save_drive_evidence_v3') return !!body.p_idempotency_key;
+    if (['create_request_batch','create_av_request_batch'].includes(name)) return !!body.client_batch_id;
+    return name === 'set_itemcode_default_owners_v1' && !!body.p_request_id;
+}
+
 function assertOperationalRequestCurrent(current, signal) {
     if (signal?.aborted) throw Object.assign(new Error('RPC retry cancelled.'), {code:'REQUEST_ABORTED'});
     if (!current()) throw Object.assign(new Error('RPC account changed.'), {code:'REQUEST_SCOPE_CHANGED'});
