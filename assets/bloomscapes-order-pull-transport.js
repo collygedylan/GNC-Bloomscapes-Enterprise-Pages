@@ -26,15 +26,35 @@ async function requestPhPullWork(rpc, input = {}) {
         throw new Error('The Park Hill work receipt did not match this request.');
     }
     if (rpc === 'gnc_ph_pull_work_v1') {
-        if (![receipt.rows,receipt.units,receipt.pullers,receipt.teams].every(Array.isArray)
+        if (!hasPhPullWorkSnapshot(receipt)
             || input.p_team && (receipt.team_id !== input.p_team || !receipt.buggy_id
                 || JSON.stringify(receipt.tag_ids) !== JSON.stringify(input.p_tags))) {
             throw new Error('The dispatch receipt did not match this batch.');
         }
+    } else if (rpc === 'gnc_ph_pull_control_v1') {
+        if (!matchesPhPullControlReceipt(receipt,input)) throw new Error('The load control receipt did not match this request.');
     } else if (!matchesPhPullTeamReceipt(receipt.team,input)) {
         throw new Error('The receipt did not match this buggy team.');
     }
     return receipt;
+}
+
+function hasPhPullWorkSnapshot(receipt) {
+    if (![receipt.rows,receipt.units,receipt.pullers,receipt.teams].every(Array.isArray)) return false;
+    if (receipt.auto_assign === undefined && receipt.assigned_loads === undefined && receipt.queued_loads === undefined) return true;
+    return typeof receipt.auto_assign === 'boolean' && [receipt.assigned_loads,receipt.queued_loads].every(loads =>
+        Array.isArray(loads) && loads.every(load => Array.isArray(load?.load_manifest)));
+}
+
+function matchesPhPullControlReceipt(receipt,{p_action,p_input}) {
+    if (!hasPhPullWorkSnapshot(receipt) || !Array.isArray(receipt.assigned_loads) || receipt.action !== p_action
+        || !Object.entries(p_input).every(([key,value]) => receipt.input?.[key] === value)) return false;
+    if (p_action === 'set_auto') return receipt.auto_assign === p_input.enabled;
+    const load = receipt.assigned_loads.find(row => row.buggy_id === p_input.buggy_id);
+    if (p_action === 'unassign') return !load;
+    if (p_action !== 'swap' || load?.team_id !== p_input.target_team_id) return false;
+    return !p_input.target_buggy_id || receipt.assigned_loads.some(row =>
+        row.buggy_id === p_input.target_buggy_id && row.team_id === p_input.team_id);
 }
 
 function matchesPhPullTeamReceipt(team,input) {
