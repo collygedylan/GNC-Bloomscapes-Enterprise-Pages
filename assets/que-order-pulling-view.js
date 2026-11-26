@@ -1,50 +1,74 @@
+function renderBloomscapesOrderCardLayout({name, size, identity, photo, badges, strip, metrics, actions, details = ''}) {
+    const title = String(name || 'Unknown').replace(/\\+'/g, "'");
+    return `<div class="app-drive-card-grid app-drive-card-grid--no-actions flex-grow">
+        <div class="app-drive-card-photo">${photo}</div>
+        <div class="app-drive-card-main">
+            <div class="app-drive-card-header">
+                <div class="app-drive-card-title">${escapeHtml(title)} <span class="app-drive-card-title-size">${escapeHtml(size || '—')}</span></div>
+                <div class="app-drive-card-itemcode">${escapeHtml(identity.join(' · '))}</div>
+                ${badges}
+            </div>
+            <div class="app-suspend-tag-order-strip" data-compact-order-strip>${escapeHtml(strip)}</div>
+            <div class="app-drive-card-quantity-band">${metrics}</div>
+            ${actions ? `<div class="bloomscapes-order-card-actions">${actions}</div>` : ''}
+            ${details}
+        </div>
+    </div>`;
+}
+
 const orderPullButtonClass = 'rounded-full border border-emerald-500 px-3 py-1.5 text-xs font-semibold whitespace-nowrap';
 
 function orderPullButton(label, action, key = '', disabled = false) {
     return '<button type="button" class="'+orderPullButtonClass+'" data-pull-action="'+action
-        +'" data-pull-key="'+esc(key)+'"'+(disabled ? ' disabled' : '')+'>'+esc(label)+'</button>';
+        +'" data-pull-key="'+escapeHtml(key)+'"'+(disabled ? ' disabled' : '')+'>'+escapeHtml(label)+'</button>';
 }
 
-function orderPullPhotos(row) {
-    const identity = {ITEMCODE:row.itemcode,LOCATIONCODE:row.locationcode,LOTCODE:row.lotcode,WAREHOUSEID:row.warehouse};
+function orderPullEvidence(row) {
+    const {itemcode,locationcode,lotcode,warehouse} = row;
+    const identity = {ITEMCODE:itemcode,LOCATIONCODE:locationcode,LOTCODE:lotcode,WAREHOUSEID:warehouse};
     const inventory = resolveCanonicalInventoryRow(identity) || {...identity,PTRONHAND:row.onhand,
-        LOC_PHOTO_MATCH:row.av_photo_match,PHOTO_LINK:row.av_photo_links,PHOTO_DATE:row.av_photo_date,
+        LOC_MATCH_QTY:row.av_photo_match,PHOTO_LINK:row.av_photo_links,PHOTO_DATE:row.av_photo_date,
         PHOTO_EXPIRES_AT:row.av_photo_expires_at};
-    return currentCanonicalAvPhotoUrls(inventory);
+    return {inventory,photos:currentCanonicalAvPhotoUrls(inventory)};
 }
 
-function orderPullWeekday(value) {
-    return value ? new Intl.DateTimeFormat('en-US',{weekday:'short',month:'short',day:'numeric',timeZone:'UTC'})
-        .format(new Date(value+'T00:00:00Z')) : '—';
+function orderPullBayLocation(row) {
+    const location = String(row.locationcode || '—');
+    const bay = String(row.bay_number ?? '').trim() || location.match(/\.(\d{3})$/)?.[1];
+    return bay ? `${location} · Bay ${bay}` : location;
+}
+
+function orderPullThumbnail(row, photos) {
+    if (!photos.length) return '<span class="app-inline-thumb-box app-inline-thumb-box--empty">No Photo</span>';
+    const image = buildDeferredCardPhotoImg(getDirectImageUrl(photos[0], 'card-feature'), {alt:'Inventory photo'});
+    return `<button type="button" data-pull-action="photo" data-pull-key="${escapeHtml(row.pull_tag_id)}"
+        aria-label="View inventory photo" class="app-inline-thumb-column"><span class="app-inline-thumb-box">${image}</span></button>`;
 }
 
 function orderPullCard(row, buggy) {
-    const own = buggy && row.buggy_id === buggy.buggy_id;
-    const photos = orderPullPhotos(row);
-    const photo = photos.length ? orderPullButton('AV Photo','photo',row.pull_tag_id) : '';
-    const title = esc([row.common_name || row.itemcode,row.container_size].filter(Boolean).join(' · '));
-    const trip = row.trip_total > 1 ? ' · Trip '+row.trip_index+'/'+row.trip_total : '';
-    const action = own && row.pull_status === 'claimed' && row.priority < 5
-        ? orderPullButton('✓ Pulled onto Buggy','pull',row.pull_tag_id) : '';
+    const {inventory,photos} = orderPullEvidence(row);
+    const ready = buggy && row.buggy_id === buggy.buggy_id && row.pull_status === 'claimed' && row.priority < 5;
+    const action = ready ? orderPullButton('✓ Pulled onto Buggy','pull',row.pull_tag_id) : '';
     const status = row.pull_status === 'on_buggy' ? 'Pulled' : row.pull_status === 'claimed' ? 'Assigned' : 'Queued';
-    return bloomscapesListNode('<article data-order-pull-tag="'+esc(row.pull_tag_id)
-        +'" class="space-y-2 rounded-xl border border-emerald-700 bg-emerald-950 p-3 text-white">'
-        +'<h3 class="font-bold">'+title+'</h3><p class="text-sm">'+esc(row.itemcode)+'</p>'
-        +'<p class="text-sm"><strong>Pick location · Lot</strong> '+esc(row.locationcode+' · '+row.lotcode)+'</p>'
-        +'<p class="text-sm"><strong>On Hand</strong> '+esc(String(row.onhand ?? '—'))
-        +' · <strong>Qty Ordered</strong> '+esc(String(row.quantityordered ?? '—'))
-        +' · <strong>Pull qty</strong> '+row.pull_qty+' · '+Number(row.wingdingunits)+' WDU'+trip+'</p>'
-        +'<p class="text-sm"><strong>Dock '+esc(row.dock)+' · Stop '+esc(row.stopnumber)+'</strong> · '
-        +esc(row.dock_status || '—')+'</p><p class="text-sm">Consignee '+esc(row.consignee || '—')
-        +(row.unit_number ? ' · Unit #'+esc(row.unit_number) : '')+'</p>'
-        +'<p class="text-sm">Spec '+esc(row.spec || '—')+' · Pick Note '+esc(row.pick_note || '—')+'</p>'
-        +'<p class="flex flex-wrap items-center gap-2 text-xs"><span class="'+orderPullButtonClass+'">Plan Start '
-        +orderPullWeekday(row.plan_start_date)+'</span>'+status+'</p><div class="flex flex-wrap gap-2">'+photo+action+'</div></article>');
+    const metrics = buildInventoryQuantityChipsHtml(inventory,{layout:'row',compact:true,canonical:true,sourceView:'order-pulling',
+        locationMetricItem:inventory,preserveUnknown:true});
+    const dock = formatDockViewDockLabel(row.dock);
+    const trip = row.trip_total > 1 ? ` · Trip ${row.trip_index}/${row.trip_total}` : '';
+    const note = [row.spec,row.pick_note,row.dock_status,row.consignee,row.plan_start_date].filter(Boolean).join(' · ');
+    const layout = renderBloomscapesOrderCardLayout({
+        name:row.common_name || row.itemcode,size:row.container_size,
+        identity:[row.itemcode,orderPullBayLocation(row),row.lotcode || '—'],
+        photo:orderPullThumbnail(row,photos),badges:buildEvalOwnerBadge(inventory),
+        strip:`${dock} · Drop ${row.stopnumber} · Pull Qty ${row.pull_qty} (${Number(row.wingdingunits)} WDU)${trip}`,
+        metrics,actions:action,details:`<p class="bloomscapes-order-card-note">${escapeHtml([status,note].filter(Boolean).join(' · '))}</p>`
+    });
+    return bloomscapesListNode(`<article data-order-pull-tag="${escapeHtml(row.pull_tag_id)}"
+        class="app-smart-card app-drive-compact-card app-shared-drive-layout bloomscapes-order-card">${layout}</article>`);
 }
 
 function openOrderPullPhoto(receipt, key, trigger) {
     const row = receipt?.rows.find(entry => entry.pull_tag_id === key);
-    if (row) openAvPhotoViewer(orderPullPhotos(row),row.common_name,0,trigger);
+    if (row) openAvPhotoViewer(orderPullEvidence(row).photos,row.common_name,0,trigger);
 }
 
 function orderPullUnloadMarkup(receipt) {
@@ -54,7 +78,7 @@ function orderPullUnloadMarkup(receipt) {
     return '<div class="space-y-2 rounded-lg border border-emerald-500 p-3"><strong>'
         +(wdu === 650 ? 'Full Buggy (650 WDU)' : 'Buggy ready to unload ('+wdu+' WDU)')+'</strong>'
         +groups.map((stop,index) => '<div class="flex flex-wrap items-center gap-2" data-order-pull-stop>'
-            +'<span>Dock '+esc(stop.dock)+' · Drop / Stop '+esc(stop.stopnumber)+'</span>'
+            +'<span>Dock '+escapeHtml(stop.dock)+' · Drop / Stop '+escapeHtml(stop.stopnumber)+'</span>'
             +orderPullButton('Drop Off','drop_off',String(index),groups[index-1]?.dock === stop.dock)
             +'</div>').join('')+'</div>';
 }
@@ -63,9 +87,9 @@ function paintOrderPullToolbar(host, state) {
     const buggy = state.receipt?.buggy;
     const unit = state.receipt?.unit_number;
     const partner = state.receipt?.partner;
-    const title = unit ? 'Unit #'+esc(unit)+' · Partner: '+esc(partner || '—')+' · ' : 'Buggy: ';
-    const all = state.supervisor ? 'All Assigned / Active Queue' : 'All Queue';
-    host.innerHTML = '<span class="'+orderPullButtonClass+'" aria-live="polite">🛺 '+title
+    const crew = unit ? 'Unit #'+escapeHtml(unit)+' · Partner: '+escapeHtml(partner || '—') : '';
+    const all = state.supervisor ? 'All Assigned' : 'All Queue';
+    host.innerHTML = '<span class="'+orderPullButtonClass+'" aria-live="polite" title="'+crew+'">Buggy: '
         +Number(buggy?.current_wdu || 0)+' / 650 WDU</span>'
         +(state.teamOnly ? orderPullButton('Refresh Assigned Batch','list')
             : orderPullButton('My Buggy','mode','buggy')+orderPullButton(all,'mode','all'));
@@ -80,7 +104,8 @@ function paintOrderPullQueue(host, state) {
     host.querySelector('[role="status"]').textContent = state.error || (state.pending ? 'Loading order pulls…'
         : rows.length ? '' : state.query ? 'No pulls match this search.' : 'No active pulls in this view.');
     const list = host.querySelector('[data-order-pull-list]');
-    mountBloomscapesScrollWindow(list,rows,{size:20,estimate:204,mount:(section,items) => {
+    const scrollRoot = host.closest('#main-scroll-area');
+    mountBloomscapesScrollWindow(list,rows,{size:20,estimate:220,scrollRoot,mount:(section,items) => {
         mountChunkedList(section,items,row => orderPullCard(row,receipt.buggy));
     }});
 }

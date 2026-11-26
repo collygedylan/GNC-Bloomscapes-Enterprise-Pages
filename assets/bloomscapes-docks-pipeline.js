@@ -36,7 +36,7 @@ function drawPipelineSelector(rail,state) {
     const allowed = dockPipelineViews.filter(([key])=>state.permissions?.[key] === 'Y');
     const signature = allowed.map(([key])=>key).join('|');
     if (rail.dataset.allowedViews !== signature) {
-        select.replaceChildren(new Option('Docks overview',''),...allowed.map(([key,label])=>new Option(label,key)));
+        select.replaceChildren(new Option('Order browse',''),...allowed.map(([key,label])=>new Option(label,key)));
         rail.dataset.allowedViews = signature;
     }
     select.value = state.view;
@@ -44,15 +44,17 @@ function drawPipelineSelector(rail,state) {
 }
 
 function mountPipelineSelector(container,state) {
-    const upper = document.querySelector('#view-docks > .freeze-panel');
+    const root = container.closest('#view-docks');
+    mountDocksFilterDisclosure(root);
+    const upper = root.querySelector('.docks-filter-disclosure');
     let rail = upper.querySelector('[data-dock-pipeline-selector]');
     if (rail) return rail;
     rail = document.createElement('div');
     rail.dataset.dockPipelineSelector = '';
     rail.hidden = true;
-    rail.innerHTML = '<label>View <select aria-label="Docks View" class="input-field"></select></label>'
+    rail.innerHTML = '<select aria-label="Docks View" class="input-field"></select>'
         + '<button type="button" class="ml-2 rounded-lg border px-2 py-1" data-dock-pipeline-refresh hidden>Refresh</button>';
-    upper.insertBefore(rail,upper.querySelector('#docks-crumb'));
+    upper.appendChild(rail);
     rail.addEventListener('change',selectPipelineView);
     rail.addEventListener('click',refreshPipelineSelection);
     container.addEventListener('click',handleDockPipelineClick);

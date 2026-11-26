@@ -31,7 +31,6 @@ function renderViewContent(viewId, forceReset = false, forceRender = false, sync
         renderAuxiliaryAppView(viewId, state, forceReset);
     }
 
-    if (viewId==='docks') mountBloomscapesDockLinks();
     if (viewId==='office') mountBloomscapesOrderDocuments(document.getElementById('view-office'),'office');
     mountBloomscapesFieldBorrowing(viewId);
     mountBloomscapesInventoryBrowse(viewId);

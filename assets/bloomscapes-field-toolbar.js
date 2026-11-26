@@ -9,7 +9,7 @@ function mountDocksPrimaryFilters(root, bar) {
     if (!primary) {
         primary = document.createElement('div');
         primary.dataset.docksPrimaryFilters = '';
-        disclosure.before(primary);
+        disclosure.querySelector("summary").after(primary);
     }
     for (const key of ['commonname','contsize']) {
         const field = bar.querySelector('[data-field="' + key + '"]')?.closest('.inventory-excel-field');

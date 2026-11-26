@@ -1,7 +1,9 @@
+const bloomscapesDockFacetAllLabels = {username:'All Assigned Users',commonname:'All Plants',contsize:'All Sizes'};
+
 function renderBloomscapesCountedSelect(scope,state,key,label) {
     if (scope==='docks') {
         const value=[...(state.filters[key] || [])][0];
-        const text=value || (key==='username'?'All Assigned Users':'All Rows');
+        const text=value || (bloomscapesDockFacetAllLabels[key] || 'All Rows');
         return '<div class="inventory-excel-field bloomscapes-compact-select"><span>'+escapeHtml(label)+'</span>'
             +'<button type="button" aria-haspopup="dialog" data-field="'+key+'" data-inventory-select="'+key+'" aria-label="'+escapeHtml(label)
             +'" onclick="return openBloomscapesDockFacet(this)">'+escapeHtml(text)+' ▾</button></div>';
@@ -74,7 +76,7 @@ async function openEligibleDockAssigneeFacet(trigger) {
 function showBloomscapesDockFacet(trigger) {
     const state=getInventoryExcelState('docks'),key=trigger.dataset.field;
     const options=getInventoryExcelOptions(state,key);
-    const all=key==='username'?'All Assigned Users':'All Rows';
+    const all=bloomscapesDockFacetAllLabels[key] || 'All Rows';
     const choices=[['',all+' ('+state.optionTotals.get(key)+')'],
         ...options.map(option=>[option.key,(option.label || 'Unassigned')+' ('+option.count+')'])];
     openBloomscapesChoicePicker(trigger,{label:trigger.getAttribute('aria-label'),choices,

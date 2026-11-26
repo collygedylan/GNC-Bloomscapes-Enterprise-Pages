@@ -106,43 +106,47 @@ function renderOrderQualityBadge(item) {
     return `<strong class="rounded bg-slate-900 px-2 py-1 text-xs font-black text-white" aria-label="Customer quality ${code}">${code}</strong>`;
 }
 
-function renderDockOrderMetadata(item) {
-    const fields = [
-        ['Dock', formatDockViewDockLabel(item.DOCK_NUM || item.DOCK)],
-        ['Drop', String(getDockStopOrDropValue(item) || '')],
-        ['Qty', getDockOrderedQtyDisplay(item)],
-        ['Plan Start', formatDockCardPlanStartValue(getDockSuspendDcRequestPlanstartValue(item))],
-        ['Consignee', String(item.CONSIGNEENAME || item.CONSIGNEE || '')],
-        ['Sales Rep', firstNonEmptyValue(item.SALESREPNAME, item.SALESREP, item.SALES_REP, item.SALESREPID, '')],
-    ];
-    const chips = fields.map(([label, raw]) => {
-        const value = String(raw || '').trim();
-        const display = value && value.toUpperCase() !== 'UNKNOWN REP' ? value : 'N/A';
-        return `<span class="app-request-card-meta-chip" style="min-width:0;color:#ecfdf5;background:#064e3bd9;border-color:#34d39966;overflow-wrap:anywhere"><span style="color:inherit">${esc(label)}</span><strong style="color:inherit">${esc(display)}</strong></span>`;
-    });
-    return `<div class="app-operational-card-meta">${chips.join('')}</div>`;
+function compactDockOrderActions(item) {
+    if (!resolveCanonicalRowAccess(currentUser,item).canManageLocations) return '';
+    const id = getDockSuspendDcRequestSourceUid(item);
+    if (!id) return '';
+    const uid = escJsAttrValue(id);
+    return `<button type="button" data-fast-press-ignore onclick="event.stopPropagation();return openCompactDockOrderLocation('${uid}')">🔄 Loc / Sub</button>
+        <button type="button" data-fast-press-ignore onclick="event.stopPropagation();return reviewEvaluatedDrop('${uid}')">✉ Rep</button>`;
+}
+
+function openCompactDockOrderLocation(id) {
+    const tag = findDockSuspendDcRequestMirrorRowByUniqueId(getDockSuspendDcRequestMirrorUidForRow({UNIQUE_ID:id}));
+    if (tag && getBloomscapesFarm() === '10-PH') openSuspendFulfillmentPicker(tag);
+    else void chooseOrderEvaluationLocation(id);
+    return false;
+}
+
+function compactDockOrderStrip(item) {
+    return [formatDockViewDockLabel(item.DOCK_NUM || item.DOCK), 'Drop '+getDockStopOrDropValue(item),
+        'Qty '+(getDockOrderedQtyDisplay(item) || '—'),item.CONSIGNEENAME || item.CONSIGNEE,
+        'Rep: '+firstNonEmptyValue(item.SALESREPNAME,item.SALESREP,item.SALES_REP,item.SALESREPID,'—')]
+        .filter(Boolean).join(' · ');
+}
+
+function compactDockCardDetails(item,inventoryEditActionHtml,actionBtns) {
+    const note = firstNonEmptyValue(item.DOCK_ISSUE_NOTE,item.DOCK_NOTE,'');
+    const noteHtml = note ? `<p class="bloomscapes-order-card-note"><strong>Dock Note:</strong> ${escapeHtml(note)}</p>` : '';
+    return renderBloomscapesLoadMaximizer({kind:'order',id:getDockSuspendDcRequestSourceUid(item) || item.UNIQUE_ID})
+        + noteHtml + buildDocksCreditAction(item) + inventoryEditActionHtml + actionBtns;
 }
 
 function renderDockInventoryCard(context) {
-    let { item, safeUidJs, safeDockIssueSourceUidJs, renderMeta, sourceView, isChecked, safeCardSourceViewKey, inlineThumbHtml, inventoryEditActionHtml } = context;
-    const dockQuantityRaw = firstNonEmptyValue(getDockOrderedQtyRaw(item), item.PTRAVAILABLE, item.ptravailable, '');
-    const qty = String(dockQuantityRaw == null ? '' : dockQuantityRaw).trim()
-        ? (getDockOrderedQtyDisplay(item) || formatDockDisplayQty(getDockDisplayQty(item)))
-        : 'N/A';
+    const { item, safeUidJs, safeDockIssueSourceUidJs, renderMeta, sourceView, isChecked, safeCardSourceViewKey, inlineThumbHtml, inventoryEditActionHtml } = context;
     const dockPlanstartInfo = getDockSuspendDcRequestPlanstartInfo(item);
     const dockPlanstartClass = dockPlanstartInfo.valid ? `app-operational-planstart-card ${dockPlanstartInfo.className} ${dockPlanstartInfo.legacyClassName}` : '';
-    const dockPlanstartData = ` data-docks-stop-card="${escapeHtml(item.DOM_ID || item.UNIQUE_ID || '')}" data-docks-inventory-uid="${escapeHtml(item.__dockInventoryUid || '')}"` + (dockPlanstartInfo.valid ? ` data-planstart-value="${esc(dockPlanstartInfo.value)}" data-planstart-tone="${esc(dockPlanstartInfo.tone)}" data-planstart-valid="true"` : '');
-    const dockInventoryRow = getOperationalCardInventoryRow(item);
-    const dockMetaHtml = renderDockOrderMetadata(item);
-    const noteText = String(firstNonEmptyValue(item.DOCK_ISSUE_NOTE, item.DOCK_NOTE, '')).trim();
-    const issueState = String(firstNonEmptyValue(item.DOCK_ISSUE_STATE, '')).trim().toLowerCase();
-    let noteHtml = '';
-    if (noteText) noteHtml += `<div class="mt-2 text-[12px] text-orange-800 bg-orange-100 p-2 rounded border border-orange-200 shadow-sm whitespace-pre-wrap"><span class="font-black">Dock Note:</span> ${esc(noteText)}</div>`;
+    const dockPlanstartData = ` data-docks-stop-card="${escapeHtml(item.DOM_ID || item.UNIQUE_ID || '')}" data-docks-inventory-uid="${escapeHtml(item.__dockInventoryUid || '')}"` + (dockPlanstartInfo.valid ? ` data-planstart-value="${escapeHtml(dockPlanstartInfo.value)}" data-planstart-tone="${escapeHtml(dockPlanstartInfo.tone)}" data-planstart-valid="true"` : '');
     const checkState = getDockItemProgress(item.UNIQUE_ID);
     const isDimmed = checkState.checker && checkState.inspector;
-    let cardOpacity = isDimmed ? 'opacity-50' : 'opacity-100';
-    let chkClass = checkState.checker ? 'bg-[#007a4d] text-white border-[#007a4d]' : 'bg-gray-50 text-gray-500 border-gray-200';
-    let inspClass = checkState.inspector ? 'bg-[#007a4d] text-white border-[#007a4d]' : 'bg-gray-50 text-gray-500 border-gray-200';
+    const cardOpacity = isDimmed ? 'opacity-50' : 'opacity-100';
+    const chkClass = checkState.checker ? 'bg-[#007a4d] text-white border-[#007a4d]' : 'bg-gray-50 text-gray-500 border-gray-200';
+    const inspClass = checkState.inspector ? 'bg-[#007a4d] text-white border-[#007a4d]' : 'bg-gray-50 text-gray-500 border-gray-200';
+    const issueState = String(firstNonEmptyValue(item.DOCK_ISSUE_STATE,'')).trim().toLowerCase();
     const issueBadgeHtml = issueState === 'open'
         ? `<span class="bg-red-50 text-red-700 px-2 py-1 rounded border border-red-200">Issue Open</span>`
         : (issueState === 'resolved' ? `<span class="bg-amber-50 text-amber-700 px-2 py-1 rounded border border-amber-200">Issue Resolved</span>` : '');
@@ -150,9 +154,19 @@ function renderDockInventoryCard(context) {
         ? `<span class="bg-blue-50 text-blue-700 px-2 py-1 rounded border border-blue-200">Alt Loc</span>`
         : '';
     const dockViewOnlyForRep = getRoleAccessState().isRep;
-    noteHtml += buildDocksCreditAction(item);
-    let actionBtns = dockViewOnlyForRep ? '' : `<div class="flex gap-2 mt-3 pt-3 border-t border-gray-100"><button class="flex-1 py-2.5 rounded-lg text-[10px] uppercase font-black border shadow-sm transition-colors ${chkClass} active:scale-95" onclick="event.stopPropagation(); toggleDockItemState('${safeUidJs}', 'checker')"><i class="ph-bold ph-check-square mr-1 text-lg align-middle"></i> Verified</button><button class="flex-1 py-2.5 rounded-lg text-[10px] uppercase font-black border shadow-sm transition-colors ${inspClass} active:scale-95" onclick="event.stopPropagation(); toggleDockItemState('${safeUidJs}', 'inspector')"><i class="ph-bold ph-magnifying-glass mr-1 text-lg align-middle"></i> Inspect</button><button class="flex-1 py-2.5 rounded-lg text-[10px] uppercase font-black border border-red-200 bg-red-50 text-red-600 shadow-sm transition-colors hover:bg-red-100 active:scale-95" onclick="event.stopPropagation(); openDockItemMistakeModal('${safeDockIssueSourceUidJs}')"><i class="ph-bold ph-flag mr-1 text-lg align-middle"></i> Flag Issue</button></div>`;
-    return `<div class="flex items-start w-full item-row app-smart-card app-smart-card--inventory app-drive-compact-card app-inventory-card-overhaul app-shared-drive-layout ${dockPlanstartClass} relative bg-white p-4 rounded-xl border border-gray-300 shadow-sm active:scale-[.99] transition-transform cursor-pointer overflow-hidden ${cardOpacity}" data-dom-id="${item.DOM_ID}"${dockPlanstartData} oncontextmenu="return handleCardContextMenu(event, '${item.DOM_ID}')" ${buildCardActivationAttrs(item.DOM_ID, item.UNIQUE_ID, renderMeta.originView || sourceView, 'Open dock row')}><div class="card-checkbox-container flex-shrink-0 mt-1"><input type="checkbox" class="card-checkbox w-6 h-6 rounded border-gray-300 text-[#007a4d] focus:ring-[#007a4d] shadow-sm" ${isChecked} onclick="event.stopPropagation(); toggleGlobalItem('${item.DOM_ID}', this.checked, '${safeCardSourceViewKey}')"></div>${buildSharedInventoryCardLayout(item, { operational: true, planstartValue: formatDockCardPlanStartValue(getDockSuspendDcRequestPlanstartValue(item)), operationalMetaHtml: dockMetaHtml, operationalMissingValue: 'N/A', quantity: qty, spec: firstNonEmptyValue(item.SPEC, item.DOCK_SPEC), photoHtml: inlineThumbHtml, headerHtml: `${renderOrderQualityBadge(item)}${orderEvaluationButton(item)}${issueBadgeHtml}${syntheticBadgeHtml}`, metricsHtml: (window.AgMetricQueueInventory ? buildQueueInventoryMetricsHtml(item, 'docks', { layout: 'row', compact: true }) : buildInventoryQuantityChipsHtml(dockInventoryRow, { layout: 'row', compact: true, locationMetricItem: dockInventoryRow, sourceView: 'docks', preserveUnknown: true, missingValue: 'N/A' })), detailsHtml: `${renderBloomscapesLoadMaximizer({kind:'order',id:getDockSuspendDcRequestSourceUid(item) || item.UNIQUE_ID})}${buildInventoryCardFieldChipsHtml(item, { compact: true })}${noteHtml}${inventoryEditActionHtml}${actionBtns}` })}</div>`;
+    const actionBtns = dockViewOnlyForRep ? '' : `<div class="flex gap-2 mt-3 pt-3 border-t border-gray-100"><button class="flex-1 py-2.5 rounded-lg text-[10px] uppercase font-black border shadow-sm transition-colors ${chkClass} active:scale-95" onclick="event.stopPropagation(); toggleDockItemState('${safeUidJs}', 'checker')"><i class="ph-bold ph-check-square mr-1 text-lg align-middle"></i> Verified</button><button class="flex-1 py-2.5 rounded-lg text-[10px] uppercase font-black border shadow-sm transition-colors ${inspClass} active:scale-95" onclick="event.stopPropagation(); toggleDockItemState('${safeUidJs}', 'inspector')"><i class="ph-bold ph-magnifying-glass mr-1 text-lg align-middle"></i> Inspect</button><button class="flex-1 py-2.5 rounded-lg text-[10px] uppercase font-black border border-red-200 bg-red-50 text-red-600 shadow-sm transition-colors hover:bg-red-100 active:scale-95" onclick="event.stopPropagation(); openDockItemMistakeModal('${safeDockIssueSourceUidJs}')"><i class="ph-bold ph-flag mr-1 text-lg align-middle"></i> Flag Issue</button></div>`;
+    const metrics = buildQueueInventoryMetricsHtml(item,'docks',{layout:'row',compact:true});
+    const layout = renderBloomscapesOrderCardLayout({
+        name:item.COMMONNAME,size:item.CONTSIZE,identity:[item.ITEMCODE || '—',item.LOCATIONCODE || '—',item.LOTCODE || '—'],
+        photo:inlineThumbHtml,badges:buildEvalOwnerBadge(item) + renderOrderQualityBadge(item) + issueBadgeHtml + syntheticBadgeHtml,
+        strip:compactDockOrderStrip(item),metrics,actions:compactDockOrderActions(item),
+        details:compactDockCardDetails(item,inventoryEditActionHtml,actionBtns)
+    });
+    return `<div class="flex items-start w-full item-row app-smart-card app-smart-card--inventory app-drive-compact-card app-shared-drive-layout bloomscapes-order-card ${dockPlanstartClass} ${cardOpacity}"
+        data-dom-id="${escapeHtml(item.DOM_ID)}"${dockPlanstartData} oncontextmenu="return handleCardContextMenu(event, '${escJsAttrValue(item.DOM_ID)}')"
+        ${buildCardActivationAttrs(item.DOM_ID,item.UNIQUE_ID,renderMeta.originView || sourceView,'Open dock row')}>
+        <div class="card-checkbox-container flex-shrink-0 mt-1"><input type="checkbox" aria-label="Select dock order" class="card-checkbox w-6 h-6 rounded border-gray-300 text-[#007a4d] focus:ring-[#007a4d] shadow-sm" ${isChecked}
+            onclick="event.stopPropagation(); toggleGlobalItem('${escJsAttrValue(item.DOM_ID)}', this.checked, '${safeCardSourceViewKey}')"></div>${layout}</div>`;
 }
 
 function renderSuspendCardMetrics(item, falseBlock) {

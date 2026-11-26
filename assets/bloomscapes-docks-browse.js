@@ -23,16 +23,14 @@ function renderBloomscapesDockDropRows(container, crumb, label, dockRows) {
         scheduleDocksRender(0);
         return;
     }
-    const crumbText = `${label} > STOPNUMBER ${selectedDockStop}`;
-    crumb.innerText = crumbText;
-    const prefixHtml = renderBloomscapesDockDropHeader(label,selectedDockStop,rows)
-        + renderBloomscapesDockDropTools(selectedDockNum,selectedDockStop);
+    const crumbText = `${label} › Drop ${selectedDockStop}`;
+    const prefixHtml = renderBloomscapesDockDropTools(selectedDockNum,selectedDockStop);
     const signature = buildDocksStopItemsRenderSignature(label,selectedDockStop,rows)
         + getBloomscapesDockRowEvidenceSignature(rows) + ':' + bloomscapesDockBoardRevision();
     renderBloomscapesDockPage('docks-stop-items',container,crumb,rows,crumbText,
         renderFulfilledDockOrderCard,{
             prefixHtml,approxCardHeight:265,
-            emptyHtml:'<div class="p-8 text-center text-gray-400">No rows remain in this STOPNUMBER.</div>',
+            emptyHtml:'<div class="p-8 text-center text-gray-400">No rows remain in this drop.</div>',
             renderSignature:signature,verifyRowSelector:'[data-docks-stop-card]',reserveSpace:true
         });
     restoreBloomscapesDockDrafts(container);
@@ -47,7 +45,6 @@ function renderBloomscapesDocksBrowse() {
     const crumb = document.getElementById('docks-crumb');
     rememberOperationalExport('docks',[]);
     updateDockModeToggleUi();
-    if (typeof mountBloomscapesDocksAreaMenu === 'function') mountBloomscapesDocksAreaMenu();
     mountBloomscapesDockDropEvents();
     const access = getRoleAccessState();
     const awaitingProgress = access.isQc && !access.isAdmin && !access.isQcSupervisor;
@@ -122,29 +119,24 @@ function collectBloomscapesDocks(items) {
 }
 
 function summarizeBloomscapesDockCard(dockNum, rows) {
-    const trips = [...new Set(rows.map(row => String(row.TRIPNUMBER || '').trim()).filter(Boolean))]
-        .sort(sortBloomscapesDockLabels).map(tripNumber => ({tripNumber,savedInfo:getDockTeamInfo(tripNumber)}));
+    const tripCounts = new Map();
+    for (const row of rows) {
+        const trip = String(row.TRIPNUMBER || '').trim();
+        if (trip) tripCounts.set(trip,(tripCounts.get(trip) || 0) + 1);
+    }
+    const trips = [...tripCounts.keys()].sort(sortBloomscapesDockLabels)
+        .map(tripNumber => ({tripNumber,count:tripCounts.get(tripNumber),savedInfo:getDockTeamInfo(tripNumber)}));
     const states = [...new Set(rows.map(getDockCardStateValue).filter(Boolean))].sort(sortBloomscapesDockLabels);
     const planStartDates = [...new Set(rows.map(row => formatDockCardPlanStartValue(getDockCardPlanStartValue(row))).filter(Boolean))]
         .sort(compareDockPlanStartLabels);
     const consignee = row => firstNonEmptyValue(row.CONSIGNEENAME,row.CONSIGNEE,row.CUSTOMERNAME,'');
     const rep = row => firstNonEmptyValue(row.SALESREPNAME,row.SALESREPID,row.SALESREP,'');
     const names = selector => [...new Set(rows.map(row => String(selector(row) || '').trim()).filter(Boolean))].slice(0,3).join(', ');
-    const hasCoUt = rows.some(isBloomscapesDockMountainState);
     return {
         dockNum,dockLabel:formatDockViewDockLabel(dockNum),count:rows.length,summary:buildDockBrowseSummary(rows),
         consigneeSummary:names(consignee) || 'Unknown Consignee',repSummary:names(rep) || 'Unknown Rep',
-        states,planStartDates,trips,dockTeamRenderVersion:dockTeamStatusRenderVersion,
-        borderCls:hasCoUt ? 'border-red-500' : 'border-[#007a4d]',
-        textCls:hasCoUt ? 'text-red-700' : 'text-[#007a4d]'
+        states,planStartDates,trips,dockTeamRenderVersion:dockTeamStatusRenderVersion
     };
-}
-
-function isBloomscapesDockMountainState(row) {
-    const state = getDockCardStateValue(row);
-    const city = String(row.CONSIGNEECITY || '').toUpperCase().trim();
-    return ['CO','UT','COLORADO','UTAH'].includes(state)
-        || city.includes(' CO') || city.includes(' UT') || city.endsWith('CO') || city.endsWith('UT');
 }
 
 function renderBloomscapesDockList(container, crumb, items) {
@@ -205,7 +197,7 @@ function renderBloomscapesDockDrops(container, crumb, label, rows) {
         stop,items,summary:buildDockBrowseSummary(items),done:countBloomscapesCompletedDockRows(items),
         identity:getBloomscapesDockDropIdentity(items[0]),planStarts:[...new Set(items.map(getDockCardPlanStartValue).filter(Boolean))]
     })).sort((a,b) => sortBloomscapesDockLabels(b.stop,a.stop));
-    renderBloomscapesDockPage('docks-stops',container,crumb,cards,label,
+    renderBloomscapesDockPage('docks-stops',container,crumb,cards,label + ' › Select a Drop',
         card => renderBloomscapesDockDropCard(card,label),{
             approxCardHeight:140, emptyHtml:'<div class="p-8 text-center text-gray-400">No stops remain in this Dock.</div>'
         });
@@ -221,22 +213,12 @@ function renderBloomscapesDockDropCard(card, label) {
     const {stop,summary,done,identity,items,planStarts} = card;
     const statuses = [['Suspended',summary.suspended],['Approved',summary.approved],['Ready',summary.ready]];
     const badges = statuses.filter(([,qty]) => qty).map(([name,qty]) => `<span>${name} ${pullHtml(qty)}</span>`).join('');
-    return `<button type="button" class="mb-2 block w-full space-y-1 rounded-xl border border-gray-200 bg-white p-3 text-left shadow-sm"
-        data-docks-drop-card="${pullHtml(stop)}" ${buildFastInvokeAttrs('selectDockStop',[stop],`Open STOPNUMBER ${stop}`)}>
-        <span class="flex items-center justify-between"><strong class="text-[#007a4d]">STOPNUMBER ${pullHtml(stop)}</strong><span class="text-xs">${done}/${items.length} Done</span></span>
+    return `<button type="button" class="bloomscapes-dock-card mb-2 block w-full space-y-1 p-3 text-left"
+        data-docks-drop-card="${pullHtml(stop)}" ${buildFastInvokeAttrs('selectDockStop',[stop],`Open Drop ${stop}`)}>
+        <span class="flex items-center justify-between"><strong>Drop ${pullHtml(stop)}</strong><span class="text-xs">${done}/${items.length} Done</span></span>
         <span class="block text-xs">${pullHtml(label)} Ã‚Â· ${items.length} Rows Ã‚Â· Qty ${pullHtml(summary.quantity)}</span>
         <strong class="block text-sm">${pullHtml(identity.cust)}${identity.cons && identity.cons !== identity.cust ? ' Ã‚Â· '+pullHtml(identity.cons) : ''}</strong>
         <span class="flex flex-wrap items-center gap-2 text-xs"><span>${pullHtml(identity.rep)} Ã‚Â· ${pullHtml(identity.state)}</span>${badges}${planStarts.map(renderBloomscapesDockDropStart).join('')}</span></button>`;
-}
-
-function renderBloomscapesDockDropHeader(label, stop, rows) {
-    const {rep,cust,cons,state} = getBloomscapesDockDropIdentity(rows[0]);
-    const summary = buildDockBrowseSummary(rows);
-    const done = countBloomscapesCompletedDockRows(rows);
-    return `<div class="mb-2 space-y-1 rounded-xl border border-emerald-700 bg-emerald-950 p-3 text-white">
-        <div class="flex items-center justify-between"><strong>${pullHtml(label)} Ã‚Â· STOPNUMBER ${pullHtml(stop)}</strong><span class="text-xs">${done}/${rows.length} Done</span></div>
-        <div class="text-sm font-semibold">${pullHtml(cust)}${cons && cons !== cust ? ' Ã‚Â· '+pullHtml(cons) : ''}</div>
-        <div class="text-xs">${rows.length} Rows Ã‚Â· Qty ${pullHtml(summary.quantity)} Ã‚Â· ${pullHtml(rep)} Ã‚Â· ${pullHtml(state)}</div></div>`;
 }
 
 function renderBloomscapesDockPage(key,container,crumb,rows,label,render,options) {

@@ -57,22 +57,6 @@ function mountDockStatusChoices(select) {
     }
 }
 
-function mountBloomscapesDocksAreaMenu() {
-    const rail = document.querySelector('#view-docks > .freeze-panel');
-    const area = BLOOMSCAPES_BUSINESS_AREAS.find(({id})=>id==='DOCKS');
-    if (!rail || !area) return;
-    let menu = rail.querySelector('[data-docks-area-menu]');
-    if (!menu) {
-        menu = document.createElement('div');
-        menu.dataset.docksAreaMenu = '';
-        rail.prepend(menu);
-    }
-    const choices = bloomscapesAreaChoices(area).map(([key,label])=>[key,label]);
-    menu.hidden = !choices.length;
-    if (choices.length) mountModuleSubviewDropdown(menu,{choices,value:'docks',
-        select:key=>openBloomscapesAreaView(area,key)});
-}
-
 function showEmptyBloomscapesDockBrowse(container, crumb, awaitingProgress) {
     const missing = [
         dockTeamSchemaReady === false ? 'shared Trip status' : '',

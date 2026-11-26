@@ -34,55 +34,64 @@ function requestBloomscapesDockBrowseMetadata() {
     });
 }
 
-const dockCompactTripTeam = [
-    ['checker','Checker'],['inspector','Inspector'],['mistake','Mistake Guy']
-];
+const dockCompactTripTeam = [['checker','Checker'],['inspector','Inspector'],['mistake_guy','Mistake Guy']];
 
-function dockCompactTripPill(label, value, edit) {
-    const body = `${label} ▾ <span class="max-w-16 truncate">${pullHtml(value || '—')}</span>`;
-    const style = 'inline-flex items-center gap-1 rounded-full border border-current px-1.5 py-1';
-    return edit ? `<button type="button" class="${style}" title="${pullHtml(value || label)}" ${edit}>${body}</button>`
-        : `<span class="${style}" title="${pullHtml(value || label)}">${body}</span>`;
+function compactDockTripStatus(saved,workflow) {
+    if (workflow?.truck === 'live') return 'LIVE DRIVER';
+    const status = String(saved.status || workflow?.status || '').toUpperCase();
+    if (status === 'LOADING NOW') return 'LOADING';
+    return status || (workflow?.truck === 'trailer' ? 'DROP TRAILER' : '—');
+}
+
+function dockCompactFact(label,value,style = 'bloomscapes-dock-fact') {
+    return `<span class="${style}"><strong>${label}</strong><span>${pullHtml(value || '—')}</span></span>`;
 }
 
 function renderBloomscapesCompactTrip(card, trip, canEdit, workflow) {
-    const {tripNumber, savedInfo} = trip;
-    const teamEditable = workflow ? pullAllowed(workflow,'set_team') : canEdit;
-    const attrs = label => buildFastInvokeAttrs(workflow ? 'openBloomscapesDockTrip' : 'openDockInfoModal',
-        workflow ? [workflow.dock,tripNumber,label] : [card.dockNum,tripNumber],label);
+    const {tripNumber,savedInfo,count} = trip;
+    const edit = workflow ? pullAllowed(workflow,'set_team') || pullAllowed(workflow,'set_truck') : canEdit;
+    const attrs = edit ? buildFastInvokeAttrs(workflow ? 'openBloomscapesDockTrip' : 'openDockInfoModal',
+        workflow ? [workflow.dock,tripNumber,'Team & Status'] : [card.dockNum,tripNumber],'Edit Trip Team & Status') : '';
     const team = dockCompactTripTeam.map(([key,label]) => {
-        const name = workflow ? workflow[key === 'mistake' ? 'mistake_guy' : key] : savedInfo[key];
-        return dockCompactTripPill(label,name,teamEditable ? attrs(label) : '');
+        const name = workflow ? workflow[key] : savedInfo[key === 'mistake_guy' ? 'mistake' : key];
+        return dockCompactFact(label.toUpperCase(),name);
     }).join('');
-    const editStatus = teamEditable || (workflow && pullAllowed(workflow,'set_truck'));
-    const status = workflow?.truck === 'live' ? '🚨 LIVE DRIVER · ' + workflow.status : savedInfo.status;
-    return `<div class="flex min-h-9 flex-nowrap items-center gap-1 overflow-x-auto whitespace-nowrap rounded-lg border border-current px-1.5 text-[10px]" data-dock-trip-strip>
-        <strong>${pullHtml(tripNumber)}</strong><span>${pullHtml(status)}</span>${team}
-        ${editStatus ? `<button type="button" ${attrs('Team & Status')} class="rounded-full border border-current px-1.5 py-1">✏️ Team &amp; Status</button>` : ''}</div>
-        ${renderBloomscapesLoadMaximizer({kind:'trip',dock:card.dockNum,trip:tripNumber})}`;
-}
-
-function dockCompactFact(label, value) {
-    return `<span><strong>${label}</strong> ${pullHtml(value || '—')}</span>`;
+    return `<section class="bloomscapes-dock-trip" data-dock-trip-strip>
+        <div class="bloomscapes-dock-heading">
+            <strong>TRIP ${pullHtml(tripNumber)}</strong>
+            <span class="bloomscapes-dock-pill">${pullHtml(compactDockTripStatus(savedInfo,workflow))}</span>
+            <span>${count ?? card.count} ROWS</span>
+        </div>
+        <div class="bloomscapes-dock-facts bloomscapes-dock-team">${team}</div>
+        ${edit ? `<button type="button" class="bloomscapes-dock-edit" ${attrs}>✏️ Edit Trip Team &amp; Status</button>` : ''}
+        ${renderBloomscapesLoadMaximizer({kind:'trip',dock:card.dockNum,trip:tripNumber})}
+    </section>`;
 }
 
 function renderBloomscapesCompactDockCard(card, canEdit, tripIndex = new Map()) {
-    const summary = card.summary;
-    const facts = [
-        dockCompactFact('Consignee',card.consigneeSummary),dockCompactFact('Rep',card.repSummary),
-        dockCompactFact('Suspended',String(summary.suspended || 0)),
-        dockCompactFact('States',card.states.join(', ')),dockCompactFact('Plan Start',card.planStartDates.join(', '))
+    const {summary} = card;
+    const pills = [
+        dockCompactFact('CONSIGNEE:',card.consigneeSummary,'bloomscapes-dock-pill'),
+        dockCompactFact('REP:',card.repSummary,'bloomscapes-dock-pill'),
+        summary.suspended ? dockCompactFact('SUSPENDED',summary.suspended,'bloomscapes-dock-pill') : ''
     ].join('');
-    const trips = card.trips.map(trip => renderBloomscapesCompactTrip(card,trip,canEdit,tripIndex.get(pullTripIdentity(card.dockNum,trip.tripNumber)))).join('');
-    return `<article data-docks-dock-card="${pullHtml(card.dockNum)}" class="mb-2 overflow-hidden rounded-xl border ${card.borderCls} bg-white p-2">
-        <button type="button" class="flex w-full items-center justify-between text-left"
+    const trips = card.trips.map(trip=>renderBloomscapesCompactTrip(card,trip,canEdit,
+        tripIndex.get(pullTripIdentity(card.dockNum,trip.tripNumber)))).join('');
+    return `<article data-docks-dock-card="${pullHtml(card.dockNum)}" class="bloomscapes-dock-card mb-2 p-3">
+        <button type="button" class="bloomscapes-dock-heading w-full text-left"
             ${buildFastInvokeAttrs('selectDock',[card.dockNum],`Open ${card.dockLabel}`)}>
-            <strong class="${card.textCls}">${pullHtml(card.dockLabel)}</strong>
-            <span class="text-xs">${summary.dropCount} STOPNUMBERs · ${summary.rowCount} Rows · Qty ${pullHtml(summary.quantity)} <i class="ph-bold ph-caret-right"></i></span>
+            <strong><i class="ph-bold ph-truck" aria-hidden="true"></i> ${pullHtml(card.dockLabel)}</strong>
+            <span>${summary.dropCount} DROPS · ${summary.rowCount} ROWS · QTY ${pullHtml(summary.quantity)}</span>
+            <i class="ph-bold ph-caret-right" aria-hidden="true"></i>
         </button>
-        <div class="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-xs">${facts}</div>
+        <div class="bloomscapes-dock-pills">${pills}</div>
+        <div class="bloomscapes-dock-facts">
+            ${dockCompactFact('📍 STATES:',card.states.join(', '))}
+            ${dockCompactFact('📅 PLAN START:',card.planStartDates.join(', '))}
+        </div>
+        ${trips}
         ${renderBloomscapesLoadMaximizer({kind:'dock',dock:card.dockNum})}
-        <div class="mt-1 space-y-1">${trips}</div></article>`;
+    </article>`;
 }
 
 function pullTripIdentity(dock, trip) {

@@ -59,22 +59,6 @@ function renderSplitOrderDocument(row) {
     return item;
 }
 
-function mountBloomscapesDockLinks() {
-    const host=document.getElementById('docks-dispatch-links');
-    if (!host) return;
-    const buttons=[];
-    for (const [view,label] of Object.entries(bloomscapesDockWorkspaceTitles)) {
-        if (!canOpenBloomscapesDocksWorkspace(view)) continue;
-        const button=document.createElement('button');
-        button.type='button';
-        button.className='sales-card-action';
-        button.textContent=label;
-        button.addEventListener('click',()=>switchView(view));
-        buttons.push(button);
-    }
-    host.replaceChildren(...buttons);
-}
-
 function mountBloomscapesDockShell(doc) {
     const root=doc.getElementById('view-docks');
     if (!root || root.querySelector('#docks-content')) return;
@@ -89,9 +73,8 @@ function mountBloomscapesDockShell(doc) {
 <button id="dock-mode-btn-mistakes" class="rounded-xl border border-red-200 bg-white px-4 py-3 text-[11px] font-black uppercase tracking-[0.16em] text-red-600 shadow-sm active:scale-95" onclick="setDockViewMode('mistakes')">Mistake</button>
 <button id="dock-mode-btn-dropoff" class="rounded-xl border border-green-200 bg-white px-4 py-3 text-[11px] font-black uppercase tracking-[0.16em] text-[#007a4d] shadow-sm active:scale-95" onclick="setDockViewMode('dropoff')">Drop Off</button>
 </div>
-<div id="docks-crumb" class="text-xs font-bold text-orange-600 mb-3 mt-3">Select a Dock</div>
+<div id="docks-crumb" class="bloomscapes-dock-crumb">Select a Dock</div>
 </div>
-<nav id="docks-dispatch-links" class="flex gap-2 overflow-x-auto" aria-label="Dock workflows"></nav>
 <div id="docks-content"></div>`;
     root.insertAdjacentHTML('beforebegin',`<div id="view-pull-tags" class="hidden" aria-label="Pull Tags"></div>
 <div id="view-borrowed-work" class="hidden" aria-label="Borrowed Work"></div>

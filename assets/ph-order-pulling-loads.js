@@ -51,7 +51,8 @@ function paintPhPullStop(card,entry) {
         label.textContent = 'STOP '+entry.stop+' OF '+entry.total;
         const side = phPullSideLabel(entry.row);
         if (side) label.textContent += ' · Pull Side: '+side;
-        card.prepend(label);
+        const heading = card.querySelector(".app-drive-card-header") || card;
+        heading.prepend(label);
     }
     if (entry.header) card.before(phPullLoadHeading(entry));
 }
