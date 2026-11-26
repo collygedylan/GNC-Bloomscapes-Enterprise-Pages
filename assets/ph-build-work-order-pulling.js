@@ -117,7 +117,10 @@ async function applyPhWorkCommand(state,action,rpc,input) {
         paintPhWorkState(state,phWorkVisibleRows(state));
         const receipt = await state.pending;
         if (!phWorkScopeIsCurrent(state)) return;
-        if (rpc === PH_WORK_RPC || rpc === PH_WORK_CONTROL_RPC) phAcceptWorkSnapshot(state,receipt);
+        if (rpc === PH_WORK_RPC || rpc === PH_WORK_CONTROL_RPC) {
+            phAcceptWorkSnapshot(state,receipt);
+            void refreshPhQrTelemetry(state);
+        }
         else await applyPhWorkTeamChange(state,receipt.team);
         state.selected = new Set(state.snapshot.rows.map(row => row.pull_tag_id).filter(id => state.selected.has(id)));
         if (action === 'dispatch') state.selected.clear();
@@ -226,6 +229,7 @@ function mountPhBuildWorkOrderPulling(host) {
     const state = {root,owner:getSupabaseReadIdentityScope(),selected:new Set(),draft:phWorkDraft(),
         dockChanges:new Map(),dockRevision:0,snapshot:{rows:[],teams:[],units:[],pullers:[]},search:root.querySelector('[data-ph-work-search]'),
         status:root.querySelector('[data-ph-status]'),priority:'',priorityToolbar:phWorkPriorityToolbar(root)};
+    mountPhSignTools(state);
     phObserveWorkDock(state,phWorkScopeIsCurrent,current => paintPhWorkRows(current,phWorkVisibleRows(current)),refreshPhWorkAfterDockCommit);
     root.addEventListener('click',event => dispatchPhWorkClick(state,event));
     root.addEventListener('change',event => changePhWorkInput(state,event.target));

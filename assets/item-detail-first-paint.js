@@ -43,6 +43,7 @@ function paintItemDetailSummaryText(item,sourceView) {
         const field = document.getElementById(id);
         if (field) field.textContent = value === '' || value == null ? '--' : value;
     }
+    mountPhDetailBay(document.getElementById('det-bay'),item,sourceView);
     const side = document.getElementById('det-pull-side');
     if (side) {
         const value = phInventoryPullSide(item);

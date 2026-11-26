@@ -31,6 +31,15 @@ function getInventoryQuantityChipValues(row,safeOptions) {
     return {primaryChips,openStockChip,locationChips};
 }
 
+const inventoryChipIds = {
+    'On Hand':'on-hand', Review:'review', Available:'available', 'Open Stock':'open-stock',
+    'Loc Photo Match':'loc-photo-match', 'Loc On Hand':'loc-on-hand'
+};
+
+function inventoryChipMetricId(label) {
+    return inventoryChipIds[label] || '';
+}
+
 function buildInventoryQuantityChipsHtml(row = null, options = {}) {
     const safeOptions = options && typeof options === 'object' && !Array.isArray(options) ? options : {};
     const sizeClasses = safeOptions.compact ? 'px-2 py-1' : 'px-3 py-1';
@@ -43,14 +52,6 @@ function buildInventoryQuantityChipsHtml(row = null, options = {}) {
     const chipClassFor = (index = 0) => `rounded-full border ${quantityToneClasses[index] || quantityToneClasses[0]} ${sizeClasses}`;
     const stackedChipClassFor = (index = 0) => `app-card-qty-chip rounded-full border ${quantityToneClasses[index] || quantityToneClasses[0]} px-1.5 py-1 text-center`;
     const valueClass = 'text-slate-900';
-    const metricIdFor = (label) => ({
-        'On Hand': 'on-hand',
-        Review: 'review',
-        Available: 'available',
-        'Open Stock': 'open-stock',
-        'Loc Photo Match': 'loc-photo-match',
-        'Loc On Hand': 'loc-on-hand'
-    })[label] || '';
     const compactMetrics = safeOptions.compact === true || safeOptions.layout === 'row';
     const hydrationLabel = safeOptions.hydrationStatus && ['loading', 'missing', 'ambiguous', 'error', 'unavailable'].includes(safeOptions.hydrationStatus) ? '--' : '';
     const formatQuantity = (value) => {
@@ -64,16 +65,17 @@ function buildInventoryQuantityChipsHtml(row = null, options = {}) {
         }
         return normalizeCardQuantityValue(value);
     };
-    const queueMetricAttr = (label) => safeOptions.queueMetricTelemetry === true && metricIdFor(label)
-        ? ` data-queue-metric="${metricIdFor(label)}"` : '';
-    const buildChip = ([label, value], className = '', index = 0) => `<span class="app-card-qty-chip ${className || chipClassFor(index)}" data-inventory-card-metric="${metricIdFor(label)}"><span class="app-card-qty-label">${escapeHtml(label)}</span><span class="app-card-qty-value ${valueClass}"${label === 'Loc Photo Match' ? ' data-loc-photo-match-value' : ''}${queueMetricAttr(label)}>${escapeHtml(formatQuantity(value))}</span></span>`;
+    const queueMetricAttr = (label) => safeOptions.queueMetricTelemetry === true && inventoryChipMetricId(label)
+        ? ` data-queue-metric="${inventoryChipMetricId(label)}"` : '';
+    const buildChip = ([label, value], className = '', index = 0) => `<span class="app-card-qty-chip ${className || chipClassFor(index)}" data-inventory-card-metric="${inventoryChipMetricId(label)}"><span class="app-card-qty-label">${escapeHtml(label)}</span><span class="app-card-qty-value ${valueClass}"${label === 'Loc Photo Match' ? ' data-loc-photo-match-value' : ''}${queueMetricAttr(label)}>${escapeHtml(formatQuantity(value))}</span></span>`;
     const buildStackedChip = ([label, value], index = 0) => {
         const formatted = formatQuantity(value);
-        return `<span class="${stackedChipClassFor(index)}" data-inventory-card-metric="${metricIdFor(label)}"><span class="app-card-qty-label">${escapeHtml(label)}</span><span class="app-card-qty-value${formatted === 'Unknown' ? ' app-card-qty-value--unknown' : ''} ${valueClass}"${label === 'Loc Photo Match' ? ' data-loc-photo-match-value' : ''}${queueMetricAttr(label)}>${escapeHtml(formatted)}</span></span>`;
+        return `<span class="${stackedChipClassFor(index)}" data-inventory-card-metric="${inventoryChipMetricId(label)}"><span class="app-card-qty-label">${escapeHtml(label)}</span><span class="app-card-qty-value${formatted === 'Unknown' ? ' app-card-qty-value--unknown' : ''} ${valueClass}"${label === 'Loc Photo Match' ? ' data-loc-photo-match-value' : ''}${queueMetricAttr(label)}>${escapeHtml(formatted)}</span></span>`;
     };
     const {primaryChips,openStockChip,locationChips}=getInventoryQuantityChipValues(row,safeOptions);
     const allChips = [...primaryChips, openStockChip, ...locationChips];
-    const trailingChipsHtml = String(safeOptions.trailingChipsHtml || '').trim();
+    const bay = typeof phBayCardMarkup === 'function' ? phBayCardMarkup(safeOptions.locationMetricItem || row,safeOptions.sourceView) : '';
+    const trailingChipsHtml = String(safeOptions.trailingChipsHtml || '').trim()+bay;
     if (safeOptions.layout === 'row') {
         const gridGapClass = safeOptions.compact ? 'gap-1.5' : 'gap-2';
         return `<div class="app-card-qty-row grid ${gridGapClass} text-[9px] font-black uppercase">${allChips.map((chip, index) => buildStackedChip(chip, index)).join('')}${trailingChipsHtml}</div>`;

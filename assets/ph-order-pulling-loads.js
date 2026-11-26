@@ -3,8 +3,19 @@ function phAssignedBuggyMetricPills(load) {
     return phBuggyMetricPills(load).replace('⛽ '+load.fuelGal.toFixed(3)+' gal','⛽ '+load.fuelGal.toFixed(2)+' gal');
 }
 
+function phPullUnloadKey(row) {
+    return JSON.stringify([row.dock,row.stopnumber]);
+}
+
+function sortPhPullVisible(visible,positions,unloads) {
+    const dropRank = row => unloads?.get(phPullUnloadKey(row)) ?? Number.MAX_SAFE_INTEGER;
+    return [...visible].sort((a,b) => dropRank(a)-dropRank(b)
+        || positions.get(a.pull_tag_id)-positions.get(b.pull_tag_id));
+}
+
 function phPullLoadGroups(rows,receipt) {
     const groups = new Map();
+    const unloads = new Map(orderPullUnloadStops(receipt).map((stop,index)=>[phPullUnloadKey(stop),index]));
     for (const row of rows) {
         const id = row.buggy_id || '';
         if (!groups.has(id)) groups.set(id,[]);
@@ -21,7 +32,7 @@ function phPullLoadGroups(rows,receipt) {
         const load = phEstimateBuggyLoad(manifest,{origin:route?.load_origin,hasPartner:route?.has_partner ?? Boolean(receipt.partner)});
         const stops = load?.rows || phSortPullStops(manifest);
         const positions = new Map(stops.map((row,index) => [row.pull_tag_id,index+1]));
-        const ordered = [...visible].sort((a,b) => positions.get(a.pull_tag_id)-positions.get(b.pull_tag_id));
+        const ordered = sortPhPullVisible(visible,positions,id === receipt.buggy?.buggy_id ? unloads : null);
         output.push(...ordered.map((row,index) => ({
             row,stop:positions.get(row.pull_tag_id),total:stops.length,header:index === 0,load
         })));
@@ -43,7 +54,7 @@ function phPullLoadHeading(entry) {
     return header;
 }
 
-function paintPhPullStop(card,entry) {
+function paintPhPullStop(card,entry,state,activeScan) {
     if (!card || card.dataset.orderPullTag !== entry.row.pull_tag_id) return;
     if (entry.stop) {
         const label = document.createElement('strong');
@@ -55,23 +66,33 @@ function paintPhPullStop(card,entry) {
         heading.prepend(label);
     }
     if (entry.header) card.before(phPullLoadHeading(entry));
+    const drop = phQrPullDrop(entry.row);
+    if (drop) {
+        const sign = document.createElement('span');
+        sign.className = 'ph-qr-drop';
+        sign.textContent = drop+' · ERP Stop '+entry.row.stopnumber;
+        card.querySelector('.app-drive-card-header')?.append(sign);
+    }
+    paintPhQrScanStop(card,entry.row,state,activeScan);
 }
 
-function phPullLoadWindow(rows,mount,receipt) {
+function phPullLoadWindow(rows,mount,receipt,state) {
     if (receipt?.warehouse !== '10-PH') return {rows,mount};
     const entries = phPullLoadGroups(rows,receipt);
+    const activeScan = state?.teamOnly && activePhQrSession(receipt,receipt.buggy?.buggy_id);
     return {rows:entries,mount(section,items) {
-        mount(section,items.map(entry => entry.row));
+        mount(section,items.map(({row}) => ({...row,bay_number:phQrBayNumber(row.locationcode,row.bay_number)})));
         const cards = section.querySelectorAll('[data-order-pull-tag]');
-        items.forEach((entry,index) => paintPhPullStop(cards[index],entry));
+        items.forEach((entry,index) => paintPhPullStop(cards[index],entry,state,activeScan));
     }};
 }
 
 if (typeof customElements !== 'undefined' && !customElements.get('ph-order-pulling-loads')) {
     customElements.define('ph-order-pulling-loads',class extends HTMLElement {
         prepareScrollWindow(rows,mount) {
-            const receipt = getBloomscapesFarm() === '10-PH' && orderPullState().receipt;
-            return phPullLoadWindow(rows,mount,receipt);
+            const state = getBloomscapesFarm() === '10-PH' && orderPullState();
+            if (state) paintPhQrScanHeader(state);
+            return phPullLoadWindow(rows,mount,state?.receipt,state);
         }
     });
 }

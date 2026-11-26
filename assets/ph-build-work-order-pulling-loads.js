@@ -97,7 +97,7 @@ function phWorkLoadTitle(load) {
 }
 
 function phWorkLoadStops(rows) {
-    return rows.map((row,index) => 'STOP '+(index+1)+' · '+esc(row.locationcode)).join(' → ');
+    return rows.map((row,index) => 'STOP '+(index+1)+' · '+esc(phQrPullLocation(row))).join(' → ');
 }
 
 function phWorkLoadCard(load) {
