@@ -1,3 +1,4 @@
+
 async function saveBloomscapesDockProgress(row,stage) {
     const {client,owner} = await requireBloomscapesSession();
     const farm = bloomscapesRowFarm(row);
@@ -20,5 +21,11 @@ async function runDockTripStatusRequest(operation='list',payload={}) {
     await requireBloomscapesOwner(owner);
     const receipt=bloomscapesData(result);
     if (receipt?.ok!==true || receipt.farm_code!==farm) throw new Error('Dock trip receipt did not match the active farm.');
+    if (operation === 'upsert' && receipt.data?.tripnumber === payload.tripnumber
+        && receipt.data.farm_code === farm && receipt.data.status === payload.status) {
+        publishPhPullDockStatus(farm,getSupabaseReadIdentityScope(),{
+            kind:'trip',dock:receipt.data.dock_num,trip:receipt.data.tripnumber,status:receipt.data.status,effective:receipt.order_pull_status,revision:receipt.order_pull_revision
+        });
+    }
     return receipt;
 }

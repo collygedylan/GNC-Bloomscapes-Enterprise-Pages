@@ -1,3 +1,44 @@
+function phWorkChosenCrew(state) {
+    const id = state.root.querySelector('[data-ph-dispatch-team]').value;
+    const team = state.snapshot.teams.find(entry => entry.team_id === id);
+    return {hasPartner:Boolean(team ? team.puller_helper : state.draft.helper),origin:team?.previous_dock_zone};
+}
+
+function phBuggyMetricPills(load) {
+    if (!load) return '';
+    const values = [
+        ['Fuel','⛽ '+load.fuelGal.toFixed(3)+' gal'],
+        ['Get Load','⏱️ Get Load: '+load.getLoadMin+'m'],
+        ['Unload','📦 Unload ('+load.dockLabel+'): '+load.unloadMin+'m'],
+        ['Total cycle','🔄 Total: '+load.totalCycleMin+'m'],
+        ['Road distance','📏 '+load.miles.toFixed(1)+' mi']
+    ];
+    return '<div class="ph-load-metrics" data-ph-load-metrics aria-label="Estimated load metrics">'
+        +values.map(([label,value]) => '<span title="'+esc(label)+'">'+esc(value)+'</span>').join('')+'</div>';
+}
+
+function paintPhSelectedMetrics(state) {
+    const rows = state.snapshot.rows.filter(row => state.selected.has(row.pull_tag_id));
+    const load = rows.length && phEstimateBuggyLoad(rows,phWorkChosenCrew(state));
+    const output = state.root.querySelector('[data-ph-selected-metrics]');
+    output.innerHTML = phBuggyMetricPills(load);
+    if (rows.length && !load) output.textContent = 'Estimate unavailable for this route.';
+}
+
+function phPullSideLabel(row) {
+    const explicit = row?.PULL_SIDE || row?.pull_side || row?.PULLSIDE || row?.pullside;
+    if (explicit) return String(explicit).trim();
+    const note = String(row?.PICK_NOTE || row?.PICKNOTE || row?.pick_note || row?.picknote || '');
+    return note.match(/\bpull\s+side\s*[:=\-]\s*([^;|\r\n.]{1,64})/i)?.[1].trim() || '';
+}
+
+function phInventoryPullSide(item) {
+    if (typeof getBloomscapesFarm !== 'function' || getBloomscapesFarm() !== '10-PH') return '';
+    const farm = item?.WAREHOUSEID || item?.WAREHOUSE_ID || item?.warehouse_id || item?.warehouse || item?.FARM_CODE;
+    if (farm && farm !== '10-PH') return '';
+    return phPullSideLabel(item);
+}
+
 const phWorkButtonClass = 'rounded-lg border border-emerald-600 px-3 py-2 text-sm font-semibold';
 const phWorkSelectClass = 'input-field w-full';
 
@@ -10,10 +51,11 @@ function phWorkMarkup() {
         +'<p data-ph-status role="status"></p><section data-ph-teams></section>'
         +'<section data-ph-pool class="space-y-3"><div class="flex flex-wrap gap-2 items-end">'
         +'<button type="button" data-ph-action="auto" class="'+phWorkButtonClass+'">Auto-Group Full Buggy (≤ 650 WDU)</button>'
+        +'<button type="button" data-ph-action="auto-dispatch" class="'+phWorkButtonClass+'">⚡ Auto-Assign Ready Teams</button>'
         +'<output data-ph-total aria-live="polite"></output><label>Assign Batch to Team (Unit #)'
         +'<select data-ph-dispatch-team class="'+phWorkSelectClass+'"></select></label>'
         +'<button type="button" data-ph-action="dispatch" class="'+phWorkButtonClass+'">Assign Batch to Team</button>'
-        +'</div><div data-ph-rows class="grid gap-2 md:grid-cols-2 xl:grid-cols-3"></div></section></div>';
+        +'</div><div data-ph-selected-metrics></div><div data-ph-rows class="grid gap-2 md:grid-cols-2 xl:grid-cols-3"></div></section></div>';
 }
 
 function phWorkOptions(options, selected = '') {
@@ -48,11 +90,14 @@ function paintPhWorkTeams(state) {
 
 function phWorkTagCard(row, selected) {
     const id = esc(row.pull_tag_id);
+    const side = phPullSideLabel(row);
     return bloomscapesListNode('<article class="rounded-lg border border-emerald-700 p-3">'
         +'<label class="flex gap-2 items-start"><input type="checkbox" data-ph-tag="'+id+'"'
         +(selected.has(row.pull_tag_id) ? ' checked' : '')+'>'
-        +'<span><strong>'+esc(row.common_name || row.itemcode)+'</strong> · '+esc(row.container_size)
+        +'<span>'+(phPullDockLabel(row.dock_status) === 'Live Driver' ? '<b class="ph-live-driver">🚨 URGENT · LIVE DRIVER</b> ' : '')
+        +'<strong>'+esc(row.common_name || row.itemcode)+'</strong> · '+esc(row.container_size)
         +'<br>'+esc(row.itemcode)+' · '+esc(row.locationcode)+' · Lot '+esc(row.lotcode)
+        +(side ? ' · Pull Side: '+esc(side) : '')
         +'<br>On Hand '+esc(String(row.onhand ?? '—'))+' · Quantity Ordered '+esc(String(row.quantityordered ?? '—'))
         +'<br>Dock '+esc(row.dock)+' · Stop '+esc(row.stopnumber)+' · '+esc(String(row.wingdingunits))+' WDU'
         +(row.trip_total>1 ? '<br>Trip '+row.trip_index+'/'+row.trip_total+' · Pull '+row.pull_qty : '')
@@ -69,6 +114,7 @@ function paintPhWorkSelection(state) {
     const {root,selected,snapshot,pending} = state;
     const total = phPullSelectedWdu(snapshot.rows,selected)/1e12;
     root.querySelector('[data-ph-total]').textContent = 'Selected: '+total+' / '+PH_PULL_CAP+' WDU';
+    paintPhSelectedMetrics(state);
     const team = root.querySelector('[data-ph-dispatch-team]');
     root.querySelector('[data-ph-action="dispatch"]').disabled = Boolean(pending || !selected.size || !team.value);
 }

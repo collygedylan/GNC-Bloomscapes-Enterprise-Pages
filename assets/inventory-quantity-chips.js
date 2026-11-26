@@ -1,3 +1,4 @@
+
 function getInventoryQuantityChipValues(row,safeOptions) {
     const metric = (key, legacy) => {
         if (safeOptions.canonical !== true) return legacy;
@@ -25,6 +26,8 @@ function getInventoryQuantityChipValues(row,safeOptions) {
         ['Loc Photo Match', ['drive', 'request', 'docks', 'av', 'av-photo'].includes(sourceView) && locationPhotoMatch === 'Not verified' ? 'N/A' : locationPhotoMatch],
         ['Loc On Hand', preserveCardLocationOnHand(locationMetricRow, parseAppNumber(locationOnHand)) ?? (safeOptions.canonical === true ? locationOnHand : (locationOnHand ?? (safeOptions.missingValue === 'N/A' ? 'N/A' : 'Unknown')))]
     ];
+    const side = sourceView === 'drive' && typeof phInventoryPullSide === 'function' && phInventoryPullSide(locationMetricRow);
+    if (side) locationChips.push(['Pull Side',side]);
     return {primaryChips,openStockChip,locationChips};
 }
 

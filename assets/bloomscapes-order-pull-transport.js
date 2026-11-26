@@ -1,3 +1,9 @@
+const phPullDockStatusEvents = new EventTarget();
+
+function publishPhPullDockStatus(farm,identity,change = null) {
+    if (farm === '10-PH') phPullDockStatusEvents.dispatchEvent(new CustomEvent('commit',{detail:{identity,change}}));
+}
+
 async function requestOrderPull(action, input = {}) {
     const {client,owner} = await requireBloomscapesSession();
     if (getBloomscapesFarm() !== '10-PH') throw new Error('Order Pulling is available at Park Hill.');
@@ -36,4 +42,49 @@ function matchesPhPullTeamReceipt(team,input) {
     if (!input.p_unit) return team.active === false;
     return team.active === true && team.unit_number === input.p_unit
         && team.puller_primary === input.p_primary && team.puller_helper === input.p_helper;
+}
+
+async function reconcilePhDispatchFailure(error,dispatched,unit,isCurrent,acceptSnapshot) {
+    const confirmed = dispatched+' load'+(dispatched === 1 ? '' : 's')+' confirmed. Unit '+unit+': ';
+    const reason = error?.message || 'The server could not confirm the batch.';
+    try {
+        const latest = await requestPhPullWork('gnc_ph_pull_work_v1');
+        if (isCurrent()) acceptSnapshot(latest);
+    } catch (refreshError) {
+        throw new Error(confirmed+reason+' Refresh failed: '+(refreshError?.message || 'Please refresh the work pool.'));
+    }
+    throw new Error(confirmed+reason);
+}
+
+async function dispatchPhReadyTeams(plans, isCurrent, acceptSnapshot, dockRevision = () => 0) {
+    let dispatched = 0;
+    const plannedRevision = dockRevision();
+    let confirmedRevision = plannedRevision;
+    function requirePlannedPriority() {
+        if (Math.max(dockRevision(),confirmedRevision) > plannedRevision) {
+            throw new Error('Dock priority changed. Review the updated work queue before assigning more teams.');
+        }
+    }
+    for (const {team,load} of plans) {
+        if (!isCurrent()) break;
+        try {
+            requirePlannedPriority();
+            const current = team.team_id ? team : (await requestPhPullWork('assign_ph_puller_buggy_team_v1',{
+                p_unit:team.unit_number,p_primary:team.puller_primary,p_helper:team.puller_helper || null
+            })).team;
+            if (!isCurrent()) break;
+            requirePlannedPriority();
+            const receipt = await requestPhPullWork('gnc_ph_pull_work_v1',{
+                p_team:current.team_id,p_expected:current.updated_at,p_tags:load.rows.map(row => row.pull_tag_id)
+            });
+            if (!isCurrent()) break;
+            confirmedRevision = Number(receipt.dock_revision) || confirmedRevision;
+            acceptSnapshot(receipt);
+            dispatched++;
+        } catch (error) {
+            if (!isCurrent()) break;
+            return reconcilePhDispatchFailure(error,dispatched,team.unit_number,isCurrent,acceptSnapshot);
+        }
+    }
+    return dispatched;
 }

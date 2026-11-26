@@ -30,9 +30,11 @@ function connectBatteryRealtime() {
     const state = batteryRealtime;
     if (!window.BloomscapesBatteryGovernor.visible() || !currentUser || !state.listeners.size) return;
     const owner = getSupabaseReadIdentityScope();
-    if (state.channel && state.owner === owner) return;
+    const dockAccess = typeof canBuildPhOrderPullWork === 'function' && canBuildPhOrderPullWork();
+    if (state.channel && state.owner === owner && state.dockAccess === dockAccess) return;
     stopBatteryRealtime();
     state.owner = owner;
+    state.dockAccess = dockAccess;
     state.client = getSupabaseBrowserClient();
     if (!state.client) return;
     state.channel = state.client.channel('bloomscapes-live');
@@ -43,9 +45,24 @@ function connectBatteryRealtime() {
         'gnc_soc_orders_reserves', 'gnc_fulfillment_work', 'gnc_field_work', 'gnc_field_jobs_y_grading']) {
         state.channel.on('postgres_changes', { event: '*', schema: 'public', table }, event => forward(table, event));
     }
+    if (dockAccess) {
+        channel.on('postgres_changes',{event:'*',schema:'public',table:'gnc_10_ph_pull_dock_revision',filter:'warehouse=eq.10-PH'},
+            event => deliverPhDockRevision(channel,owner,event.new));
+    }
     state.channel.subscribe(status => {
-        if (status === 'SUBSCRIBED') forward('connected', null);
+        if (status !== 'SUBSCRIBED') return;
+        forward('connected',null);
+        if (dockAccess) deliverPhDockRevision(channel,owner,null);
     });
+}
+
+function deliverPhDockRevision(channel,owner,row) {
+    if (batteryRealtime.channel !== channel || owner !== getSupabaseReadIdentityScope()
+        || !window.BloomscapesBatteryGovernor.visible() || !canBuildPhOrderPullWork()) return;
+    if (!row) return publishPhPullDockStatus('10-PH',owner);
+    if (row.warehouse === '10-PH' && typeof row.order_pull_status === 'string') {
+        publishPhPullDockStatus('10-PH',owner,{dock:row.dock,trip:row.trip,effective:row.order_pull_status,revision:row.revision});
+    }
 }
 
 function subscribeBatteryRealtime(name, listener) {

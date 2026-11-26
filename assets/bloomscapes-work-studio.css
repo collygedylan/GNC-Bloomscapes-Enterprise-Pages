@@ -118,3 +118,18 @@ html body [data-bloomscapes-studio] [data-work-source-cards].inventory-block-til
 }
 [data-bloomscapes-studio] [data-open-module] { min-width: 0; text-wrap: pretty; }
 [data-bloomscapes-studio] [data-open-module] span { font-weight: 400; }
+
+ph-order-pulling-loads { display: block; }
+.ph-pull-load-heading { margin-block: .65rem .25rem; color: #edfff4; }
+.ph-load-metrics { display: flex; flex-wrap: wrap; gap: .35rem; margin-block: .35rem; }
+.ph-load-metrics span, .ph-pull-stop, .ph-live-driver {
+    display: inline-block; padding: .2rem .55rem; border: 1px solid #65a987;
+    border-radius: 999px; background: rgba(15,65,43,.95); color: #f4fff9; font: 700 .8rem/1.45 system-ui;
+}
+.ph-live-driver { background: #832e32; border-color: #ea8e82; }
+.ph-pull-stop[hidden] { display: none; }
+#view-production:has([data-ph-pull-work]) [data-module-subview-rail] { margin-block-end: .5rem; }
+#view-production:has([data-ph-pull-work]) [data-ph-pull-work] { scroll-margin-block-start: 3rem; }
+html body.current-view-production #app-wrapper #view-wrapper:has(#view-production [data-ph-pull-work]) {
+    overflow: visible !important;
+}

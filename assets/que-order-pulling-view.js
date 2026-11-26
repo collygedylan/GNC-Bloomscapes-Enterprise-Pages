@@ -85,6 +85,76 @@ function paintOrderPullQueue(host, state) {
     }});
 }
 
+function phPullLoadGroups(rows,receipt) {
+    const groups = new Map();
+    for (const row of rows) {
+        const id = row.buggy_id || '';
+        if (!groups.has(id)) groups.set(id,[]);
+        groups.get(id).push(row);
+    }
+    const output = [];
+    for (const [id,visible] of groups) {
+        if (!id) {
+            output.push(...visible.map(row => ({row})));
+            continue;
+        }
+        const route = receipt.load_routes?.[id];
+        const manifest = route?.load_manifest || receipt.rows.filter(row => row.buggy_id === id);
+        const load = phEstimateBuggyLoad(manifest,{origin:route?.load_origin,hasPartner:route?.has_partner ?? Boolean(receipt.partner)});
+        const stops = load?.rows || phSortPullStops(manifest);
+        const positions = new Map(stops.map((row,index) => [row.pull_tag_id,index+1]));
+        const ordered = [...visible].sort((a,b) => positions.get(a.pull_tag_id)-positions.get(b.pull_tag_id));
+        output.push(...ordered.map((row,index) => ({
+            row,stop:positions.get(row.pull_tag_id),total:stops.length,header:index === 0,load
+        })));
+    }
+    return output;
+}
+
+function phPullLoadHeading(entry) {
+    const header = document.createElement('header');
+    header.className = 'ph-pull-load-heading';
+    header.dataset.phLoadHeader = entry.row.buggy_id;
+    const title = document.createElement('strong');
+    title.textContent = entry.row.unit_number ? 'Buggy load · Unit '+entry.row.unit_number : 'Buggy load';
+    header.append(title);
+    if (entry.load) header.insertAdjacentHTML('beforeend',phBuggyMetricPills(entry.load));
+    else header.append(' · Estimate unavailable for this route.');
+    return header;
+}
+
+function paintPhPullStop(card,entry) {
+    if (!card || card.dataset.orderPullTag !== entry.row.pull_tag_id) return;
+    if (entry.stop) {
+        const label = document.createElement('strong');
+        label.className = 'ph-pull-stop';
+        label.textContent = 'STOP '+entry.stop+' OF '+entry.total;
+        const side = phPullSideLabel(entry.row);
+        if (side) label.textContent += ' · Pull Side: '+side;
+        card.prepend(label);
+    }
+    if (entry.header) card.before(phPullLoadHeading(entry));
+}
+
+function phPullLoadWindow(rows,mount,receipt) {
+    if (receipt?.warehouse !== '10-PH') return {rows,mount};
+    const entries = phPullLoadGroups(rows,receipt);
+    return {rows:entries,mount(section,items) {
+        mount(section,items.map(entry => entry.row));
+        const cards = section.querySelectorAll('[data-order-pull-tag]');
+        items.forEach((entry,index) => paintPhPullStop(cards[index],entry));
+    }};
+}
+
+if (typeof customElements !== 'undefined' && !customElements.get('ph-order-pulling-loads')) {
+    customElements.define('ph-order-pulling-loads',class extends HTMLElement {
+        prepareScrollWindow(rows,mount) {
+            const receipt = getBloomscapesFarm() === '10-PH' && orderPullState().receipt;
+            return phPullLoadWindow(rows,mount,receipt);
+        }
+    });
+}
+
 let orderPullQueueState;
 
 function canOpenOrderPullQueue() {
@@ -215,143 +285,4 @@ async function runOrderPullCommand(state, action, input = {}) {
             syncQueActiveCategory();
         }
     }
-}
-
-const PH_WORK_RPC = 'gnc_ph_pull_work_v1';
-
-function canBuildPhOrderPullWork() {
-    return nativeAuthSessionActive && nativeAuthProfile?.username === currentUser
-        && phPullSupervisorAllowed(nativeAuthProfile,getBloomscapesFarm(),borrowedHelpPreview());
-}
-
-function phWorkDraft(team) {
-    return {id:team?.team_id || '',unit:team?.unit_number || '',
-        primary:team?.puller_primary || '',helper:team?.puller_helper || ''};
-}
-
-function phWorkVisibleRows(state) {
-    return state.snapshot.rows.filter(row => matchesBloomscapesModuleSearch(state.search.value,
-        [row.common_name,row.container_size,row.itemcode,row.locationcode,row.lotcode,row.dock,row.stopnumber]));
-}
-
-function phWorkScopeIsCurrent(state) {
-    return state.root.isConnected && canBuildPhOrderPullWork()
-        && getSupabaseReadIdentityScope() === state.owner;
-}
-
-function changePhWorkInput(state,control) {
-    if (!phWorkScopeIsCurrent(state)) return;
-    if (control.matches('[data-ph-view]')) {
-        state.root.querySelector('[data-ph-pool]').hidden = control.value === 'teams';
-    }
-    if (control.dataset.phTag) {
-        if (!phPullToggleTag(state.snapshot.rows,state.selected,control.dataset.phTag)) {
-            control.checked = false;
-            state.status.textContent = 'The batch cannot exceed 650 WingDingUnits.';
-        } else state.status.textContent = '';
-    }
-    if (control.dataset.phField) {
-        state.draft[control.dataset.phField] = control.value;
-        if (control.dataset.phField === 'primary') {
-            if (state.draft.helper === control.value) state.draft.helper = '';
-            paintPhWorkTeams(state);
-            state.root.querySelector('[data-ph-field="primary"]').focus();
-        }
-    }
-    paintPhWorkSelection(state);
-}
-
-function phWorkTeamCommand(state,action,target) {
-    const id = action === 'release' ? target.dataset.teamId : state.draft.id;
-    const existing = state.snapshot.teams.find(team => team.team_id === id);
-    const base = existing ? {p_team:id,p_expected:existing.updated_at} : {};
-    if (action === 'release') return ['release_ph_puller_buggy_team_v1',base];
-    if (!state.draft.unit || !state.draft.primary) throw new Error('Select a unit and primary puller.');
-    const rpc = existing ? 'update_or_swap_ph_puller_buggy_team_v1' : 'assign_ph_puller_buggy_team_v1';
-    return [rpc,{...base,p_unit:state.draft.unit,p_primary:state.draft.primary,p_helper:state.draft.helper || null}];
-}
-
-function phWorkDispatchCommand(state) {
-    const id = state.root.querySelector('[data-ph-dispatch-team]').value;
-    const team = state.snapshot.teams.find(row => row.team_id === id);
-    if (!team || !state.selected.size) throw new Error('Select an active team and at least one pull tag.');
-    return [PH_WORK_RPC,{p_team:id,p_expected:team.updated_at,p_tags:[...state.selected]}];
-}
-
-function planPhWorkCommand(state,action,target) {
-    if (action === 'refresh') return [PH_WORK_RPC];
-    if (action === 'dispatch') return phWorkDispatchCommand(state);
-    if (action === 'save' || action === 'release') return phWorkTeamCommand(state,action,target);
-    return null;
-}
-
-async function applyPhWorkCommand(state,action,rpc,input) {
-    try {
-        state.pending = requestPhPullWork(rpc,input);
-        state.status.textContent = 'Updating Park Hill work…';
-        paintPhWorkState(state,phWorkVisibleRows(state));
-        const receipt = await state.pending;
-        if (!phWorkScopeIsCurrent(state)) return;
-        if (rpc === PH_WORK_RPC) state.snapshot = receipt;
-        else await applyPhWorkTeamChange(state,receipt.team);
-        state.selected = new Set(state.snapshot.rows.map(row => row.pull_tag_id).filter(id => state.selected.has(id)));
-        if (action === 'dispatch') state.selected.clear();
-        state.status.textContent = action === 'dispatch' ? 'Batch assigned.' : '';
-    } catch (error) {
-        if (phWorkScopeIsCurrent(state)) state.status.textContent = error.message || 'Park Hill work could not be updated.';
-    } finally {
-        state.pending = null;
-        if (phWorkScopeIsCurrent(state)) paintPhWorkState(state,phWorkVisibleRows(state));
-    }
-}
-
-async function applyPhWorkTeamChange(state,team) {
-    const others = state.snapshot.teams.filter(row => row.team_id !== team.team_id);
-    const prior = state.snapshot.teams.find(row => row.team_id === team.team_id);
-    state.snapshot.teams = team.active ? [...others,{...team,batch_open:prior?.batch_open}] : others;
-    state.draft = phWorkDraft();
-    paintPhWorkState(state,phWorkVisibleRows(state));
-    if (!team.active) {
-        const receipt = await requestPhPullWork(PH_WORK_RPC);
-        if (phWorkScopeIsCurrent(state)) state.snapshot = receipt;
-    }
-}
-
-function dispatchPhWorkClick(state,event) {
-    const target = event.target.closest('[data-ph-action]');
-    if (!target || !phWorkScopeIsCurrent(state) || state.pending) return;
-    const action = target.dataset.phAction;
-    try {
-        const command = planPhWorkCommand(state,action,target);
-        if (command) return void applyPhWorkCommand(state,action,...command);
-    } catch (error) {
-        state.status.textContent = error.message;
-        return;
-    }
-    if (action === 'auto') {
-        state.selected = phPullGroupBatch(phWorkVisibleRows(state));
-        state.status.textContent = '';
-        paintPhWorkRows(state,phWorkVisibleRows(state));
-        return;
-    }
-    const team = action === 'edit' && state.snapshot.teams.find(row => row.team_id === target.dataset.teamId);
-    state.draft = phWorkDraft(team || null);
-    paintPhWorkTeams(state);
-    state.root.querySelector('[data-ph-field="unit"]').focus();
-}
-
-function mountPhBuildWorkOrderPulling(host) {
-    if (!canBuildPhOrderPullWork()) return;
-    host.innerHTML = phWorkMarkup();
-    const root = host.firstElementChild;
-    const state = {root,owner:getSupabaseReadIdentityScope(),selected:new Set(),draft:phWorkDraft(),
-        snapshot:{rows:[],teams:[],units:[],pullers:[]},search:root.querySelector('[data-ph-work-search]'),
-        status:root.querySelector('[data-ph-status]')};
-    root.addEventListener('click',event => dispatchPhWorkClick(state,event));
-    root.addEventListener('change',event => changePhWorkInput(state,event.target));
-    state.search.addEventListener('input',() => {
-        if (phWorkScopeIsCurrent(state)) paintPhWorkRows(state,phWorkVisibleRows(state));
-    });
-    syncGlobalHeaderChrome({reason:'park-hill-build-work',force:true});
-    void applyPhWorkCommand(state,'refresh',PH_WORK_RPC);
 }

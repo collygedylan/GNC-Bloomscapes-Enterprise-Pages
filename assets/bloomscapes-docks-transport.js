@@ -85,6 +85,9 @@ async function sendBloomscapesDockCommand(farm, identity, action, input) {
         || !bloomscapesDockReceiptMatches(action,input,receipt)) {
         throw new Error('The Dock command did not return a matching receipt.');
     }
+    if (action === 'set_truck') publishPhPullDockStatus(farm,identity,{
+        kind:'truck',dock:receipt.dock,trip:receipt.trip,truck:input.truck,effective:receipt.order_pull_status,revision:receipt.order_pull_revision
+    });
     return receipt;
 }
 

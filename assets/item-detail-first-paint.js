@@ -43,6 +43,12 @@ function paintItemDetailSummaryText(item,sourceView) {
         const field = document.getElementById(id);
         if (field) field.textContent = value === '' || value == null ? '--' : value;
     }
+    const side = document.getElementById('det-pull-side');
+    if (side) {
+        const value = phInventoryPullSide(item);
+        side.textContent = value ? 'Pull Side: '+value : '';
+        side.hidden = !value;
+    }
     const detail = document.getElementById('view-detail');
     detail?.classList.toggle('detail-request-mode',isRequestDetailItem(item,sourceView));
     detail?.classList.toggle('detail-av-mode',sourceView === 'av');
