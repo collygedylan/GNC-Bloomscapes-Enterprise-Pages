@@ -1,3 +1,69 @@
+function suspendItemCodeFilter(codes) {
+    if (!Array.isArray(codes) || !codes.length || codes.length>32) throw Error('Invalid item read batch.');
+    return 'in.('+codes.map(code=>JSON.stringify(String(code))).join(',')+')';
+}
+
+async function fetchDirectMasterInventoryItemRows(itemCode = '', options = {}) {
+    const codes=Array.isArray(itemCode) ? itemCode : [String(itemCode || '').trim()].filter(Boolean);
+    if (!codes.length) return [];
+    const requested=new Set(codes), rows=[];
+    const safeItemCode=codes.length===1 ? codes[0] : '';
+    const readPage=opts=>safeItemCode ? fetchDirectMasterInventoryPage({ projection: 'full', itemCode: safeItemCode }, 100, 0, opts)
+        : fetchDirectMasterInventoryPage({projection:'full',itemCodes:codes},500,0,opts);
+    let afterUniqueId='';
+    for (let pageNumber=0;pageNumber<100;pageNumber++) {
+        if (options.signal?.aborted) throw Object.assign(new Error('Inventory item read cancelled.'),{code:'REQUEST_ABORTED'});
+        const page=await readPage(afterUniqueId ? {...options,afterUniqueId} : options);
+        validateInventoryReadProjection(page,{projection:'full'});
+        if (page.rows.some(row=>!requested.has(String(row.itemcode || '').trim()))) throw Error('Inventory item response escaped its exact filter.');
+        rows.push(...page.rows);
+        if (page.rows.length<page.limit) {
+            return verifyCompleteMasterItemRows(rows);
+        }
+        const next=String(page.rows.at(-1)?.unique_id || '').trim();
+        if (!next || next===afterUniqueId) throw Error('Inventory item keyset boundary was invalid.');
+        afterUniqueId=next;
+        await yieldToUiFrame();
+    }
+    throw Error('Inventory item response exceeded the safe page limit.');
+}
+
+function verifyCompleteMasterItemRows(rows) {
+    const ids=rows.map(row=>String(row.unique_id || '').trim());
+    if (ids.some(id=>!id) || new Set(ids).size !== ids.length) throw Error('Inventory item rows could not be verified.');
+    return rows;
+}
+
+async function readSuspendItemNotePages(codes,farm,signal) {
+    const query=new URLSearchParams({select:'*',warehouse_id:'eq.'+farm,itemcode:suspendItemCodeFilter(codes),
+        order:'unique_id.asc',limit:'500'});
+    const requested=new Set(codes), rows=[];
+    for (let page=0;page<100;page++) {
+        query.set('offset',String(page*500));
+        const result=await fetchAuthenticatedSupabaseReadPage('ph_location_sales_notes',query.toString(),{signal});
+        if (!Array.isArray(result?.rows) || result.rows.some(row=>row.warehouse_id!==farm || !requested.has(row.itemcode))) {
+            throw Error('Location evidence escaped the requested farm or items.');
+        }
+        rows.push(...result.rows);
+        if (result.rows.length<500) return rows;
+    }
+    throw Error('Location evidence exceeded the safe page limit.');
+}
+
+async function readSuspendItemBatch(codes,farm) {
+    const hasLocalMaster=hasCompleteRequestOptionSnapshot();
+    const local=code=>getRequestSharedInventoryOptionRows({ITEMCODE:code}).filter(row=>getRequestItemCodeOptionItemCode(row)===code);
+    const request={retainOnGenerationChange:true,signal:null,maxAttempts:1};
+    const key=JSON.stringify([farm,codes]);
+    const readMaster=({signal})=>fetchDirectMasterInventoryItemRows(codes,{signal});
+    const master=hasLocalMaster ? codes.flatMap(local) : codes.length===1 ? fetchRequestItemCodeOptionRowsFromSupabase(codes[0])
+        : runDedupeSupabaseRead('suspend-master:'+key,readMaster,request);
+    const notes=runDedupeSupabaseRead('suspend-location-evidence:'+key,({signal})=>readSuspendItemNotePages(codes,farm,signal),request)
+        .catch(error=>({error}));
+    const [rows,evidence]=await Promise.all([master,notes]);
+    return {rows,evidence,hasLocalMaster};
+}
+
 async function fetchAuthenticatedSupabaseReadPage(table, queryString = '', options = {}) {
     const safeTable = normalizeAppTableName(table);
     const farmRead=bloomscapesFarmReadContract(safeTable,getBloomscapesFarm());
@@ -74,7 +140,8 @@ async function fetchDirectMasterInventoryPage(params = {}, limit = INITIAL_PAGE_
     const pageBoundary = afterUniqueId
         ? `unique_id=gt.${encodeURIComponent(afterUniqueId)}`
         : `offset=${safeOffset}`;
-    const itemFilter = itemCode ? `&itemcode=eq.${encodeURIComponent(itemCode)}` : '';
+    const itemFilter = params.itemCodes?.length ? '&itemcode='+encodeURIComponent(suspendItemCodeFilter(params.itemCodes))
+        : itemCode ? `&itemcode=eq.${encodeURIComponent(itemCode)}` : '';
     const exactUid = String(params.uniqueId || '').trim();
     const uidFilter = exactUid ? '&unique_id=eq.' + encodeURIComponent(exactUid) : '';
     const seasonFilter = params.dataset === 'avOpen' ? '&season=in.(F1,S1,U1,U2)' : '';

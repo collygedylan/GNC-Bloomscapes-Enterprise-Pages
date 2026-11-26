@@ -80,7 +80,7 @@ function clearUnavailableCommInbox() {
 
 function handleCommInboxReadFailure(error,generation) {
     const state=bloomscapesCommState;
-    if (generation!==state.generation) return;
+    if (generation!==state.generation || error?.code==='DATASET_READ_SCOPE_CHANGED') return;
     state.retryAt=Date.now()+15000;
     const kind=bloomscapesOptionalCommFailure(error);
     if (kind==='denied') return clearUnavailableCommInbox();

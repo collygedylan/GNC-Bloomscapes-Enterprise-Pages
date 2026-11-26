@@ -1,3 +1,118 @@
+function suspendItemRowsByCode(rows) {
+    const byCode=new Map();
+    for (const row of rows) {
+        const code=getRequestItemCodeOptionItemCode(row);
+        if (!byCode.has(code)) byCode.set(code,[]);
+        byCode.get(code).push(row);
+    }
+    return byCode;
+}
+
+function suspendItemNotesByUid(rows,notes) {
+    const physical=window.AgMetricQueueInventory?.createIndex(rows);
+    const latest=new Map();
+    for (const note of notes) {
+        const resolved=!note.unique_id && note.itemcode && note.locationcode && note.lotcode
+            ? physical?.resolve({itemCode:note.itemcode,locationCode:note.locationcode,lotCode:note.lotcode}).row : null;
+        const uid=note.unique_id || resolved?.unique_id || resolved?.UNIQUE_ID;
+        const prior=latest.get(uid);
+        if (uid && (!prior || String(note.updated_at || note.last_updated)>String(prior.updated_at || prior.last_updated))) latest.set(uid,note);
+    }
+    return latest;
+}
+
+function enrichSuspendItemRows(rows,notes,local) {
+    const byUid=suspendItemNotesByUid(rows,notes);
+    return rows.map(source=>{
+        const row=local ? Object.fromEntries(Object.entries(source).map(([key,value])=>[key.toLowerCase(),value])) : source;
+        const note=byUid.get(row.unique_id);
+        if (!note) return row;
+        const next={...row};
+        for (const key of ['photo_link','photo_name','spec','caliper','av_note','sales_note','loc_match_pct']) {
+            if (!next[key] && note[key]) next[key]=note[key];
+        }
+        return next;
+    });
+}
+
+function publishSuspendItemBatchRow(code,entry,rows,notes,photoState,local) {
+    if (notes) photoState.locationSalesNotes.set(code,notes);
+    const enriched=enrichSuspendItemRows(rows,notes || photoState.locationSalesNotes.get(code) || [],local);
+    const fingerprint=JSON.stringify(enriched);
+    entry.loadedAt=Date.now();
+    if (entry.fingerprint===fingerprint) return false;
+    entry.fingerprint=fingerprint;
+    entry.rows=formatFetchedRows(enriched,'ph_master_inventory').map(row=>buildSearchIndex(normalizeRowPhotoFields(row)));
+    if (typeof rememberInventoryLocationPhotoRows==='function') rememberInventoryLocationPhotoRows(entry.rows,entry.owner);
+    entry.index=window.AgMetricQueueInventory?.createIndex(entry.rows);
+    return true;
+}
+
+async function hydrateSuspendItemBatch(group,scope) {
+    if (!scope.current()) return;
+    const {rows,evidence,hasLocalMaster}=await readSuspendItemBatch(group,scope.farm);
+    if (!scope.current()) return;
+    if (!hasLocalMaster && group.length>1) retainVerifiedCardLocationOnHandRows(rows);
+    const photo=getManagerAssignedColumnState();
+    if (photo.noteScope!==scope.owner || !photo.locationSalesNotes) photo.locationSalesNotes=new Map();
+    photo.noteScope=scope.owner;
+    const master=suspendItemRowsByCode(rows);
+    const notes=Array.isArray(evidence) ? suspendItemRowsByCode(evidence) : null;
+    if (!notes) console.warn('Suspend location evidence refresh deferred',evidence.error);
+    const updated=[];
+    for (const code of group) {
+        const entry=suspendTagItemHydration.get(code);
+        if (publishSuspendItemBatchRow(code,entry,master.get(code) || [],notes ? notes.get(code) || [] : null,photo,hasLocalMaster)) updated.push(code);
+    }
+    photo.photoGeneration=(photo.photoGeneration || 0)+1;
+    if (!updated.length) return;
+    queueCardInventoryRenderVersion++;
+    markViewDirty('request');
+    if (isViewVisible('request')) scheduleHydratedViewRender('request');
+    if (isViewVisible('detail') && activeDetailSourceView==='request') refreshHydratedSuspendItemDetail(updated);
+}
+
+function scheduleSuspendItemBatch(codes,scope,previous) {
+    const entries=codes.map(code=>{
+        const entry={...suspendTagItemHydration.get(code),owner:scope.owner,permission:scope.permission,selection:scope.selection};
+        entry.rows ||= [];
+        suspendTagItemHydration.set(code,entry);
+        return entry;
+    });
+    const promise=previous.then(()=>hydrateSuspendItemBatch(codes,scope)).catch(error=>{
+        if (!scope.current()) return;
+        for (const entry of entries) entry.loadedAt=Date.now()-115000;
+        console.warn('Suspend item hydration deferred',error);
+    }).finally(()=>{for (const entry of entries) entry.promise=null;});
+    for (const entry of entries) entry.promise=promise;
+    return promise;
+}
+
+function suspendItemReadScope() {
+    const owner=getSupabaseReadIdentityScope(), permission=getPassiveNativeReadPermissionVersion();
+    const farm=getBloomscapesFarm(), selection=bloomscapesFarmState.selectionToken;
+    return {owner,permission,farm,selection,current:()=>hasAuthenticatedOperationalReadIdentity()
+        && owner===getSupabaseReadIdentityScope() && permission===getPassiveNativeReadPermissionVersion()
+        && farm===getBloomscapesFarm() && selection===bloomscapesFarmState.selectionToken};
+}
+
+function hydrateSuspendTagItemOptions(items=[]) {
+    if (!hasAuthenticatedOperationalReadIdentity()) return;
+    const scope=suspendItemReadScope();
+    const pending=new Set();
+    for (const [key,entry] of suspendTagItemHydration) {
+        if (entry.owner!==scope.owner || entry.permission!==scope.permission || entry.selection!==scope.selection) suspendTagItemHydration.delete(key);
+        else if (entry.promise) pending.add(entry.promise);
+    }
+    const needsRead=code=>{
+        const prior=suspendTagItemHydration.get(code);
+        return code && !prior?.promise && !(Date.now()-prior?.loadedAt<120000);
+    };
+    const codes=[...new Set(items.map(getRequestItemCodeOptionItemCode).filter(needsRead))];
+    let previous=Promise.all(pending);
+    for (let start=0;start<codes.length;start+=32) previous=scheduleSuspendItemBatch(codes.slice(start,start+32),scope,previous);
+}
+
 function resolveExactSuspendOwner(item, code, state) {
     const canonicalCode = normalizeSuspendOwnerCode(code);
     let projection = item?.suspend_owner_zone_override !== undefined || item?.SUSPEND_OWNER_ZONE_OVERRIDE !== undefined ? item : null;
@@ -129,4 +244,3 @@ function getAssignedQueueOwner(row,index) {
     const lookup=index ?? getCardEvalOwnerIndex(getManagerAssignedColumnState(),true);
     return lookup.exact.get(code) || lookup.family.get(code.slice(0,6)) || '';
 }
-

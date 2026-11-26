@@ -1046,40 +1046,7 @@ function isSuspendPullItemMatch(code, sourceCode) {
 function openSuspendPullPicker(uniqueId) {
     const source = findDockSuspendDcRequestMirrorRowByUniqueId(uniqueId);
     if (!source || !canReadSuspendQueue() || !resolveCanonicalRowAccess(currentUser, source).canManageLocations) return false;
-    const scope = getSupabaseReadIdentityScope();
-    const dialog = document.createElement('dialog');
-    dialog.className = 'suspend-pull-picker';
-    dialog.setAttribute('aria-label', 'Change / Add Location');
-    dialog.innerHTML = '<h2>Change / Add Location</h2><div data-manual></div><div data-locations></div><footer><button type="button" data-detail>More tag options</button><button type="button" data-cancel>Cancel</button></footer>';
-    dialog.addEventListener('close', () => dialog.remove(), {once:true});
-    document.body.appendChild(dialog);
-    dialog.showModal();
-    const paint = () => {
-        if (!dialog.open) return;
-        if (scope !== getSupabaseReadIdentityScope()) { dialog.close(); return; }
-        const options = getRequestItemCodeOptionRows(source);
-        if (!dialog.querySelector('input')) dialog.querySelector('[data-manual]').innerHTML = buildSuspendManualPullSelector(options, true);
-        dialog.querySelector('[data-locations]').innerHTML = options.map(row => {
-            const loc = row.LOCATIONCODE || row.locationcode;
-            const lot = row.LOTCODE || row.lotcode || '';
-            return '<article><span>' + escapeHtml([row.ITEMCODE || row.itemcode,lot].filter(Boolean).join(' · ')) + '</span><button type="button" data-add="' + escapeHtml(getRequestItemCodeOptionMasterId(row)) + '">➕ Add Location to Suspend Tag</button><button type="button" data-pull="' + escapeHtml(getRequestItemCodeOptionMasterId(row)) + '">✓ Select Location (' + escapeHtml(loc) + ')</button></article>';
-        }).join('');
-    };
-    dialog.onclick = event => {
-        const button = event.target.closest('button');
-        if (!button) return;
-        if (scope !== getSupabaseReadIdentityScope()) { dialog.close(); return; }
-        if (button.hasAttribute('data-enter')) { chooseSuspendPullLocation(source, dialog); return; }
-        if (button.hasAttribute('data-add')) { const row = getRequestItemCodeOptionRows(source).find(row => getRequestItemCodeOptionMasterId(row) === button.dataset.add); if (row) void addSelectedDockSuspendDcRequestOptions([row],source).then(paint); return; }
-        if (button.hasAttribute('data-pull')) { dialog.close(); void changeSuspendPullLocation(uniqueId, button.dataset.pull, 'replace_location'); }
-        if (button.hasAttribute('data-detail')) { dialog.close(); openDockSuspendDcRequestUpdate(uniqueId, { preferredTab:'request', openAvOptions:true }); }
-        if (button.hasAttribute('data-cancel')) dialog.close();
-    };
-    paint();
-    if (!getRequestItemCodeOptionRows(source).length) hydrateSuspendTagItemOptions([source]);
-    const refresh = suspendTagItemHydration.get(getRequestItemCodeOptionItemCode(source))?.promise;
-    if (refresh) void refresh.then(() => { if (dialog.open && scope === getSupabaseReadIdentityScope()) { ensureRequestItemCodeOptionState(source).cachedSignature = ''; paint(); } });
-    return false;
+    return openSuspendFulfillmentPicker(source);
 }
 
 function buildSuspendLocationOptionActions(source, row) {

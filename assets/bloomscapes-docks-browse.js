@@ -1,3 +1,42 @@
+function renderFulfilledDockOrderCard(row) {
+    const card = generateCard(getDockCardLiveInventoryDisplayRow(row),'docks','status-orange');
+    const original = row.SUBBED_FROM_ITEMCODE || row.subbed_from_itemcode;
+    if (!original) return card;
+    const badge = '<span class="rounded bg-emerald-900 px-2 py-1 text-xs font-semibold text-white">🔀 SUB FROM '+pullHtml(original)+'</span>';
+    return '<section data-dock-substitution>'+badge+card+'</section>';
+}
+
+function getBloomscapesDockRowEvidenceSignature(rows) {
+    return JSON.stringify(rows.map(row => {
+        const live = getQueueDisplayEvidenceRow({...row,SOURCE_TABLE:'ph_soc_master'}) || {};
+        return [row.UNIQUE_ID,row.ITEMCODE,row.LOCATIONCODE,row.LOTCODE,row.QUANTITYORDERED,row.SUBBED_FROM_ITEMCODE,live.UNIQUE_ID,live.PHOTO_LINK,live.SPEC,live.AV_NOTE,live.MATCH,live.LOC_MATCH_QTY,live.PTRONHAND,live.LAST_UPDATED];
+    }));
+}
+
+function renderBloomscapesDockDropRows(container, crumb, label, dockRows) {
+    const selected = normalizeDockViewStopKey(selectedDockStop);
+    const rows = dockRows.filter(item => normalizeDockViewStopKey(item?.STOPNUMBER) === selected);
+    rememberOperationalExport('docks',rows);
+    if (!rows.length) {
+        dockViewLevel = 1;
+        selectedDockStop = null;
+        scheduleDocksRender(0);
+        return;
+    }
+    const crumbText = `${label} > STOPNUMBER ${selectedDockStop}`;
+    crumb.innerText = crumbText;
+    const prefixHtml = renderBloomscapesDockDropHeader(label,selectedDockStop,rows)
+        + renderBloomscapesDockDropTools(selectedDockNum,selectedDockStop);
+    const signature = buildDocksStopItemsRenderSignature(label,selectedDockStop,rows)
+        + getBloomscapesDockRowEvidenceSignature(rows) + ':' + bloomscapesDockBoardRevision();
+    renderBloomscapesDockPage('docks-stop-items',container,crumb,rows,crumbText,
+        renderFulfilledDockOrderCard,{
+            prefixHtml,approxCardHeight:265,
+            emptyHtml:'<div class="p-8 text-center text-gray-400">No rows remain in this STOPNUMBER.</div>',
+            renderSignature:signature,verifyRowSelector:'[data-docks-stop-card]',reserveSpace:true
+        });
+    restoreBloomscapesDockDrafts(container);
+}
 
 const bloomscapesDockLabelCollator=new Intl.Collator(undefined,{numeric:true});
 const bloomscapesDockNameCollator=new Intl.Collator(undefined,{sensitivity:'base'});
@@ -198,38 +237,6 @@ function renderBloomscapesDockDropHeader(label, stop, rows) {
         <div class="flex items-center justify-between"><strong>${pullHtml(label)} Ã‚Â· STOPNUMBER ${pullHtml(stop)}</strong><span class="text-xs">${done}/${rows.length} Done</span></div>
         <div class="text-sm font-semibold">${pullHtml(cust)}${cons && cons !== cust ? ' Ã‚Â· '+pullHtml(cons) : ''}</div>
         <div class="text-xs">${rows.length} Rows Ã‚Â· Qty ${pullHtml(summary.quantity)} Ã‚Â· ${pullHtml(rep)} Ã‚Â· ${pullHtml(state)}</div></div>`;
-}
-
-function getBloomscapesDockRowEvidenceSignature(rows) {
-    return JSON.stringify(rows.map(row => {
-        const live = getQueueDisplayEvidenceRow({...row,SOURCE_TABLE:'ph_soc_master'}) || {};
-        return [live.UNIQUE_ID,live.PHOTO_LINK,live.SPEC,live.AV_NOTE,live.MATCH,live.LOC_MATCH_QTY,live.PTRONHAND,live.LAST_UPDATED];
-    }));
-}
-
-function renderBloomscapesDockDropRows(container, crumb, label, dockRows) {
-    const selected = normalizeDockViewStopKey(selectedDockStop);
-    const rows = dockRows.filter(item => normalizeDockViewStopKey(item?.STOPNUMBER) === selected);
-    rememberOperationalExport('docks',rows);
-    if (!rows.length) {
-        dockViewLevel = 1;
-        selectedDockStop = null;
-        scheduleDocksRender(0);
-        return;
-    }
-    const crumbText = `${label} > STOPNUMBER ${selectedDockStop}`;
-    crumb.innerText = crumbText;
-    const prefixHtml = renderBloomscapesDockDropHeader(label,selectedDockStop,rows)
-        + renderBloomscapesDockDropTools(selectedDockNum,selectedDockStop);
-    const signature = buildDocksStopItemsRenderSignature(label,selectedDockStop,rows)
-        + getBloomscapesDockRowEvidenceSignature(rows) + ':' + bloomscapesDockBoardRevision();
-    renderBloomscapesDockPage('docks-stop-items',container,crumb,rows,crumbText,
-        item => generateCard(getDockCardLiveInventoryDisplayRow(item),'docks','status-orange'),{
-            prefixHtml,approxCardHeight:265,
-            emptyHtml:'<div class="p-8 text-center text-gray-400">No rows remain in this STOPNUMBER.</div>',
-            renderSignature:signature,verifyRowSelector:'[data-docks-stop-card]',reserveSpace:true
-        });
-    restoreBloomscapesDockDrafts(container);
 }
 
 function renderBloomscapesDockPage(key,container,crumb,rows,label,render,options) {

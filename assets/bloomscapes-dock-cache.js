@@ -1,3 +1,86 @@
+function getDockOrderBusinessKey(row = {}) {
+    const value = (...keys) => firstDockNonEmpty(...keys.map(key=>row[key]));
+    const origin = value('SUSPEND_ORIGIN_UID','suspend_origin_uid','ORIG_LINE_KEY','orig_line_key');
+    const uid = value('UNIQUE_ID','unique_id');
+    if (origin && uid) return JSON.stringify(['soc',origin,uid]);
+    const code = String(value('ITEMCODE','itemcode')).trim().toUpperCase().replace(/[.]+$/, '');
+    const dock = normalizeDockViewDockKey(value('DOCK','dock','DOCK_NUM','dock_num'));
+    const drop = normalizeDockViewStopKey(value('STOPNUMBER','stopnumber','STOP','stop','DROP_NUMBER','drop_number','DROP','drop'));
+    const location = String(value('LOCATIONCODE','locationcode','LOCATION','location')).trim().toUpperCase();
+    if (!code || dock === 'Unassigned' || drop === 'Unassigned') return '';
+    const quantity = Number(String(value('QUANTITYORDERED','quantityordered','QTY','qty','ORDERED_QTY','ordered_qty') || 0).replace(/,/g,''));
+    const group = ['CUSTOMERNAME','CONSIGNEENAME','SALESREPNAME','LOTCODE'].map(key=>
+        String(value(key,key.toLowerCase(),key.replace(/NAME$/,''),key.toLowerCase().replace(/name$/,''))).trim().toUpperCase());
+    return JSON.stringify([dock,drop,code,location,...group,Number.isFinite(quantity)?quantity:0]);
+}
+
+// Pending commands are scoped to the authenticated session. Only RPC receipts enter SOC history.
+const pendingDockFulfillments = new Map();
+
+function dockFulfillmentOrigin(row) {
+    return String(row.suspend_origin_uid || row.SUSPEND_ORIGIN_UID || getDockSuspendDcRequestSourceUid(row));
+}
+
+function dockFulfillmentPreviewRow(source, allocation, uid, origin) {
+    const qty = allocation.qty;
+    const original = source.orig_itemcode || source.ORIG_ITEMCODE || source.ITEMCODE || source.itemcode;
+    const fields = {
+        unique_id:uid, suspend_origin_uid:origin, orig_line_key:origin, orig_itemcode:original,
+        subbed_from_itemcode:original === allocation.itemcode ? '' : original,
+        suspend_candidate_state:'fulfilled', suspend:null, suspend_to:null, suspend_completed:true,
+        itemcode:allocation.itemcode, locationcode:allocation.locationcode, lotcode:allocation.lotcode,
+        description:allocation.description, commonname:allocation.description,
+        qty, quantityordered:qty, order_qty:qty, ordered_qty:qty, dom_id:uid
+    };
+    const aliases = Object.fromEntries(Object.entries(fields).map(([key,value])=>[key.toUpperCase(),value]));
+    return {...source,...fields,...aliases};
+}
+
+function projectPendingDockFulfillments(rows, owner) {
+    if (!pendingDockFulfillments.size) return rows;
+    const scoped = [...pendingDockFulfillments.values()].filter(entry=>entry.owner === owner);
+    if (!scoped.length) return rows;
+    const origins = new Set(scoped.map(entry=>entry.origin));
+    return rows.filter(row=>!origins.has(dockFulfillmentOrigin(row))).concat(scoped.flatMap(entry=>entry.rows));
+}
+
+function invalidateDockFulfillmentPreview() {
+    docksScopedItemsCacheKey = '';
+    markViewDirty('docks');
+    if (isViewVisible('docks')) scheduleDocksRender(0);
+    renderPendingSuspendPullAllocations();
+}
+
+function beginSuspendFulfillmentDocksProjection(source, allocations, requestId) {
+    const owner = getSupabaseReadIdentityScope();
+    const origin = dockFulfillmentOrigin(source);
+    const rows = allocations.map((allocation,index)=>dockFulfillmentPreviewRow(source,allocation,
+        index ? 'sfill:'+requestId+':'+(index+1) : origin,origin));
+    const pending = {owner,origin,rows};
+    pendingDockFulfillments.set(requestId,pending);
+    invalidateDockFulfillmentPreview();
+    function release() {
+        if (pendingDockFulfillments.get(requestId) !== pending) return false;
+        pendingDockFulfillments.delete(requestId);
+        if (owner !== getSupabaseReadIdentityScope()) return false;
+        invalidateDockFulfillmentPreview();
+        return true;
+    }
+    return {
+        confirm(receipt) {
+            if (!receipt?.ok || receipt.command_id !== requestId || receipt.origin_uid !== origin) return false;
+            if (!release()) return false;
+            const changed = new Map((receipt.rows || []).map(row=>[row.unique_id,row]));
+            for (const row of receipt.dock_rows) changed.set(row.unique_id,row);
+            applySuspendCandidateRows([...changed.values()],{close:true});
+            publishPhPullDockStatus('10-PH',owner);
+            refreshMountedSuspendPullQueue(owner);
+            return true;
+        },
+        rollback:release
+    };
+}
+
 function bloomscapesDockProgressKey(uniqueId,farm=getBloomscapesFarm()) {
     const uid = normalizeDockItemUniqueId(uniqueId);
     return uid ? farm+':'+uid : '';
@@ -40,7 +123,8 @@ function getBloomscapesDockBrowseSource() {
         rows:Array.isArray(socInventory) ? socInventory : [],
         cacheKey:`dock-fast:${getDatasetLoadSignature('soc')}:${dockWorkflowStateEpoch}`
     };
-    return getScopedDocksItems(snapshot.rows,`dock-display:${snapshot.cacheKey}`);
+    const rows = projectPendingDockFulfillments(snapshot.rows,getSupabaseReadIdentityScope());
+    return getScopedDocksItems(rows,`dock-display:${snapshot.cacheKey}`);
 }
 
 function expectedDockPageGroups() {

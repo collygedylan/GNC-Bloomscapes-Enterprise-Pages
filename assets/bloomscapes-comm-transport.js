@@ -26,7 +26,7 @@ async function bloomscapesCommRpc(name,parameters) {
 }
 
 async function readBloomscapesCommInbox(farm) {
-    const data=await bloomscapesCommRpc('gnc_comm_inbox',{p_farm:farm});
+    const data=await readFarmDirectoryRpc('gnc_comm_inbox',farm,farmDirectoryReadFence(farm));
     if (data?.farm!==farm || !Array.isArray(data.people) || !Array.isArray(data.conversations)) throw Error('Inbox scope was not confirmed.');
     return data;
 }

@@ -11,6 +11,19 @@ function deduplicateSuspendTagPageRows(rows) {
   });
 }
 
+function refreshHydratedSuspendItemDetail(updatedCodes) {
+    const code=getRequestItemCodeOptionItemCode(activeItem);
+    if (!updatedCodes.includes(code)) return;
+    renderSavedPhotos();
+    renderRequestDetailInfo(activeItem,'request');
+    if (!document.activeElement?.closest('#view-detail input,#view-detail textarea')) populateDetailInputsForPrefix('req-',activeItem);
+    const state=ensureRequestItemCodeOptionState(activeItem);
+    state.rows=suspendTagItemHydration.get(code).rows;
+    state.rowsRevision++;
+    state.cachedSignature='';
+    renderRequestMatchingInventoryOptions(activeItem,'request',{skipLoad:true});
+}
+
 function prepareSuspendTagPageRows(plan, runtime) {
   const rows = plan.rows || [];
   runtime.rememberOperationalExport('request', plan.items || []);

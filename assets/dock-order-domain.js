@@ -232,17 +232,6 @@ function firstDockValue(row, keys) {
     return firstDockNonEmpty(...keys.map(key => row[key]));
 }
 
-function getDockOrderBusinessKey(row = {}) {
-    const value = (...keys) => firstDockValue(row, keys);
-    const code = String(value('ITEMCODE','itemcode')).trim().toUpperCase().replace(/[.]+$/, '');
-    const dock = normalizeDockViewDockKey(value('DOCK','dock','DOCK_NUM','dock_num'));
-    const drop = normalizeDockViewStopKey(value('STOPNUMBER','stopnumber','STOP','stop','DROP_NUMBER','drop_number','DROP','drop'));
-    const location = String(value('LOCATIONCODE','locationcode','LOCATION','location')).trim().toUpperCase();
-    if (!code || dock === 'Unassigned' || drop === 'Unassigned') return '';
-    const quantity = Number(String(value('QUANTITYORDERED','quantityordered','QTY','qty','ORDERED_QTY','ordered_qty') || 0).replace(/,/g,''));
-    return JSON.stringify([dock,drop,code,location,String(value('CONSIGNEENAME','consigneename','CONSIGNEE','consignee')).trim(),Number.isFinite(quantity)?quantity:0]);
-}
-
 function normalizeDockSuspendRequestValue(value = '') {
     return String(value || '').trim().toUpperCase().replace(/[\s_-]+/g, ' ');
 }
@@ -387,13 +376,14 @@ function getActiveSuspendDockRows(items = []) {
     const groups = new Set(), orders = new Set();
     return dockScopedOrderSource(items).filter(row => {
         const state = String(row.suspend_candidate_state || row.SUSPEND_CANDIDATE_STATE || '').toLowerCase();
+        if (state === 'option') return false;
         const cancellation = state === 'canceled' && !!(row.cancel_reason || row.CANCEL_REASON);
         if (!cancellation && ['replaced', 'denied', 'canceled'].includes(state)) return false;
         const order = getDockOrderBusinessKey(row);
         if (order && orders.has(order)) return false;
         if (order) orders.add(order);
         const group = row.suspend_candidate_group || row.SUSPEND_CANDIDATE_GROUP;
-        if (!group || state === 'approved') return true;
+        if (!group || state === 'approved' || state === 'fulfilled') return true;
         if (groups.has(group)) return false;
         groups.add(group); return true;
     });

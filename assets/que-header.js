@@ -1,3 +1,29 @@
+function renderPendingSuspendPullAllocations() {
+    const host = document.querySelector('[data-suspend-pull-preview]');
+    if (!host) return;
+    const rows = getBloomscapesFarm()==='10-PH' && canOpenOrderPullQueue()
+        ? projectPendingDockFulfillments([],getSupabaseReadIdentityScope()) : [];
+    host.replaceChildren(...rows.map(row=>{
+        const line = document.createElement('p');
+        line.textContent = 'Pending pull · '+row.ITEMCODE+' · '+row.LOCATIONCODE+' · Lot '+row.LOTCODE
+            +' · Qty '+row.ORDER_QTY+' · Dock '+(row.DOCK_NUM || row.DOCK)+' · Stop '+row.STOPNUMBER;
+        return line;
+    }));
+    host.hidden = !rows.length;
+}
+
+function refreshMountedSuspendPullQueue(owner) {
+    if (getCurrentVisibleViewId()!=='request' || !isOrderPullQueueActive()) return;
+    const state = orderPullState();
+    const refresh = ()=>{
+        if (owner===getSupabaseReadIdentityScope() && state===orderPullState() && isOrderPullQueueActive()) {
+            void runOrderPullCommand(state,'list');
+        }
+    };
+    if (state.pending) void state.pending.then(refresh,refresh);
+    else refresh();
+}
+
 function getRequestHeaderSearchMode() {
     if (typeof isOrderPullQueueActive === 'function' && isOrderPullQueueActive()) return 'order-pulling';
     if (activeReqTab === 'suspend-tag') return 'suspend-tag';
@@ -193,5 +219,6 @@ function syncQueCategoryButtons(group, categories) {
 }
 
 function syncQueActiveCategory(toolbar = document.getElementById('request-filter-toolbar')) {
+    renderPendingSuspendPullAllocations();
     if (toolbar) syncQueCategoryControl(toolbar, getRequestTabQueueCounts());
 }

@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.71';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.72';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -2460,7 +2460,9 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
             if (safeTable === 'ph_master_inventory') {
                 return ['UNIQUE_ID','DATE_COMPLETED','APP_TAB_ASSIGNMENT','ASSIGNEDTO','EVAL_TASK_TYPE','EVAL_TASK_STATUS','EVAL_TASK_INSTRUCTIONS','EVAL_TASK_ASSIGNED_AT','EVAL_TASK_COMPLETED_AT','EVAL_TASK_RECOUNT_QTY','EVAL_TASK_MOVED_UP_QTY','EVAL_TASK_HOLD_ACTION','EVAL_TASK_HOLD_CODE','EVAL_TASK_HOLD_REASON','EVAL_TASK_RESULT_NOTE','AV_NOTE','SALES_NOTE','SPEC','CALIPER','MATCH','LOC_MATCH_QTY','INITIAL_PTR','PICK','PHOTO_LINK','PHOTO_NAME','SAVED_PHOTO_LINK','SAVED_PHOTO_NAME','REQ_PHOTO_LINK','REQ_PHOTO_NAME','DOCK_PHOTO_LINK','DOCK_PHOTO_NAME','FLYER_PHOTO_LINK','FLYER_PHOTO_NAME','ROW_PHOTO_LINK','ROW_PHOTO_NAME','FLYER_AV_NOTE','FLYER_MATCH','FLYER_LOC_MATCH_QTY','FLYER_SPEC','FLYER_CALIPER','FLYER_PICK','FLYER_INITIAL_PTR','FLYER_FOLDER','FLYER_COMPLETED','REQUEST_FOLDER','REQ_STATUS','HOLDSTOPCODE','HOLSTOPCODE','HOLDSTOPREASON','HOLDSTOPBEGINDATE','PTRAVAILABLE','S_LTS','UPDATED_AT'];
             }
-            return ['UNIQUE_ID','DATE_COMPLETED','APP_TAB_ASSIGNMENT','ASSIGNEDTO','AV_NOTE','SPEC','CALIPER','MATCH','LOC_MATCH_QTY','PICK','PHOTO_LINK','PHOTO_NAME','SAVED_PHOTO_LINK','SAVED_PHOTO_NAME','REQ_PHOTO_LINK','REQ_PHOTO_NAME','DOCK_PHOTO_LINK','DOCK_PHOTO_NAME','FLYER_PHOTO_LINK','FLYER_PHOTO_NAME','ROW_PHOTO_LINK','ROW_PHOTO_NAME','UPDATED_AT'];
+            const common = ['UNIQUE_ID','DATE_COMPLETED','APP_TAB_ASSIGNMENT','ASSIGNEDTO','AV_NOTE','SPEC','CALIPER','MATCH','LOC_MATCH_QTY','PICK','PHOTO_LINK','PHOTO_NAME','SAVED_PHOTO_LINK','SAVED_PHOTO_NAME','REQ_PHOTO_LINK','REQ_PHOTO_NAME','DOCK_PHOTO_LINK','DOCK_PHOTO_NAME','FLYER_PHOTO_LINK','FLYER_PHOTO_NAME','ROW_PHOTO_LINK','ROW_PHOTO_NAME','UPDATED_AT'];
+            return safeTable === 'ph_soc_master' ? common.concat('LAST_UPDATED','ITEMCODE','LOCATIONCODE','LOTCODE','QUANTITYORDERED',
+                'ORIG_LINE_KEY','SUSPEND_ORDER_QUANTITY','SUBBED_FROM_ITEMCODE','SUSPEND_CANDIDATE_STATE','SUSPEND','SUSPEND_TO') : common;
         }
 
         function buildRealtimeRowSignature(row = null, tableName = '') {
@@ -19184,38 +19186,7 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
             return true;
         }
 
-        async function fetchDirectMasterInventoryItemRows(itemCode = '', options = {}) {
-            const safeItemCode = String(itemCode || '').trim();
-            if (!safeItemCode) return [];
-            const rows = [];
-            let afterUniqueId = '';
-            let pageCount = 0;
-            while (true) {
-                if (options.signal?.aborted) throw Object.assign(new Error('Inventory item read cancelled.'), { code: 'REQUEST_ABORTED' });
-                if (pageCount >= 100) throw new Error('Inventory item response exceeded the safe page limit.');
-                const page = await fetchDirectMasterInventoryPage({ projection: 'full', itemCode: safeItemCode }, 100, 0,
-                    afterUniqueId ? { ...options, afterUniqueId } : options);
-                validateInventoryReadProjection(page, { projection: 'full' });
-                if (page.rows.some((row) => String(row?.itemcode || '').trim() !== safeItemCode)) {
-                    throw new Error('Inventory item response escaped its exact filter; the partial result was discarded.');
-                }
-                if (!page.rows.length) break;
-                rows.push(...page.rows);
-                pageCount += 1;
-                if (page.rows.length < page.limit) break;
-                const nextUniqueId = String(page.rows.at(-1)?.unique_id || '').trim();
-                if (!nextUniqueId || nextUniqueId === afterUniqueId) {
-                    throw new Error('Inventory item keyset boundary was invalid; the partial result was discarded.');
-                }
-                afterUniqueId = nextUniqueId;
-                await yieldToUiFrame();
-            }
-            const ids = rows.map((row) => String(row?.unique_id || '').trim());
-            if (ids.some((id) => !id) || new Set(ids).size !== ids.length) {
-                throw new Error('Inventory item rows could not be verified; the partial result was discarded.');
-            }
-            return rows;
-        }
+        /* @runtime-fragment assets/bloomscapes-farm-read.js */
 
         async function fetchAllInventoryReadRows(operation, params = {}, options = {}) {
             if (options.sharedSnapshotOwner !== true && operation === 'master_page' && params.dataset === 'master' && canUseProductionLiveSync()) {
@@ -23262,7 +23233,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.71';
+        const APP_VERSION = '3.1.72';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -89847,71 +89818,6 @@ function toggleDriveQuickRequestItem(domId) {
 
         const suspendTagItemHydration = new Map();
 
-        function hydrateSuspendTagItemOptions(items = []) {
-            const owner = getSupabaseReadIdentityScope();
-            if (!hasAuthenticatedOperationalReadIdentity()) return;
-            for (const [key, entry] of suspendTagItemHydration) if (entry.owner !== owner) suspendTagItemHydration.delete(key);
-            const codes = [...new Set(items.map(item => getRequestItemCodeOptionItemCode(item)).filter(Boolean))];
-            codes.forEach(itemCode => {
-                const prior = suspendTagItemHydration.get(itemCode);
-                if (prior?.owner === owner && (prior.promise || Date.now() - prior.loadedAt < 120000)) return;
-                const entry = { ...prior, owner, rows: prior?.rows || [], promise: null };
-                suspendTagItemHydration.set(itemCode, entry);
-                const hasLocalMaster = hasCompleteRequestOptionSnapshot();
-                const localRows = hasLocalMaster ? getRequestSharedInventoryOptionRows({ITEMCODE:itemCode}).filter(row => getRequestItemCodeOptionItemCode(row) === itemCode) : null;
-                entry.promise = Promise.all([
-                    hasLocalMaster ? localRows : fetchRequestItemCodeOptionRowsFromSupabase(itemCode),
-                    runDedupeSupabaseRead('suspend-location-evidence:' + itemCode, ({ signal }) =>
-                        fetchAuthenticatedSupabaseReadPage('ph_location_sales_notes', 'select=*&itemcode=eq.' + encodeURIComponent(itemCode) + '&limit=1000', { signal }),
-                        { retainOnGenerationChange: true, signal: null }).catch(error => { console.warn('Suspend location evidence refresh deferred', error); return { rows: [] }; })
-                ]).then(([rows, notes]) => {
-                    if (owner !== getSupabaseReadIdentityScope()) return;
-                    const photoState = getManagerAssignedColumnState();
-                    if (photoState.noteScope !== owner) photoState.locationSalesNotes = new Map();
-                    photoState.noteScope = owner;
-                    (photoState.locationSalesNotes ||= new Map()).set(itemCode, notes.rows);
-                    photoState.photoGeneration = (photoState.photoGeneration || 0) + 1;
-                    const noteIndex = window.AgMetricQueueInventory?.createIndex(rows);
-                    const notesByUid = new Map();
-                    for (const note of notes.rows) {
-                        const resolved = !note.unique_id && note.itemcode && note.locationcode && note.lotcode
-                            ? noteIndex?.resolve({itemCode:note.itemcode,locationCode:note.locationcode,lotCode:note.lotcode}).row : null;
-                        const uid = note.unique_id || resolved?.unique_id || resolved?.UNIQUE_ID;
-                        if (uid && (!notesByUid.has(uid) || String(note.updated_at) > String(notesByUid.get(uid).updated_at))) notesByUid.set(uid,note);
-                    }
-                    const enriched = rows.map(source => {
-                        const row = hasLocalMaster ? Object.fromEntries(Object.entries(source).map(([key,value]) => [key.toLowerCase(),value])) : source;
-                        const note = notesByUid.get(row.unique_id);
-                        if (!note) return row;
-                        const next = { ...row };
-                        for (const key of ['photo_link','photo_name','spec','caliper','av_note','sales_note','loc_match_pct']) if (!next[key] && note[key]) next[key] = note[key];
-                        return next;
-                    });
-                    // Compare the exact scoped response before normalization adds local fields.
-                    const fingerprint = JSON.stringify(enriched);
-                    entry.loadedAt = Date.now();
-                    if (fingerprint === entry.fingerprint) return;
-                    entry.fingerprint = fingerprint;
-                    entry.rows = formatFetchedRows(enriched, 'ph_master_inventory').map(row => buildSearchIndex(normalizeRowPhotoFields(row)));
-                    if (typeof rememberInventoryLocationPhotoRows === 'function') rememberInventoryLocationPhotoRows(entry.rows, owner);
-                    entry.index = window.AgMetricQueueInventory?.createIndex(entry.rows);
-                    queueCardInventoryRenderVersion += 1;
-                    markViewDirty('request');
-                    if (isViewVisible('request')) scheduleHydratedViewRender('request');
-                    if (isViewVisible('detail') && activeDetailSourceView === 'request'
-                        && getRequestItemCodeOptionItemCode(activeItem) === itemCode) {
-                        renderSavedPhotos();
-                        renderRequestDetailInfo(activeItem,'request');
-                        if (!document.activeElement?.closest('#view-detail input,#view-detail textarea')) populateDetailInputsForPrefix('req-',activeItem);
-                        const state = ensureRequestItemCodeOptionState(activeItem);
-                        state.rows = entry.rows; state.rowsRevision += 1; state.cachedSignature = '';
-                        renderRequestMatchingInventoryOptions(activeItem, 'request', { skipLoad: true });
-                    }
-                }).catch(error => { entry.loadedAt = Date.now() - 115000; console.warn('Suspend item hydration deferred', error); })
-                    .finally(() => { entry.promise = null; });
-            });
-        }
-
         function scheduleStaleRequestOptionMetricRefresh(item = activeItem, state = requestItemCodeOptionState, revision = '') {
             const safeRevision = String(revision || '').trim();
             const owner = getSupabaseReadIdentityScope();
@@ -112763,7 +112669,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
         function refreshRuntimeWatchdogBadge(force = false) { return runtimeWatchdogPanel.refreshBadge(force); }
         function refreshRuntimeWatchdogPanel() { return runtimeWatchdogPanel.refreshPanel(); }
         function copyRuntimeWatchdogFixBrief() { return runtimeWatchdogPanel.copyFixBrief(); }
-        /* @runtime-fragment assets/bloomscapes-farm-identity.js */ /* @runtime-fragment assets/master-snapshot-preparation.js */ /* @runtime-fragment assets/bloomscapes-farm-cache.js *//* @runtime-fragment assets/inventory-access-snapshot.js */ /* @runtime-fragment assets/bloomscapes-farm-publication.js */ /* @runtime-fragment assets/bloomscapes-farm-snapshot.js */ /* @runtime-fragment assets/drive-plant-filter-state.js */ /* @runtime-fragment assets/bloomscapes-farm-state.js */ /* @runtime-fragment assets/bloomscapes-farm-read.js */ /* @runtime-fragment assets/bloomscapes-transfer-order.js */
+        /* @runtime-fragment assets/bloomscapes-farm-identity.js */ /* @runtime-fragment assets/master-snapshot-preparation.js */ /* @runtime-fragment assets/bloomscapes-farm-cache.js *//* @runtime-fragment assets/inventory-access-snapshot.js */ /* @runtime-fragment assets/bloomscapes-farm-publication.js */ /* @runtime-fragment assets/bloomscapes-farm-snapshot.js */ /* @runtime-fragment assets/drive-plant-filter-state.js */ /* @runtime-fragment assets/bloomscapes-farm-state.js */  /* @runtime-fragment assets/bloomscapes-transfer-order.js */
 /* @runtime-fragment assets/bloomscapes-transfer-submit.js */
 /* @runtime-fragment assets/bloomscapes-transfer-filters.js */ /* @runtime-fragment assets/bloomscapes-transfer-builder.js */
 /* @runtime-fragment assets/bloomscapes-history.js */
@@ -115892,27 +115798,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return row;
         }
 
-        function buildDockSuspendDcRequestCardDataHtml(item = null) {
-            if (!item || !isDockSuspendDcRequestMirrorRow(item)) return '';
-            const sourceRow = findDockSuspendDcRequestSourceRow(item) || item;
-            syncDockSuspendDcRequestPhotoAliases(item, sourceRow);
-            const values = getDockSuspendDcRequestCompletionValues(item, sourceRow);
-            const spec = String(firstNonEmptyValue(values.spec, getItemDisplayValue(item, 'SPEC', 'request'), sourceRow && sourceRow.DOCK_SPEC, sourceRow && sourceRow.dock_spec, '') || '').trim();
-            const caliper = String(firstNonEmptyValue(values.caliper, getItemDisplayValue(item, 'CALIPER', 'request'), sourceRow && sourceRow.DOCK_CALIPER, sourceRow && sourceRow.dock_caliper, '') || '').trim();
-            const avNote = String(firstNonEmptyValue(values.avNote, getItemDisplayValue(item, 'AV_NOTE', 'request'), item.AV_NOTE, item.av_note, sourceRow && sourceRow.AV_NOTE, sourceRow && sourceRow.av_note, '') || '').trim();
-            const dockNote = String(firstNonEmptyValue(item.DOCK_NOTE, item.dock_note, sourceRow && sourceRow.DOCK_NOTE, sourceRow && sourceRow.dock_note, item.DOCK_ISSUE_NOTE, item.dock_issue_note, sourceRow && sourceRow.DOCK_ISSUE_NOTE, sourceRow && sourceRow.dock_issue_note, '') || '').trim();
-            const pickNote = String(firstNonEmptyValue(item.REQ_PICK, item.req_pick, item.REQ_PIC_NOTE, item.req_pic_note, item.PIC_NOTE, item.pic_note, sourceRow && sourceRow.REQ_PICK, sourceRow && sourceRow.req_pick, sourceRow && sourceRow.PIC_NOTE, sourceRow && sourceRow.pic_note, '') || '').trim();
-            const chips = [
-                spec ? `<span class="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-slate-600">SPEC: <span class="text-slate-900">${escapeQueueNoteText(spec)}</span></span>` : '',
-                caliper ? `<span class="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-slate-600">CALIPER: <span class="text-slate-900">${escapeQueueNoteText(caliper)}</span></span>` : ''
-            ].filter(Boolean).join('');
-            const chipsHtml = chips ? `<div class="app-suspend-tag-data-chips mt-2 flex flex-wrap gap-1.5 text-[10px] font-black uppercase tracking-[0.08em]">${chips}</div>` : '';
-            const dockNoteHtml = dockNote ? `<div class="app-suspend-tag-data-note mt-2 rounded border border-sky-200 bg-sky-50 p-2 text-[12px] font-semibold text-sky-800 shadow-sm whitespace-pre-wrap"><span class="font-black">DOCK NOTE:</span> ${escapeQueueNoteText(dockNote)}</div>` : '';
-            const pickNoteHtml = pickNote ? `<div class="app-suspend-tag-data-note mt-2 rounded border border-emerald-200 bg-emerald-50 p-2 text-[12px] font-semibold text-emerald-800 shadow-sm whitespace-pre-wrap"><span class="font-black">PICK NOTE:</span> ${escapeQueueNoteText(pickNote)}</div>` : '';
-            const avNoteHtml = avNote ? `<div class="app-suspend-tag-data-note mt-2 rounded border border-blue-200 bg-blue-50 p-2 text-[12px] font-semibold text-blue-800 shadow-sm whitespace-pre-wrap"><span class="font-black">AV NOTE:</span> ${escapeQueueNoteText(avNote)}</div>` : '';
-            return chipsHtml || dockNoteHtml || pickNoteHtml || avNoteHtml ? `${chipsHtml}${dockNoteHtml}${pickNoteHtml}${avNoteHtml}` : '';
-        }
-
+        // The ordered Drive, Suspend and Docks renderers share this card grid.
         function buildSharedInventoryCardLayout(item, options = {}) {
             const photo = options.photoHtml || '';
             const actions = options.actionsHtml || '';
@@ -135498,18 +135384,7 @@ ${folderNote ? `Folder Note: ${folderNote}
 
         function applySuspendCandidateRows(rows, options = {}) {
             if (!Array.isArray(rows) || !rows.length) return;
-            rows.forEach(row => {
-                const local = Object.fromEntries(Object.entries(row).map(([key, value]) => [key.toUpperCase(), value]));
-                Object.assign(local, row);
-                for (const target of [socInventory, socRawSourceRows, suspendTagInventory, suspendTagRawSourceRows]) {
-                    const replaced = String(row.suspend_candidate_state || '') === 'replaced' || !!(row.date_completed && !row.suspend) || row.suspend_completed === true;
-                    local.SUSPEND_COMPLETED = local.suspend_completed = replaced;
-                    if (replaced && (target === suspendTagInventory || target === suspendTagRawSourceRows)) {
-                        const index = target.findIndex(value => String(value.UNIQUE_ID || value.unique_id || '') === String(row.unique_id));
-                        if (index >= 0) target.splice(index, 1);
-                    } else upsertRealtimeRow(target, { ...local }, 'ph_soc_master');
-                }
-            });
+            rows.forEach(applySuspendCandidateSourceRow);
             refreshRealtimeDetailLookupIndexes('ph_soc_master');
             invalidateDockSuspendDcSourceRowLookup();
             requestScopedItemsCacheKey = '';
@@ -135762,29 +135637,26 @@ ${folderNote ? `Folder Note: ${folderNote}
             return false;
         }
 
-        let suspendTagCardActionDelegationBound = false;
-        function initializeSuspendTagCardActionDelegation() {
-            if (suspendTagCardActionDelegationBound || typeof document === 'undefined') return;
-            suspendTagCardActionDelegationBound = true;
-            document.addEventListener('click', function(event) {
-                const target = event && event.target;
-                const button = target && typeof target.closest === 'function'
-                    ? target.closest('#request-content .app-suspend-tag-actions .app-suspend-tag-action[data-action]')
-                    : null;
-                if (!button) return;
-                event.preventDefault();
-                event.stopPropagation();
-                if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
-                if (button.disabled || button.getAttribute('aria-disabled') === 'true') return;
-                const uniqueId = button.getAttribute('data-unique-id') || '';
-                const action = button.getAttribute('data-action') || '';
-                if (!uniqueId) return;
-                if (action === 'email-tag') emailSuspendTagFromCard(uniqueId, button);
-                else if (action === 'complete-tag') closeDockSuspendDcRequestFromCard(uniqueId, button);
-                else if (action === 'remove-location') changeSuspendPullLocation(uniqueId, '', 'remove_location');
-                else if (action === 'final-location') { const tag=findDockSuspendDcRequestMirrorRowByUniqueId(uniqueId); const rows=tag && getRequestItemCodeOptionRows(tag).filter(row=>String(row.LOCATIONCODE || row.locationcode)===String(tag.LOCATIONCODE || tag.locationcode) && String(row.LOTCODE || row.lotcode || '')===String(tag.LOTCODE || tag.lotcode || '')); if (rows?.length===1) void changeSuspendPullLocation(uniqueId,getRequestItemCodeOptionMasterId(rows[0]),'replace_location'); else openSuspendPullPicker(uniqueId); }
-                else if (action === 'fill-tag') openSuspendPullPicker(uniqueId);
-            }, true);
+        initializeSuspendTagCardActionDelegation(dispatchSuspendTagCardAction);
+        function dispatchSuspendTagCardAction(event) {
+            const target = event && event.target;
+            const button = target && typeof target.closest === 'function'
+                ? target.closest('#request-content .app-suspend-tag-actions .app-suspend-tag-action[data-action]')
+                : null;
+            if (!button) return;
+            event.preventDefault();
+            event.stopPropagation();
+            if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+            if (button.disabled || button.getAttribute('aria-disabled') === 'true') return;
+            const uniqueId = button.getAttribute('data-unique-id') || '';
+            const action = button.getAttribute('data-action') || '';
+            if (!uniqueId) return;
+            if (action === 'email-tag') emailSuspendTagFromCard(uniqueId, button);
+            if (action === 'complete-tag') closeDockSuspendDcRequestFromCard(uniqueId, button);
+            if (action === 'remove-location') changeSuspendPullLocation(uniqueId, '', 'remove_location');
+            if (action === 'final-location') selectSuspendFulfillmentLocation(uniqueId);
+            if (action === 'sub-itemcode') openSuspendFulfillmentPicker(findDockSuspendDcRequestMirrorRowByUniqueId(uniqueId), {sub:true});
+            if (action === 'fill-tag') openSuspendPullPicker(uniqueId);
         }
 
         function setSuspendTagCardActionsBusy(uniqueId = '', expectedScope = '', busy = false) {
@@ -136110,6 +135982,7 @@ ${folderNote ? `Folder Note: ${folderNote}
             const scope = getSupabaseReadIdentityScope();
             const actionKey = scope + '|' + getDockSuspendDcRequestSourceUid(row);
             const navigation = canUseProductionLiveSync() ? productionLiveSyncNavigation.signal : null;
+            if (typeof getBloomscapesFarm === 'function' && getBloomscapesFarm() === '10-PH') return openSuspendFulfillmentDialog(row);
             if (suspendTagCompletionActions.has(actionKey)) return false;
             suspendTagCompletionActions.add(actionKey);
             setSuspendTagCardActionsBusy(uniqueId, scope, true);
