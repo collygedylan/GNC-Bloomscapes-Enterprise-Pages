@@ -90,3 +90,35 @@
         text-align: left;
     }
 }
+
+#view-time-cards .timecard-controls + .timecard-controls,
+#view-time-cards .timecard-crew-member > button {
+    margin-top: .45rem;
+}
+#view-time-cards .timecard-crew-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+    gap: .45rem;
+    margin-block: .45rem .75rem;
+}
+#view-time-cards .timecard-crew-member {
+    margin: 0;
+}
+#view-time-cards .timecard-period-table {
+    max-width: 100%;
+    overflow-x: auto;
+}
+#view-time-cards .timecard-period-table table {
+    width: 100%;
+    border-collapse: collapse;
+}
+#view-time-cards .timecard-period-table th,
+#view-time-cards .timecard-period-table td {
+    padding: .35rem;
+    border-bottom: 1px solid color-mix(in srgb, currentColor 16%, transparent);
+    text-align: start;
+    vertical-align: top;
+}
+#view-time-cards .timecard-period-table th[scope="row"] {
+    min-width: 8rem;
+}

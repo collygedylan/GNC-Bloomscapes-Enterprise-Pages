@@ -196,6 +196,7 @@ function exportSmartMoveRows() {
 }
 
 function getAdditionalViewExportCommand(view) {
+    if (view === 'time-cards') return null;
     const scope = view === 'shear-list' ? 'shear' : '';
     if (scope) return () => exportInventoryExcelScope(scope, view);
     const root = document.getElementById('view-' + view);
