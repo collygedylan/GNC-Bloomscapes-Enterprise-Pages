@@ -49,6 +49,10 @@ function connectBatteryRealtime() {
         channel.on('postgres_changes',{event:'*',schema:'public',table:'gnc_10_ph_pull_dock_revision',filter:'warehouse=eq.10-PH'},
             event => deliverPhDockRevision(channel,owner,event.new));
     }
+    if (getBloomscapesFarm() === '10-PH') {
+        channel.on('postgres_changes',{event:'UPDATE',schema:'public',table:'gnc_10_ph_block_water_revision',filter:'warehouse=eq.10-PH'},
+            event => forward('ph-water',event.new));
+    }
     state.channel.subscribe(status => {
         if (status !== 'SUBSCRIBED') return;
         forward('connected',null);

@@ -228,6 +228,7 @@ function syncBloomscapesLegacySubview(view) {
 
 function canDisplayFieldWorkSubview(key) {
     if (key === 'ph-pull-work') return canBuildPhOrderPullWork();
+    if (key === 'water') return typeof phWaterMayOpen === 'function' && phWaterMayOpen();
     return key === 'consolidate' ? canViewFieldWorkConsolidation()
         : allowsBloomscapesAreaSubview(bloomscapesStudioPermission(key));
 }

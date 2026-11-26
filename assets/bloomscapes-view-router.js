@@ -13,6 +13,7 @@ function renderViewContent(viewId, forceReset = false, forceRender = false, sync
     bloomscapesThumbnailView=viewId;
     const state = ensureViewRenderState(viewId);
     const orderPulling = viewId === 'request' && renderOrderPullQueueShell();
+    if (typeof syncPhWaterRefresh === 'function') syncPhWaterRefresh();
     if (!forceReset && !forceRender && state.initialized && !state.dirty) {
         if (changedView && ['messages','push-to-talk'].includes(viewId)) renderBloomscapesMessagesView(viewId);
         renderBloomscapesPhotoAiWorkspace(viewId);

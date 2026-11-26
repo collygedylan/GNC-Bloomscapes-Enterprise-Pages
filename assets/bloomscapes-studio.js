@@ -48,7 +48,7 @@ function phWorkMarkup() {
         +'<div class="flex flex-wrap gap-2 items-end"><label>View<select data-ph-view class="'+phWorkSelectClass+'">'
         +'<option value="pull-tags">Pull Tags & Teams</option><option value="teams">Teams</option></select></label>'
         +'<button type="button" data-ph-action="refresh" class="'+phWorkButtonClass+'">Refresh</button></div>'
-        +'<p data-ph-status role="status"></p><section data-ph-teams></section>'
+        +'<p data-ph-status role="status"></p><output class="ph-water-override" data-ph-wet-paused hidden></output><section data-ph-teams></section>'
         +'<section data-ph-pool class="space-y-3"><div class="flex flex-wrap gap-2 items-end">'
         +'<button type="button" data-ph-action="auto" class="'+phWorkButtonClass+'">Auto-Group Full Buggy (≤ 650 WDU)</button>'
         +'<button type="button" data-ph-action="auto-dispatch" class="'+phWorkButtonClass+'">⚡ Auto-Assign Ready Teams</button>'
@@ -173,6 +173,8 @@ function renderBloomscapesWorkStudio() {
             ? '<button type="button" data-open-module="tree-grading"><strong>Tree Grading</strong></button>' : '')
         +(typeof canBuildPhOrderPullWork==='function' && canBuildPhOrderPullWork()
             ? '<button type="button" data-open-module="ph-pull-work"><strong>Build Work Que</strong></button>' : '')
+        +(typeof phWaterMayOpen==='function' && phWaterMayOpen()
+            ? '<button type="button" data-open-module="water"><strong>💧 Water</strong></button>' : '')
         +'</nav><div data-studio-module></div></section>';
 }
 
@@ -207,15 +209,17 @@ function syncPhBuildWorkVisibility(root = document) {
 async function openBloomscapesStudioModule(menu,panel,key) {
     if (!canUseBloomscapesWorkStudio()) return;
     if (key==='ph-pull-work' && !canBuildPhOrderPullWork()) return;
+    if (key==='water' && !phWaterMayOpen()) return;
     panel.dataset.studioPhase=key;
     menu.hidden=true;
-    const title=key==='tree-grading' ? 'Tree Grading' : key==='ph-pull-work' ? 'Build Work Que'
-        : BLOOMSCAPES_STUDIO_PHASES.find(([id])=>id===key)[1];
+    const titles = {'tree-grading':'Tree Grading','ph-pull-work':'Build Work Que',water:'Water'};
+    const title = titles[key] || BLOOMSCAPES_STUDIO_PHASES.find(([id])=>id===key)[1];
     panel.innerHTML='<header class="studio-breadcrumb"><button type="button" data-module-back>← Work Types</button><h3>'+title+'</h3><span data-module-summary></span></header><div data-module-body></div>';
     const body=panel.querySelector('[data-module-body]');
     panel.querySelector('[data-module-back]').addEventListener('click',()=>{panel.replaceChildren();delete panel.dataset.studioPhase;menu.hidden=false;syncGlobalHeaderChrome({reason:'studio-modules',force:true});});
     if (key==='tree-grading') return mountBloomscapesTreeGrading(body);
     if (key==='ph-pull-work') return mountPhBuildWorkOrderPulling(body);
+    if (key==='water') return mountPhProductionWater(body);
     body.appendChild(document.createElement('div')).dataset.studioExcel='true';
     const browser=body.appendChild(document.createElement('section'));
     browser.dataset.workBrowser='true';

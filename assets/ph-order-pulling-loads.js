@@ -56,6 +56,10 @@ function phPullLoadHeading(entry) {
 
 function paintPhPullStop(card,entry,state,activeScan) {
     if (!card || card.dataset.orderPullTag !== entry.row.pull_tag_id) return;
+    const water = typeof visiblePhWaterStatus === 'function' && visiblePhWaterStatus();
+    if (water && phWaterTagDisposition(entry.row,water) === 'override') {
+        (card.querySelector('.app-drive-card-header') || card).insertAdjacentHTML('beforeend',phWetTagBadgeHtml());
+    }
     if (entry.stop) {
         const label = document.createElement('strong');
         label.className = 'ph-pull-stop';

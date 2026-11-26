@@ -120,30 +120,14 @@ if (!window.GncRuntimeWatchdog) {
     if (path.includes('..')) return '';
     const source = path.match(/(?:^|\/)(assets\/[a-z0-9_./-]+\.(?:m?js)|index\.html)$/i)?.[1];
     if (!source) return '';
-    return source.slice(0, 140) + ':' + Math.min(9999999, Math.max(0, Number(line) || 0)) + ':' + Math.min(99999, Math.max(0, Number(column) || 0));
+    return source.slice(0, 140) + ':' + Math.min(9999999, Math.max(0, Number(line) || 0)) + ':' + Math.min(9999999, Math.max(0, Number(column) || 0));
   }
   function runtimeDiagnostic(details = {}) {
-    const message = String(details.error_message || '').slice(0, 1000);
-    // Keep structural error categories and app source coordinates, never arbitrary message payloads.
-    const allowedNames = /^(?:Error|TypeError|ReferenceError|SyntaxError|RangeError|URIError|EvalError|AggregateError|DOMException|SecurityError|QuotaExceededError|InvalidStateError|NetworkError|TimeoutError)$/;
-    const requestedName = String(details.runtime_error_name || message.match(/^([A-Za-z]+Error):/)?.[1] || 'Error');
-    const name = allowedNames.test(requestedName) ? requestedName : 'Error';
-    const code = /cannot (?:read|set) (?:properties|property) of (?:undefined|null)/i.test(message) ? 'NULL_OR_UNDEFINED_PROPERTY'
-      : /is not defined/i.test(message) ? 'NOT_DEFINED' : /is not a function/i.test(message) ? 'NOT_A_FUNCTION'
-      : /not (?:iterable|an object)/i.test(message) ? 'INVALID_VALUE_TYPE' : /maximum call stack|too much recursion/i.test(message) ? 'STACK_OVERFLOW'
-      : /unexpected (?:token|identifier|end)/i.test(message) ? 'SYNTAX_FAILURE' : /script error/i.test(message) ? 'SCRIPT_ERROR' : 'UNHANDLED_ERROR';
-    let source = runtimeSource(details.runtime_source, details.runtime_line, details.runtime_column);
-    if (!source) for (const line of String(details.runtime_stack || '').slice(0, 3000).split('\n').slice(0, 8)) {
-      const match = line.match(/((?:https?:\/\/|\/|assets\/)[^\s)]+):(\d+):(\d+)/);
-      if (match && (source = runtimeSource(match[1], match[2], match[3]))) break;
-    }
-    return { error_message:name + ': ' + code + (source ? ' @ ' + source : ''), suspected_functions:source ? [source] : [] };
+    return global.GncWatchdogLocalDiagnostics.runtimeWatchdogDiagnostic(details,runtimeSource);
   }
   function sanitizeQueuedRuntimeEvent(event) {
     if (!RUNTIME_ERROR_TYPES.has(event.event_type)) return event;
-    const safe = /^(?:Error|TypeError|ReferenceError|SyntaxError|RangeError|URIError|EvalError|AggregateError|DOMException|SecurityError|QuotaExceededError|InvalidStateError|NetworkError|TimeoutError): (?:NULL_OR_UNDEFINED_PROPERTY|NOT_DEFINED|NOT_A_FUNCTION|INVALID_VALUE_TYPE|STACK_OVERFLOW|SYNTAX_FAILURE|SCRIPT_ERROR|UNHANDLED_ERROR)(?: @ (?:assets\/[a-z0-9_./-]+\.(?:m?js)|index\.html):\d{1,7}:\d{1,5})?$/i;
-    const diagnostic = safe.test(String(event.error_message || '')) ? {error_message:event.error_message,
-      suspected_functions:event.error_message.includes(' @ ') ? [event.error_message.split(' @ ')[1]] : []} : runtimeDiagnostic(event);
+    const diagnostic = global.GncWatchdogLocalDiagnostics.restoreWatchdogDiagnostic(event) ?? runtimeDiagnostic(event);
     const sanitized = {...event, ...diagnostic};
     sanitized.fingerprint = fingerprint(sanitized);
     return sanitized;

@@ -15,7 +15,8 @@ function phWorkDraft(team) {
 }
 
 function phWorkVisibleRows(state) {
-    return state.snapshot.rows.filter(row => (!state.priority || phPullDockLabel(row.dock_status) === state.priority)
+    const rows = typeof phWorkDryRows === 'function' ? phWorkDryRows(state) : state.snapshot.rows;
+    return rows.filter(row => (!state.priority || phPullDockLabel(row.dock_status) === state.priority)
         && matchesBloomscapesModuleSearch(state.search.value,
         [row.common_name,row.container_size,row.itemcode,row.locationcode,row.lotcode,row.dock,row.stopnumber]))
         .sort((a,b) => Number(phPullDockLabel(b.dock_status) === 'Live Driver')-Number(phPullDockLabel(a.dock_status) === 'Live Driver'));
@@ -230,6 +231,7 @@ function mountPhBuildWorkOrderPulling(host) {
         dockChanges:new Map(),dockRevision:0,snapshot:{rows:[],teams:[],units:[],pullers:[]},search:root.querySelector('[data-ph-work-search]'),
         status:root.querySelector('[data-ph-status]'),priority:'',priorityToolbar:phWorkPriorityToolbar(root)};
     mountPhSignTools(state);
+    if (typeof watchPhWorkWater === 'function') watchPhWorkWater(state);
     phObserveWorkDock(state,phWorkScopeIsCurrent,current => paintPhWorkRows(current,phWorkVisibleRows(current)),refreshPhWorkAfterDockCommit);
     root.addEventListener('click',event => dispatchPhWorkClick(state,event));
     root.addEventListener('change',event => changePhWorkInput(state,event.target));

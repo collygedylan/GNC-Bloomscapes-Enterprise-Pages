@@ -163,9 +163,6 @@ function buildSuspendTagRenderPlan(items) {
         text: new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' }).compare,
         location: new Intl.Collator(undefined, { numeric: true }).compare
     };
-    // Resolve the source lookup revision once for this render. Filter
-    // option and sort helpers share the authorized point-lookup map
-    // instead of re-reading session identity for every row.
     const sourceRows = getDockSuspendDcSourceRows();
     const latestSourceFreshness = typeof getCurrentSuspendTagSourceFreshness === 'function'
         ? getCurrentSuspendTagSourceFreshness() : null;
@@ -178,15 +175,14 @@ function buildSuspendTagRenderPlan(items) {
     const latestSourceIds = new Set(latestSourceRows.map((row) => getDockSuspendDcRequestSourceUid(row)).filter(Boolean));
     const sourceLookupRevision = getDockSuspendDcSourceRowLookupRevision(sourceRows);
     const sourceLookup = getDockSuspendDcSourceRowLookup(sourceRows, sourceLookupRevision);
-    // Sorting is independent of status and filters. Cache only the
-    // ordered source candidates; evaluate completion and permissions on
-    // every render so optimistic Done state and reopening stay current.
     const currentFileItems = typeof getLatestSocSuspendTagSourceRows === 'function'
         ? uniquePhysicalSuspendTags((Array.isArray(items) ? items : []).filter((row) =>
             isDockSuspendDcRequestMirrorRow(row) && latestSourceIds.has(getDockSuspendDcRequestSourceUid(row))))
         : items;
     const sortedSourceRows = getSortedSuspendTagSourceRows(currentFileItems, collators, sourceLookup, sourceLookupRevision);
-    const allItems = getSuspendTagRequestItems(sortedSourceRows, requestSuspendTagStatusFilter);
+    const water = typeof phSuspendWaterStatus === 'function' && phSuspendWaterStatus();
+    const queueItems = getSuspendTagRequestItems(sortedSourceRows, requestSuspendTagStatusFilter);
+    const allItems = water ? queueItems.filter(row => !isTagHiddenByActiveWater(row,water)) : queueItems;
     const searchItems = applyRequestSuspendTagCommonNameSearchFilter(allItems);
     const assignedItems = suspendQueueRowsForOwner(searchItems, requestSuspendTagStatusFilter === 'active' ? allItems : []);
     const contSizeItems = applyRequestSuspendTagContSizeFilter(assignedItems, sourceLookup);
@@ -206,7 +202,8 @@ function buildSuspendTagRenderPlan(items) {
     const sortedItems = requestSuspendTagStatusFilter === 'active' ? sortBloomscapesUrgentSuspendTags(filteredItems) : filteredItems;
     const plan = buildRequestPagedRenderPlan(mode,'Suspend Tag',sortedItems);
     return { ...plan, allItems, searchItems, assignedItems, contSizeItems, sourceLookup,
-        renderSignature: buildSuspendTagPlanSignature(plan, latestSourceRows, sourceLookupRevision) + ':' + bloomscapesDockBoardRevision() };
+        renderSignature: buildSuspendTagPlanSignature(plan, latestSourceRows, sourceLookupRevision)
+            + ':' + bloomscapesDockBoardRevision() + ':' + (water?.version ?? 0) };
 }
 
 const bloomscapesJobFacets = new Map();

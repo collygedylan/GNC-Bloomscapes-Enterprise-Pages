@@ -63,9 +63,12 @@ function resolveSuspendTagPageRowRenderer(state, cardContainer, plan, runtime) {
 
 function createSuspendTagPageRowRenderer(cardContainer, plan, runtime) {
   const state = { render: null };
+  const water = typeof phSuspendWaterStatus === 'function' && phSuspendWaterStatus();
   return (item, index) => {
     runtime.getQueueCardInventoryState?.(item, 'request');
-    return resolveSuspendTagPageRowRenderer(state, cardContainer, plan, runtime)(item, index);
+    const markup = resolveSuspendTagPageRowRenderer(state, cardContainer, plan, runtime)(item, index);
+    return water && phWaterTagDisposition(item,water) === 'override' && typeof markup === 'string'
+      ? markup.replace('</article>',phWetTagBadgeHtml()+'</article>') : markup;
   };
 }
 

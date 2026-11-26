@@ -206,3 +206,43 @@ html body.current-view-production #app-wrapper #view-wrapper:has(#view-productio
 ph-location-bay { font-size: .75rem; font-weight: 700; align-self: center; }
 ph-location-bay form { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; }
 ph-location-bay input { width: 6rem; }
+
+[data-ph-water] {
+    color: #ecfdf5;
+    background: linear-gradient(145deg,#103220,#081c12);
+    border-radius: .6rem;
+    padding: .3rem .45rem .6rem;
+}
+[data-ph-water-bar] { display: grid; grid-template-columns: .92fr 1.35fr .82fr .95fr; gap: .2rem; height: 38px; }
+[data-ph-water] button, [data-ph-water] input, [data-ph-water] select {
+    color: inherit;
+    background: #123a2a;
+    border: 1px solid #3b8460;
+    border-radius: .35rem;
+    padding: .25rem .45rem;
+}
+[data-ph-water-bar] button { white-space: nowrap; font-size: clamp(.625rem,2.6vw,.875rem); padding: .15rem; }
+[data-ph-water] button[aria-pressed=true] { background: #9ae6b4; color: #081c12; font-weight: 750; }
+[data-ph-water] button:disabled { opacity: .55; }
+[data-ph-water] :is(input,button,select):focus-visible { outline: 2px solid #a7f3d0; outline-offset: 2px; }
+[data-ph-water-request]:not([hidden]) { display: grid; gap: .35rem; margin-top: .3rem; max-width: 35rem; }
+[data-ph-water] label { font-weight: 650; }
+[data-ph-water] label:not([hidden]) { display: flex; align-items: center; gap: .35rem; }
+[data-ph-water] input { min-width: 0; flex: 1; }
+[data-ph-water] output { min-height: 1.2em; font-weight: 700; }
+.ph-water-durations { display: flex; flex-wrap: wrap; gap: .25rem; }
+.ph-water-search:not([hidden]) { position: absolute; right: .45rem; top: .35rem; width: min(34%,12rem); }
+[data-studio-phase="water"] .studio-breadcrumb { display: none; }
+#app-wrapper #view-production:has([data-studio-phase="water"]) [data-module-subview-rail],
+#app-wrapper #view-production:has([data-studio-phase="water"]) > .fixed-filter-spacer,
+html body.current-view-production #app-wrapper #view-wrapper:has(> #view-production [data-studio-phase="water"])
+    > #studio-production-schedule:not([hidden]) {
+    display: none !important;
+}
+[data-ph-water-card] { display: grid; gap: .2rem; border: 1px solid #397a57; padding: .35rem .5rem; border-radius: .4rem; margin-top: .2rem; }
+[data-ph-water-card] h4, [data-ph-water-card] p, [data-ph-water-status] { margin: 0; }
+[data-ph-water-card] button { justify-self: start; }
+.ph-water-override, .ph-water-time-up { color: #fcd34d; background: #412d13; padding: .15rem .35rem; border-radius: .25rem; font-size: .72rem; }
+.ph-water-time-up { animation: ph-water-reminder 1s ease-in-out infinite alternate; }
+@keyframes ph-water-reminder { to { color: #fff6d3; background: #74501d; } }
+@media (prefers-reduced-motion: reduce) { .ph-water-time-up { animation: none; } }

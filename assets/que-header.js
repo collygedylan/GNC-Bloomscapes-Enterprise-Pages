@@ -50,6 +50,7 @@ function getRequestHeaderSearchValue(mode) {
 }
 
 function syncRequestHeaderSearchChrome(options = {}) {
+    if (typeof syncPhWaterRefresh === 'function') syncPhWaterRefresh();
     syncQueHeaderLayout();
     const mode = getRequestHeaderSearchMode();
     const previousMode = lastRequestHeaderSearchMode;

@@ -158,9 +158,11 @@ function orderPullEligible(profile, access, farm, preview) {
         || phPullSupervisorAllowed(profile,farm,preview));
 }
 
-function orderPullRows(receipt, mode, query) {
+function orderPullRows(receipt, mode, query, honorWater = true) {
     const terms = String(query || '').trim().toLowerCase().split(/\s+/);
+    const water = honorWater && typeof visiblePhWaterStatus === 'function' && visiblePhWaterStatus();
     return (receipt?.rows || []).filter(row => {
+        if (water && isTagHiddenByActiveWater(row,water)) return false;
         if (mode === 'buggy' && (!receipt.buggy || row.buggy_id !== receipt.buggy.buggy_id)) return false;
         const search = [row.common_name,row.itemcode,row.container_size,row.locationcode,row.lotcode,row.dock,
             row.stopnumber,row.tripnumber,row.dock_status,row.consignee].join(' ').toLowerCase();
@@ -171,7 +173,7 @@ function orderPullRows(receipt, mode, query) {
 function orderPullUnloadStops(receipt) {
     if (receipt?.buggy?.status !== 'ready_to_unload') return [];
     const stops = new Map();
-    for (const row of orderPullRows(receipt,'buggy','')) {
+    for (const row of orderPullRows(receipt,'buggy','',false)) {
         if (row.pull_status !== 'on_buggy') continue;
         const key = JSON.stringify([row.dock,row.stopnumber]);
         stops.set(key,{dock:row.dock,stopnumber:row.stopnumber,buggy_id:receipt.buggy.buggy_id});
