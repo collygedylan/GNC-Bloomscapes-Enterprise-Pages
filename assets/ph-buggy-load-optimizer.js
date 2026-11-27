@@ -71,8 +71,8 @@ function phMarginalPickCost(seed,candidate) {
     return detour+transfer+handling;
 }
 
-function phSeedLoad(seed,candidates) {
-    const choices = candidates.filter(item => item !== seed).map(item => ({
+function phRankLoadChoices(seed,candidates) {
+    const choices = candidates.map(item => ({
         item,cost:phMarginalPickCost(seed,item),sameBlock:item.node === seed.node,
         paired:phSharedBlockPair(seed.node,item.node),sameSpine:item.node.spine_group === seed.node.spine_group
     }));
@@ -80,11 +80,26 @@ function phSeedLoad(seed,candidates) {
         || Number(b.paired)-Number(a.paired) || Number(b.item.zone === seed.zone)-Number(a.item.zone === seed.zone)
         || a.cost-b.cost || Number(b.sameSpine)-Number(a.sameSpine) || b.item.wdu-a.item.wdu
         || String(a.item.row.pull_tag_id).localeCompare(String(b.item.row.pull_tag_id)));
-    const ordered = [seed.row,...choices.map(choice => choice.item.row)];
-    const selected = phPullGroupBatch(ordered);
-    const batch = ordered.filter(row => selected.has(row.pull_tag_id));
-    const used = batch.reduce((sum,row) => sum+phPullTagWdu(row),0);
-    return {batch,remaining:PH_PULL_CAP*1e12-used};
+    return choices.map(choice => choice.item);
+}
+
+function phSeedLoad(seed,pool) {
+    const key = seed.node.code+'|'+seed.zone;
+    if (!pool.ordered.has(key)) pool.ordered.set(key,phRankLoadChoices(seed,pool.items));
+    const batch = [seed.row];
+    let remaining = PH_PULL_CAP*1e12-seed.wdu;
+    for (const item of pool.ordered.get(key)) {
+        if (!remaining) break;
+        if (item === seed || item.wdu > remaining || !pool.active.has(item)) continue;
+        batch.push(item.row);
+        remaining -= item.wdu;
+    }
+    return {batch,remaining};
+}
+
+function phLoadCandidatePool(rows) {
+    const items = phCandidateTags(rows);
+    return {items,active:new Set(items),ordered:new Map()};
 }
 
 function phPreferLoad(load,best) {
@@ -92,18 +107,18 @@ function phPreferLoad(load,best) {
     return load.fuelGal < best.fuelGal || load.fuelGal === best.fuelGal && load.totalCycleMin < best.totalCycleMin;
 }
 
-function phPackBuggyLoad(rows,options = {}) {
-    const candidates = phCandidateTags(rows);
-    const priority = candidates.reduce((minimum,item) => Math.min(minimum,item.rank),Infinity);
+function phPackCandidatePool(pool,options) {
+    let priority = Infinity;
+    for (const item of pool.active) priority = Math.min(priority,item.rank);
     const seenSeeds = new Set();
     const seenBatches = new Set();
     let best = null;
-    for (const seed of candidates) {
+    for (const seed of pool.active) {
         if (seed.rank !== priority) continue;
         const seedKey = [seed.node.code,seed.zone,seed.row.dock,seed.row.stopnumber,seed.wdu].join('|');
         if (seenSeeds.has(seedKey)) continue;
         seenSeeds.add(seedKey);
-        const {batch,remaining} = phSeedLoad(seed,candidates);
+        const {batch,remaining} = phSeedLoad(seed,pool);
         if (best && PH_PULL_CAP*1e12-remaining < Math.round(best.totalWdu*1e12)) continue;
         const key = JSON.stringify(batch.map(row => row.pull_tag_id).sort());
         if (seenBatches.has(key)) continue;
@@ -112,6 +127,15 @@ function phPackBuggyLoad(rows,options = {}) {
         if (load && phPreferLoad(load,best)) best = load;
     }
     return best;
+}
+
+/**
+ * @param {Array<object>} rows Available pull tags.
+ * @param {object} [options] Crew and route origin used for estimates.
+ * @returns {object|null} Highest ranked eligible load within 650 WDU.
+ */
+function phPackBuggyLoad(rows,options = {}) {
+    return phPackCandidatePool(phLoadCandidatePool(rows),options);
 }
 
 function phReadyCrews(snapshot) {
@@ -139,14 +163,14 @@ function phTeamWorkload(team) {
     return {team,minutes,wdu};
 }
 
-function phNextTeamPlan(crews,rows) {
+function phNextTeamPlan(crews,pool) {
     const estimates = new Map();
     let best = null;
     for (const crew of crews) {
         const hasPartner = Boolean(crew.team.puller_helper);
         const origin = crew.team.previous_dock_zone;
         const key = JSON.stringify([origin ?? null,hasPartner]);
-        if (!estimates.has(key)) estimates.set(key,phPackBuggyLoad(rows,{origin,hasPartner}));
+        if (!estimates.has(key)) estimates.set(key,phPackCandidatePool(pool,{origin,hasPartner}));
         const load = estimates.get(key);
         if (!load) continue;
         const minutes = crew.minutes+load.totalCycleMin;
@@ -158,19 +182,23 @@ function phNextTeamPlan(crews,rows) {
     return best;
 }
 
+/**
+ * @param {object} snapshot Farm, pull tags, teams, pullers and available units.
+ * @returns {Array<object>} Ordered team assignments and estimated loads.
+ */
 function phPlanReadyTeams(snapshot) {
     if (snapshot.warehouse !== '10-PH') return [];
     const crews = new Set(phReadyCrews(snapshot).map(phTeamWorkload));
     const plan = [];
-    let rows = snapshot.rows;
-    while (crews.size && rows.length) {
-        const next = phNextTeamPlan(crews,rows);
+    const pool = phLoadCandidatePool(snapshot.rows);
+    const byId = new Map(pool.items.map(item => [item.row.pull_tag_id,item]));
+    while (crews.size && pool.active.size) {
+        const next = phNextTeamPlan(crews,pool);
         if (!next) break;
         const {crew,load} = next;
         crews.delete(crew);
         plan.push({team:crew.team,load});
-        const used = new Set(load.rows.map(row => row.pull_tag_id));
-        rows = rows.filter(row => !used.has(row.pull_tag_id));
+        for (const row of load.rows) pool.active.delete(byId.get(row.pull_tag_id));
     }
     return plan;
 }

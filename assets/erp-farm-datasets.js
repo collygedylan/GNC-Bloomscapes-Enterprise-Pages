@@ -1,5 +1,9 @@
 const ERP_PO_READ_COLUMNS = 'id,warehouse_id,record_kind,origin_farm,po_number,itemcode,contsize,ordered_qty,received_qty,remaining_po_qty,needed_on,payload';
 
+/**
+ * @param {string} farm
+ * @returns {Array} Source contract definitions for this farm.
+ */
 function getErpFarmReadContracts(farm) {
     if (!['10-PH','60-HL','20-TX','40-NC'].includes(farm)) throw new Error('Unknown ERP farm.');
     return [
@@ -13,6 +17,14 @@ function getErpFarmReadContracts(farm) {
     ];
 }
 
+/**
+ * @param {string} table
+ * @param {string} column
+ * @param {string} order
+ * @param {string} farm
+ * @param {number} offset
+ * @returns {string} Scoped and ordered PostgREST query string.
+ */
 function erpFarmReadQuery(table,column,order,farm,offset) {
     const allowed=getErpFarmReadContracts(farm).some(row=>row[1]===table && row[2]===column && row[3]===order);
     if (!allowed) throw new Error('Unknown farm dataset.');

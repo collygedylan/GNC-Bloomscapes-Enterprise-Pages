@@ -1,3 +1,9 @@
+/**
+ * @param {object} item
+ * @param {number|string} year
+ * @param {AbortSignal} signal
+ * @returns {Promise<object>} Scoped consolidation suggestions, effective capacity and available locations.
+ */
 async function readFieldWorkConsolidation(item,year,signal) {
     if (!canViewFieldWorkConsolidation()) throw new Error('Field Work Consolidation access is required.');
     const owner = getSupabaseReadIdentityScope();
@@ -33,23 +39,4 @@ async function readConsolidationCapacityResource(path,body,headers,signal) {
     const response = await sendPassiveNativeRead(send,headers,signal);
     if (!response.ok) throw new Error('Live bed capacity is unavailable ('+response.status+').');
     return response.json();
-}
-async function readFieldWorkConsolidationInventory(signal) {
-    const rows = [];
-    const owner = getSupabaseReadIdentityScope();
-    const select = 'unique_id,itemcode,commonname,contsize,saleyear,season,lotcode,source,locationcode,ptronhand';
-    const pageSize = 1000;
-    let expected;
-    for (let offset=0;offset<25000;offset+=pageSize) {
-        if (signal.aborted || owner!==getSupabaseReadIdentityScope() || !canViewFieldWorkConsolidation()) break;
-        const query = new URLSearchParams({select,order:'unique_id.asc',limit:String(pageSize),offset:String(offset)});
-        const page = await fetchDirectPostgrestReadPage('ph_master_inventory',query.toString(),{count:offset===0,signal},false);
-        if (!page || page.authSource!=='native') break;
-        if (offset===0) expected = page.total;
-        rows.push(...page.rows);
-        if (owner!==getSupabaseReadIdentityScope() || !canViewFieldWorkConsolidation()) break;
-        if (rows.length===expected) return rows;
-        if (page.rows.length<pageSize || rows.length>expected) break;
-    }
-    throw new Error('Complete live inventory could not be confirmed.');
 }

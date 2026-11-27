@@ -1,4 +1,5 @@
 const bloomscapesRadioCaptures=new Set(),bloomscapesRadioFinalizing=new Set();
+/** @returns {boolean} Whether an active transmission or volatile draft blocks reload. */
 function getBloomscapesRadioUpdateBlocker() {
     return bloomscapesRadioCaptures.size>0 || bloomscapesRadioFinalizing.size>0 || hasVolatileBloomscapesRadioDrafts()
         || typeof bloomscapesCommState!=='undefined' && bloomscapesCommState.cacheFailed===true;
@@ -31,6 +32,10 @@ async function commitBloomscapesRecording(state,recording) {
 function ownsRadioCapture(state,generation,farm) {
     return state.speaking && !state.closed && state.captureGeneration===generation && getBloomscapesFarm()===farm;
 }
+/**
+ * @param {object} state
+ * @returns {Promise<void>} Attaches capture to the current peers and records the clip.
+ */
 async function beginBloomscapesTransmission(state) {
     if (state.speaking || state.closed) return;
     assertBloomscapesRadioDraftCapacity();
@@ -73,6 +78,10 @@ function startBloomscapesRadioRecorder(state,stream,farm) {
     bloomscapesRadioFinalizing.add(recording.id);
     state.speechDeadline=setTimeout(()=>endBloomscapesTransmission(state),30000);
 }
+/**
+ * @param {object} state
+ * @returns {void} Detaches the active audio and finalizes the recording.
+ */
 function endBloomscapesTransmission(state) {
     if (!state || !state.speaking) return;
     state.speaking=false;

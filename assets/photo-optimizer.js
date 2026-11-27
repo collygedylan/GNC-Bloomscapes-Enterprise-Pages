@@ -8,6 +8,7 @@ let photoOptimizerWorker = null;
 let photoOptimizerRequestId = 0;
 const photoOptimizerPending = new Map();
 
+/** @returns {Worker|null} Photo encoding worker when supported. */
 function getPhotoOptimizerWorker() {
     if (photoOptimizerWorker || typeof Worker !== 'function' || typeof OffscreenCanvas === 'undefined') return photoOptimizerWorker;
     try {
@@ -36,6 +37,10 @@ function getPhotoOptimizerWorker() {
     return photoOptimizerWorker;
 }
 
+/**
+ * @param {Blob} [blob]
+ * @returns {Promise<unknown>} Encoding detected from the image header.
+ */
 async function getPhotoBlobEncoding(blob = null) {
     if (!(blob instanceof Blob)) return '';
     return detectImageEncoding(new Uint8Array(await blob.slice(0, 16).arrayBuffer()));
@@ -110,6 +115,10 @@ async function loadMainThreadPhotoSource(blob) {
     }
 }
 
+/**
+ * @param {Blob} blob
+ * @returns {Promise<object>} Encoded display and thumbnail blobs with their dimensions and hash.
+ */
 async function optimizePhotoBlobOnMainThread(blob) {
     const loaded = await loadMainThreadPhotoSource(blob);
     try {
@@ -161,6 +170,12 @@ function normalizeOptimizedPhotoResult(result = {}) {
     };
 }
 
+/**
+ * @param {Blob} blob
+ * @param {string} [fileName]
+ * @param {object} [options]
+ * @returns {Promise<object>} Size-bounded photo blobs ready for the authenticated upload.
+ */
 async function optimizePhotoBlobForUpload(blob, fileName = 'photo.jpg', options = {}) {
     if (!(blob instanceof Blob) || !String(blob.type || '').toLowerCase().startsWith('image/')) {
         throw new Error('Select a supported plant photo.');

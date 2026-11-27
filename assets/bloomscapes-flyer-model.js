@@ -11,16 +11,26 @@ const flyerText=(value,cap=300)=>String(value ?? '').slice(0,cap);
 const flyerNumber=(value,fallback)=>Number.isFinite(Number(value)) ? Number(value) : fallback;
 const flyerRange=(value,min,max)=>Math.max(min,Math.min(max,value));
 
+/**
+ * @param {unknown} value
+ * @returns {string} Allowed flyer photo URL or an empty string.
+ */
 function bloomscapesFlyerImage(value) {
     const source=String(value || '');
     return /^https:\/\/ozuligoikpyzgnmeccrw\.supabase\.co\/storage\/v1\/object\/public\/bloomscapes-evaluation-photos\/[A-Za-z0-9_./-]+$/.test(source)
         && !source.split('/').some(segment=>segment==='.' || segment==='..') ? source : '';
 }
 
+/** @returns {object} Empty flyer page with a new identity. */
 function createBloomscapesFlyerPage() {
     return {id:crypto.randomUUID(),background:'#fffdf5',elements:[]};
 }
 
+/**
+ * @param {string} type
+ * @param {object} [props]
+ * @returns {object} Flyer element with a new identity and the requested properties.
+ */
 function makeBloomscapesFlyerElement(type,props={}) {
     return {...props,id:crypto.randomUUID(),type};
 }
@@ -54,6 +64,10 @@ function normalizeBloomscapesFlyerPage(page,size) {
             .map(element=>normalizeBloomscapesFlyerElement(element,size))};
 }
 
+/**
+ * @param {object} [canvas]
+ * @returns {object} Bounded flyer document with normalized pages and elements.
+ */
 function normalizeBloomscapesFlyerDesign(canvas={}) {
     const format=Object.hasOwn(BLOOMSCAPES_FLYER_SIZES,canvas?.format) ? canvas.format:'letter';
     const pages=Array.isArray(canvas?.pages) && canvas.pages.length ? canvas.pages:[createBloomscapesFlyerPage()];
@@ -61,6 +75,11 @@ function normalizeBloomscapesFlyerDesign(canvas={}) {
         format,pages:pages.slice(0,BLOOMSCAPES_FLYER_PAGE_LIMIT).map(page=>normalizeBloomscapesFlyerPage(page,BLOOMSCAPES_FLYER_SIZES[format]))};
 }
 
+/**
+ * @param {object} canvas
+ * @param {string} format
+ * @returns {object} Flyer normalized to the requested page size.
+ */
 function resizeBloomscapesFlyerDesign(canvas,format) {
     const before=BLOOMSCAPES_FLYER_SIZES[canvas.format],after=BLOOMSCAPES_FLYER_SIZES[format];
     if (!after || format===canvas.format) return canvas;
@@ -70,6 +89,10 @@ function resizeBloomscapesFlyerDesign(canvas,format) {
     return normalizeBloomscapesFlyerDesign({...canvas,format,pages});
 }
 
+/**
+ * @param {object} initial
+ * @returns {object} Undo and redo controls for the supplied design.
+ */
 function createBloomscapesFlyerTimeline(initial) {
     let current=normalizeBloomscapesFlyerDesign(initial);
     const undo=[],redo=[];
@@ -97,23 +120,45 @@ function bloomscapesFlyerAxisGuide(value,extent,boundary,offsets,radius) {
     return Math.abs(closest.delta)<=radius ? {value:value+closest.delta,line:closest.target}:{value,line:null};
 }
 
+/**
+ * @param {object} element
+ * @param {object} size
+ * @param {Array<object>} neighbors
+ * @param {number} [radius]
+ * @returns {object} Bounded element position with alignment guides.
+ */
 function snapBloomscapesFlyerElement(element,size,neighbors,radius=8) {
     const x=bloomscapesFlyerAxisGuide(element.x,element.w,size.width,neighbors.flatMap(row=>[row.x,row.x+row.w/2,row.x+row.w]),radius);
     const y=bloomscapesFlyerAxisGuide(element.y,element.h,size.height,neighbors.flatMap(row=>[row.y,row.y+row.h/2,row.y+row.h]),radius);
     return {...bloomscapesFlyerBounds({...element,x:x.value,y:y.value},size),guideX:x.line,guideY:y.line};
 }
 
+/**
+ * @param {object} element
+ * @param {object} size
+ * @param {Array<object>} neighbors
+ * @param {number} [radius]
+ * @returns {object} Bounded element size with alignment guides.
+ */
 function snapBloomscapesFlyerResize(element,size,neighbors,radius=8) {
     const x=bloomscapesFlyerAxisGuide(element.x+element.w,0,size.width,neighbors.flatMap(row=>[row.x,row.x+row.w/2,row.x+row.w]),radius);
     const y=bloomscapesFlyerAxisGuide(element.y+element.h,0,size.height,neighbors.flatMap(row=>[row.y,row.y+row.h/2,row.y+row.h]),radius);
     return {...bloomscapesFlyerBounds({...element,w:x.value-element.x,h:y.value-element.y},size),guideX:x.line,guideY:y.line};
 }
 
+/**
+ * @param {object} element
+ * @returns {string} Visible text content for the element.
+ */
 function bloomscapesFlyerElementText(element) {
     return element.type==='plant' ? [element.text,[element.itemcode,element.detail].filter(Boolean).join(' · '),
         element.unavailable?'No longer eligible in live inventory':''].filter(Boolean).join('\n') : element.text;
 }
 
+/**
+ * @param {object} element
+ * @returns {object} Drawing bounds for text within the element.
+ */
 function bloomscapesFlyerTextRect(element) {
     const pad=element.type==='plant'?14:10;
     const top=element.type==='plant'?Math.round(element.h*.57):0;

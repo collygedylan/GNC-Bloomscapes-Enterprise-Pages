@@ -1,3 +1,9 @@
+/**
+ * @param {object} view
+ * @param {HTMLDocument} doc
+ * @param {Function} report
+ * @returns {void} Inspects accessible footer items and reports measured layout faults.
+ */
 function inspectWatchdogFooter(view, doc, report) {
     const nav = doc.getElementById('bottom-nav');
     if (!nav) return report('UI_GEOMETRY_ANOMALY','navigation','FOOTER_MISSING');
@@ -12,6 +18,11 @@ function inspectWatchdogFooter(view, doc, report) {
     if (nav.getBoundingClientRect().bottom > Math.max(bottom,view.innerHeight) + 8) report('UI_GEOMETRY_ANOMALY','navigation','FOOTER_OFFSCREEN');
 }
 
+/**
+ * @param {object} toolbar
+ * @param {Function} visible
+ * @returns {string} Queue control issue code or an empty string.
+ */
 function inspectWatchdogQueueControls(toolbar, visible) {
     const select = toolbar?.querySelector?.('#que-view-select');
     if (select?.offsetWidth > 0 && visible(select)) {
@@ -38,6 +49,15 @@ function watchdogOperationMetadata(operation, error) {
         httpStatus: Number.isInteger(status) && status >= 100 && status <= 599 ? status : 0 };
 }
 
+/**
+ * @param {object} deps
+ * @param {string} type
+ * @param {string} scope
+ * @param {string} code
+ * @param {string} driveCommand
+ * @param {object} operation
+ * @returns {boolean} Whether a sanitized field incident was recorded.
+ */
 function reportWatchdogField(deps, type, scope, code, driveCommand, operation) {
     const { state, FIELD_TYPES, FIELD_SCOPES, FIELD_CODES, view, fieldSeen, MAX_QUEUED_REPORTS, record } = deps;
     if (!state.configured || !state.username || !FIELD_TYPES.has(type) || !FIELD_SCOPES.has(scope) || !FIELD_CODES.has(code)) return false;
@@ -58,6 +78,12 @@ function reportWatchdogField(deps, type, scope, code, driveCommand, operation) {
     return true;
 }
 
+/**
+ * @param {object} deps
+ * @param {unknown} error
+ * @param {object} operation
+ * @returns {boolean} Whether this operation produced a reportable failure.
+ */
 function captureWatchdogOperation(deps, error, operation) {
     const { document, state, isIgnorableRuntimeNoise, FIELD_CODES, reportField, record } = deps;
     if (error?.name === 'AbortError' || ['ABORT_ERR', 'REQUEST_ABORTED', 'FARM_PREPARATION_PAUSED'].includes(error?.code)) return false;
@@ -75,6 +101,11 @@ function captureWatchdogOperation(deps, error, operation) {
     return true;
 }
 
+/**
+ * @param {unknown} input
+ * @param {object} [init]
+ * @returns {object} Sanitized endpoint metadata for an observed request.
+ */
 function describeWatchdogRequest(input, init = {}) {
     const url = new URL(String(input?.url || input), globalThis.location?.href || 'https://bloomscapes.app/');
     const rpcName = url.pathname.match(/\/rest\/v1\/rpc\/([a-z0-9_]+)$/i)?.[1] || '';
@@ -114,6 +145,15 @@ function watchdogFailureScope(value, kind, view, scopes) {
     return scopes.has(view()) ? view() : 'ui';
 }
 
+/**
+ * @param {object} deps
+ * @param {string} title
+ * @param {string} message
+ * @param {unknown} shown
+ * @param {unknown} kind
+ * @param {string} driveCommand
+ * @returns {boolean} Whether a visible operational error was recorded.
+ */
 function observeWatchdogError(deps, title, message, shown, kind, driveCommand) {
     const { document, isIgnorableRuntimeNoise, FIELD_SCOPES, view, reportField } = deps;
     const metadata = watchdogOperationMetadata(title, message);
@@ -132,88 +172,11 @@ function observeWatchdogError(deps, title, message, shown, kind, driveCommand) {
     return reportField(kind, scope, code, driveCommand, metadata);
 }
 
-function createWatchdogInspectionScheduler(env, inspect, onFailure) {
-    let pending = false;
-    const run = () => {
-        pending = false;
-        try { inspect(); }
-        catch { onFailure('watchdog-inspect'); }
-    };
-    return function() {
-        if (pending) return;
-        pending = true;
-        if (env.requestIdleCallback) env.requestIdleCallback(run,{timeout:200});
-        else env.setTimeout(run,80);
-    };
-}
-
-function bindWatchdogSurfaces(doc,observer,active) {
-    if (!doc.body || !active) return;
-    const full={childList:true,subtree:true,characterData:true,attributes:true,
-        attributeFilter:['class','aria-busy','data-kind','data-loading','data-eval-report-counts-ready','data-eval-report-count']};
-    const shallow={childList:true,attributes:true,attributeFilter:['data-current-view','class']};
-    observer.disconnect();
-    observer.observe(active,full);
-    let child=active;
-    while (child.parentElement && child!==doc.body) {
-        const parent=child.parentElement;
-        observer.observe(parent,shallow);
-        if (parent.id!=='view-wrapper') observeWatchdogSiblings(parent,child,observer,full);
-        child=parent;
-    }
-}
-
-function observeWatchdogSiblings(parent,child,observer,options) {
-    for (const sibling of parent.children) {
-        if (sibling!==child && !sibling.matches('script,style,link,template')) observer.observe(sibling,options);
-    }
-}
-
-function createWatchdogBannerInspector(selector,visible,report,owner) {
-    const seen=new WeakMap();
-    return function(node) {
-        if (!node) return;
-        if (!visible(node) || !node.matches?.(selector) || ['success','input-guidance','info','loading','empty'].includes(node.dataset?.kind)) {
-            seen.delete(node);
-            return;
-        }
-        if (node.closest?.('#runtime-watchdog-events,#runtime-watchdog-header-badge')) return;
-        const value=String(node.textContent || '').trim().slice(0,1024);
-        if (!value || (node.getClientRects && !node.getClientRects().length)) return;
-        const content=node.firstChild || node, account=owner(), previous=seen.get(node);
-        if (previous?.content===content && previous.value===value && previous.owner===account) return;
-        seen.set(node,{content,value,owner:account});
-        report('',value,true,'UI_ERROR_BANNER_SHOWN',node.dataset?.driveCommand);
-    };
-}
-
-function installWatchdogSurfaceObserver(doc,Observer,view,enabled,selector,inspect,schedule) {
-    let active;
-    function refresh(rebind=false) {
-        const root=doc.getElementById('view-'+view());
-        if (!root || (root===active && !rebind)) return;
-        bindWatchdogSurfaces(doc,observer,root);
-        active=root;
-    }
-    const observer=new Observer(records=>{
-        if (!enabled()) return;
-        refresh(records.some(entry=>entry.type==='childList' && entry.target!==active && entry.target.contains?.(active)));
-        for (const entry of records) inspectWatchdogMutation(entry,selector,inspect);
-        schedule();
-    });
-    if (doc.body) observer.observe(doc.body,{attributes:true,childList:true,attributeFilter:['data-current-view']});
-    doc.addEventListener?.('DOMContentLoaded',refresh,{once:true});
-    refresh();
-}
-
-function inspectWatchdogMutation(entry,selector,inspect) {
-    const target=entry.target?.nodeType===3 ? entry.target.parentElement : entry.target;
-    inspect(target?.closest?.(selector));
-    for (const node of entry.addedNodes || []) {
-        if (node.nodeType===1 && node.matches?.(selector)) inspect(node);
-    }
-}
-
+/**
+ * @param {Function} schedule
+ * @param {Function} cancel
+ * @returns {Function} Schedules or cancels bounded confirmation of an empty queue.
+ */
 function createWatchdogQueueEmptyConfirmation(schedule, cancel) {
     let pending = null;
     return (scope,issue,inspect,report) => {
@@ -244,6 +207,12 @@ function inspectQueueControlIssue(deps,root,current,generation) {
     return inspectWatchdogQueueControls(bar,visible);
 }
 
+/**
+ * @param {object} deps
+ * @param {object} root
+ * @param {object} current
+ * @returns {void} Inspects queue and navigation state for the current view.
+ */
 function inspectWatchdogOperationalIntegrity(deps,root,current) {
     const {state,global,document,reportField,confirm,inspectQueueBadge} = deps;
     if (!state.username || document.hidden || !global.innerHeight || current === 'login' || current === 'unknown') return;

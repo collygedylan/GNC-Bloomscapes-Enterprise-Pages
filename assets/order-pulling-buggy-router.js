@@ -1,3 +1,4 @@
+const phLocationOrder = new Intl.Collator(undefined,{numeric:true});
 const phRoutingNodes = new Map();
 const phCorridorRadius = new Map();
 for (const [code,orientation,permanent_shade,house_count,x_m,y_m,corridor_id,spine_group,sweep] of PH_NURSERY_BLOCKS) {
@@ -8,34 +9,51 @@ for (const [code,landmark] of Object.entries(PH_YARD_LANDMARKS)) {
     phRoutingNodes.set(code,Object.freeze({code,...landmark}));
 }
 
+/**
+ * @param {unknown} location Park Hill location or landmark alias.
+ * @returns {object|null} Registered route node for a recognized place.
+ */
 function phRouteNode(location) {
     const key = String(location ?? '').trim().toUpperCase();
     if (phRoutingNodes.has(key)) return phRoutingNodes.get(key);
     if (/^PROP[ _-]OFFICE$/.test(key)) return phRoutingNodes.get('PROP_OFFICE');
     if (/^(?:PROP(?:AGATION)?(?:\b|[.])|P[.])/.test(key)) return phRoutingNodes.get('PROPAGATION');
-    const forward = /^([A-L])[.]?(\d{1,2})(?:[.]\d{1,3})?$/.exec(key);
-    const reverse = /^(\d{1,2})([A-L])$/.exec(key);
-    const block = forward ? [forward[1],forward[2]] : reverse && [reverse[2],reverse[1]];
-    return block ? phRoutingNodes.get(block[0]+'.'+block[1].padStart(2,'0')) ?? null : null;
+    const block = parseCanonicalBlockKey(key,'route');
+    return block ? phRoutingNodes.get(block.block_code) ?? null : null;
 }
 
+/**
+ * @param {unknown} dock Dock number or label.
+ * @returns {number|null} Physical dock number within the Park Hill range.
+ */
 function phDockNumber(dock) {
-    const match = /^(?:DOCK\s*)?0*(\d{1,2})$/i.exec(String(dock ?? '').trim());
-    const number = Number(match?.[1]);
-    return number >= 1 && number <= 56 ? number : null;
+    return Number(normalizeDockKey(dock,true)) || null;
 }
 
+/**
+ * @param {unknown} dock ERP dock number or label.
+ * @returns {string} Shipping yard zone used by route planning.
+ */
 function phDockZone(dock) {
     const number = phDockNumber(dock);
     if (number && number <= 12) return 'DOCK_1_12';
     return number >= 50 ? 'DOCK_50_56' : 'DOCK_13_49';
 }
 
+/**
+ * @param {unknown} previous Dock or zone from the last load.
+ * @returns {object} Origin node for the next buggy route.
+ */
 function phRouteOrigin(previous) {
     if (PH_YARD_LANDMARKS[previous]?.dock_min) return phRouteNode(previous);
     return phRouteNode(phDockNumber(previous) ? phDockZone(previous) : 'TAG_HUT');
 }
 
+/**
+ * @param {object} from Starting route node.
+ * @param {object} to Ending route node.
+ * @returns {number} Grid travel distance in meters.
+ */
 function phRoadMeters(from,to) {
     return Math.abs(from.x_m-to.x_m)+Math.abs(from.y_m-to.y_m);
 }
@@ -47,10 +65,14 @@ function phComparePullStops(a,b) {
     return (phCorridorRadius.get(right.corridor_id) || 0)-(phCorridorRadius.get(left.corridor_id) || 0)
         || String(left.corridor_id ?? '').localeCompare(String(right.corridor_id ?? ''))
         || (left.sweep ?? 0)-(right.sweep ?? 0) || left.code.localeCompare(right.code)
-        || String(a.locationcode).localeCompare(String(b.locationcode),undefined,{numeric:true})
+        || phLocationOrder.compare(String(a.locationcode),String(b.locationcode))
         || String(a.pull_tag_id).localeCompare(String(b.pull_tag_id));
 }
 
+/**
+ * @param {Array<object>} rows Pull tags to route.
+ * @returns {Array<object>} New array in corridor and bay sweep order.
+ */
 function phSortPullStops(rows) {
     return [...rows].sort(phComparePullStops);
 }
@@ -60,6 +82,11 @@ function phDockOrders(zones) {
     return zones.flatMap(zone => phDockOrders(zones.filter(other => other !== zone)).map(rest => [zone,...rest]));
 }
 
+/**
+ * @param {object} last Last field node.
+ * @param {Iterable<string>} zones Required dock zones.
+ * @returns {object} Shortest return order and distance.
+ */
 function phDockReturn(last,zones) {
     let best;
     for (const order of phDockOrders([...zones].sort())) {
@@ -78,6 +105,12 @@ function phDockReturn(last,zones) {
 const PH_PULL_CAP = 650;
 const PH_PULL_SUPERVISORS = new Set(['super-admin','admin','shipping-supervisor','supervisor','manager']);
 
+/**
+ * @param {object} profile
+ * @param {string} farm
+ * @param {boolean} preview
+ * @returns {boolean} Whether the selected farm permits supervision from this profile.
+ */
 function phPullSupervisorAllowed(profile, farm, preview) {
     if (!profile || preview || farm !== '10-PH' || profile.disabled_at || profile.must_change_password) return false;
     const farms = profile.allowed_warehouses ?? profile.allowed_farms ?? profile.farm_scopes;
@@ -85,6 +118,12 @@ function phPullSupervisorAllowed(profile, farm, preview) {
         && (profile.username === 'dylan_collyge' || PH_PULL_SUPERVISORS.has(profile.role));
 }
 
+/**
+ * @param {object} snapshot
+ * @param {string} editingId
+ * @param {string} [primary]
+ * @returns {object} Available units, primary pullers and helpers.
+ */
 function phPullTeamChoices(snapshot, editingId, primary = '') {
     const occupied = snapshot.teams.filter(team => team.team_id !== editingId);
     const units = new Set(occupied.map(team => team.unit_number));
@@ -97,14 +136,29 @@ function phPullTeamChoices(snapshot, editingId, primary = '') {
     };
 }
 
+/**
+ * @param {object} row
+ * @returns {number} Tag WDU expressed in integer trillionths.
+ */
 function phPullTagWdu(row) {
     return Math.round(Number(row.wingdingunits)*1e12);
 }
 
+/**
+ * @param {Array<object>} rows
+ * @param {Set} selected
+ * @returns {number} Total WDU trillionths for selected tag IDs.
+ */
 function phPullSelectedWdu(rows, selected) {
     return rows.reduce((total,row) => total+(selected.has(row.pull_tag_id) ? phPullTagWdu(row) : 0),0);
 }
 
+/**
+ * @param {Array<object>} rows
+ * @param {Set} selected
+ * @param {unknown} id
+ * @returns {boolean} Whether the selection changed within the load limit.
+ */
 function phPullToggleTag(rows, selected, id) {
     if (selected.delete(id)) return true;
     const row = rows.find(candidate => candidate.pull_tag_id === id);
@@ -116,17 +170,29 @@ function phPullToggleTag(rows, selected, id) {
 
 const phPullPriorityLabels = new Map(['Live Driver','Drop Trailer','Hold Trailer'].map(label => [label.toUpperCase(),label]));
 
+/**
+ * @param {unknown} value
+ * @returns {string} Standard dock priority label when recognized.
+ */
 function phPullDockLabel(value) {
     const status = String(value ?? '').trim();
     return phPullPriorityLabels.get(status.toUpperCase()) ?? status;
 }
 
+/**
+ * @param {object} row
+ * @returns {number} Dispatch priority of the current physical tag.
+ */
 function phPullQueueRank(row) {
     if (phPullDockLabel(row.dock_status) === 'Live Driver') return 0;
     const priority = Number(row.priority ?? 3);
     return Number.isFinite(priority) ? priority : 3;
 }
 
+/**
+ * @param {Array<object>} rows
+ * @returns {Set} Tag IDs fitting one priority-ordered load.
+ */
 function phPullGroupBatch(rows) {
     const chosen = new Set();
     let available = PH_PULL_CAP*1e12;

@@ -15,6 +15,12 @@ function dockPlanstartIdentity(row) {
         .map(value => String(value || '').trim().toUpperCase()).join('|');
 }
 
+/**
+ * @param {Array<object>} rows
+ * @param {string[]} aliases
+ * @param {Array<object>} [items]
+ * @returns {Map|null} Distinct plan dates keyed by physical order identity.
+ */
 function buildDockPlanstartIndex(rows, aliases, items = []) {
     const sourceRows = Array.isArray(rows) ? rows : [];
     const sourceObjects = new Set(sourceRows);
@@ -30,6 +36,14 @@ function buildDockPlanstartIndex(rows, aliases, items = []) {
     return index;
 }
 
+/**
+ * @param {object} item
+ * @param {object} source
+ * @param {Array<object>} rows
+ * @param {string[]} aliases
+ * @param {Map} [index]
+ * @returns {unknown} Confirmed source date or unambiguous indexed fallback.
+ */
 function resolveDockPlanstartValue(item, source, rows, aliases, index = null) {
     const sourceValue = dockPlanstartAlias(source, aliases);
     const itemValue = dockPlanstartAlias(item, aliases);

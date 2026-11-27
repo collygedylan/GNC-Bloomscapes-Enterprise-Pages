@@ -1,8 +1,18 @@
 
+/**
+ * @param {Array<object>} rows Inventory rows including grouped physical lots.
+ * @returns {Array<object>} Distinct rows in source order.
+ */
 function canonicalEvidencePhysicalRows(rows) {
     return [...new Set(rows.flatMap(row => [row,...(row?.__physicalInventoryRows || [])]))];
 }
 
+/**
+ * @param {object} target Physical inventory identity.
+ * @param {Array<object>} rows Inventory candidates.
+ * @param {Function} [includes] Additional eligibility predicate.
+ * @returns {Array<object>} Exact lot rows, or same-location rows when the lot is absent.
+ */
 function getCanonicalEvidenceGroupRows(target, rows, includes = () => true) {
     const local = canonicalEvidencePhysicalRows(rows).filter(row => canonicalInventorySameLocation(row,target) && includes(row));
     const lot = canonicalInventoryLot(target);
@@ -10,13 +20,26 @@ function getCanonicalEvidenceGroupRows(target, rows, includes = () => true) {
     return exact.length ? exact : local;
 }
 
-function canonicalEvidenceGroupMatches(row, target, rows = fullInventory) {
+/**
+ * @param {object} row Candidate row.
+ * @param {object} target Physical inventory identity.
+ * @param {Array<object>} [rows] Current inventory cohort.
+ * @param {boolean} [hasExactLot] Known lot membership within the same cohort.
+ * @returns {boolean} Whether this row belongs to the target evidence group.
+ */
+function canonicalEvidenceGroupMatches(row, target, rows = fullInventory, hasExactLot) {
     if (!canonicalInventorySameLocation(row,target)) return false;
     const lot = canonicalInventoryLot(target), candidate = canonicalInventoryLot(row);
     if (!lot || !candidate || candidate === lot) return true;
-    return !rows.some(source => canonicalInventorySameLot(source,target));
+    return !(hasExactLot ?? rows.some(source => canonicalInventorySameLot(source,target)));
 }
 
+/**
+ * @param {object} row Source row or linked projection.
+ * @param {Map} byId Physical UID index.
+ * @param {Map} byItem Item-code cohort index.
+ * @returns {object|null} Canonical master row matching the supplied identity.
+ */
 function resolveCanonicalInventoryTarget(row, byId, byItem) {
     const linked = canonicalInventoryLinkedUid(row);
     const ownUid = canonicalInventoryRowUid(row);
@@ -49,6 +72,12 @@ function matchesCanonicalLinkedInventoryRow(row, master) {
     return (!year || !masterYear || year === masterYear) && (!season || !masterSeason || season === masterSeason);
 }
 
+/**
+ * @param {object} target Published master row.
+ * @param {Array<object>} rows Current item cohort.
+ * @param {object} options Source, pending owners and provisional publication state.
+ * @returns {object} Predicates for canonical master rows and linked mirrors.
+ */
 function createCanonicalEvidenceGroupMatcher(target, rows, {source,provisional,pending}) {
     const uid = canonicalInventoryRowUid(target);
     const sourceUid = canonicalInventoryRowUid(source);

@@ -1,8 +1,16 @@
 
+/**
+ * @param {unknown} [uniqueId]
+ * @returns {string} Trimmed source UID.
+ */
 function normalizeDockIssueSourceUniqueId(uniqueId = '') {
     return String(uniqueId || '').trim();
 }
 
+/**
+ * @param {unknown} [state]
+ * @returns {string} Normalized issue workflow state.
+ */
 function normalizeDockIssueState(state = '') {
     const normalized = String(state || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
     if (normalized === 'resolved') return 'resolved';
@@ -11,6 +19,11 @@ function normalizeDockIssueState(state = '') {
     return 'open';
 }
 
+/**
+ * @param {string} [issueSourceUniqueId]
+ * @param {string} [altMasterUniqueId]
+ * @returns {string} Composite ID for an alternate master allocation.
+ */
 function buildDockIssueAllocationUniqueId(issueSourceUniqueId = '', altMasterUniqueId = '') {
     const sourceUid = normalizeDockIssueSourceUniqueId(issueSourceUniqueId);
     const masterUid = String(altMasterUniqueId || '').trim();
@@ -18,6 +31,10 @@ function buildDockIssueAllocationUniqueId(issueSourceUniqueId = '', altMasterUni
     return `${sourceUid}__ALT__${masterUid}`;
 }
 
+/**
+ * @param {unknown} [value]
+ * @returns {string} Canonical comparison text for Dock issue fields.
+ */
 function normalizeDockIssueMatchValue(value = '') {
     return String(value || '')
         .trim()
@@ -27,13 +44,10 @@ function normalizeDockIssueMatchValue(value = '') {
         .trim();
 }
 
-function buildDockIssueCommonSizeKey(itemOrCommonName = null, explicitContSize = '') {
-    if (itemOrCommonName && typeof itemOrCommonName === 'object') {
-        return [normalizeDockIssueMatchValue(itemOrCommonName.COMMONNAME), normalizeDockIssueMatchValue(itemOrCommonName.CONTSIZE)].join('||');
-    }
-    return [normalizeDockIssueMatchValue(itemOrCommonName), normalizeDockIssueMatchValue(explicitContSize)].join('||');
-}
-
+/**
+ * @param {object} [source]
+ * @returns {unknown} First populated stop or drop alias.
+ */
 function getDockStopOrDropValue(source = null) {
     if (!source || typeof source !== 'object') return '';
     return firstDockNonEmpty(
@@ -53,6 +67,10 @@ function getDockStopOrDropValue(source = null) {
     );
 }
 
+/**
+ * @param {object} [source]
+ * @returns {string} Physical Dock source comparison key.
+ */
 function buildDockIssueSourceMatchKey(source = null) {
     if (!source || typeof source !== 'object') return '';
     const parts = [
@@ -69,6 +87,11 @@ function buildDockIssueSourceMatchKey(source = null) {
     return parts.some(Boolean) ? parts.join('||') : '';
 }
 
+/**
+ * @param {object} [item]
+ * @param {object} [options]
+ * @returns {object} Source row carrying the issue UID and match key.
+ */
 function stampDockIssueSourceIdentity(item = null, options = {}) {
     if (!item || typeof item !== 'object') return item;
     const opts = options || {};
@@ -91,6 +114,10 @@ function stampDockIssueSourceIdentity(item = null, options = {}) {
     return item;
 }
 
+/**
+ * @param {object} [item]
+ * @returns {string} Lowercase searchable fields for a Dock order.
+ */
 function buildDockDisplaySearchText(item = null) {
     if (!item) return '';
     return [
@@ -110,6 +137,10 @@ function buildDockDisplaySearchText(item = null) {
     ].map((value) => String(value || '').trim()).filter(Boolean).join(' ').toLowerCase();
 }
 
+/**
+ * @param {object} [issue]
+ * @returns {string} Lowercase searchable fields for the Dock issue queue.
+ */
 function getDockIssueQueueSearchText(issue = null) {
     if (!issue) return '';
     return [
@@ -127,6 +158,10 @@ function getDockIssueQueueSearchText(issue = null) {
     ].map((value) => String(value || '').trim()).filter(Boolean).join(' ').toLowerCase();
 }
 
+/**
+ * @param {object} [item]
+ * @returns {unknown} First populated ordered quantity alias.
+ */
 function getDockOrderedQtyRaw(item = null) {
     if (!item || typeof item !== 'object') return '';
     const qtyKeys = [

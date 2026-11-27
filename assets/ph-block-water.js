@@ -9,6 +9,7 @@ let phWaterTimer;
 let phWaterLifecycleRegistered = false;
 let phWaterRealtimeRegistered = false;
 
+/** @returns {object|null} Current Park Hill water state for the active owner. */
 function currentPhWaterState() {
     const owner = phPlaceScope();
     if (!owner || borrowedHelpPreview()) {
@@ -22,16 +23,19 @@ function currentPhWaterState() {
     return phWaterState;
 }
 
+/** @returns {object|null|false} Water state available to the current view. */
 function visiblePhWaterStatus() {
     return typeof phPlaceScope === 'function' && currentPhWaterState();
 }
 
+/** @returns {object|null} Water state with an exact dock urgency lookup. */
 function phSuspendWaterStatus() {
     const state = visiblePhWaterStatus();
     if (!state || !currentBloomscapesDockBoard()) return null;
     return {...state,resolveDockStatus: tag => getBloomscapesUrgentSuspendTag(tag) ? 'Live Driver' : ''};
 }
 
+/** @returns {boolean} Whether this session can open the production Water view. */
 function phWaterMayOpen() {
     return Boolean(visiblePhWaterStatus() && canAccessView('production'));
 }
@@ -48,6 +52,10 @@ function publishPhWaterChange(state, membership = false, dispatch = false) {
     if (membership && view === 'request' && activeReqTab === 'suspend-tag') renderRequest();
 }
 
+/**
+ * @param {Function} callback
+ * @returns {Function} Unsubscribe callback for water state changes.
+ */
 function observePhWaterUpdates(callback) {
     phWaterEvents.addEventListener('change',callback);
     return () => phWaterEvents.removeEventListener('change',callback);
@@ -125,6 +133,7 @@ function receivePhWaterRevisions(events) {
     }
 }
 
+/** @returns {void} Reconciles lifecycle, revision and bounded refresh scheduling. */
 function syncPhWaterRefresh() {
     if (!phWaterLifecycleRegistered && typeof registerBloomscapesBatteryResource === 'function') {
         phWaterLifecycleRegistered = true;
@@ -204,6 +213,10 @@ async function sendPhWaterCommand(state,prior,command,rpc,input) {
     }
 }
 
+/**
+ * @param {object} command
+ * @returns {Promise} Sends a single block request and reconciles its receipt.
+ */
 function submitPhWaterCommand(command) {
     const state = currentPhWaterState();
     const block = parseCanonicalBlockKey(command.location)?.block_code;
@@ -216,6 +229,11 @@ function submitPhWaterCommand(command) {
         {...input,p_locationcode:block});
 }
 
+/**
+ * @param {Array} blocks
+ * @param {boolean} on
+ * @returns {Promise} Sends the selected blocks and reconciles their receipts.
+ */
 function submitPhWaterBatch(blocks,on) {
     const state = currentPhWaterState();
     if (!state?.canEdit || !blocks.length || blocks.some(block=>state.pending.has(block))) return Promise.resolve(false);

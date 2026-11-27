@@ -1,8 +1,16 @@
-(function (root) {
-    'use strict';
+'use strict';
+{
+    const root = typeof window !== 'undefined' ? window : globalThis;
     const text = value => String(value ?? '').trim().toUpperCase();
-    const pick = (row, ...keys) => keys.map(key => row?.[key]).find(value => value !== null && value !== undefined && String(value).trim() !== '') ?? '';
-    function normalizeItem(value) {
+    function pick(row, ...keys) {
+        for (const key of keys) {
+            const value = row?.[key];
+            if (value != null && String(value).trim() !== '') return value;
+        }
+        return '';
+    }
+
+    function normalizeItemCode(value) {
         const key = text(value).replace(/\.+$/, '');
         if (/^\d{6}\.\d{3}\.\d$/.test(key)) return key.replace(/\./g, '');
         // ERP item codes may arrive as the 8/9-digit compact form of the
@@ -15,15 +23,20 @@
         const match = /^([A-Z]+)\.(\d{1,2})\.(\d{1,3})$/.exec(key);
         return match ? `${match[1]}.${match[2].padStart(2, '0')}.${match[3].padStart(3, '0')}` : key;
     }
+    function queueCoordinates(row) {
+        return {itemCode:normalizeItemCode(pick(row,'itemCode','ITEMCODE','itemcode','ITEM','item')),
+            locationCode:normalizeLocation(pick(row,'locationCode','LOCATIONCODE','locationcode','LOCATION','location')),
+            lotCode:text(pick(row,'lotCode','LOTCODE','lotcode','LOT','lot'))};
+    }
     function identity(row = {}) {
         const source = text(pick(row, 'source', 'MASTER_SOURCE', 'master_source', 'SOURCECODE', 'sourcecode', 'SOURCE_CODE', 'source_code', 'SOURCE'));
+        const parts = queueCoordinates(row);
+        const lot = text(pick(row,'lotCode','LOTCODE','lotcode')).split('.');
         return {
             masterUid: String(pick(row, 'masterUid', 'MASTER_UNIQUE_ID', 'master_unique_id', 'MASTER_ID', 'master_id')).trim(),
-            itemCode: normalizeItem(pick(row, 'itemCode', 'ITEMCODE', 'itemcode', 'ITEM', 'item')),
-            locationCode: normalizeLocation(pick(row, 'locationCode', 'LOCATIONCODE', 'locationcode', 'LOCATION', 'location')),
-            lotCode: text(pick(row, 'lotCode', 'LOTCODE', 'lotcode', 'LOT', 'lot')),
-            season: text(pick(row, 'season', 'SEASON')) || text(pick(row, 'lotCode', 'LOTCODE', 'lotcode')).split('.').at(-1),
-            salesYear: String(pick(row, 'salesYear', 'SALEYEAR', 'saleyear') || text(pick(row, 'lotCode', 'LOTCODE', 'lotcode')).split('.')[0]).slice(-2),
+            ...parts,
+            season: text(pick(row,'season','SEASON')) || lot.at(-1),
+            salesYear: String(pick(row,'salesYear','SALEYEAR','saleyear') || lot[0]).slice(-2),
             priority: text(pick(row, 'priority', 'PRIORITY', 'PRI', 'pri')),
             desigItem: text(pick(row, 'desigItem', 'DESIGITEM', 'desigitem')),
             source: ['DOCK', 'DOCKS', 'SOC'].includes(source) ? '' : source
@@ -44,41 +57,57 @@
             && (!wanted.priority || actual.priority === wanted.priority)
             && (!wanted.desigItem || actual.desigItem === wanted.desigItem);
     }
-    const locationLotKey = value => { const i = identity(value); return JSON.stringify([i.itemCode, i.locationCode, i.lotCode]); };
-    const itemLocationKey = value => { const i = identity(value); return JSON.stringify([i.itemCode, i.locationCode]); };
-    function createIndex(rows = []) {
-        const ids = new Map(), keys = new Map(), itemLocations = new Map(), items = new Map();
-        const byItemLoc = new Map(), byItem = new Map(), normalizedSearchText = new WeakMap();
-        const aggregate = (map, key, row) => {
-            const entry = map.get(key) || { rows: [], locOnHand: 0, onHandKnown: false, available: 0 };
-            entry.rows.push(row);
-            const raw = pick(row, 'PTRONHAND', 'ptronhand');
-            const value = raw === '' ? NaN : Number(String(raw).replace(/,/g, ''));
-            if (Number.isFinite(value)) { entry.locOnHand += value; entry.onHandKnown = true; }
-            const available = Number(String(pick(row, 'PTRAVAILABLE', 'ptravailable', 'AVAILABLE', 'available')).replace(/,/g, ''));
-            if (Number.isFinite(available)) entry.available += available;
-            map.set(key, entry);
-        };
+    const locationLotKey = i => JSON.stringify([i.itemCode,i.locationCode,i.lotCode]);
+    const itemLocationKey = i => JSON.stringify([i.itemCode,i.locationCode]);
+
+    function appendQueueRow(map,key,row) {
+        const existing = map.get(key);
+        if (existing) existing.push(row);
+        else map.set(key,[row]);
+    }
+
+    function aggregateQueueRow(map,key,row,onHand,available) {
+        let entry = map.get(key);
+        if (!entry) {
+            entry = {rows:[],locOnHand:0,onHandKnown:false,available:0};
+            map.set(key,entry);
+        }
+        entry.rows.push(row);
+        if (Number.isFinite(onHand)) {
+            entry.locOnHand += onHand;
+            entry.onHandKnown = true;
+        }
+        if (Number.isFinite(available)) entry.available += available;
+    }
+
+    function indexQueueRows(rows,maps) {
+        const {ids,keys,itemLocations,items,byItemLoc,byItem,normalizedSearchText} = maps;
         for (const row of rows) {
-            const uid = String(pick(row, 'UNIQUE_ID', 'unique_id')).trim();
+            const uid = String(pick(row,'UNIQUE_ID','unique_id')).trim();
             if (!uid || ids.has(uid)) continue;
-            ids.set(uid, row);
-            const key = locationLotKey(row);
-            if (!keys.has(key)) keys.set(key, []);
-            keys.get(key).push(row);
-            const itemLocation = itemLocationKey(row);
-            if (!itemLocations.has(itemLocation)) itemLocations.set(itemLocation, []);
-            itemLocations.get(itemLocation).push(row);
-            const itemCode = identity(row).itemCode;
-            if (!items.has(itemCode)) items.set(itemCode, []);
-            items.get(itemCode).push(row);
-            aggregate(byItemLoc, itemLocation, row);
-            aggregate(byItem, itemCode, row);
+            ids.set(uid,row);
+            const parts = queueCoordinates(row);
+            const itemCode = parts.itemCode;
+            const itemLocation = itemLocationKey(parts);
+            appendQueueRow(keys,locationLotKey(parts),row);
+            appendQueueRow(itemLocations,itemLocation,row);
+            appendQueueRow(items,itemCode,row);
+            const raw = pick(row,'PTRONHAND','ptronhand');
+            const onHand = raw === '' ? NaN : Number(String(raw).replace(/,/g,''));
+            const available = Number(String(pick(row,'PTRAVAILABLE','ptravailable','AVAILABLE','available')).replace(/,/g,''));
+            aggregateQueueRow(byItemLoc,itemLocation,row,onHand,available);
+            aggregateQueueRow(byItem,itemCode,row,onHand,available);
             normalizedSearchText.set(row, String([pick(row, 'COMMONNAME', 'commonname'), itemCode,
                 pick(row, 'LOCATIONCODE', 'locationcode'), pick(row, 'CONTSIZE', 'contsize'),
                 pick(row, 'LOTCODE', 'lotcode'), pick(row, 'SEASON', 'season')].join(' '))
                 .toLowerCase().replace(/[.'â€™â„¢Â®]/g, '').replace(/[-\s]+/g, ' ').trim());
         }
+    }
+
+    function createIndex(rows = []) {
+        const ids = new Map(), keys = new Map(), itemLocations = new Map(), items = new Map();
+        const byItemLoc = new Map(), byItem = new Map(), normalizedSearchText = new WeakMap();
+        indexQueueRows(rows,{ids,keys,itemLocations,items,byItemLoc,byItem,normalizedSearchText});
         const representative = rows => rows.reduce((best, row) => !best
             || String(pick(row, 'UNIQUE_ID', 'unique_id')) < String(pick(best, 'UNIQUE_ID', 'unique_id')) ? row : best, null);
         return { byItemLocLot: keys, byItemLoc, byItem, normalizedSearchText, resolveDisplay(input) {
@@ -94,7 +123,7 @@
                 if (candidates?.length) return { status:'ready', row:representative(candidates), matchLevel };
             }
             return { status:'missing', row:null };
-        }, resolveSuspendTagDisplay(input, fallbackRows = []) {
+        }, resolveSuspendTagDisplay(input) {
             const exact = this.resolve(input);
             if (!exact.row) return exact;
             const base = exact.row, i = identity(base);
@@ -196,5 +225,5 @@
         }
         return { read, flush, invalidate, dispose: invalidate };
     }
-    root.AgMetricQueueInventory = Object.freeze({ normalizeItem, normalizeLocation, identity, matches, createIndex, createHydrator });
-})(typeof window !== 'undefined' ? window : globalThis);
+    root.AgMetricQueueInventory = Object.freeze({ normalizeItem:normalizeItemCode, normalizeLocation, identity, matches, createIndex, createHydrator });
+}

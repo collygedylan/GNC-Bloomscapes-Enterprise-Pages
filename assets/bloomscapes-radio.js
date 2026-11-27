@@ -2,17 +2,18 @@ async function bloomscapesRadioRpc(client,name,parameters={}) {
     return bloomscapesData(await client.rpc(name,parameters).abortSignal(AbortSignal.timeout(8000)));
 }
 
+/** @returns {Promise<Array>} Channels available to the current farm and actor. */
 async function listBloomscapesRadioChannels() {
     const {client} = await requireBloomscapesSession();
     const channels=await bloomscapesRadioRpc(client,'gnc_radio_channels');
     return channels.filter(channel=>! /^(10-PH|60-HL|20-TX|40-NC) All$/.test(channel.title) || channel.title===getBloomscapesFarm()+' All');
 }
 
-async function createBloomscapesDirectRadio(username) {
-    const {client} = await requireBloomscapesSession();
-    return bloomscapesRadioRpc(client,'gnc_radio_direct',{p_username:username.trim().toLowerCase()});
-}
-
+/**
+ * @param {string} channelId
+ * @param {unknown} callbacks
+ * @returns {Promise<object>} Authenticated radio state with the live signaling subscription.
+ */
 async function joinBloomscapesRadio(channelId,callbacks) {
     const {client,owner} = await requireBloomscapesSession();
     const stream = new MediaStream();
@@ -110,18 +111,15 @@ function removeBloomscapesRadioPeer(state,id) {
     state.callbacks.remove(id);
 }
 
+/**
+ * @param {object} state
+ * @param {boolean} speaking
+ * @returns {Promise<void>} Starts or ends the active transmission.
+ */
 async function setBloomscapesRadioSpeaking(state,speaking) {
     if (!state || state.closed) return;
     if (speaking) return beginBloomscapesTransmission(state);
     endBloomscapesTransmission(state);
-}
-
-async function shareBloomscapesRadioCard(state,rowId,farm) {
-    if (!state || state.closed) throw new Error('Join a radio channel first.');
-    const result = await state.client.from('gnc_all_master_inventory').select('unique_id')
-        .eq('unique_id',rowId).eq('warehousei',farm === '10-PH' ? '10' : '60').single();
-    bloomscapesData(result);
-    for (const id of state.peers.keys()) await sendBloomscapesRadioSignal(state,id,{kind:'card',rowId,farm});
 }
 
 async function receiveBloomscapesRadioCard(state,signal) {
@@ -133,6 +131,10 @@ async function receiveBloomscapesRadioCard(state,signal) {
     if (!state.closed) state.callbacks.card(signal.sender_username,row);
 }
 
+/**
+ * @param {object} state
+ * @returns {Promise<void>} Releases this radio session, peers and media.
+ */
 async function closeBloomscapesRadio(state) {
     if (!state || state.closed) return;
     endBloomscapesTransmission(state);

@@ -1,12 +1,23 @@
+/** @returns {AbortSignal|null} Current Docks view lifecycle signal. */
 function currentDocksReadVisit() {
     if (typeof getCurrentVisibleViewId !== 'function' || getCurrentVisibleViewId() !== 'docks') return null;
     return window.AgMetricLifecycle.getSignal('view');
 }
 
+/**
+ * @param {AbortSignal} visit
+ * @param {AbortSignal} parent
+ * @returns {AbortSignal} Signal joining the visit and optional parent cancellation.
+ */
 function docksReadSignal(visit,parent) {
     return parent && parent !== visit ? AbortSignal.any([visit,parent]) : visit;
 }
 
+/**
+ * @param {Array<object>} adapters
+ * @param {AbortSignal} visit
+ * @returns {Array} Adapters whose stage reads honor the visit lifecycle.
+ */
 function bindDocksAdapterVisit(adapters,visit) {
     return adapters.map(adapter=>({...adapter,stage:(options={})=>{
         visit.throwIfAborted();
@@ -14,6 +25,11 @@ function bindDocksAdapterVisit(adapters,visit) {
     }}));
 }
 
+/**
+ * @param {AbortSignal} signal
+ * @param {Function} read
+ * @returns {Promise} Result of the read while its signal remains active.
+ */
 function waitForDocksRead(signal,read) {
     signal.throwIfAborted();
     let onAbort;
@@ -25,24 +41,14 @@ function waitForDocksRead(signal,read) {
         .finally(()=>signal.removeEventListener('abort',onAbort));
 }
 
-function docksFarmReadContext(visit,background) {
-    const governor = window.BloomscapesBatteryGovernor;
-    const signals = new Map();
-    return {
-        isSpeculative:()=>background?.isSpeculative() === true,
-        signal:()=>{
-            const parent = background ? background.signal() : governor.viewSignal();
-            if (!signals.has(parent)) signals.set(parent,AbortSignal.any([visit,parent]));
-            return signals.get(parent);
-        },
-        checkpoint:async()=>{
-            visit.throwIfAborted();
-            if (background) await waitForDocksRead(visit,background.checkpoint);
-            visit.throwIfAborted();
-        }
-    };
-}
-
+/**
+ * @param {string} key
+ * @param {object} options
+ * @param {unknown} cooldownKey
+ * @param {unknown} terminalKey
+ * @param {object} denial
+ * @returns {Error|null} Active terminal denial after explicit retry or expiry handling.
+ */
 function applicableSupabaseReadDenial(key,options,cooldownKey,terminalKey,denial) {
     if (options.explicitRetry === true && key.startsWith('aura_inventory_v2:')) {
         supabaseReadTerminalDenials.delete(terminalKey);
@@ -54,6 +60,12 @@ function applicableSupabaseReadDenial(key,options,cooldownKey,terminalKey,denial
     return null;
 }
 
+/**
+ * @param {string} key
+ * @param {object} previous
+ * @param {string} identity
+ * @returns {void} Cancels and removes a superseded read generation.
+ */
 function retireSupersededRead(key,previous,identity) {
     if (previous.retainOnGenerationChange && previous.identityScope === identity) return;
     previous.controller.abort();

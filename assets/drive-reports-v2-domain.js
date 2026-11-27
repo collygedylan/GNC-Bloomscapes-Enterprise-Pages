@@ -12,15 +12,28 @@ const driveReport2ConditionOptions = [
 ];
 const driveReport2Operators = new Set(driveReport2ConditionOptions.map(([key]) => key));
 
+/**
+ * @param {Array<object>} headers
+ * @returns {Array} Report columns including computed stock and match fields.
+ */
 function driveReport2Fields(headers) {
     return [...headers, { key: 'OPENSTOCK', label: 'Open Stock' }, { key: 'LOC_MATCH_QTY', label: 'Photo Match' }]
         .map(({ key, label }) => ({ key, label: driveReport2FieldLabels[key] || label, numeric: driveReport2NumberFields.has(key) }));
 }
 
+/**
+ * @param {unknown} raw
+ * @returns {string} Scalar value formatted for the report.
+ */
 function driveReport2Value(raw) {
     return raw === undefined || raw === null || typeof raw === 'object' ? '' : String(raw);
 }
 
+/**
+ * @param {unknown} value
+ * @param {number} [fallback]
+ * @returns {number} Column width constrained to the report limits.
+ */
 function driveReport2Width(value, fallback = 124) {
     const width = driveCardSortNumber(value);
     return width === null ? fallback : Math.max(82, Math.min(420, Math.round(width)));
@@ -38,6 +51,11 @@ function normalizeDriveReport2Rule(rule) {
     return Object.keys(result).length ? result : null;
 }
 
+/**
+ * @param {Array<object>} fields
+ * @param {object} [layout]
+ * @returns {object} Effective visible columns, widths, pins, filters and sort.
+ */
 function driveReport2Layout(fields, layout = {}) {
     const allowed = new Set(fields.map(field => field.key));
     const source = Array.isArray(layout.selected_columns) ? layout.selected_columns : driveReport2DefaultColumns;
@@ -52,6 +70,14 @@ function driveReport2Layout(fields, layout = {}) {
     return { columns, widths, pinned, filters, sorting };
 }
 
+/**
+ * @param {number} length
+ * @param {number} scrollTop
+ * @param {number} viewport
+ * @param {number} height
+ * @param {number} [overscan]
+ * @returns {object} Visible row boundaries and spacer heights.
+ */
 function driveReport2Window(length, scrollTop, viewport, height, overscan = 2) {
     const offset = Math.max(0, Math.floor(scrollTop / height) - overscan);
     const end = Math.min(length, Math.ceil((scrollTop + viewport) / height) + overscan);
@@ -93,6 +119,13 @@ function driveReport2Conditions(value, rule, numeric) {
     }
 }
 
+/**
+ * @param {Array<object>} rows
+ * @param {object} filters
+ * @param {Array<object>} fields
+ * @param {string} [ignored]
+ * @returns {Array} Report rows satisfying the active filters.
+ */
 function driveReport2FilterRows(rows, filters, fields, ignored = '') {
     const rules = Object.entries(filters).filter(([key, rule]) => key !== ignored && rule && typeof rule === 'object')
         .map(([key, rule]) => ({ key, rule, numeric: fields.get(key)?.numeric, values: Array.isArray(rule.values) ? new Set(rule.values) : null }));
@@ -103,6 +136,12 @@ function driveReport2FilterRows(rows, filters, fields, ignored = '') {
     }));
 }
 
+/**
+ * @param {Array<object>} rows
+ * @param {string} key
+ * @param {boolean} numeric
+ * @returns {Array} Sorted distinct values and their counts.
+ */
 function driveReport2Values(rows, key, numeric) {
     const counts = new Map();
     for (const row of rows) {
@@ -122,11 +161,24 @@ function compareDriveReport2Rows(left, right, sorting, fields) {
     return 0;
 }
 
+/**
+ * @param {Array<object>} rows
+ * @param {Array<object>} sorting
+ * @param {Array<object>} fields
+ * @returns {Array} Report rows in the requested sort order.
+ */
 function driveReport2SortRows(rows, sorting, fields) {
     if (!sorting.length) return rows;
     return rows.slice().sort((left, right) => compareDriveReport2Rows(left, right, sorting, fields));
 }
 
+/**
+ * @param {Array<object>} rows
+ * @param {object} [totals]
+ * @param {number} [start]
+ * @param {number} [end]
+ * @returns {object} Accumulated quantities over the requested row interval.
+ */
 function driveReport2Totals(rows, totals = { PTRONHAND: null, PTRAVAILABLE: null, LOC_MATCH_QTY: null }, start = 0, end = rows.length) {
     for (let i = start; i < end; i++) {
         const row = rows[i];
@@ -144,6 +196,12 @@ function driveReport2CsvCell(value) {
     return `"${(formula ? "'" + text : text).replaceAll('"', '""')}"`;
 }
 
+/**
+ * @param {Array<object>} rows
+ * @param {Array<string>} columns
+ * @param {Array<object>} fields
+ * @returns {string} Escaped report CSV with CRLF row separators.
+ */
 function driveReport2Csv(rows, columns, fields) {
     const header = columns.map(key => driveReport2CsvCell(fields.get(key).label)).join(',');
     const lines = rows.map(row => columns.map(key => driveReport2CsvCell(row.value(key))).join(','));

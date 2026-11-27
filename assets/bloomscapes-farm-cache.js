@@ -303,10 +303,20 @@ function bloomscapesFarmStorageScope(owner) {
     return JSON.stringify(JSON.parse(owner).filter((_,index)=>index!==3 && index!==5));
 }
 
+/**
+ * @param {string} farm
+ * @param {string} [owner]
+ * @returns {string} Scoped key for the persisted farm snapshot.
+ */
 function bloomscapesFarmStorageKey(farm,owner = bloomscapesFarmCacheOwner()) {
     return 'bloomscapes-farm-v3154:'+bloomscapesFarmStorageScope(owner)+':'+farm;
 }
 
+/**
+ * @param {string} farm
+ * @param {string} owner
+ * @returns {Promise<object|null>} Reusable current or legacy farm snapshot.
+ */
 async function readBloomscapesPersistedFarm(farm,owner) {
     const scope = bloomscapesFarmStorageScope(owner);
     const saved = await readFarmSnapshotCache(bloomscapesFarmStorageKey(farm,owner));
@@ -316,6 +326,11 @@ async function readBloomscapesPersistedFarm(farm,owner) {
     return isReusableBloomscapesFarmSnapshot(legacy,legacyScope,farm) ? legacy : null;
 }
 
+/**
+ * @param {object} raw
+ * @param {string} owner
+ * @returns {void} Publishes the verified farm snapshot under its scoped key.
+ */
 function persistBloomscapesReadyFarm(raw,owner) {
     const scope = bloomscapesFarmStorageScope(owner);
     if (raw.cacheScope === scope) return;

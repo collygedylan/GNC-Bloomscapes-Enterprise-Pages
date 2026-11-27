@@ -1,4 +1,8 @@
 
+/**
+ * @param {string} prefix
+ * @returns {boolean} Dispatches the permitted row unlock and suppresses the default event.
+ */
 function unlockProtectedSection(prefix) {
     const item = activeItem;
     if (!canUnlockCompletedRow(item)) { showRowEditRestrictedToast(prefix); return false; }
@@ -6,6 +10,11 @@ function unlockProtectedSection(prefix) {
     return false;
 }
 
+/**
+ * @param {object} item
+ * @param {string} [prefix]
+ * @returns {Promise<boolean>} Single-flight result of unlocking this exact row.
+ */
 function unlockCanonicalInventoryRow(item,prefix = 'lsn-') {
     if (!canUnlockCompletedRow(item)) return Promise.resolve(false);
     const state = getManagerAssignedColumnState(), key = getCompletedRowUnlockKey(item);
@@ -47,6 +56,15 @@ async function sendCanonicalRowUnlock(key, signature, current) {
     return result;
 }
 
+/**
+ * @param {object} state
+ * @param {object} item
+ * @param {string} prefix
+ * @param {string} key
+ * @param {string} signature
+ * @param {string} scope
+ * @returns {Promise<boolean>} Whether the durable unlock receipt was accepted.
+ */
 async function persistCanonicalRowUnlock(state, item, prefix, key, signature, scope) {
     const current = () => scope === getSupabaseReadIdentityScope() && state === getManagerAssignedColumnState();
     const delays = [150,400,900];

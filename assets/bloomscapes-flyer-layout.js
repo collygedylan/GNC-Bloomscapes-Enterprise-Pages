@@ -5,6 +5,7 @@ const bloomscapesFlyerPresets={
     spring:{title:'Spring highlights',background:'#fff6f2',ink:'#512e35',accent:'#f6d1c7',font:'serif'}
 };
 
+/** @returns {Array} Available template IDs and display titles. */
 function bloomscapesFlyerTemplateChoices() {
     return Object.entries(bloomscapesFlyerPresets).map(([id,preset])=>[id,preset.title]);
 }
@@ -14,6 +15,11 @@ function bloomscapesFlyerHeader(title,size,preset) {
         fill:preset.accent,ink:preset.ink,font:preset.font,fontSize:43,bold:true});
 }
 
+/**
+ * @param {object} canvas
+ * @param {string} key
+ * @returns {object} Canvas with the selected template page applied.
+ */
 function applyBloomscapesFlyerTemplate(canvas,key) {
     const preset=bloomscapesFlyerPresets[key];
     if (!preset) return canvas;
@@ -44,22 +50,36 @@ function bloomscapesFlyerFolderPlant(item) {
         itemcode:item.ITEMCODE || item.itemcode,detail:item.CONTSIZE || item.contsize}),image:image || plant?.image || ''};
 }
 
+/** @returns {Array} Set of accessible folder names in display order. */
 function bloomscapesFlyerFolderChoices() {
     if (!canAccessView('tasks')) return [];
     return [...new Set(getAllFlyerTaskItems().filter(row=>bloomscapesRowFarm(row)===getBloomscapesFarm() && !isFlyerFolderArchived(row))
         .map(getFlyerFolderName).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
 }
 
+/**
+ * @param {string} folder
+ * @param {Array<object>} provided
+ * @returns {Array} Plant cards from the selected farm and folder.
+ */
 function bloomscapesFlyerFolderPlants(folder,provided) {
     const farm=getBloomscapesFarm();
     const source=provided || (canAccessView('tasks') ? getAllFlyerTaskItems().filter(row=>doesItemMatchFlyerFolder(row,folder,'active')):[]);
     return source.filter(row=>bloomscapesRowFarm(row)===farm).map(bloomscapesFlyerFolderPlant);
 }
 
+/**
+ * @param {unknown} [search]
+ * @returns {Array} Live plant cards matching the inventory search.
+ */
 function bloomscapesFlyerLivePlants(search='') {
     return bloomscapesWorkBrowserRows(search).map(bloomscapesFlyerLivePlant).filter(Boolean);
 }
 
+/**
+ * @param {object} canvas
+ * @returns {object} Updated flyer plant details from the current live inventory.
+ */
 function refreshBloomscapesFlyerDesign(canvas) {
     const live=new Map(bloomscapesFlyerLivePlants().map(plant=>[plant.sourceId,plant]));
     return normalizeBloomscapesFlyerDesign({...canvas,pages:canvas.pages.map(page=>({...page,elements:page.elements.map(element=>{
@@ -79,6 +99,12 @@ function bloomscapesFlyerArrangePage(plants,index,grid,title,preset) {
         elements:[bloomscapesFlyerHeader(index?title+' | '+(index+1):title,size,preset),...elements]};
 }
 
+/**
+ * @param {object} canvas
+ * @param {string} folder
+ * @param {Array<object>} plants
+ * @returns {object} Canvas populated with arranged folder plant cards.
+ */
 function autoLayoutBloomscapesFlyerFolder(canvas,folder,plants) {
     if (!plants.length) throw Error('This folder has no visible rows to lay out.');
     const size=BLOOMSCAPES_FLYER_SIZES[canvas.format],columns=canvas.format==='landscape'?3:2;

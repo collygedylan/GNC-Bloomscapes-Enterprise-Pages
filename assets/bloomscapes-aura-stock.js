@@ -212,17 +212,30 @@ function auraStockReceipt(scope, stock, cachedAnswer, sourceKind = 'deterministi
             rows: sample.slice(0, 20)}};
 }
 
+/**
+ * @param {string} question Stock question to resolve.
+ * @param {object} headers Signed request headers.
+ * @param {AbortSignal} signal Cancellation for this lookup.
+ * @param {Function} cachedAnswer Builds actions for matched inventory.
+ * @returns {Promise<object|null>} Stock evidence for a recognized question.
+ */
 async function auraStockAnswer(question, headers, signal, cachedAnswer) {
     const scope = auraStockScope(question);
     if (!scope) return null;
     if (!headers?.Authorization) throw Object.assign(new Error('AURA requires a signed-in account.'), {status: 401});
-    const response = await fetch(auraStockQueryUrl(scope), {headers, signal, cache: 'no-store'});
+    const response = await fetch(auraStockQueryUrl(scope), {headers, signal, cache: 'no-store', referrerPolicy: 'no-referrer'});
     if (!response.ok) throw Object.assign(new Error('AURA stock lookup is unavailable.'), {status: response.status});
     const rows = await response.json();
     if (!Array.isArray(rows)) throw new Error('Invalid AURA stock receipt.');
     return auraStockReceipt(scope, collectAuraStockRows(rows, scope), cachedAnswer);
 }
 
+/**
+ * @param {string} question Stock question to resolve.
+ * @param {Array<object>} inventory Active farm inventory snapshot.
+ * @param {Function} cachedAnswer Builds actions for matched inventory.
+ * @returns {object|null} Partial stock evidence when cached data is available.
+ */
 function auraCachedStockAnswer(question, inventory, cachedAnswer) {
     const scope = auraStockScope(question);
     if (!scope || scope.farm !== getBloomscapesFarm() || !inventory.length) return null;

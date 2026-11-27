@@ -1,3 +1,8 @@
+/**
+ * @param {object} res Verified live-sync result.
+ * @param {object} preparedMasterAtEntry Prepared snapshot metadata.
+ * @returns {void} Binds accepted location receipts to the loaded rows.
+ */
 function stampLoadedMasterLocationReceipt(res, preparedMasterAtEntry) {
     if (res._verifiedLiveSync !== true) return;
     const scope = String(res._locOnHandReceiptScope || '');
@@ -59,6 +64,11 @@ function rebindLoadedMasterDisplayReceipt(res, priorDisplayRows) {
     }
 }
 
+/**
+ * @param {object} res Authenticated master dataset response.
+ * @param {object} preparedMasterAtEntry Prepared input when available.
+ * @returns {Array} Pending AV clear operations for the published snapshot.
+ */
 function publishLoadedMasterInventory(res, preparedMasterAtEntry) {
     const priorDisplayRows = fullInventory;
     clearAcceptedLocOnHandAggregates();
@@ -103,6 +113,12 @@ function loadedAvRowIsVisible(item) {
     return sourceTable !== 'ph_master_inventory' || shouldIncludeMasterItemInAvSeasonView(item);
 }
 
+/**
+ * @param {object} res Master and optional AV dataset response.
+ * @param {boolean} hasMaster Whether this publication includes master rows.
+ * @param {Array<string>} changedDatasetKeys Dataset change accumulator.
+ * @returns {void} Installs the AV projection and records the changed dataset.
+ */
 function publishLoadedAvInventory(res, hasMaster, changedDatasetKeys) {
     const hasAvOpen = Object.hasOwn(res, 'avOpenData');
     const rebuild = hasMaster && !hasAvOpen;
@@ -126,12 +142,31 @@ function publishLoadedAvInventory(res, hasMaster, changedDatasetKeys) {
     if (rebuild && !changedDatasetKeys.includes('avOpen')) changedDatasetKeys.push('avOpen');
 }
 
+const installedMasterItemIndexes = new WeakMap();
+
+/**
+ * @param {Array<object>} rows Currently published inventory snapshot.
+ * @param {Map} index Published item-code index.
+ * @param {string} code Canonical comparison code.
+ * @returns {Array<object>|undefined} Indexed candidates for this snapshot or undefined if the binding is stale.
+ */
+function getInstalledMasterItemCohort(rows,index,code) {
+    const receipt = installedMasterItemIndexes.get(rows);
+    if (!receipt || receipt.index !== index || receipt.count !== rows.length) return undefined;
+    return index.get(code);
+}
+
+/**
+ * @param {object} indexes Canonical index maps for the current full inventory.
+ * @returns {boolean} Whether the index maps were installed.
+ */
 function installMasterInventoryIndexMaps(indexes) {
     if (!indexes) return false;
     if (typeof queueCardInventoryHydrator !== 'undefined') queueCardInventoryHydrator?.invalidate();
     masterInventoryById = indexes.byId;
     masterInventoryLookup = indexes.lookup || window.AgMetricQueueInventory.createIndex(fullInventory.flatMap(row=>row.__physicalInventoryRows || [row]));
     masterInventoryByItemCode = indexes.byItemCode;
+    installedMasterItemIndexes.set(fullInventory,{index:indexes.byItemCode,count:fullInventory.length});
     const state = getManagerAssignedColumnState();
     state.inventoryByRowKeyMap = indexes.byId;
     state.inventoryByExactKeyMap = indexes.byExactKey;
@@ -151,6 +186,10 @@ function installMasterInventoryIndexMaps(indexes) {
 }
 
 
+/**
+ * @param {Map} byItemCode Item-code buckets for the same inventory snapshot.
+ * @returns {Map} Inventory rows grouped by six-character item prefix.
+ */
 function buildMasterInventoryPrefixIndex(byItemCode) {
     const prefixes = new Map();
     for (const [code,rows] of byItemCode) {

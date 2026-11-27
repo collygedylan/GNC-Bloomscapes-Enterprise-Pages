@@ -1,14 +1,24 @@
+/**
+ * @param {unknown} dockNum ERP dock value.
+ * @returns {string} Unpadded dock number or Unassigned.
+ */
 function normalizeDockViewDockKey(dockNum = '') {
-    const normalized = String(dockNum ?? '').trim().replace(/^dock\s*/i, '').replace(/[.]0+$/, '');
-    return /^[0-9]+$/.test(normalized) && /[1-9]/.test(normalized)
-        ? normalized.replace(/^0+(?=[0-9])/, '') : 'Unassigned';
+    return normalizeDockKey(dockNum) || 'Unassigned';
 }
 
+/**
+ * @param {unknown} stopNum ERP drop number or stop label.
+ * @returns {string} Normalized stop or Unassigned.
+ */
 function normalizeDockViewStopKey(stopNum = '') {
     const normalized = String(stopNum || '').trim().replace(/^(?:drop|stop)\s*/i, '').replace(/^(-?\d+)\.0+$/, '$1');
     return normalized || 'Unassigned';
 }
 
+/**
+ * @param {...unknown} values Ordered ERP field aliases.
+ * @returns {unknown} First populated value or an empty string.
+ */
 function firstDockNonEmpty(...values) {
     for (const value of values) {
         if (value !== null && value !== undefined && String(value).trim() !== '') return value;
@@ -112,6 +122,10 @@ function normalizeSocDockDetails(item) {
     ].map((value) => String(value || '').trim()).filter(Boolean).join(' ').toLowerCase();
 }
 
+/**
+ * @param {object} item Loaded SOC order row.
+ * @returns {object} Input row with canonical Dock aliases populated.
+ */
 function normalizeSocDockRowAliases(item) {
     if (!item) return item;
     normalizeSocDockIdentifiers(item);
@@ -125,6 +139,11 @@ function setSuspendQuantityAliases(row, aliases, value) {
     aliases.forEach(key => { row[key] = value; });
 }
 
+/**
+ * @param {object} row Dock presentation row.
+ * @param {object} source Physical Suspend quantity source.
+ * @returns {object} Input row with source-backed quantity aliases.
+ */
 function applyDockSuspendQuantityAliases(row, source) {
     if (!row || typeof row !== 'object') return row;
     const sourceSnapshot = source && source.SNAPSHOT && typeof source.SNAPSHOT === 'object' ? source.SNAPSHOT : {};
@@ -137,6 +156,11 @@ function applyDockSuspendQuantityAliases(row, source) {
     applyDockSuspendAvailableQuantities(row, source, sourceSnapshot, rowSnapshot, exactViewMetrics, setAliases);
     return row;
 }
+
+const dockReviewedQuantityAliases = ['PTRREVIEWED', 'ptrreviewed', 'PTR_REVIEWED', 'ptr_reviewed',
+    'PTRREVIEW', 'ptrreview', 'REVIEWED', 'reviewed'];
+const dockAvailableQuantityAliases = ['PTRAVAILABLE', 'ptravailable', 'PRTAVAILABLE', 'prtavailable',
+    'LOC_AVAIL', 'loc_avail', 'LOC_AVAILABLE', 'loc_available', 'LOCAVA', 'locava', 'AVAILABLE', 'available'];
 
 function applyDockSuspendPrimaryQuantities(row, source, sourceSnapshot, rowSnapshot, exactViewMetrics, setAliases) {
     setAliases(['PTRONHAND', 'ptronhand', 'PTR_ON_HAND', 'ptr_on_hand'], firstDockNonEmpty(
@@ -157,16 +181,9 @@ function applyDockSuspendPrimaryQuantities(row, source, sourceSnapshot, rowSnaps
         rowSnapshot.ptronhand,
         ''
     ));
-    setAliases(['PTRREVIEWED', 'ptrreviewed', 'PTR_REVIEWED', 'ptr_reviewed', 'PTRREVIEW', 'ptrreview', 'REVIEWED', 'reviewed'], firstDockNonEmpty(
+    setAliases(dockReviewedQuantityAliases, firstDockNonEmpty(
         exactViewMetrics ? firstDockNonEmpty(source.REVIEW, source.review) : null,
-        source && source.PTRREVIEWED,
-        source && source.ptrreviewed,
-        source && source.PTR_REVIEWED,
-        source && source.ptr_reviewed,
-        source && source.PTRREVIEW,
-        source && source.ptrreview,
-        source && source.REVIEWED,
-        source && source.reviewed,
+        ...dockReviewedQuantityAliases.map(key => source && source[key]),
         sourceSnapshot.PTRREVIEWED,
         sourceSnapshot.ptrreviewed,
         sourceSnapshot.PTR_REVIEWED,
@@ -182,20 +199,9 @@ function applyDockSuspendPrimaryQuantities(row, source, sourceSnapshot, rowSnaps
 }
 
 function applyDockSuspendAvailableQuantities(row, source, sourceSnapshot, rowSnapshot, exactViewMetrics, setAliases) {
-    setAliases(['PTRAVAILABLE', 'ptravailable', 'PRTAVAILABLE', 'prtavailable', 'LOC_AVAIL', 'loc_avail', 'LOC_AVAILABLE', 'loc_available', 'LOCAVA', 'locava', 'AVAILABLE', 'available'], firstDockNonEmpty(
+    setAliases(dockAvailableQuantityAliases, firstDockNonEmpty(
         exactViewMetrics ? firstDockNonEmpty(source.AVAILABLE, source.available) : null,
-        source && source.PTRAVAILABLE,
-        source && source.ptravailable,
-        source && source.PRTAVAILABLE,
-        source && source.prtavailable,
-        source && source.LOC_AVAIL,
-        source && source.loc_avail,
-        source && source.LOC_AVAILABLE,
-        source && source.loc_available,
-        source && source.LOCAVA,
-        source && source.locava,
-        source && source.AVAILABLE,
-        source && source.available,
+        ...dockAvailableQuantityAliases.map(key => source && source[key]),
         sourceSnapshot.PTRAVAILABLE,
         sourceSnapshot.ptravailable,
         row.PTRAVAILABLE,

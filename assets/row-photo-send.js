@@ -11,6 +11,12 @@ async function sendPreparedNativeRowPhoto(formData, options) {
     return uploadDrivePhotoWithNativeSession(nativeForm,{...options,attachPhoto:false});
 }
 
+/**
+ * @param {FormData} formData
+ * @param {boolean} nativeEvidenceUpload
+ * @param {object} options
+ * @returns {Promise<object>} Authenticated photo upload receipt.
+ */
 async function sendPreparedRowPhotoUpload(formData, nativeEvidenceUpload, options) {
     const queued = formData.get('prefix')==='req-' && formData.get('requestId') && !formData.get('suspendTagId');
     if (queued && nativeAuthSessionActive) return uploadNativeRequestPhoto(formData,options);
@@ -35,8 +41,7 @@ async function uploadNativeRequestPhoto(formData, options) {
     const headers = options.nativeHeaders || await getNativeAuthRequestHeaders(false);
     if (!headers?.Authorization) throw nativeSessionRecoveryError();
     const masterUid = String(formData.get('masterUid') || '');
-    const object = await getNativeDrivePhotoObject(formData,'lsn-',masterUid);
-    const prepared = requestPhotoStorageObject(object);
+    const prepared = await getNativeDrivePhotoObject(formData,'lsn-',masterUid);
     const identity = Object.fromEntries(['masterUid','itemCode','locationCode','lotCode','requestId']
         .map(name=>[name,String(formData.get(name) || '')]));
     const receipt = await supabaseRpc('prepare_request_photo_upload_v3100',{
@@ -52,5 +57,3 @@ async function uploadNativeRequestPhoto(formData, options) {
         publicUrl:SUPABASE_URL+'/storage/v1/object/public/'+prepared.bucketName+'/'+prepared.filePath,
         thumbnailUploads:Promise.allSettled(prepared.parts.slice(0,-1).filter(([,blob])=>blob).map(send))};
 }
-
-function requestPhotoStorageObject(object) { return object; }

@@ -9,12 +9,23 @@ function getManualErpStagingAge(status = {}, now = Date.now()) {
     return Number.isFinite(stamp) ? Math.max(0, now - stamp) : null;
 }
 
+/**
+ * @param {unknown} status
+ * @param {number} normalDelay
+ * @param {number} [now]
+ * @returns {number} Delay to the next progress or stall check in milliseconds.
+ */
 function getManualErpProgressPollDelay(status, normalDelay, now = Date.now()) {
     const age = getManualErpStagingAge(status, now);
     if (age === null || age >= MANUAL_ERP_STAGED_STALL_MS) return normalDelay;
     return Math.min(normalDelay, Math.max(1000, MANUAL_ERP_STAGED_STALL_MS - age));
 }
 
+/**
+ * @param {unknown} status
+ * @param {unknown} [foreground]
+ * @returns {unknown} Result of continuing the current run or false when ineligible.
+ */
 function resumeManualErpCheckpoint(status, foreground = false) {
     if (!status?.active || !status.runId || Number(status.retryNotBefore) > Date.now()) return false;
     const age = getManualErpStagingAge(status);
@@ -22,6 +33,11 @@ function resumeManualErpCheckpoint(status, foreground = false) {
     return driveManualErpSyncFromStatus(status, true);
 }
 
+/**
+ * @param {object} current
+ * @param {object} incoming
+ * @returns {boolean} Whether a stale status predates the current run.
+ */
 function shouldIgnoreManualErpStatus(current, incoming) {
     if (!current?.active || !incoming || current.runId === incoming.runId) return false;
     const started = Date.parse(current.startedAt);
@@ -30,55 +46,14 @@ function shouldIgnoreManualErpStatus(current, incoming) {
     return Date.parse(incoming.finishedAt || incoming.updatedAt || incoming.startedAt) < started;
 }
 
+/** @returns {string} View receiving the manual sync completion. */
 function getManualSyncCompletionViewId() {
     const visibleTracked = typeof getVisibleTrackedViewIds === 'function' ? getVisibleTrackedViewIds() : [];
     const visibleView = visibleTracked[0] || (typeof getCurrentVisibleViewId === 'function' ? getCurrentVisibleViewId() : '');
     return resolveRealtimeContextViewId(visibleView || activeRealtimeContextViewId || activeRealtimeViewId || 'home');
 }
 
-async function acquireManualErpWakeLock(state, request) {
-    try {
-        const lock = await Promise.resolve().then(() => request('screen'));
-        if (state.wanted) state.sentinel = lock;
-        else await lock.release();
-    } catch {
-        // Sync can continue on the server when the browser declines the lock.
-    } finally {
-        state.pending = null;
-    }
-}
-
-function releaseManualErpWakeLock(state) {
-    const lock = state.sentinel;
-    state.sentinel = null;
-    if (lock && !lock.released) void lock.release().catch(() => {});
-}
-
-function createManualErpScreenWakeLock(request) {
-    const state = { sentinel: null, pending: null, wanted: false };
-    return next => {
-        state.wanted = next;
-        if (!next) releaseManualErpWakeLock(state);
-        else if (!state.pending && (!state.sentinel || state.sentinel.released)) state.pending = acquireManualErpWakeLock(state, request);
-        return state.pending;
-    };
-}
-
-function bindManualErpProgressWakeLock(doc, win, screenLock, owner) {
-    const modal = doc.getElementById('erp-sync-progress-modal');
-    if (!modal || !screenLock?.request || !win.MutationObserver) return;
-    const setWanted = createManualErpScreenWakeLock(screenLock.request.bind(screenLock));
-    const sync = () => {
-        const open = !modal.classList.contains('hidden') && modal.style.display !== 'none';
-        void setWanted(open && doc.visibilityState === 'visible' && !!modal.dataset.owner && modal.dataset.owner === owner());
-    };
-    const observer = new win.MutationObserver(sync);
-    observer.observe(modal, { attributes: true, attributeFilter: ['class', 'style', 'data-owner'] });
-    doc.addEventListener('visibilitychange', sync);
-    win.addEventListener('pagehide', () => setWanted(false));
-    win.addEventListener('pageshow', sync);
-}
-
+/** @returns {boolean} Whether the active coordinator serves Home metadata. */
 function productionHomeSyncMetadataCoordinatorOwnsCurrentView() {
             if (typeof canUseProductionLiveSync !== 'function' || !canUseProductionLiveSync()
                 || typeof getCurrentVisibleViewId !== 'function' || getCurrentVisibleViewId() !== 'home'
@@ -88,6 +63,10 @@ function productionHomeSyncMetadataCoordinatorOwnsCurrentView() {
                 && (context.adapters || []).some((adapter) => adapter.id === 'side:homeSyncMetadata');
         }
 
+/**
+ * @param {boolean} [force]
+ * @returns {Promise<boolean>} Whether the current account published fresh metadata.
+ */
 async function refreshManualErpHomeRevisionMetadata(force = false) {
     const owner = getSupabaseReadIdentityScope();
     if (!force && dashboardSyncMetadataOwner === owner && dashboardSyncMetadataFetchedAt
@@ -118,6 +97,11 @@ async function readLegacyErpHomeSource(source, signal) {
     return collectDashboardSyncSource(formatFetchedRows(page?.rows || [], source.table), source.label);
 }
 
+/**
+ * @param {string} owner
+ * @param {AbortSignal} signal
+ * @returns {Promise<boolean>} Whether legacy source metadata was published.
+ */
 async function loadLegacyErpHomeMetadata(owner, signal) {
     const current = () => !signal.aborted && !productionHomeSyncMetadataCoordinatorOwnsCurrentView()
         && owner === getSupabaseReadIdentityScope() && canViewDashboardSyncStatus();
@@ -143,12 +127,21 @@ async function loadLegacyErpHomeMetadata(owner, signal) {
     return true;
 }
 
+/**
+ * @param {unknown} status
+ * @returns {string} Validated ERP run timestamp.
+ */
 function confirmedErpRunTime(status) {
     if (!status?.runId || status.active !== false || status.status !== 'complete' || status.error || status.errorCode) return '';
     const timestamp = Object.hasOwn(status, 'serverFinishedAt') ? status.serverFinishedAt : status.finishedAt || status.finished_at;
     return Number.isFinite(Date.parse(timestamp)) ? timestamp : '';
 }
 
+/**
+ * @param {Array<object>} summaries
+ * @param {unknown} status
+ * @returns {string} Most recent valid import or completion timestamp.
+ */
 function latestErpHomeTimestamp(summaries, status) {
     const latest = summaries.reduce((winner, entry) => !winner || entry.ms > winner.ms ? entry : winner, null);
     const finished = confirmedErpRunTime(status);
@@ -176,6 +169,11 @@ function saveDashboardSyncFilenames(summaries) {
 
 const dashboardRowSummaries = new WeakMap();
 
+/**
+ * @param {Array<object>} [rows]
+ * @param {string} [label]
+ * @returns {object} Latest filename and timestamp summary for one source.
+ */
 function collectDashboardSyncSource(rows = [], label = '') {
     let latestMs = -1, fileMs = -1, filename = '', lastValue, lastMs;
     for (const row of Array.isArray(rows) ? rows : []) {
@@ -205,6 +203,7 @@ function summarizePublishedDashboardRows(rows, label, dataset, owner) {
     return summary;
 }
 
+/** @returns {void} Renders current ERP source summaries into the dashboard. */
 function updateDashboardSyncSummary() {
     const accordionEl = document.getElementById('dashboard-sync-accordion');
     const stampEl = document.getElementById('dashboard-sync-stamp');

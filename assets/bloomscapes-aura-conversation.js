@@ -33,10 +33,17 @@ function auraSupplementalContext(question) {
 
 async function auraScopedRpc(name, body, headers, signal) {
     const response = await fetch(SUPABASE_URL + '/rest/v1/rpc/' + name, {
-        method: 'POST', headers, body: JSON.stringify(body), signal
+        method: 'POST', headers, body: JSON.stringify(body), signal, cache: 'no-store', referrerPolicy: 'no-referrer'
     });
     if (!response.ok) throw Object.assign(new Error('AURA could not verify its data source.'), {status: response.status});
     return response.json();
+}
+
+function postAuraSheetRequest(body, signal) {
+    return fetch(AURA_SHEET_URL, {
+        method: 'POST', headers: {'Content-Type': 'text/plain;charset=utf-8'}, credentials: 'omit',
+        redirect: 'follow', referrerPolicy: 'no-referrer', body, signal
+    });
 }
 
 async function auraCloudAnswer(body, state, sql, headers, signal) {
@@ -49,8 +56,7 @@ async function auraCloudAnswer(body, state, sql, headers, signal) {
     const encoded = JSON.stringify(payload);
     if (new TextEncoder().encode(encoded).length > 24576 || navigator.onLine === false) return null;
     try {
-        const response = await fetch(AURA_SHEET_URL, {method: 'POST', headers: {'Content-Type': 'text/plain;charset=utf-8'},
-            credentials: 'omit', redirect: 'follow', referrerPolicy: 'no-referrer', body: encoded, signal});
+        const response = await postAuraSheetRequest(encoded, signal);
         const reply = response.ok && await response.json();
         return reply?.ok && typeof reply.provider === 'string' && reply.provider.length > 0 && typeof reply.answer === 'string' && reply.answer.trim() ? reply : null;
     } catch (error) {
@@ -59,6 +65,12 @@ async function auraCloudAnswer(body, state, sql, headers, signal) {
     }
 }
 
+/**
+ * @param {object} body Conversation command or capability request.
+ * @param {object} options Cancellation, progress and request identity.
+ * @param {Function} cachedAnswer Inventory fallback for the active account.
+ * @returns {Promise<object>} Scoped capability or conversation receipt.
+ */
 async function callAuraLlmRouter(body, options = {}, cachedAnswer = buildAuraDeterministicInventoryAnswer) {
     const owner = getSupabaseReadIdentityScope();
     const farm = getBloomscapesFarm();
@@ -83,6 +95,10 @@ async function callAuraLlmRouter(body, options = {}, cachedAnswer = buildAuraDet
         return {ok: true, conversationId: crypto.randomUUID(), revision: 0, title: 'Session conversation'};
     }
     if (body.mode !== 'command') return {ok: false, code: 'AURA_LOCAL_CONVERSATION_ONLY'};
+    return answerAuraCommand({body, state, headers, options, cachedAnswer, verify});
+}
+
+async function answerAuraCommand({body, state, headers, options, cachedAnswer, verify}) {
     const auto = (state?.model?.value || 'auto') === 'auto';
     const deadline = AbortSignal.timeout(auto ? 10000 : 120000);
     const signal = options.signal ? AbortSignal.any([deadline, options.signal]) : deadline;
@@ -185,10 +201,9 @@ async function loadAuraPickerOptions(state) {
     const owner = getSupabaseReadIdentityScope();
     state.catalogPending = true;
     try {
-        const response = await fetch(AURA_SHEET_URL, {method: 'POST', headers: {'Content-Type': 'text/plain;charset=utf-8'},
-            redirect: 'follow', credentials: 'omit', referrerPolicy: 'no-referrer', signal: AbortSignal.timeout(30000),
-            body: JSON.stringify({action: 'AURA_LIST_MODELS', app_id: 'gnc-bloomscapes-enterprise',
-                username: normalizeNativeAuthAlias(nativeAuthProfile.username).split('@')[0], authorization: headers.Authorization})});
+        const body = JSON.stringify({action: 'AURA_LIST_MODELS', app_id: 'gnc-bloomscapes-enterprise',
+            username: normalizeNativeAuthAlias(nativeAuthProfile.username).split('@')[0], authorization: headers.Authorization});
+        const response = await postAuraSheetRequest(body, AbortSignal.timeout(30000));
         const catalog = response.ok && await response.json();
         if (!state.model.isConnected || owner !== getSupabaseReadIdentityScope() || !catalog?.ok || !Array.isArray(catalog.models)) return;
         state.model.dispatchEvent(new CustomEvent('aura-model-catalog', {detail: catalog.models}));
@@ -197,6 +212,7 @@ async function loadAuraPickerOptions(state) {
     finally { state.catalogPending = false; }
 }
 
+/** @returns {void} Updates the mounted voice controls for the active user. */
 function syncAuraVoiceSettings() {
     auraCloudPanelState();
     const visible = !!auraWidgetHandle && isAuraRouterWidgetAuthorized();

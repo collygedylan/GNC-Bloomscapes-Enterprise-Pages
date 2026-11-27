@@ -1,4 +1,8 @@
 
+/**
+ * @param {object} patch
+ * @returns {object} Permitted native request evaluation fields.
+ */
 function nativeRequestEvaluationPatch(patch) {
     const fields = new Set(['req_spec','req_caliper','req_match','av_note','req_pic_note','req_comments',
         'req_sales_note','req_photo_link','req_photo_name','req_qty','req_status','request_note',
@@ -10,6 +14,12 @@ function isBloomscapesPhotoAction(command) {
     return ['request_work','suspend_tag'].includes(command.action) && command.operation === 'save';
 }
 
+/**
+ * @param {string} operation
+ * @param {object} command
+ * @param {object} [options]
+ * @returns {Promise<object>} Durable receipt for the authorized photo operation.
+ */
 async function sendBloomscapesPhotoCommand(operation,command,options={}) {
     const owner=getSupabaseReadIdentityScope(),epoch=nativeAuthRecoveryEpoch;
     const headers=await getNativeAuthRequestHeaders(false);
@@ -26,6 +36,13 @@ async function sendBloomscapesPhotoCommand(operation,command,options={}) {
     return rows[0].receipt;
 }
 
+/**
+ * @param {string} operation
+ * @param {object} command
+ * @param {Function} send
+ * @param {object} [options]
+ * @returns {Promise<Response>} HTTP response for the authenticated photo command.
+ */
 async function dispatchBloomscapesPhotoRpc(operation,command,send,options={}) {
     const owner=getSupabaseReadIdentityScope(),epoch=nativeAuthRecoveryEpoch;
     try {
@@ -39,6 +56,12 @@ async function dispatchBloomscapesPhotoRpc(operation,command,send,options={}) {
     return new Response(JSON.stringify(receipt),{status:200,headers:{'Content-Type':'application/json'}});
 }
 
+/**
+ * @param {string} url
+ * @param {unknown} body
+ * @param {object} [options]
+ * @returns {Promise<object>} Parsed response from the app function or authorized native fallback.
+ */
 async function postAppFunctionJson(url, body, options = {}) {
     const command = JSON.parse(JSON.stringify(body || {}));
     const bridgeOwner = command.action === 'native_session_bridge' ? getNativeSessionBridgeRequestOwner() : '';

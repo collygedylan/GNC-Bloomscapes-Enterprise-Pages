@@ -5,6 +5,11 @@ function buildFilteredWorkbookFile(columns, rows, title, searchTerm, fileLabel, 
         { ...options, filenameBase: options.filenameBase || title || fileLabel });
 }
 
+/**
+ * @param {string} message
+ * @param {boolean} [pending]
+ * @returns {void} Updates export status for the current worksheet.
+ */
 function setExcelExportFeedback(message, pending = false) {
     const button = document.getElementById('global-excel-export');
     if (!button) return;
@@ -16,6 +21,16 @@ function setExcelExportFeedback(message, pending = false) {
     button.disabled = pending;
 }
 
+/**
+ * @param {Array} columns
+ * @param {Array<object>} rows
+ * @param {string} title
+ * @param {string} [searchTerm]
+ * @param {string} [fileLabel]
+ * @param {Array} [metaRows]
+ * @param {object} [options]
+ * @returns {Promise<object>} Generated and downloaded workbook with its exported row count.
+ */
 function downloadExcelWorkbook(columns, rows, title, searchTerm = '', fileLabel = 'export', metaRows = null, options = {}) {
     const workbookFile = buildFilteredWorkbookFile(columns, rows, title, searchTerm, fileLabel, metaRows, options);
     const url = URL.createObjectURL(workbookFile.workbookBlob);
