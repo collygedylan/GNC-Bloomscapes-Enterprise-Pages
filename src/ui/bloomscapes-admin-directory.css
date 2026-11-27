@@ -108,4 +108,35 @@
 [data-farm-access-editor] nav { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 6px 10px; }
 [data-farm-access-editor] :is(nav,[role=status]):empty { display: none; }
 [data-farm-access-editor] [role=status]:not(:empty) { padding: 0 12px 6px; }
+[data-selected="user-controls"] [data-directory-list] {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: calc(100dvh - 210px);
+    max-height: calc(100dvh - 210px);
+}
+[data-selected="user-controls"] .user-directory-toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+[data-selected="user-controls"] .user-directory-filters {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+}
+[data-selected="user-controls"] .user-directory-filters button {
+    flex: none;
+}
+[data-selected="user-controls"] [data-directory-rows] {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: calc(100dvh - 210px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    contain: strict;
+    align-content: start;
+    scrollbar-gutter: stable;
+    padding-bottom: 96px;
+}
 [data-bloomscapes-user-directory] [hidden] { display: none !important; }

@@ -1,3 +1,4 @@
+/** @returns {void} Mounts the current account’s Home controls. */
 function mountBloomscapesHomeModules() {
     for (const id of ['header-version','app-release-version']) {
         const pill = document.getElementById(id);
@@ -15,11 +16,13 @@ function mountBloomscapesHomeModules() {
     scheduleHomeQueueCategoryCounts();
 }
 
+/** @param {HTMLElement} grid @returns {void} Refreshes the authorized communications shortcuts. */
 function mountBloomscapesCommunicationTiles(grid) {
     syncBloomscapesHomeTileVisibility(grid);
     syncBloomscapesHomeBadges();
 }
 
+/** @returns {void} Applies current unread communication counts. */
 function syncBloomscapesHomeBadges() {
     const counts={messages:typeof bloomscapesMessagesState==='undefined'?0:bloomscapesMessagesState.unread,
         walkie:typeof bloomscapesRadioInbox==='undefined'?0:bloomscapesRadioInbox.count};
@@ -40,6 +43,7 @@ function syncBloomscapesHomeBadges() {
     updateFooterChatBadge();
 }
 
+/** @param {string} tab @returns {unknown} The selected Home shortcut result. */
 function openBloomscapesHomeModule(tab) {
     const phase=bloomscapesStudioRoute(tab);
     if (phase!==undefined || tab==='bloomscapes-studio') return openBloomscapesFieldWorkStudio(phase);
@@ -48,8 +52,9 @@ function openBloomscapesHomeModule(tab) {
 }
 
 const homeMarkupByNode = new WeakMap();
+/** @param {boolean} opening @returns {void} Renders the effective account’s Home. */
 function renderHome(opening = false) {
-    if (getCurrentVisibleViewId() !== 'home') return;
+    if (getCurrentVisibleViewId() !== 'home' || renderPhPullerHome()) return;
     mountBloomscapesHomeModules();
     const dynamicContent = document.getElementById('home-dynamic-content');
     const dashboardContent = document.getElementById('home-dashboard-content');
@@ -79,6 +84,7 @@ function renderHome(opening = false) {
     if (typeof syncCurrentViewBodyClass === 'function') syncCurrentViewBodyClass('home');
 }
 
+/** @param {object} access @param {boolean} initialHome @returns {void} Applies role controls for the visible shell. */
 function synchronizeLoginRoleControls(access, initialHome = false) {
     document.querySelectorAll('.role-access').forEach(el => {
         const isAllowed =
@@ -95,6 +101,7 @@ function synchronizeLoginRoleControls(access, initialHome = false) {
     else syncRoleAccessUi(access);
 }
 
+/** @param {string} label @param {Function} task @returns {unknown} Result of the isolated shell startup task. */
 function runLoginInitializationStep(label, task) {
     try {
         const result = task();
@@ -106,6 +113,7 @@ function runLoginInitializationStep(label, task) {
     }
 }
 
+/** @returns {void} Confirms that the Home shell has its authorized module grid. */
 function confirmBloomscapesHomeMount() {
     setHomeDashboardModulesReady(!shouldUseRepSalesHomeHub());
     const grid = document.getElementById(shouldUseRepSalesHomeHub() ? 'home-rep-dashboard-grid' : 'home-dashboard-modules');
@@ -119,6 +127,7 @@ function confirmBloomscapesHomeMount() {
     void window.GncRuntimeWatchdog?.flushPrebootRecoveries?.();
 }
 
+/** @param {boolean} touchShell @returns {void} Schedules startup work for the signed-in shell. */
 function finishBloomscapesShellStartup(touchShell) {
     if (typeof isParkHillOrderPuller === 'function' && isParkHillOrderPuller()) {
         applyRolePermissions();
@@ -165,12 +174,16 @@ function refreshBloomscapesHomeStatus() {
     auditLocalRequestDurability('home').catch(error => reportHandledRuntimeIssue('home-request-audit',error.message));
 }
 
+/** @returns {void} Opens the first authorized view after login. */
 function openAppShellAfterLogin() {
     window.__agdataSessionBoundary = false;
     document.documentElement.classList.remove('agdata-retained-prepaint','agdata-authenticated-boot');
     clearLoginStartupWatchdog();
     const loginView=document.getElementById('view-login');
-    const retained = shouldPreserveMountedBootView() && getViewElementById(getCurrentVisibleViewId());
+    const puller = typeof isParkHillOrderPuller === 'function' && isParkHillOrderPuller() && canOpenPhShipping();
+    const view = getCurrentVisibleViewId();
+    const retained = shouldPreserveMountedBootView() && (!puller || view === 'shipping' || getAppBootViewState().userHasNavigated)
+        && getViewElementById(view);
     if (retained && retained.getBoundingClientRect().height > 0 && !retained.classList.contains('hidden')) {
         finishInitialAppLoad();
         if (loginView) loginView.style.display='none';
@@ -181,9 +194,8 @@ function openAppShellAfterLogin() {
 
     blurActiveField();
     revealBloomscapesLoginShell();
-    const puller = typeof isParkHillOrderPuller === 'function' && isParkHillOrderPuller();
-    runLoginInitializationStep('Initial view',()=>showOnlyPrimaryView(puller && canOpenPhShipping() ? 'shipping' : 'home'));
-    if (puller && canOpenPhShipping()) runLoginInitializationStep('Shipping',()=>renderViewContent('shipping',true,true,true));
+    runLoginInitializationStep('Initial view',()=>showOnlyPrimaryView(puller ? 'shipping' : 'home'));
+    if (puller) runLoginInitializationStep('Shipping',mountPhShippingAfterLogin);
     else runLoginInitializationStep('Home render',()=>renderHome(true));
     runLoginInitializationStep('Role controls',()=>synchronizeLoginRoleControls(getRoleAccessState(),!puller));
     document.body.classList.add('role-access-ready');
@@ -201,6 +213,13 @@ function openAppShellAfterLogin() {
         runLoginInitializationStep('Menu reset',()=>setMenuOpenState(false));
         finishBloomscapesShellStartup(isTouchConstrainedDevice());
     });
+}
+
+function mountPhShippingAfterLogin() {
+    renderPhShipping(true);
+    mountBloomscapesFarmSelector();
+    updateFooterNavState('shipping');
+    syncGlobalHeaderChrome({reason:'login-order-pulling',force:true});
 }
 
 function revealBloomscapesLoginShell() {

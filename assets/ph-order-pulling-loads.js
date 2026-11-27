@@ -8,7 +8,9 @@ function phShippingScopedReceipt(receipt,username,manager) {
     const routes = receipt.load_routes || {};
     const mine = receipt.buggy?.buggy_id;
     const ownRoute = routes[mine];
-    const member = [ownRoute?.puller_primary,ownRoute?.puller_helper].includes(username);
+    const handle = normalizePullerId(username);
+    const crew = [ownRoute?.lead_puller ?? ownRoute?.puller_primary,ownRoute?.partner_puller ?? ownRoute?.puller_helper];
+    const member = Boolean(handle && crew.some(value=>normalizePullerId(value) === handle));
     const allowed = id => Boolean(id && routes[id] && (manager || id === mine && member));
     const load_routes = Object.fromEntries(Object.entries(routes).filter(([id])=>allowed(id)));
     const rows = receipt.rows.filter(row=>(!row.warehouse || row.warehouse === '10-PH') && allowed(row.buggy_id));

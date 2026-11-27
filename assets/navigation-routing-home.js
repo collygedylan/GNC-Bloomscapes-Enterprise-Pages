@@ -24,11 +24,13 @@ const BLOOMSCAPES_HOME_MODULES = Object.freeze([
     {view:'reports', label:'Reports', icon:'ph-chart-bar', action:'openBloomscapesHomeReports()'}
 ]);
 
+/** @returns {unknown} Opens the active Reports destination. */
 function openBloomscapesHomeReports() {
     return getActiveEvalReportsAccess().scope === 'legacy'
         ? openBloomscapesAreaManagerView('eval2') : switchView('reports');
 }
 
+/** @returns {void} Mounts the shared selector and reconciles available farms. */
 function mountBloomscapesFarmSelector() {
     void ensureBloomscapesFarmAccess().then(() => {
         syncBloomscapesFarmSelector();
@@ -57,6 +59,7 @@ function mountBloomscapesFarmSelector() {
 }
 
 
+/** @param {HTMLSelectElement} select @returns {void} Dispatches the selected permitted farm. */
 function changeBloomscapesFarmSelection(select) {
     if (select.disabled) return;
     const next = select.value;
@@ -81,10 +84,12 @@ function refreshBloomscapesFarmPanel() {
     panel.dispatchEvent(new Event('bloomscapes-farm-change'));
 }
 
+/** @param {string} user @returns {string|undefined} The permitted Sales route. */
 function resolveBloomscapesSalesStudioView(user = '') {
     return ['sales', 'sales-office'].find(view => canAccessView(view, user));
 }
 
+/** @param {HTMLElement} view @returns {void} Mounts the Docks filter disclosure around existing controls. */
 function mountDocksFilterDisclosure(view) {
     const controls = view.querySelector('.freeze-panel #docks-filter-controls');
     if (!controls || controls.parentElement.matches('.docks-filter-disclosure')) return;
@@ -96,6 +101,7 @@ function mountDocksFilterDisclosure(view) {
     disclosure.append(summary, controls);
 }
 
+/** @param {object[]} base @param {object} smartMoves @returns {object[]} The Home registry for the current shell. */
 function getNavigationHomeModuleRegistry(base, smartMoves) {
     if (nativeAuthSessionActive) return BLOOMSCAPES_HOME_MODULES;
     const retired = new Set(['sales-office', 'office', 'qc', 'production', 'sales-inventory']);
@@ -111,6 +117,7 @@ function getNavigationHomeModuleRegistry(base, smartMoves) {
     return [...modules, { view: 'docks', label: 'Docks', icon: 'ph-truck', action: "switchView('docks')" }];
 }
 
+/** @param {object[]} adapters @param {string} view @param {string[]} surfaces @returns {object} Foreground and background data adapters. */
 function partitionSalesOfficeLiveAdapters(adapters = [], view = '', surfaces = []) {
     const source = Array.isArray(adapters) ? adapters : [];
     if (view === 'moves' && nativeAuthSessionActive) {
@@ -123,6 +130,7 @@ function partitionSalesOfficeLiveAdapters(adapters = [], view = '', surfaces = [
     return { foreground, background: source.filter(adapter => adapter?.id !== 'core:salesOffice') };
 }
 
+/** @returns {void} Mounts the current Queue category control. */
 function mountHomeQueueCategoryControl() {
     const toolbar = document.getElementById('request-filter-toolbar');
     if (!toolbar || toolbar.querySelector('[data-module-subview-trigger]')) return;
@@ -132,6 +140,7 @@ function mountHomeQueueCategoryControl() {
     else mountQueCategoryControl();
 }
 
+/** @returns {void} Schedules visible authorized Queue counts. */
 function scheduleHomeQueueCategoryCounts() {
     if (!nativeAuthSessionActive || !canShowBloomscapesHomeTile('request')) return;
     const owner = getSupabaseReadIdentityScope();
@@ -143,6 +152,7 @@ function scheduleHomeQueueCategoryCounts() {
     });
 }
 
+/** @returns {unknown} Opens Inventory Office and schedules its scoped directory. */
 function openInventoryOfficeView() {
     if (!canAccessView('moves')) return switchView('home');
     activeMovesTab = 'office';
@@ -168,44 +178,17 @@ async function refreshInventoryOfficeDirectory(sequence) {
     }
 }
 
-function resolveFooterNavigationSelection(buttons, currentView, access, personal) {
-    let selected = null;
-    let parent = null;
-    for (const button of buttons) {
-        const view = String(button.dataset.footerView || '').trim();
-        syncBloomscapesFooterCaption(button, view);
-        const scope = typeof bloomscapesPersonalRoute==='function' ? bloomscapesPersonalRoute(view) : null;
-        const allowed = scope ?? (personal || canShowFooterViewButton(view, access));
-        if (!personal || scope!==null) button.classList.toggle('hidden', !allowed);
-        if (!allowed || button.classList.contains('hidden')) continue;
-        if (!selected && view === currentView) selected = button;
-        if (view === 'communication' && ['communication','chat','department-calendar'].includes(currentView)) parent = button;
-        if (!parent && view === 'sales' && currentView !== 'home' && isSalesShellAccess(access)) parent = button;
-    }
-    return selected || parent;
-}
-
-function syncFooterNavigationButtons(footer, currentView, access, personal) {
-    if (typeof syncBloomscapesPersonalFooter==='function') syncBloomscapesPersonalFooter(footer);
-    const active = resolveFooterNavigationSelection(footer?.querySelectorAll('[data-footer-view]') || [], currentView, access, personal);
-    const controls = footer?.querySelectorAll('button, .nav-item, [data-footer-view]') || [];
-    for (const button of controls) {
-        const selected = button === active;
-        if (button.classList.contains('active') !== selected) button.classList.toggle('active', selected);
-        if (selected && button.getAttribute('aria-current') !== 'page') button.setAttribute('aria-current', 'page');
-        if (!selected && button.hasAttribute('aria-current')) button.removeAttribute('aria-current');
-        if (button.style.touchAction !== 'manipulation') button.style.touchAction = 'manipulation';
-    }
-}
-
+/** @returns {boolean} Whether native navigation policy applies. */
 function usesBloomscapesEffectiveNavigation() {
     return nativeAuthSessionActive;
 }
 
+/** @returns {boolean} Whether navigation is rendering the verified lens. */
 function isBloomscapesNavigationPreview() {
     return nativeAuthSessionActive && Boolean(borrowedHelpPreview());
 }
 
+/** @param {string} viewId @param {object} options @param {number} navigationSeq @returns {object} The scoped navigation context. */
 function beginPrimaryViewNavigation(viewId, options, navigationSeq) {
     if (viewId !== 'bunch-note') window.BunchNote?.disposeView();
     if (viewId !== 'request' && !(viewId === 'detail' && window.BunchQueueShell?.isDetailOpen())) window.BunchQueueShell?.destroy();
@@ -232,6 +215,7 @@ function beginPrimaryViewNavigation(viewId, options, navigationSeq) {
 }
 
 
+/** @param {string} view @param {string} user @returns {boolean} Whether the effective account can open the communications route. */
 function canOpenCommunicationView(view, user) {
     if (!nativeAuthSessionActive || (user && user !== currentUser)) return false;
     const preview = borrowedHelpPreview();

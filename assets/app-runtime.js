@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.82';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.83';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -2942,21 +2942,6 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
                 scheduleStickyRailOffsetSync('mobile-text-entry-clear', true);
                 if (typeof syncViewportHeight === 'function') syncViewportHeight({ reason: 'mobile-text-entry-clear', force: true });
             }, 160);
-        }
-
-        function handleMobileTextEntryInput(event) {
-            const target = event && event.target ? event.target : null;
-            if (!isMobileTextEntryTarget(target)) return;
-            lastTypingAt = Date.now();
-            if (!mobileTextEntryState.target) beginMobileTextEntryStability(target);
-            const isTextarea = String(target.tagName || '').toUpperCase() === 'TEXTAREA';
-            const managedDetailKeyboardInput = !!(
-                (typeof isDetailMeasurementKeyboardInput === 'function' && isDetailMeasurementKeyboardInput(target))
-                || (typeof isDetailMeasurementKeyboardActiveForInput === 'function' && isDetailMeasurementKeyboardActiveForInput(target))
-            );
-            extendMobileTextEntryStability(target, { skipVisibilitySettle: true });
-            if (!document.body.classList.contains('mobile-text-entry-active')) updateMobileTextEntryBodyState(target);
-            if (!isTextarea && !getFastFocusableSearchInput(target) && !managedDetailKeyboardInput && !(isIOSDevice() && isMobileFilterEntryTarget(target))) scheduleMobileTextEntryPostInputSettle(target);
         }
 
         function handleMobileTextEntryEnter(event) {
@@ -23233,7 +23218,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.82';
+        const APP_VERSION = '3.1.83';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 

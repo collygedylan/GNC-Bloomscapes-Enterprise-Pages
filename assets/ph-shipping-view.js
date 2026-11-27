@@ -58,6 +58,25 @@ function phShippingStopCard(row,state) {
         +'</article>');
 }
 
+/**
+ * @param {object} load Current WingDing load.
+ * @returns {number} The load's estimated or recorded WingDing unit total.
+ */
+function phShippingLoadWdu(load) {
+    return load.estimate?.totalWdu ?? Number(load.manifest.reduce((sum,row)=>sum+Number(row.wingdingunits),0).toFixed(3));
+}
+
+/**
+ * @param {object|null} receipt The current puller's scoped Shipping receipt.
+ * @returns {string} The Home shortcut and exact load summary.
+ */
+function phShippingHomeCard(receipt) {
+    const route = receipt?.load_routes?.[receipt.buggy?.buggy_id];
+    const manifest = route?.load_manifest || receipt?.rows || [];
+    const summary = route ? ' (Unit '+route.unit_number+' · '+manifest.length+' Stops · '+phShippingLoadWdu({manifest})+' / 650 WDU)' : '';
+    return `<button type="button" class="home-dashboard-tile" onclick="return switchView('shipping')">${escapeHtml('🚚 Open My WingDing Load'+summary)}</button>`;
+}
+
 function phShippingTelemetry(load) {
     if (!load) return '<small>Route estimate unavailable</small>';
     return '<small data-ph-load-metrics>⛽ '+load.fuelGal.toFixed(2)+' gal · ⏱️ Get: '+load.getLoadMin
@@ -73,7 +92,7 @@ function phShippingSummary(load,drill = true) {
     const route = load.route;
     const crew = [route.puller_primary,route.puller_helper].filter(Boolean).join(' + ');
     const heading = 'Unit '+(route.unit_number || '—');
-    const weight = load.estimate?.totalWdu ?? Number(load.manifest.reduce((sum,r)=>sum+Number(r.wingdingunits),0).toFixed(3));
+    const weight = phShippingLoadWdu(load);
     const total = load.rows.every(row=>phShippingOrderedQty(row) != null)
         ? load.rows.reduce((sum,row)=>sum+Number(phShippingOrderedQty(row)),0) : '—';
     const start = drill ? '<button type="button" data-shipping-load="'+esc(load.id)+'"' : '<header data-ph-load-header="'+esc(load.id)+'"';
@@ -114,7 +133,10 @@ function phShippingGrant() {
 function canOpenPhShipping() {
     if (typeof nativeAuthSessionActive === 'undefined' || !nativeAuthSessionActive || !nativeAuthProfile
         || nativeAuthProfile.username !== currentUser || getBloomscapesFarm() !== '10-PH') return false;
-    return orderPullEligible(nativeAuthProfile,phShippingGrant(),getBloomscapesFarm(),borrowedHelpPreview());
+    const preview = borrowedHelpPreview();
+    if (preview) return isParkHillOrderPuller(preview) && preview.farm_scopes?.includes('10-PH')
+        && ['FULL_EDIT','VIEW_ONLY'].includes(preview.shipping_access);
+    return orderPullEligible(nativeAuthProfile,phShippingGrant(),'10-PH',null);
 }
 
 /**
@@ -130,13 +152,20 @@ function resetPhShippingView() {
  */
 function currentPhShippingState() {
     if (!canOpenPhShipping()) return null;
+    const preview = borrowedHelpPreview();
+    const profile = effectivePhShippingProfile();
     const owner = getSupabaseReadIdentityScope();
-    const manager = phPullSupervisorAllowed(nativeAuthProfile,'10-PH',borrowedHelpPreview());
-    const edit = phShippingGrant()?.view_shipping !== 'VIEW_ONLY';
-    if (phShippingState?.owner !== owner || phShippingState.manager !== manager || phShippingState.edit !== edit) {
+    const manager = !isParkHillOrderPuller(profile) && phPullSupervisorAllowed(profile,'10-PH',preview);
+    const edit = !preview && phShippingGrant()?.view_shipping !== 'VIEW_ONLY';
+    if (phShippingState?.owner !== owner || phShippingState.preview !== preview
+        || phShippingState.manager !== manager || phShippingState.edit !== edit) {
         resetPhShippingView();
-        phShippingState = {owner,manager,edit,teamOnly:!manager,username:currentUser,tab:'loads',selected:'',
-            filter:'',filterOpen:false,receipt:null,pending:null,error:'',navigation:null};
+        const username = normalizePullerId(profile.username);
+        const receipt = preview?.shipping_preview;
+        const scoped = receipt?.warehouse === '10-PH' && Array.isArray(receipt.rows) && normalizePullerId(receipt.username) === username
+            ? phShippingScopedReceipt(receipt,username,false) : null;
+        phShippingState = {owner,manager,edit,preview,teamOnly:!manager,username,tab:'loads',selected:'',
+            filter:'',filterOpen:false,receipt:scoped,pending:null,error:'',navigation:null};
     }
     return phShippingState;
 }
@@ -187,7 +216,8 @@ function phShippingStatus(state,hasRows) {
     if (!state.receipt && state.pending) return 'Loading WingDing loads…';
     if (hasRows) return '';
     if (state.filter) return 'No matching loads or stops.';
-    return state.teamOnly ? 'Standby · Ready' : 'No active WingDing loads.';
+    return state.teamOnly && !state.receipt?.buggy
+        ? 'Standby — No Active WingDing Load Assigned Yet' : 'No active WingDing stops.';
 }
 
 /**
@@ -209,8 +239,9 @@ function redrawPhShippingView() {
     header.replaceChildren();
     const hasRows = selected ? paintPhShippingStops(root,state,selected) : paintPhShippingBoard(root,state,loads);
     root.querySelector('[data-shipping-status]').textContent = phShippingStatus(state,hasRows);
-    if (state.receipt && !state.receipt.buggy && state.teamOnly && state.edit) {
-        header.innerHTML = renderCompactToolbarButton('data-shipping-action','deal','Get Next Buggy');
+    if (state.receipt && !state.receipt.buggy && state.teamOnly) {
+        header.innerHTML = renderCompactToolbarButton('data-shipping-action','deal','🔄 Get Next Buggy');
+        header.firstElementChild.disabled = !state.edit;
     }
     renderPendingSuspendPullAllocations();
 }
@@ -225,7 +256,7 @@ async function runPhShippingCommand(state,action,input = {}) {
     if (state.pending || !phShippingIsCurrent(state) || action !== 'list' && !state.edit) return;
     state.error = '';
     try {
-        state.pending = requestOrderPull(action,input);
+        state.pending = state.preview ? requestPhShippingPreview(state.preview) : requestOrderPull(action,input);
         if (!state.receipt) redrawPhShippingView();
         const receipt = await state.pending;
         if (currentPhShippingState() === state) state.receipt = phShippingScopedReceipt(receipt,state.username,state.manager);
@@ -234,6 +265,7 @@ async function runPhShippingCommand(state,action,input = {}) {
     } finally {
         state.pending = null;
         if (phShippingIsCurrent(state)) redrawPhShippingView();
+        else if (getCurrentVisibleViewId() === 'home' && currentPhShippingState() === state) renderPhPullerHome();
     }
 }
 
@@ -308,14 +340,14 @@ function renderPhShipping(entering = false) {
     if (!root) return false;
     const state = currentPhShippingState();
     if (!state) { resetPhShippingView(); return false; }
-    if (entering || !root.querySelector('[data-shipping-tools]')) {
+    const mount = entering || !root.querySelector('[data-shipping-tools]');
+    if (!mount && state.navigation === navTransitionSeq) return true;
+    if (mount) {
         Object.assign(state,{tab:'loads',selected:'',filter:'',filterOpen:false});
         mountPhShippingShell(root,state);
     }
-    if (entering || state.navigation !== navTransitionSeq) {
-        state.navigation = navTransitionSeq;
-        if (state.tab === 'loads') void runPhShippingCommand(state,'list');
-    }
-    redrawPhShippingView();
+    state.navigation = navTransitionSeq;
+    if (state.tab === 'loads' && (!state.preview || !state.receipt)) void runPhShippingCommand(state,'list');
+    if (state.receipt || !state.pending) redrawPhShippingView();
     return true;
 }

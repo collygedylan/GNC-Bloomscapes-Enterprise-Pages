@@ -5,6 +5,7 @@ const PERSONAL_MODULE_ROUTES = Object.freeze({
     'po-management':'hl-order','moves':'inventory-office'
 });
 
+/** @returns {object|null} The effective personal access scope. */
 function bloomscapesPersonalScope() {
     const lens=typeof borrowedHelpPreview==='function' ? borrowedHelpPreview() : null;
     if (lens) return lens.module_access ? lens : null;
@@ -13,15 +14,17 @@ function bloomscapesPersonalScope() {
     return state.profile;
 }
 
+/** @param {string} view @param {object|null} scope @returns {boolean|null} The personal route grant, or null for the general policy. */
 function bloomscapesPersonalRoute(view,scope=bloomscapesPersonalScope()) {
     if (view === 'shipping') return typeof canOpenPhShipping === 'function' && canOpenPhShipping();
-    if (typeof isParkHillOrderPuller === 'function' && isParkHillOrderPuller()) return false;
+    if (typeof isParkHillOrderPuller === 'function' && isParkHillOrderPuller()) return view === 'home';
     if (!scope) return null;
     if (view==='home') return true;
     const key=Object.hasOwn(PERSONAL_MODULE_ROUTES,view) ? PERSONAL_MODULE_ROUTES[view] : view;
     return ['VIEW_ONLY','FULL_EDIT'].includes(scope.module_access?.[key]);
 }
 
+/** @param {object[]} rows @param {object|null} scope @param {string} farm @returns {object[]} Rows within the effective farm and plant-group scope. */
 function rowsInBloomscapesPersonalScope(rows,scope=bloomscapesPersonalScope(),farm=getBloomscapesFarm()) {
     if (!scope) return rows;
     if (scope.allowed_warehouses && !scope.allowed_warehouses.includes(farm)) return [];
@@ -32,16 +35,19 @@ function rowsInBloomscapesPersonalScope(rows,scope=bloomscapesPersonalScope(),fa
     });
 }
 
+/** @returns {string} The effective identity and permitted inventory scope. */
 function bloomscapesPersonalInventoryScopeKey() {
     const scope=bloomscapesPersonalScope();
     return scope ? JSON.stringify([scope.username,scope.allowed_warehouses,scope.allowed_plantgroupcodes]) : '';
 }
 
+/** @param {string[]} farms @returns {string[]} Farms visible to the effective profile. */
 function bloomscapesVisibleFarmChoices(farms) {
     const limited=bloomscapesPersonalScope()?.allowed_warehouses;
     return limited ? farms.filter(farm=>limited.includes(farm)) : farms;
 }
 
+/** @param {HTMLElement} footer @returns {void} Applies the personal footer controls. */
 function syncBloomscapesPersonalFooter(footer) {
     if (!footer) return;
     if (!bloomscapesPersonalScope()) {
@@ -66,6 +72,59 @@ function syncBloomscapesPersonalFooter(footer) {
         mark.className='ph-duotone '+icon;
         button.appendChild(document.createElement('span')).textContent=label;
         bindFastPressTarget(button,'invoke','switchView',[view],label);
+    }
+}
+
+/** @returns {boolean} Whether the dedicated puller's Home was rendered. */
+function renderPhPullerHome() {
+    if (typeof isParkHillOrderPuller !== 'function' || !isParkHillOrderPuller() || !canOpenPhShipping()) return false;
+    const content = document.getElementById('home-dynamic-content');
+    if (!content) return false;
+    document.getElementById('home-dashboard-content')?.classList.add('hidden');
+    const markup = phShippingHomeCard(currentPhShippingState()?.receipt);
+    if (content.innerHTML !== markup) content.innerHTML = markup;
+    syncHomeDashboardBodyMode();
+    return true;
+}
+
+function syncPhShippingFooterButton(button) {
+    const icon = button.querySelector('i');
+    const label = button.querySelector('span');
+    if (icon && icon.className !== 'ph-duotone ph-truck') icon.className = 'ph-duotone ph-truck';
+    if (label && label.textContent !== 'Shipping') label.textContent = 'Shipping';
+    if (button.getAttribute('aria-label') !== 'Shipping') button.setAttribute('aria-label','Shipping');
+}
+
+function resolveFooterNavigationSelection(buttons, currentView, access, personal) {
+    let selected = null;
+    let parent = null;
+    for (const button of buttons) {
+        const view = String(button.dataset.footerView || '').trim();
+        syncBloomscapesFooterCaption(button, view);
+        const scope = view === 'shipping' ? isParkHillOrderPuller() && canOpenPhShipping()
+            : typeof bloomscapesPersonalRoute==='function' ? bloomscapesPersonalRoute(view) : null;
+        const allowed = scope ?? (personal || canShowFooterViewButton(view, access));
+        if (!personal || scope!==null) button.classList.toggle('hidden', !allowed);
+        if (!allowed || button.classList.contains('hidden')) continue;
+        if (view === 'shipping') syncPhShippingFooterButton(button);
+        if (!selected && view === currentView) selected = button;
+        if (view === 'communication' && ['communication','chat','department-calendar'].includes(currentView)) parent = button;
+        if (!parent && view === 'sales' && currentView !== 'home' && isSalesShellAccess(access)) parent = button;
+    }
+    return selected || parent;
+}
+
+/** @param {HTMLElement} footer @param {string} currentView @param {object} access @param {boolean} personal @returns {void} Applies footer visibility and selection. */
+function syncFooterNavigationButtons(footer, currentView, access, personal) {
+    if (typeof syncBloomscapesPersonalFooter==='function') syncBloomscapesPersonalFooter(footer);
+    const active = resolveFooterNavigationSelection(footer?.querySelectorAll('[data-footer-view]') || [], currentView, access, personal);
+    const controls = footer?.querySelectorAll('button, .nav-item, [data-footer-view]') || [];
+    for (const button of controls) {
+        const selected = button === active;
+        if (button.classList.contains('active') !== selected) button.classList.toggle('active', selected);
+        if (selected && button.getAttribute('aria-current') !== 'page') button.setAttribute('aria-current', 'page');
+        if (!selected && button.hasAttribute('aria-current')) button.removeAttribute('aria-current');
+        if (button.style.touchAction !== 'manipulation') button.style.touchAction = 'manipulation';
     }
 }
 

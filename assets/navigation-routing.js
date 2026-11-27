@@ -1,4 +1,3 @@
-let pendingNavigationDisplay = null;
 /** @param {string} viewId Requested view. @param {object} options Navigation options. @returns {unknown} Selected route handler result. */
 function switchView(viewId, options = {}) {
     const target = resolvePrimaryShellRoute(viewId, options);
@@ -15,7 +14,7 @@ function switchView(viewId, options = {}) {
     if (nativeAuthSessionActive && target==='communication') {
         bloomscapesCommState.mode='voice';markViewDirty('communication');
     }
-    pendingNavigationDisplay = null;
+    clearPendingNavigationDisplay();
     syncNavigationDisplayStatus(getViewElementById(target));
     if (options.boot === true && shouldPreserveMountedBootView()) return false;
     if (target==='production' && !preparePermittedStudioNavigation(viewId, options)) return false;
@@ -36,13 +35,13 @@ function switchView(viewId, options = {}) {
     });
     return false;
 }
-
 function mountPrimaryNavigation(context) {
     const { nextViewId, currentViewId, rememberCurrentView, historyScroll } = context;
     const targetView = getViewElementById(nextViewId);
     if (targetView) {
         showOnlyPrimaryView(nextViewId);
-        if (nextViewId === 'shipping' && currentViewId !== nextViewId) renderPhShipping(true);
+        if (nextViewId === 'shipping') renderPhShipping(currentViewId !== nextViewId);
+        if (nextViewId === 'home') renderPhPullerHome();
         if (nextViewId === 'request') {
             if (currentViewId === 'home') mountHomeQueueCategoryControl();
             else mountQueCategoryControl();

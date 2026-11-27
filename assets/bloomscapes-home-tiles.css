@@ -26,6 +26,16 @@ html body #app-wrapper [data-superadmin-lens] > [data-lens-trigger] {
   box-shadow: 0 12px 24px #081c1280;
 }
 
+#app-wrapper [data-superadmin-preview-banner]:has([data-superadmin-lens]) {
+  position: relative;
+}
+#app-wrapper [data-superadmin-preview-banner] [data-superadmin-lens] {
+  position: static;
+}
+#app-wrapper [data-superadmin-preview-banner] [data-lens-menu] {
+  right: 8px;
+}
+
 #app-wrapper [data-lens-menu] input,
 #app-wrapper [data-lens-choices] button {
   width: 100%;

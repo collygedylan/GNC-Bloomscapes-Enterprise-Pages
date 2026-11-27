@@ -84,6 +84,20 @@ const earlyModuleSearch = {
 };
 let activeModuleSearch;
 
+function bindModuleSearchOrigin(owner,origin) {
+    if (owner.origin) {
+        owner.origin.hidden=false;
+        owner.origin.removeEventListener('input',owner.mirror);
+    }
+    owner.origin=origin;
+    if (!origin) return;
+    owner.input.value=origin.value;
+    owner.input.placeholder=origin.placeholder || owner.input.placeholder;
+    owner.input.setAttribute('aria-label',origin.getAttribute('aria-label') || owner.input.placeholder);
+    origin.hidden=!origin.hasAttribute('data-directory-query');
+    origin.addEventListener('input',owner.mirror);
+}
+
 function createModuleSearch(view, origin) {
     const host = document.createElement('div');
     host.id = 'drive-module-header-search-' + view;
@@ -95,16 +109,18 @@ function createModuleSearch(view, origin) {
     input.setAttribute('aria-label', origin?.getAttribute('aria-label') || input.placeholder);
     input.autocomplete = 'off';
     input.enterKeyHint = 'search';
-    if (origin) origin.hidden = true;
+    const owner={view,host,input,origin:null,mirror:()=>{input.value=owner.origin.value;}};
+    bindModuleSearchOrigin(owner,origin);
     input.addEventListener('input', () => {
         const source = activeModuleSearch?.host === host ? activeModuleSearch.origin : null;
         if (!source) return earlyModuleSearch[view]?.input(input.value);
         const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')?.set;
         valueSetter?.call(source,input.value);
-        source.dispatchEvent(new Event('input', {bubbles:true}));
+        const type=source.hasAttribute('data-directory-query') ? 'directory-query' : 'input';
+        source.dispatchEvent(new Event(type, {bubbles:true}));
     });
     document.getElementById('view-' + view)?.prepend(host);
-    return {view, host, input, origin};
+    return owner;
 }
 
 /**
@@ -121,16 +137,11 @@ function getBloomscapesDriveModuleSearch(view) {
     const origin = inputs.find(input => !input.parentElement?.closest('[hidden],.hidden')
         && (input === active?.origin || !input.hidden || input.hasAttribute('data-ph-work-search')));
     if (active?.view === view && active.host.isConnected) {
-        if (active.origin !== origin) {
-            if (active.origin) active.origin.hidden = false;
-            active.origin = origin;
-            if (origin) origin.value = active.input.value;
-        }
-        if (origin) origin.hidden = true;
+        if (active.origin !== origin) bindModuleSearchOrigin(active,origin);
         return active.host;
     }
     if (active) {
-        if (active.origin) active.origin.hidden = false;
+        bindModuleSearchOrigin(active,null);
         active.host.remove();
         activeModuleSearch = undefined;
     }
@@ -145,9 +156,8 @@ function getBloomscapesDriveModuleSearch(view) {
  */
 function clearBloomscapesDriveModuleSearch(view) {
     if (!activeModuleSearch || activeModuleSearch.view === view) return;
-    const {host, origin} = activeModuleSearch;
-    if (origin) origin.hidden = false;
-    host.remove();
+    bindModuleSearchOrigin(activeModuleSearch,null);
+    activeModuleSearch.host.remove();
     activeModuleSearch = undefined;
 }
 
@@ -189,4 +199,23 @@ function bloomscapesSalesRepRoute(view, profile, preview) {
     if (preview) return profile.area_access?.[area] === 'VIEW_ONLY';
     const matrix = resolveUserAccessMatrix(profile.username);
     return matrix?.verified === true && matrix.view_permissions?.[flag] === 'Y';
+}
+
+/** @param {Event} event Text input on a mounted view. @returns {void} */
+function handleMobileTextEntryInput(event) {
+    const target = event && event.target ? event.target : null;
+    if (!isMobileTextEntryTarget(target)) return;
+    lastTypingAt = Date.now();
+    const directoryInput=target.hasAttribute('data-directory-query') ||
+        (target===activeModuleSearch?.input && activeModuleSearch.origin?.hasAttribute('data-directory-query'));
+    if (directoryInput && !shouldUseMobileTextEntryStabilizer()) return;
+    if (!mobileTextEntryState.target) beginMobileTextEntryStability(target);
+    const isTextarea = String(target.tagName || '').toUpperCase() === 'TEXTAREA';
+    const managedDetailKeyboardInput = !!(
+        (typeof isDetailMeasurementKeyboardInput === 'function' && isDetailMeasurementKeyboardInput(target))
+        || (typeof isDetailMeasurementKeyboardActiveForInput === 'function' && isDetailMeasurementKeyboardActiveForInput(target))
+    );
+    extendMobileTextEntryStability(target, { skipVisibilitySettle: true });
+    if (!document.body.classList.contains('mobile-text-entry-active')) updateMobileTextEntryBodyState(target);
+    if (!isTextarea && !getFastFocusableSearchInput(target) && !managedDetailKeyboardInput && !(isIOSDevice() && isMobileFilterEntryTarget(target))) scheduleMobileTextEntryPostInputSettle(target);
 }

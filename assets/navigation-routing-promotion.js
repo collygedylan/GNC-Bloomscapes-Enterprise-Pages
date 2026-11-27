@@ -1,3 +1,10 @@
+let pendingNavigationDisplay = null;
+
+/** @returns {void} Retires any previous display-only navigation. */
+function clearPendingNavigationDisplay() {
+    pendingNavigationDisplay = null;
+}
+
 /**
  * @param {string} viewId Visible view identifier.
  * @param {object} options Configuration for this operation.
@@ -34,7 +41,7 @@ function applyNavigationDisplayPromotion(pending) {
     if (!isNavigationDisplayPromotionCurrent(pending)) return;
     const scrollTop = getMainAreaScrollTop();
     const state = ensureViewRenderState(pending.viewId);
-    pendingNavigationDisplay = null;
+    clearPendingNavigationDisplay();
     if (!state.initialized) {
         const token = prepareLatestViewRender(pending.viewId);
         runPrimaryNavigationTargetRender({ nextViewId: pending.viewId, navigationSeq: pending.sequence }, token);

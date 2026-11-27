@@ -37,6 +37,7 @@ function observeContinuousListEnd(sentinel,load) {
 const SUPERADMIN_LENS_SESSION_KEY = 'gnc-superadmin-lens-v1';
 const SUPERADMIN_LENS_CACHE_MS = 300000;
 
+/** @param {string} owner @returns {object} The native actor’s retained lens state. */
 function restoreSuperAdminLens(owner) {
     const state = {owner,selected:null};
     try {
@@ -48,16 +49,43 @@ function restoreSuperAdminLens(owner) {
     return state;
 }
 
+/** @param {object} state @returns {void} Retains the verified lens selection for this owner. */
 function persistSuperAdminLens(state) {
+    const profile = {...state.selected};
+    delete profile.shipping_preview;
     try {
         sessionStorage.setItem(SUPERADMIN_LENS_SESSION_KEY,JSON.stringify({
-            owner:state.owner,selected:state.selected?.id || '',profile:state.selected,expires:Date.now()+SUPERADMIN_LENS_CACHE_MS
+            owner:state.owner,selected:state.selected?.id || '',profile:state.selected ? profile : null,expires:Date.now()+SUPERADMIN_LENS_CACHE_MS
         }));
     } catch {
         // The verified preview remains in memory when session storage is unavailable.
     }
 }
 
+/**
+ * @param {object} state Current authenticated lens state.
+ * @param {object|null} previous The prior effective profile.
+ * @param {string} view The prior visible view.
+ * @returns {boolean} Whether Shipping handled the lens transition.
+ */
+function routeSuperAdminShippingLens(state,previous,view) {
+    if (isParkHillOrderPuller(state.selected) && canOpenPhShipping()) {
+        if (!isParkHillOrderPuller(previous)) state.beforePuller = {view,scroll:getMainAreaScrollTop()};
+        if (view === 'shipping') renderPhShipping();
+        else switchView('shipping',{fromHistory:true,force:true});
+        return true;
+    }
+    const origin = state.beforePuller;
+    state.beforePuller = null;
+    if (!state.selected && origin?.view && canDisplayNavigationView(origin.view)) {
+        switchView(origin.view,{fromHistory:true,force:true,managerSubView:true,targetScrollTop:origin.scroll});
+        return true;
+    }
+    if (view !== 'home' && !canDisplayNavigationView(view)) switchView('home');
+    return false;
+}
+
+/** @param {HTMLElement} host @param {object} state @returns {void} Projects the picker query against its current roster. */
 function searchSuperAdminChoices(host,state) {
     if (!currentSuperAdminLens(state)) return;
     state.searchText = host.querySelector('input').value;
@@ -65,6 +93,7 @@ function searchSuperAdminChoices(host,state) {
     paintSuperAdminChoices(host,state);
 }
 
+/** @param {HTMLElement} host @param {object} state @param {object} profile @returns {void} Resolves the selected lens profile. */
 function selectSuperAdminChoice(host,state,profile) {
     if (!currentSuperAdminLens(state)) return;
     state.selection = null;
@@ -145,7 +174,7 @@ function superAdminPreviewRoles(receipt) {
 function mountSuperAdminViewAs() {
     const root = document.querySelector('.nav-header-meta-row');
     if (!root) return;
-    const host = root.querySelector('[data-superadmin-lens]');
+    const host = document.querySelector('[data-superadmin-lens]');
     if (!isSuperAdminLensOwner()) {
         host?.remove();
         document.querySelector('[data-superadmin-preview-banner]')?.remove();
@@ -266,6 +295,9 @@ function paintSuperAdminBanner(profile) {
     const chrome = document.getElementById('app-top-chrome');
     if (!chrome) return;
     const current = chrome.querySelector('[data-superadmin-preview-banner]');
+    const picker = document.querySelector('[data-superadmin-lens]');
+    const puller = isParkHillOrderPuller(profile);
+    if (!puller && current && picker?.parentElement === current) document.querySelector('.nav-header-meta-row')?.append(picker);
     if (!profile) { current?.remove(); return; }
     const banner = current || chrome.appendChild(document.createElement('aside'));
     banner.dataset.superadminPreviewBanner = '';
@@ -277,10 +309,12 @@ function paintSuperAdminBanner(profile) {
     button.onclick = () => applySuperAdminLens(superAdminLens,null);
     const account = profile.username ? ' (@'+profile.username+' · '+profile.role+')' : '';
     banner.replaceChildren('👁️ Viewing as '+profile.label+account+' · ',button);
+    if (puller && picker) button.before(picker);
 }
 
 function applySuperAdminLens(state,profile) {
     if (!state || state !== superAdminLens || state.owner !== borrowedHelpIdentity() || !isSuperAdminLensOwner()) return;
+    const previous = state.selected;
     state.selected = profile || null;
     persistSuperAdminLens(state);
     avResolvedBaseStateKey = '';
@@ -290,11 +324,13 @@ function applySuperAdminLens(state,profile) {
     if (trigger) trigger.textContent = '👁️ View As: '+(profile?.label || 'Myself (Super-Admin)')+' ▾';
     paintSuperAdminBanner(state.selected);
     const view = getCurrentVisibleViewId();
-    if (view !== 'home' && !canDisplayNavigationView(view)) switchView('home');
+    const shippingTransition = routeSuperAdminShippingLens(state,previous,view);
     const grid = document.getElementById('home-dashboard-grid');
-    syncBloomscapesHomeTileVisibility(grid);
-    updateFooterNavState();
-    updateGlobalBackButton();
+    if (!shippingTransition) {
+        syncBloomscapesHomeTileVisibility(grid);
+        updateFooterNavState();
+        updateGlobalBackButton();
+    }
     if (view === 'request' && getCurrentVisibleViewId() === 'request') {
         syncQueActiveCategory();
         mountBorrowedHelpQueue();

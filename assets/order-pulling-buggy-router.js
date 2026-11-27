@@ -207,22 +207,45 @@ function phPullGroupBatch(rows) {
     return chosen;
 }
 
-function isParkHillOrderPuller(profile = typeof nativeAuthProfile === 'undefined' ? null : nativeAuthProfile) {
-    return profile?.role === 'order_puller' && !profile.disabled_at && !profile.must_change_password;
+/**
+ * @param {unknown} value Puller handle or name.
+ * @returns {string} The normalized handle used for team membership.
+ */
+function normalizePullerId(value) {
+    return String(value || '').trim().toLowerCase().replace(/^@+/, '').replace(/[\s-]+/g, '_');
 }
 
+/**
+ * @param {object|null} profile Effective profile by default.
+ * @returns {boolean} Whether the profile is a dedicated Park Hill puller.
+ */
+function isParkHillOrderPuller(profile = effectivePhShippingProfile()) {
+    return Boolean(profile && !profile.disabled_at && profile.active !== false && !profile.must_change_password
+        && (profile.role === 'order_puller' || /^puller_(00[1-9]|0[1-5][0-9]|060)$/.test(normalizePullerId(profile.username))));
+}
+
+/**
+ * @returns {object|null} The exact View As profile or authenticated profile.
+ */
+function effectivePhShippingProfile() {
+    return (typeof borrowedHelpPreview === 'function' && borrowedHelpPreview())
+        || (typeof nativeAuthProfile === 'undefined' ? null : nativeAuthProfile);
+}
+
+/** @param {object} profile @param {object} access @param {string} farm @param {object|null} preview @returns {boolean} Whether the native actor can open Shipping. */
 function orderPullEligible(profile, access, farm, preview) {
     if (!profile || preview || farm !== '10-PH' || profile.disabled_at || profile.must_change_password) return false;
     const farms = profile.allowed_warehouses ?? profile.allowed_farms ?? profile.farm_scopes;
     if (Array.isArray(farms) && !farms.includes(farm)) return false;
     if (access?.view_shipping != null) return ['FULL_EDIT','VIEW_ONLY'].includes(access.view_shipping);
-    if (profile.role === 'order_puller') return isParkHillOrderPuller(profile);
+    if (isParkHillOrderPuller(profile)) return true;
     const role = String(profile.role || '').toLowerCase().replace(/[-_\s]/g,'');
     if (['rep','salesrep'].includes(role)) return false;
     return !profile.must_change_password && (access?.que_order_pulling === 'Y' || profile.department === '161'
         || phPullSupervisorAllowed(profile,farm,preview));
 }
 
+/** @param {object} receipt @param {string} mode @param {string} query @param {boolean} honorWater @returns {object[]} The visible tags for the current route query. */
 function orderPullRows(receipt, mode, query, honorWater = true) {
     const terms = String(query || '').trim().toLowerCase().split(/\s+/);
     const water = honorWater && typeof visiblePhWaterStatus === 'function' && visiblePhWaterStatus();
@@ -235,6 +258,7 @@ function orderPullRows(receipt, mode, query, honorWater = true) {
     });
 }
 
+/** @param {object} receipt @returns {object[]} Exact loaded dock and stop groups in unload order. */
 function orderPullUnloadStops(receipt) {
     if (receipt?.buggy?.status !== 'ready_to_unload') return [];
     const stops = new Map();

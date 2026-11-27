@@ -1,9 +1,11 @@
 const phPullDockStatusEvents = new EventTarget();
 
+/** @param {string} farm @param {string} identity @param {object|null} change @returns {void} Emits a scoped Park Hill dock update. */
 function publishPhPullDockStatus(farm,identity,change = null) {
     if (farm === '10-PH') phPullDockStatusEvents.dispatchEvent(new CustomEvent('commit',{detail:{identity,change}}));
 }
 
+/** @param {string} action @param {object} input @returns {Promise<object>} The verified pull command receipt. */
 async function requestOrderPull(action, input = {}) {
     const {client,owner} = await requireBloomscapesSession();
     if (getBloomscapesFarm() !== '10-PH') throw new Error('Order Pulling is available at Park Hill.');
@@ -17,6 +19,20 @@ async function requestOrderPull(action, input = {}) {
     return receipt;
 }
 
+/**
+ * @param {object} profile The active, exact View As profile.
+ * @returns {Promise<object>} The preview receipt bound to this puller and Park Hill.
+ */
+async function requestPhShippingPreview(profile) {
+    const receipt = await readSuperAdminPreviewPage(borrowedHelpIdentity(),-Number(profile.id.slice(5)));
+    const exact = receipt.users.find(user=>user.id === profile.id && user.username === profile.username);
+    if (exact?.shipping_preview?.warehouse !== '10-PH'
+        || normalizePullerId(exact.shipping_preview.username) !== normalizePullerId(profile.username)
+        || !Array.isArray(exact.shipping_preview.rows)) throw Error('This Shipping preview is no longer available.');
+    return exact.shipping_preview;
+}
+
+/** @param {string} rpc @param {object} input @returns {Promise<object>} The verified dispatch or team receipt. */
 async function requestPhPullWork(rpc, input = {}) {
     const {client,owner} = await requireBloomscapesSession();
     if (getBloomscapesFarm() !== '10-PH') throw new Error('Choose Park Hill to manage Order Pulling.');
