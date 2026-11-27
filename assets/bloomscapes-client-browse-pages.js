@@ -36,6 +36,13 @@ function getClientBrowsePageKey(view = '', key = '') {
     clientBrowsePageKeyCacheEntryCount++;
     return pageKey;
 }
+/**
+ * @param {string} view Selected view identifier.
+ * @param {string} key View or filter key.
+ * @param {Array|null} rows Rows supplied for projection.
+ * @param {number} limit Maximum rows per page.
+ * @returns {object} Page bounds and visible rows for this view.
+ */
 function getClientBrowsePage(view = '', key = '', rows = [], limit = CLIENT_BROWSE_PAGE_SIZE) {
     const safeView = String(view || '').trim();
     const safeKey = getClientBrowsePageKey(safeView, key);
@@ -45,12 +52,23 @@ function getClientBrowsePage(view = '', key = '', rows = [], limit = CLIENT_BROW
     return {key:safeKey,pageIndex:page.index,pageCount:page.pages,start:page.start,end,
         visibleCount:end,rows:safeRows.slice(0,end),pageSize:page.limit};
 }
+/**
+ * @param {string} view Selected view identifier.
+ * @param {string} key View or filter key.
+ * @param {number} total Total matching rows.
+ * @param {object} page Current page bounds.
+ * @returns {string} Continuation edge markup for the current page.
+ */
 function renderClientBrowsePageFooter(view = '', key = '', total = 0, page = {}) {
     if (page.end >= total) return '';
     const identity = encodeURIComponent(JSON.stringify([view,key]));
     return '<bloomscapes-page-edge data-page="client-browse" data-key="'+identity+'"></bloomscapes-page-edge>';
 }
 
+/**
+ * @param {string} identity Mounted continuation edge key.
+ * @returns {void} Advances the visible page for its matching edge.
+ */
 function advanceClientBrowseEdge(identity) {
     const [view,key] = JSON.parse(decodeURIComponent(identity));
     loadMoreClientBrowseRows(view,key);

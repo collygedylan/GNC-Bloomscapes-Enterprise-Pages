@@ -1,20 +1,4 @@
-const GLOBAL_HEADER_SEARCH_CONFIG = {
-    po:'po-workspace-search', communication:'communication-shared-search',
-    'smart-moves':'smart-moves-shared-search', 'sales-office':'sales-office-shared-search',
-    sales:'sales-shared-search', qc:'qc-shared-search', production:'production-shared-search',
-    'sales-inventory':'sales-inventory-shared-search',
-    av: 'av-search-container', 'hl-order':'hl-order-search-container',
-    reserves: 'reserves-search-container',
-    docks: 'docks-search-container',
-    drive: 'drive-search-container',
-    building: 'building-search-container',
-    managers: 'managers-search-container',
-    review: 'review-search-container',
-    'move-up': 'move-up-search-container',
-    request: 'request-search-container',
-    tasks: 'tasks-search-container'
-};
-
+/** @param {object} backState Current navigation and modal state. @returns {object} Header title, Back and search presentation. */
 function getGlobalHeaderChromeState(backState = getGlobalBackState()) {
     const currentView = backState.currentView;
     if (currentView === 'drive') syncBloomscapesDriveTourView();
@@ -26,9 +10,8 @@ function getGlobalHeaderChromeState(backState = getGlobalBackState()) {
         : baseMeta;
     const moduleTitle = bloomscapesDepartmentTitle(currentView)
         || (currentView === 'managers' ? bloomscapesWorkflowTab(activeHomeTab)?.label : '');
-    const department = currentView === 'home' && bloomscapesHomeDepartmentTitle();
-    const resolvedTitle = department || moduleTitle || meta.title || formatGlobalHeaderTitle(currentView);
-    const showHomeBack = currentView === 'home' && (backState.modalBack || Boolean(department));
+    const resolvedTitle = moduleTitle || meta.title || formatGlobalHeaderTitle(currentView);
+    const showHomeBack = currentView === 'home' && backState.modalBack;
     const po=document.getElementById('view-'+currentView)?.querySelector('[data-bloomscapes-workflow="bloomscapes-replenishment"]');
     const searchContainerId = po && !po.closest('[hidden],.hidden') ? getBloomscapesPoHeaderSearch(po) : currentView === 'tasks'
         ? (shouldShowTaskHeaderSearch() ? GLOBAL_HEADER_SEARCH_CONFIG.tasks : '')
@@ -61,10 +44,9 @@ function getGlobalHeaderChromeState(backState = getGlobalBackState()) {
 }
 
 
+/** @param {object} state Current view and Back state. @returns {void} Updates the visible Back control. */
 function applyGlobalBackState(state) {
-    const { currentView, modalBack } = state;
-    const department = currentView === 'home' && getBloomscapesHomeDepartment();
-    const showBack = state.showBack || Boolean(department);
+    const { currentView, modalBack, showBack } = state;
     syncHeaderBloomPlacement(currentView);
     const body = document.body;
     if (body) body.classList.toggle('global-back-active', showBack);
@@ -72,14 +54,7 @@ function applyGlobalBackState(state) {
         || (currentView !== 'home' && body.classList.contains('current-view-home')))) {
         syncCurrentViewBodyClass(currentView);
     }
-    const searchRow = document.getElementById('global-header-search-row');
-    if (searchRow) {
-        const showHeader = showBack || !!currentUser;
-        searchRow.classList.toggle('hidden', !showHeader);
-        searchRow.hidden = !showHeader;
-        searchRow.setAttribute('aria-hidden', showHeader ? 'false' : 'true');
-        if (showHeader) ['display', 'visibility', 'pointer-events'].forEach(prop => searchRow.style.removeProperty(prop));
-    }
+    syncHeaderBackSearchRow(showBack);
     const legacyBack = document.getElementById('global-back-btn');
     if (legacyBack) legacyBack.classList.toggle('hidden', !showBack);
     const button = document.getElementById('global-header-inline-back');
@@ -90,7 +65,7 @@ function applyGlobalBackState(state) {
         } catch { globalThis.reportHandledRuntimeIssue?.("applyGlobalBackState", 'HANDLED_OPERATION_FAILURE'); }
         button.removeAttribute('popover');
     }
-    const visible = (currentView !== 'home' || modalBack || department) && (showBack || !!currentUser);
+    const visible = (currentView !== 'home' || modalBack) && (showBack || !!currentUser);
     button.classList.toggle('hidden', !visible);
     button.hidden = !visible;
     button.disabled = !showBack;
@@ -113,6 +88,18 @@ function applyGlobalBackState(state) {
 }
 
 
+function syncHeaderBackSearchRow(showBack) {
+    const searchRow = document.getElementById('global-header-search-row');
+    if (searchRow) {
+        const showHeader = showBack || !!currentUser;
+        searchRow.classList.toggle('hidden', !showHeader);
+        searchRow.hidden = !showHeader;
+        searchRow.setAttribute('aria-hidden', showHeader ? 'false' : 'true');
+        if (showHeader) ['display', 'visibility', 'pointer-events'].forEach(prop => searchRow.style.removeProperty(prop));
+    }
+}
+
+/** @param {string} view Selected view. @returns {void} Mounts the view search in its header slot. */
 function mountBloomscapesViewSearch(view) {
     const supported=['smart-moves','sales-office','sales','qc','production','sales-inventory','communication'];
     if (!supported.includes(view)) return;
@@ -133,12 +120,14 @@ function mountBloomscapesViewSearch(view) {
     }
 }
 
+/** @returns {object} Current navigation state applied to the Back button. */
 function updateGlobalBackButton() {
     const state = getGlobalBackState();
     applyGlobalBackState(state);
     return state;
 }
 
+/** @param {boolean} modalOnly Whether to restrict controls to open modals. @returns {HTMLElement|undefined} Visible secondary Back control. */
 function getVisibleSecondaryBack(modalOnly = false) {
     const root = modalOnly ? document : document.getElementById('view-' + getCurrentVisibleViewId());
     if (!root) return undefined;
@@ -159,67 +148,6 @@ function secondaryBackHasVisibleParents(control) {
     return true;
 }
 
-const headerSearchOrigins = new WeakMap();
-
-function ensureHeaderSearchPlaceholder(container) {
-    const existing = headerSearchOrigins.get(container);
-    if (existing?.parentNode) return existing;
-    container.classList.add('amazon-search-host');
-    let placeholder = document.querySelector('[data-header-search-placeholder="' + container.id + '"]');
-    if (!placeholder) {
-        placeholder = document.createElement('div');
-        placeholder.className = 'hidden';
-        placeholder.dataset.headerSearchPlaceholder = container.id;
-        container.parentNode.insertBefore(placeholder, container);
-    }
-    headerSearchOrigins.set(container, placeholder);
-    return placeholder;
-}
-
-function ensureGlobalHeaderSearchPlaceholders() {
-    for (const id of Object.values(GLOBAL_HEADER_SEARCH_CONFIG)) {
-        const container = document.getElementById(id);
-        if (container) ensureHeaderSearchPlaceholder(container);
-    }
-}
-
-function restoreGlobalHeaderSearchContainers() {
-    const slot = document.getElementById('global-header-search-slot');
-    for (const container of Array.from(slot?.children || [])) {
-        const origin = headerSearchOrigins.get(container);
-        if (!origin?.parentNode) continue;
-        container.classList.remove('global-header-search-mounted');
-        container.removeAttribute('data-global-header-mounted');
-        origin.after(container);
-    }
-}
-
-function syncGlobalHeaderSearchOwnership(activeContainer = null) {
-    const body = document.body;
-    const id = activeContainer?.id || '';
-    const previous = body?.dataset.globalHeaderSearchOwner || '';
-    if (previous && previous !== id) {
-        const old = document.getElementById(previous);
-        old?.classList.remove('global-header-search-mounted');
-        old?.removeAttribute('data-global-header-mounted');
-    }
-    if (body && previous !== id) {
-        body.classList.toggle('global-header-search-active', Boolean(id));
-        if (id) body.dataset.globalHeaderSearchOwner = id;
-        else delete body.dataset.globalHeaderSearchOwner;
-    }
-    const slot = document.getElementById('global-header-search-slot');
-    if (!activeContainer || !slot?.contains(activeContainer)) return;
-    if (activeContainer.dataset.globalHeaderMounted !== 'true') {
-        activeContainer.classList.add('global-header-search-mounted');
-        activeContainer.dataset.globalHeaderMounted = 'true';
-    }
-    activeContainer.removeAttribute('aria-hidden');
-    for (const key of ['display','visibility','height','min-height','max-height']) {
-        if (activeContainer.style.getPropertyValue(key)) activeContainer.style.removeProperty(key);
-    }
-}
-
 function formatGlobalHeaderTitle(viewId) {
     if (viewId === 'sales-credit') return 'Credit';
     if (viewId === 'historical-requests') return 'Historical Requests';
@@ -230,6 +158,7 @@ function formatGlobalHeaderTitle(viewId) {
 
 let stickyRailForceRequested = false;
 
+/** @param {string} reason Cause of the viewport update. @param {boolean} force Whether to flush a deferred update. @returns {void} Schedules the sticky rail offset measurement. */
 function scheduleStickyRailOffsetSync(reason = 'default', force = false) {
     const syncReason = normalizeUiSyncReason(reason);
     if (!force && isIOSDevice() && isUserInLiveTouchScrollGesture()) {
@@ -254,4 +183,86 @@ function flushStickyRailOffsetSync() {
     if (!forced && signature === lastStickyRailOffsetSignature) return;
     syncStickyRailOffsets();
     lastStickyRailOffsetSignature = signature;
+}
+
+const GLOBAL_HEADER_SEARCH_CONFIG = {
+    po:'po-workspace-search', communication:'communication-shared-search',
+    'smart-moves':'smart-moves-shared-search', 'sales-office':'sales-office-shared-search',
+    sales:'sales-shared-search', qc:'qc-shared-search', production:'production-shared-search',
+    'sales-inventory':'sales-inventory-shared-search',
+    av: 'av-search-container', 'hl-order':'hl-order-search-container',
+    reserves: 'reserves-search-container',
+    docks: 'docks-search-container',
+    drive: 'drive-search-container',
+    building: 'building-search-container',
+    managers: 'managers-search-container',
+    review: 'review-search-container',
+    'move-up': 'move-up-search-container',
+    request: 'request-search-container',
+    tasks: 'tasks-search-container'
+};
+
+const headerSearchOrigins = new WeakMap();
+
+/** @param {HTMLElement} container View-owned search element. @returns {HTMLElement} Anchor at its original position. */
+function ensureHeaderSearchPlaceholder(container) {
+    const existing = headerSearchOrigins.get(container);
+    if (existing?.parentNode) return existing;
+    container.classList.add('amazon-search-host');
+    let placeholder = document.querySelector('[data-header-search-placeholder="' + container.id + '"]');
+    if (!placeholder) {
+        placeholder = document.createElement('div');
+        placeholder.className = 'hidden';
+        placeholder.dataset.headerSearchPlaceholder = container.id;
+        container.parentNode.insertBefore(placeholder, container);
+    }
+    headerSearchOrigins.set(container, placeholder);
+    return placeholder;
+}
+
+/** @returns {void} Records the original host of each supported search control. */
+function ensureGlobalHeaderSearchPlaceholders() {
+    for (const id of Object.values(GLOBAL_HEADER_SEARCH_CONFIG)) {
+        const container = document.getElementById(id);
+        if (container) ensureHeaderSearchPlaceholder(container);
+    }
+}
+
+/** @returns {void} Returns mounted searches to their original views. */
+function restoreGlobalHeaderSearchContainers() {
+    const slot = document.getElementById('global-header-search-slot');
+    for (const container of Array.from(slot?.children || [])) {
+        const origin = headerSearchOrigins.get(container);
+        if (!origin?.parentNode) continue;
+        container.classList.remove('global-header-search-mounted');
+        container.removeAttribute('data-global-header-mounted');
+        origin.after(container);
+    }
+}
+
+/** @param {HTMLElement|null} activeContainer Search control mounted in the header. @returns {void} Updates search ownership and visibility. */
+function syncGlobalHeaderSearchOwnership(activeContainer = null) {
+    const body = document.body;
+    const id = activeContainer?.id || '';
+    const previous = body?.dataset.globalHeaderSearchOwner || '';
+    if (previous && previous !== id) {
+        const old = document.getElementById(previous);
+        old?.classList.remove('global-header-search-mounted');
+        old?.removeAttribute('data-global-header-mounted');
+    }
+    if (body && previous !== id) {
+        body.classList.toggle('global-header-search-active', Boolean(id));
+        if (id) body.dataset.globalHeaderSearchOwner = id;
+        else delete body.dataset.globalHeaderSearchOwner;
+    }
+    const slot = document.getElementById('global-header-search-slot');
+    if (!activeContainer || !slot?.contains(activeContainer)) return;
+    if (activeContainer.dataset.globalHeaderMounted !== 'true') {
+        activeContainer.classList.add('global-header-search-mounted');
+        activeContainer.dataset.globalHeaderMounted = 'true';
+    }
+    activeContainer.removeAttribute('aria-hidden');
+    for (const key of ['display','visibility','height','min-height','max-height']) {
+        if (activeContainer.style.getPropertyValue(key)) activeContainer.style.removeProperty(key);
+    }
 }

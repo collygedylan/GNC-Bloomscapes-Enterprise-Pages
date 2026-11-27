@@ -6,6 +6,12 @@ function releaseManagerTablePinnedLayout(view) {
     });
 }
 
+/**
+ * @param {Document} document Mounted application document.
+ * @param {string} viewId Visible view identifier.
+ * @param {Function} releaseRail Releases the active pinned rail.
+ * @returns {boolean} Whether a pinned results rail was applied.
+ */
 function applyUniversalPinnedResultsLayout(document, viewId, releaseRail) {
     const view = document.getElementById('view-' + viewId);
     const resultIds = {

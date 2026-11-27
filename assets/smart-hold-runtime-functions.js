@@ -1,3 +1,4 @@
+/** @param {object} model @param {Array<object>} cards @returns {object} */
 function getFilteredSmartMoveKpis(model, cards) {
             if (!['rep','state','plant','size','hold','search'].some(key=>salesIntelligenceFilters[key]) && salesIntelligenceFilters.move==='all') return model;
             const groups=new Set(cards.map(card=>globalThis.AgDataHoldIntelligence.wholeGroupKey(card.row)));
@@ -10,6 +11,7 @@ function getFilteredSmartMoveKpis(model, cards) {
             return {...model,coverage,traceRows:{f1:f1.length,s1:s1.length,trapped:held.length,coverage:coverage.rowCount},totals:{f1Units:sum(f1,'openStock'),f1Value:sum(f1,'openStock',true),s1Units:sum(s1,'available'),s1Value:sum(s1,'available',true),trappedUnits:sum(held,'onHand'),trappedValue:sum(held,'onHand',true),coverageUnits:coverage.units,coverageValue:coverage.value}};
         }
 
+/** @param {string} table @param {string} query @param {number} maxRows @returns {Promise<Array<object>>} */
 async function fetchSmartHoldBoundedRows(table, query, maxRows) {
             const firstLimit=Math.min(1000,maxRows),first=(await fetchSupabaseRowsPage(table,query,firstLimit,0)).rows;
             if(first.length<firstLimit||maxRows<=firstLimit)return first;
@@ -24,12 +26,14 @@ async function fetchSmartHoldContextDirect(itemcodes) {
             return {ok:true,history:[],partial:reads.some(r=>r.status!=='fulfilled'),...Object.fromEntries(specs.map(([key],i)=>[key,reads[i].status==='fulfilled'?reads[i].value:[]]))};
         }
 
+/** @returns {object} */
 function getSmartHoldContext() {
             const owner = getSupabaseReadIdentityScope();
             if (smartHoldContext.owner !== owner) smartHoldContext = { owner, history: [], docks: [], key: '', pending: null, requested: '', weatherAt: 0 };
             return smartHoldContext;
         }
 
+/** @param {Array<object>} [rows] @returns {void} */
 function warmSmartHoldContext(rows = []) {
             const context = getSmartHoldContext(), H = globalThis.AgDataHoldIntelligence;
             if (!H || !currentUser || document.hidden) return;
@@ -65,11 +69,13 @@ function getSmartShearGuard(row) {
             return H.shearGuard(row, context.loadIndex, H.getWeather(), context.history, fullInventory);
         }
 
+/** @returns {string} */
 function renderSmartWeatherBar() {
             const H = globalThis.AgDataHoldIntelligence, weather = H.getWeather(), today = H.today(), day = H.weatherDay(today, weather);
             return '<div class="smart-weather-bar"><span>Today’s Temp: <b>' + day.high + '°F / ' + day.low + '°F</b></span><span>Today’s GDD Gain: <b>+' + H.dailyGdd(day.high, day.low).toFixed(1) + ' GDD</b></span><span>7-Day Forecast GDD: <b>+' + H.sumGdd(today, H.addDays(today, 7), weather) + '</b></span><span>14-Day Forecast GDD: <b>+' + H.sumGdd(today, H.addDays(today, 14), weather) + '</b></span><small>Park Hill, OK · ' + escapeHtml(day.source) + ' · max(0, (High + Low − 50) / 2) · <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Weather by Open-Meteo</a></small></div>';
         }
 
+/** @param {object} row @param {string} [reason] @returns {string} */
 function renderSmartHoldMetrics(row, reason = '') {
             const H = globalThis.AgDataHoldIntelligence, risk = H.holdRisk(row, H.getWeather(), getSmartHoldContext().history, H.today(), reason);
             return '<div class="smart-hold-metrics"><div><small>Hold Reason</small><b>' + escapeHtml(risk.exact || 'No recorded holdreason') + '</b></div><div><small>GDD Until ON HOLD</small><b>' + (risk.held ? 'CURRENTLY ON HOLD' : risk.onRemaining == null ? 'History unavailable' : risk.onRemaining + ' GDD · ' + (risk.onDate || 'Forecast unavailable')) + '</b></div><div><small>GDD Until OFF HOLD</small><b>' + (risk.offRemaining == null ? 'History unavailable' : risk.offRemaining + ' GDD · ' + (risk.offDate || 'Forecast unavailable')) + '</b></div><small class="smart-estimate">' + escapeHtml(risk.basis) + ' · ' + risk.sampleCount + ' completed cycles. Hold release requires field review; cleanup, treatment and cold holds are not resolved by heat alone.</small></div>';
@@ -79,11 +85,13 @@ function smartShearGuardMessage(guard) {
             return 'Outbound Load Commitment: ' + guard.orders + ' Active Order(s) · ' + guard.qty + ' Units · Earliest Load Plan Start: ' + (guard.shipDate || 'Date unconfirmed') + '\nSOC / Dock Load: ' + guard.loads.map(load => load.source + ' ' + (load.order || load.trip) + (load.dock ? ' · Dock ' + load.dock : '')).join(', ') + '\nGDD Before Shear Hold: ' + (guard.onRemaining ?? 'History unavailable') + ' GDD | GDD to Come Off Sheared Hold: ' + (guard.recovery ?? 'History unavailable') + ' GDD | Forecast GDD Before Load Ships: ' + guard.forecast + ' GDD (Short by ' + guard.deficit + ' GDD!)\nProjected Off-Hold Date If Sheared Today: ~' + (guard.offDate || 'History unavailable') + '\nDO NOT SHEAR THIS LOCATION BEFORE LOAD SHIPS — Ship ' + guard.qty + ' units first' + (guard.alternatives.length ? ' (or confirm unsheared alternate location ' + guard.alternatives.join(', ') + ')' : '') + ', then shear!\n' + guard.scope + ' · Planning estimate; confirm field recovery.';
         }
 
+/** @param {object} row @returns {string} */
 function renderSmartShearGuard(row) {
             const guard = getSmartShearGuard(row);
             return guard.conflict ? '<aside class="smart-shear-alert" role="note"><strong>🛑 DO NOT SHEAR — GOING OUT ON LOAD</strong><p>' + escapeHtml(smartShearGuardMessage(guard)).replace(/\n/g, '<br>') + '</p></aside>' : '';
         }
 
+/** @param {Array<object>} rows @returns {Promise<boolean>} */
 async function confirmSmartShearLoadGuard(rows) {
             warmSalesIntelligenceData();
             warmSmartHoldContext(rows);
@@ -92,6 +100,7 @@ async function confirmSmartShearLoadGuard(rows) {
             return showAppConfirm(guards.length ? guards.map(smartShearGuardMessage).join('\n\n') : 'Outbound commitments are still refreshing. Confirm the load plan with the crew before shearing.', { title: guards.length ? '🛑 DO NOT SHEAR — GOING OUT ON LOAD' : 'Verify Outbound Load Plan', confirmLabel: 'I reviewed the load conflict — Continue', tone: 'danger' });
         }
 
+/** @param {object} model @returns {*} */
 function buildSmartHoldCards(model) {
             const H = globalThis.AgDataHoldIntelligence;
             const type = salesIntelligenceFilters.move;

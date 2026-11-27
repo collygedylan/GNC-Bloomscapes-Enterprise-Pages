@@ -69,6 +69,7 @@ function renderBloomProjectQuestionCard(key, label, body) {
     </section>`;
 }
 
+/** @param {HTMLInputElement} input @returns {boolean} */
 function toggleBloomProjectQuestion(input) {
     const draft = bloomInventoryProjectDraft;
     if (!draft || draft.busy) return false;
@@ -215,6 +216,7 @@ function fillBloomProjectDirectories(draft) {
     setBloomProjectPickerOptions('assignedTo', ['QC Team', 'Eval Team', 'Production Team', ...getAssignableAppUserOptions().map(user => user.username)]);
 }
 
+/** @param {Array<object>} items @param {Function} onPartyChange @returns {Promise<boolean>} */
 async function openBloomInventoryProject(items, onPartyChange) {
     const rows = (items || []).filter(Boolean);
     if (!rows.length || isRepReadOnlyUser()) return false;

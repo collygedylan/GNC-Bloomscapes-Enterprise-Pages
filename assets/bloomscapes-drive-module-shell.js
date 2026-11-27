@@ -1,16 +1,26 @@
 const driveTourModes = new Map([['name', 'Common Name'], ['loc', 'Block / Location']]);
 const driveTourOptions = new WeakMap();
 
+/** @returns {boolean} Whether the signed-in user has the sales tour. */
 function isBloomscapesDriveTour() {
     if (!nativeAuthSessionActive) return false;
     const role = borrowedHelpPreview()?.role || nativeAuthProfile?.role;
     return ['rep', 'sales_rep'].includes(role);
 }
 
+/**
+ * @param {string} tab Requested Drive tab.
+ * @returns {string} Supported tour tab.
+ */
 function normalizeBloomscapesDriveTourTab(tab) {
     return driveTourModes.has(tab) ? tab : 'name';
 }
 
+/**
+ * @param {HTMLElement} rail Mounted toolbar.
+ * @param {string} mode Active Drive tour mode.
+ * @returns {void} Updates the tour controls for the selected mode.
+ */
 function syncBloomscapesDriveTourToolbar(rail, mode) {
     const active = isBloomscapesDriveTour();
     rail.closest('#view-drive')?.classList.toggle('drive-tour', active);
@@ -29,6 +39,7 @@ function syncBloomscapesDriveTourToolbar(rail, mode) {
     else if (original) mode.value = activeDriveTab;
 }
 
+/** @returns {void} Updates the mounted tour view. */
 function syncBloomscapesDriveTourView() {
     const rail = document.getElementById('drive-toolbar-rail');
     if (rail) syncBloomscapesDriveTourToolbar(rail,document.getElementById('drive-mobile-mode'));
@@ -55,6 +66,11 @@ const moduleSearchSelectors = {
     communication: '[data-comm-search]'
 };
 
+/**
+ * @param {string} value Search query.
+ * @param {Array} fields Searchable field values.
+ * @returns {boolean} Whether every search word matches the supplied fields.
+ */
 function matchesBloomscapesModuleSearch(value, fields) {
     const text = fields.join(' ').toLowerCase().replaceAll('_',' ');
     return String(value || '').toLowerCase().trim().split(/\s+/).every(term => text.includes(term));
@@ -91,6 +107,10 @@ function createModuleSearch(view, origin) {
     return {view, host, input, origin};
 }
 
+/**
+ * @param {string} view Selected view identifier.
+ * @returns {HTMLElement|null} Search host for the view.
+ */
 function getBloomscapesDriveModuleSearch(view) {
     if ((view==='qc' || view==='disease-pest') && !bloomscapesPhotoAiHeaderEnabled(view)) return null;
     const selector = moduleSearchSelectors[view];
@@ -119,6 +139,10 @@ function getBloomscapesDriveModuleSearch(view) {
     return activeModuleSearch.host;
 }
 
+/**
+ * @param {string} view Selected view identifier.
+ * @returns {void} Restores the underlying search input.
+ */
 function clearBloomscapesDriveModuleSearch(view) {
     if (!activeModuleSearch || activeModuleSearch.view === view) return;
     const {host, origin} = activeModuleSearch;
@@ -127,6 +151,11 @@ function clearBloomscapesDriveModuleSearch(view) {
     activeModuleSearch = undefined;
 }
 
+/**
+ * @param {HTMLButtonElement} button Toolbar button.
+ * @param {string} view Selected view identifier.
+ * @returns {void} Updates the caption for the footer destination.
+ */
 function syncBloomscapesFooterCaption(button, view) {
     const label = {home:'Home', drive:'Drive', av:'AV', 'historical-requests':'Historical',
         'request-history':'Historical', messages:'Messages', menu:'Menu'}[view];
@@ -146,6 +175,12 @@ function mountHistoricalArchiveSubview(root) {
 globalThis.GncHistoricalArchiveSubview = mountHistoricalArchiveSubview;
 
 
+/**
+ * @param {string} view Selected view identifier.
+ * @param {object} profile Verified user profile.
+ * @param {boolean} preview Whether routing uses the access preview.
+ * @returns {boolean} Whether the sales profile may open this route.
+ */
 function bloomscapesSalesRepRoute(view, profile, preview) {
     if (view === 'docks') return ['FULL_EDIT','VIEW_ONLY'].includes(profile.area_access?.['dock-credit-vault']);
     if (!['drive','tasks','flyer'].includes(view)) return false;

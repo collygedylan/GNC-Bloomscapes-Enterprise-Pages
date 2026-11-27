@@ -1,3 +1,4 @@
+/** @returns {void} Paints the selected thread and preserves its scroll position. */
 function renderBloomscapesCommTimeline() {
     const host=bloomscapesCommHost();
     if (!host) return;
@@ -23,6 +24,10 @@ function pendingTextBubble(thread) {
     return '<article class="comm-bubble is-own" data-pending-text>'+commEscape(command.body)+' <small>Sending…</small></article>';
 }
 
+/**
+ * @param {object} thread Selected conversation state.
+ * @returns {void} Appends the pending message and disables its send button.
+ */
 function showPendingCommunicationText(thread) {
     const root=document.querySelector('#view-messages [data-comm-hub]');
     const timeline=root?.querySelector('[data-comm-timeline]');
@@ -48,6 +53,7 @@ function renderBloomscapesCommBubble(message) {
         +'<header><strong>'+commEscape(person?.name || message.sender)+'</strong><time>'+commTime(message.created_at)+'</time></header>'+body+'</article>';
 }
 
+/** @returns {void} Updates the active text editor and channel permissions. */
 function renderBloomscapesCommComposer() {
     const host=bloomscapesCommHost();
     if (!host || host.closest('#view-push-to-talk')) return;
@@ -64,6 +70,11 @@ function renderBloomscapesCommComposer() {
     host.dataset.mode=state.mode;
 }
 
+/**
+ * @param {Event} event User interaction.
+ * @param {HTMLElement} host Mounted view host.
+ * @returns {void} Dispatches the clicked communication control.
+ */
 function dispatchBloomscapesCommClick(event,host) {
     const button=event.target.closest('button');
     if (!button || !host.contains(button)) return;
@@ -86,18 +97,30 @@ function dispatchBloomscapesCommClick(event,host) {
     else dispatchBloomscapesWalkieClick(data);
 }
 
+/**
+ * @param {Event} event User interaction.
+ * @returns {void} Tracks the current composer draft.
+ */
 function inputBloomscapesComm(event) {
     if (event.target.matches('[data-comm-text]')) draftBloomscapesCommText(event.target.value);
     if (!event.target.matches('[data-comm-search]')) return;
     bloomscapesCommState.search=event.target.value;renderBloomscapesCommList();renderBloomscapesCommPeople();
 }
 
+/**
+ * @param {Event} event User interaction.
+ * @returns {void} Applies the changed channel control.
+ */
 function changeBloomscapesComm(event) {
     if (event.target.matches('[data-radio-person]') && event.target.value) void chooseBloomscapesCommPeople([event.target.value]);
     if (event.target.matches('[data-comm-switch]') && event.target.value) void selectBloomscapesConversation(event.target.value);
     if (event.target.matches('[data-comm-autoplay]')) changeBloomscapesRadioStandby(event);
 }
 
+/**
+ * @param {HTMLFormElement} form Current form.
+ * @returns {Promise} Completes the selected channel or message command.
+ */
 async function submitBloomscapesComm(form) {
     if (!form.matches('.comm-create')) return dispatchBloomscapesCommText();
     const values=new FormData(form),people=values.getAll('people');

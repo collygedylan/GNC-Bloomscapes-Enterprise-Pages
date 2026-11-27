@@ -197,6 +197,7 @@ const BLOOMSCAPES_JOB_BOARD = [
     ['pending','REQUEST'],['suspend-tag','SUSPEND'],[BLOOMSCAPES_FIELD_WORK_TAB,'Field Work']
 ];
 
+/** @returns {string[][]} */
 function bloomscapesJobBoardCategories() {
     const allowed = getAuthorizedRequestCategories();
     return BLOOMSCAPES_JOB_BOARD.filter(([tab])=>allowed.includes(tab));
@@ -207,11 +208,13 @@ function bloomscapesWorkTab(kind) {
     return 'work-'+String(kind).toLowerCase().replaceAll('_','-');
 }
 
+/** @param {string} tab @returns {string} */
 function bloomscapesWorkKind(tab) {
     if (tab===BLOOMSCAPES_FIELD_WORK_TAB) return 'FIELD_WORK';
     return Object.keys(BLOOMSCAPES_WORK_VIEWS).find(kind=>bloomscapesWorkTab(kind)===tab) || '';
 }
 
+/** @returns {string[]} */
 function bloomscapesWorkQueueCategories() {
     if (typeof bloomscapesPersonalRoute==='function' && bloomscapesPersonalRoute('studio')) return [BLOOMSCAPES_FIELD_WORK_TAB];
     const owner = getSupabaseReadIdentityScope();
@@ -223,6 +226,7 @@ function bloomscapesWorkQueueLabel(tab) {
     return tab===BLOOMSCAPES_FIELD_WORK_TAB ? 'Field Work' : BLOOMSCAPES_WORK_VIEWS[bloomscapesWorkKind(tab)] || '';
 }
 
+/** @param {string} tab @returns {number} */
 function bloomscapesWorkQueueCount(tab) {
     const kind = bloomscapesWorkKind(tab);
     if (bloomscapesFieldQueueState.owner!==getSupabaseReadIdentityScope()) return 0;
@@ -230,6 +234,7 @@ function bloomscapesWorkQueueCount(tab) {
     return bloomscapesFieldQueueState.counts?.[kind] ?? bloomscapesFieldQueueState.rows.filter(row=>row.work_view===kind && row.status==='OPEN').length;
 }
 
+/** @param {object} data @returns {boolean} */
 function applyBloomscapesFieldQueueSnapshot(data) {
     if (data.ownerScope!==getSupabaseReadIdentityScope() || data.farm_code!==getBloomscapesFarm()) return false;
     const state=bloomscapesFieldQueueState;
@@ -245,6 +250,7 @@ function applyBloomscapesFieldQueueSnapshot(data) {
     return true;
 }
 
+/** @param {boolean} [force] @returns {Promise<*>} */
 async function ensureBloomscapesFieldQueue(force=false) {
     const owner = getSupabaseReadIdentityScope();
     const farm=getBloomscapesFarm();
@@ -263,6 +269,7 @@ async function ensureBloomscapesFieldQueue(force=false) {
     finally { state.pending = null; }
 }
 
+/** @returns {Promise<void>} */
 async function openBloomscapesWorkQueue() {
     const tab = BLOOMSCAPES_FIELD_WORK_TAB;
     if (!bloomscapesWorkQueueCategories().includes(tab)) await ensureBloomscapesFieldQueue();
@@ -271,6 +278,7 @@ async function openBloomscapesWorkQueue() {
     setReqTab(tab);
 }
 
+/** @param {HTMLElement} container @param {HTMLElement} crumb @param {*} [notice] @returns {Promise<void>} */
 async function renderBloomscapesFieldQueue(container,crumb,notice='') {
     const owner = getSupabaseReadIdentityScope();
     const tab = activeReqTab;
@@ -311,6 +319,7 @@ function paintBloomscapesFieldQueue(host,status,queue,kind,notice,viewAll=false)
     renderBloomscapesWorkGroups(list,matches,status,kind);
 }
 
+/** @param {object} job @param {object} answers @param {object} receipt @returns {boolean} */
 function applyBloomscapesFieldWorkReceipt(job,answers,receipt) {
     if (job.farm_code!==getBloomscapesFarm() || bloomscapesFieldQueueState.owner!==getSupabaseReadIdentityScope()
         || receipt?.ok!==true || receipt.work_id!==job.id || receipt.farm_code!==job.farm_code
@@ -343,6 +352,7 @@ function applyBloomscapesBlockLifecycleReceipt(receipt) {
     return true;
 }
 
+/** @param {Array<object>} [items] @param {object} [options] @returns {Array<object>} */
 function getScopedRequestItems(items = requestsInventory, options = {}) {
     const sourceItems = Array.isArray(items) ? items : [];
     const preview = typeof borrowedHelpPreview === 'function' && borrowedHelpPreview();
@@ -356,19 +366,7 @@ function getScopedRequestItems(items = requestsInventory, options = {}) {
     const canUseCache = items === requestsInventory;
     const includeDockSuspendMirrorRows = canUseCache && activeReqTab === 'suspend-tag' && options.includeDockSuspendMirrorRows !== false && canReadSuspendQueue();
     const useResultCache = canUseCache;
-    const cacheKey = canUseCache ? [
-        resolvedViewStateEpoch,
-        getDatasetLoadSignature('requests'),
-        includeDockSuspendMirrorRows ? canUseRequestSuspendTagAssignedToFilter() : '',
-        includeDockSuspendMirrorRows ? getDatasetLoadSignature(activeReqTab === 'suspend-tag' ? 'suspendTag' : 'soc') : '',
-        activeReqTab + (options.strictQueueVisibility === true ? '|strict-queue|' + getSuspendEvalUserFilter() + '|' + (getManagerAssignedColumnState().dataEpoch || 0) : '|legacy-scope'),
-        requestScopeMode,
-        hasGlobalRequestAccess ? '1' : '0',
-        assignedItemcodes ? getManagerAssignedColumnState().dataEpoch || 0 : '',
-        safeRole,
-        currentUser,
-        currentUserDisplay
-    ].join('|') : '';
+    const cacheKey = canUseCache ? scopedRequestCacheKey(options,includeDockSuspendMirrorRows,requestScopeMode,hasGlobalRequestAccess,assignedItemcodes) : '';
     if (useResultCache && requestScopedItemsCacheKey === cacheKey && Array.isArray(requestScopedItemsCache)) {
         incrementInternalPerfCounter('viewStateCacheHits');
         return requestScopedItemsCache.slice();

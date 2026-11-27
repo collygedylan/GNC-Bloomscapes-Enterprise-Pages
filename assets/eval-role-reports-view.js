@@ -144,6 +144,26 @@ function paintEvalReportHoldFilters(host,state,rows,pick) {
     return filterEvalReportHoldRows(rows,state.plantGroup,state.reason);
 }
 
+/** @param {object} row @returns {string} */
+function evalReportLocation(row) {
+    return String(row.LOCATIONCODE ?? row.locationcode ?? '');
+}
+
+/** @param {HTMLElement} host @param {object} state @param {Array<object>} rows @returns {void} */
+function paintEvalReportsFilters(host, state, rows) {
+    const input = host.querySelector('[data-report-query]');
+    if (input.value !== state.query) input.value = state.query;
+    const location = host.querySelector('[data-report-location]');
+    const locations = [...new Set(rows.map(evalReportLocation).filter(Boolean))].sort();
+    if (state.location && !locations.includes(state.location)) state.location = '';
+    const signature = JSON.stringify(locations);
+    if (location.dataset.locations !== signature) {
+        location.replaceChildren(new Option('All locations', ''), ...locations.map(value => new Option(value, value)));
+        location.dataset.locations = signature;
+    }
+    location.value = state.location;
+}
+
 let evalReportsWorkspace;
 let evalReportsPreviewObserver;
 const evalReasonReport = {id:'hold-stop-reason',label:'Hold/Stop Reason'};
@@ -183,6 +203,7 @@ function watchEvalReportsPreview() {
     });
 }
 
+/** @param {Function} current @returns {Promise<boolean>} */
 async function loadCompleteEvalReportInventory(current) {
     if (isMasterFullProjectionReady()) return true;
     await hydrateColdSource('master');
@@ -301,24 +322,6 @@ function paintEvalReportsPickers(host, state, catalog, groups) {
         select:value => pickEvalReportsValue(state, 'report', value)});
 }
 
-function evalReportLocation(row) {
-    return String(row.LOCATIONCODE ?? row.locationcode ?? '');
-}
-
-function paintEvalReportsFilters(host, state, rows) {
-    const input = host.querySelector('[data-report-query]');
-    if (input.value !== state.query) input.value = state.query;
-    const location = host.querySelector('[data-report-location]');
-    const locations = [...new Set(rows.map(evalReportLocation).filter(Boolean))].sort();
-    if (state.location && !locations.includes(state.location)) state.location = '';
-    const signature = JSON.stringify(locations);
-    if (location.dataset.locations !== signature) {
-        location.replaceChildren(new Option('All locations', ''), ...locations.map(value => new Option(value, value)));
-        location.dataset.locations = signature;
-    }
-    location.value = state.location;
-}
-
 function paintEvalReportRows(content, state, rows) {
     const matched = filterReportBrowseInventory(rows.filter(row=>!state.location || evalReportLocation(row)===state.location),state);
     const signature = [state.key, state.generation, state.evaluator, state.report, state.query, state.location, state.plantGroup, state.reason];
@@ -339,6 +342,7 @@ function paintEvalReportsStatus(host, content, state) {
     };
 }
 
+/** @returns {boolean} */
 function renderEvalRoleReports() {
     const access = getActiveEvalReportsAccess();
     const host = document.getElementById('eval-reports-controls');

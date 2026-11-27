@@ -85,6 +85,7 @@ function reconcileDriveLocationSelection(visibleItems) {
     return changed;
 }
 
+/** @param {Array<object>} [visibleItems] @returns {*} */
 function reconcileDriveDrillSelectionWithVisibleItems(visibleItems = []) {
     if (!Array.isArray(visibleItems) || shouldLockDriveSearchToTopLevel()) return false;
     const masterState = getDatasetState('master');
@@ -144,6 +145,7 @@ function driveNameExportRows(sourceRows,scopeParts,forceTopLevelSearchResults) {
     return sortDriveCardItems(rows);
 }
 
+/** @param {object|null} [viewStateOverride] @returns {object} */
 function buildDriveCurrentExportContext(viewStateOverride = null) {
     const driveViewState = viewStateOverride && typeof viewStateOverride === 'object'
         ? viewStateOverride

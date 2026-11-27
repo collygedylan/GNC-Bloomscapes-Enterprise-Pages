@@ -1,3 +1,4 @@
+/** @param {HTMLElement} container Mounted controls. @returns {boolean} Whether the compact AV controls were mounted. */
 function ensureAvTopControlsShell(container) {
     if (!container) return false;
     ensureAvControlsVisible(container);
@@ -35,6 +36,7 @@ function buildAvRailStockField() {
             </div>`;
 }
 
+/** @param {HTMLButtonElement} button Toolbar button. @returns {void} Updates the button caption and pressed state. */
 function syncAvToolbarKioskButton(button) {
     if (!button) return;
     const active = window.__agdataAvKioskState?.active === true;
@@ -42,6 +44,7 @@ function syncAvToolbarKioskButton(button) {
     button.textContent = active ? '✓ Kiosk Mode ON · Exit Kiosk Mode' : 'Kiosk Mode';
 }
 
+/** @param {HTMLButtonElement} button Toolbar button. @returns {boolean} The click handler result. */
 function toggleAvToolbarKioskMode(button) {
     syncAvKioskMode(window.__agdataAvKioskState?.active !== true);
     syncAvToolbarKioskButton(button);
@@ -55,6 +58,7 @@ function buildAvRailViewFields() {
         +'<option value="all">All Rows</option><option value="valid_photos">Photos</option></select></label>';
 }
 
+/** @param {HTMLElement} container Mounted controls. @param {string} shellName Filter control key. @param {object} config Options supplied by the caller. @returns {void} Paints the matching control in the mounted AV toolbar. */
 function syncAvTopControlShell(container, shellName, config = {}) {
     if (!container) return;
     const shell = container.querySelector(`[data-av-filter-shell="${shellName}"]`);
@@ -86,12 +90,7 @@ function syncAvTopControlShell(container, shellName, config = {}) {
     }
 }
 
-function closeAvHoldDropdown() {
-    if (!avHoldDropdownOpen) return false;
-    avHoldDropdownOpen = false;
-    return renderAvTopControlsForDropdownStateChange();
-}
-
+/** @param {HTMLElement} panel Floating controls panel. @returns {void} Releases the floating panel position. */
 function clearAvTopControlFloatingPanel(panel) {
     if (!panel) return;
     if (typeof panel.hidePopover === 'function' && panel.matches(':popover-open')) panel.hidePopover();
@@ -106,6 +105,7 @@ function getAvTopControlFloatingPanelBaseWidth(shellName) {
     return widths[shellName] || 288;
 }
 
+/** @param {string} shellName Filter control key. @param {HTMLElement} shell Owning filter shell. @param {HTMLElement} panel Floating controls panel. @param {HTMLButtonElement} button Toolbar button. @returns {void} Positions the expanded panel beside its button. */
 function positionAvTopControlFloatingPanel(shellName, shell, panel, button) {
     const rect = button?.getBoundingClientRect?.();
     if (!shell || !panel || !rect?.width || !Number.isFinite(rect.bottom)) {

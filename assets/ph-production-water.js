@@ -4,13 +4,13 @@ const phWaterDurations = [15,30,45,60,90,120];
 
 function phWaterMarkup() {
     return '<section data-ph-water><nav aria-label="Water views" data-ph-water-bar>'
-        +phWaterOptions.map(([key,label]) => '<button type="button" data-ph-water-view="'+key+'">'+label+'</button>').join('')
+        +phWaterOptions.map(([key,label]) => renderCompactToolbarButton('data-ph-water-view',key,label)).join('')
         +'</nav><input type="search" class="ph-water-search" placeholder="Location or block" aria-label="Search water blocks" data-ph-water-search>'
         +'<form data-ph-water-request><label>Location or block<input name="location" required placeholder="D.31.000" autocomplete="off" list="ph-water-blocks"></label>'
         +'<datalist id="ph-water-blocks"></datalist><output data-ph-water-key></output>'
         +'<label>Run date<select name="day"><option value="tomorrow">Tomorrow</option><option value="today">Today</option></select></label>'
         +'<div class="ph-water-durations">'+phWaterDurations.map(minutes =>
-            '<button type="button" data-ph-duration="'+minutes+'">'+minutes+'m</button>').join('')
+            renderCompactToolbarButton('data-ph-duration',minutes,minutes+'m')).join('')
         +'</div><label>Minutes<input name="minutes" type="number" inputmode="numeric" min="1" max="1440" required></label>'
         +'<label>Soil note<input name="note" maxlength="500"></label>'
         +'<button type="submit">💾 Save Water Request</button></form>'
@@ -187,6 +187,10 @@ function clickPhWater(panel,event) {
     }
 }
 
+/**
+ * @param {HTMLElement} host Production Water workspace.
+ * @returns {void}
+ */
 function mountPhProductionWater(host) {
     const state = currentPhWaterState();
     if (!state) return;

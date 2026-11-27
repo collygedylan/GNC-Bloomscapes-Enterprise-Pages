@@ -1,8 +1,9 @@
-function phAssignedBuggyMetricPills(load) {
-    if (!load) return '';
-    return phBuggyMetricPills(load).replace('⛽ '+load.fuelGal.toFixed(3)+' gal','⛽ '+load.fuelGal.toFixed(2)+' gal');
-}
-
+/**
+ * @param {object} receipt Current farm pull receipt.
+ * @param {string} username Signed-in operator.
+ * @param {boolean} manager Whether all teams are visible.
+ * @returns {object} Routes and rows visible to this operator.
+ */
 function phShippingScopedReceipt(receipt,username,manager) {
     const routes = receipt.load_routes || {};
     const mine = receipt.buggy?.buggy_id;
@@ -38,6 +39,11 @@ function phShippingLoad(receipt,id,rows,unloads) {
     return {id,route,manifest:visibleManifest,estimate,positions,rows:sorted};
 }
 
+/**
+ * @param {object} receipt Park Hill dispatch receipt.
+ * @param {object[]} rows Visible pull tags.
+ * @returns {object[]} Assigned loads in unit order.
+ */
 function phShippingLoads(receipt,rows) {
     if (receipt?.warehouse !== '10-PH') return [];
     const unloads = new Map(orderPullUnloadStops(receipt).map((s,i)=>[JSON.stringify([s.dock,s.stopnumber]),i]));
@@ -60,6 +66,13 @@ function decoratePhShippingStop(card,entry,state,activeScan) {
     paintPhQrScanStop(card,entry.row,state,activeScan);
 }
 
+/**
+ * @param {object} load Ordered load manifest.
+ * @param {object[]} rows Tags in the visible window.
+ * @param {Function} mount Existing window renderer.
+ * @param {object} state Current dispatch view.
+ * @returns {object} Visible stop entries and their mount callback.
+ */
 function phPullLoadWindow(load,rows,mount,state) {
     const entries = rows.map(row=>({row,stop:load.positions.get(row.pull_tag_id),total:load.manifest.length}));
     const activeScan = state.teamOnly && activePhQrSession(state.receipt,load.id);
@@ -71,6 +84,10 @@ function phPullLoadWindow(load,rows,mount,state) {
 }
 
 let stopPhWorkWater;
+/**
+ * @param {object} state Current dispatch view.
+ * @returns {object[]} Tags eligible for loading under current water status.
+ */
 function phWorkDryRows(state) {
     const water = currentPhWaterState();
     const rows = state.snapshot.rows.filter(row => !isTagHiddenByActiveWater(row,water));
@@ -83,6 +100,10 @@ function phWorkDryRows(state) {
     return rows;
 }
 
+/**
+ * @param {object} state Mounted dispatch view.
+ * @returns {void}
+ */
 function watchPhWorkWater(state) {
     stopPhWorkWater?.();
     const mounted = new WeakRef(state);

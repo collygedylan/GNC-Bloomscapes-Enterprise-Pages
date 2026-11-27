@@ -77,6 +77,10 @@ function phApplyDockPriority(rows,change) {
 
 const phLoadButtonClass = 'rounded-lg border border-emerald-600 px-3 py-2 text-sm font-semibold';
 
+/**
+ * @param {HTMLElement} root Dispatch panel.
+ * @returns {void}
+ */
 function mountPhWorkLoadPanel(root) {
     root.querySelector('[data-ph-action="refresh"]').insertAdjacentHTML('afterend',
         '<button type="button" data-ph-action="toggle-auto" class="'+phLoadButtonClass+'" hidden></button>');
@@ -115,7 +119,7 @@ function phWorkLoadCard(load) {
         +'<strong>'+phWorkLoadTitle(load)+'</strong>'
         +(urgent ? '<div><b class="ph-live-driver">🚨 URGENT · LIVE DRIVER</b></div>' : '')
         +'<p>'+manifest.length+' Tags · '+esc(String(wdu))+' / '+PH_PULL_CAP+' WDU</p>'
-        +(phAssignedBuggyMetricPills(estimate) || '<p>Estimate unavailable for this route.</p>')
+        +(phBuggyMetricPills(estimate,2) || '<p>Estimate unavailable for this route.</p>')
         +'<p class="break-words">Stops: '+phWorkLoadStops(estimate?.rows ?? phSortPullStops(manifest))+'</p>'
         +controls+'</article>';
 }
@@ -126,6 +130,10 @@ function phWorkLoadSection(title,id,loads,emptyText) {
             +loads.map(phWorkLoadCard).join('')+'</div>' : '<p>'+emptyText+'</p>');
 }
 
+/**
+ * @param {object} state Dispatch snapshot and panel root.
+ * @returns {void}
+ */
 function paintPhWorkLoadPanel(state) {
     const {root,snapshot} = state;
     const panel = root.querySelector('[data-ph-load-panel]');
@@ -159,6 +167,11 @@ function phAvailableSwapTargets(snapshot,load) {
         && (!team.batch_open || assigned.get(team.team_id)?.can_move));
 }
 
+/**
+ * @param {object} state Current dispatch workspace.
+ * @param {HTMLElement} control Swap control inside a load card.
+ * @returns {void}
+ */
 function openPhWorkLoadSwap(state,control) {
     const {card,load} = phAssignedLoadFromControl(state.snapshot,control);
     if (!load?.can_move) return;
@@ -177,6 +190,12 @@ function openPhWorkLoadSwap(state,control) {
     editor.querySelector('[data-ph-swap-target]')?.focus();
 }
 
+/**
+ * @param {object} snapshot Current dispatch receipt.
+ * @param {string} action Requested dispatch operation.
+ * @param {HTMLElement} control Control for the selected load.
+ * @returns {object|null} Dispatch command arguments.
+ */
 function planPhWorkLoadControl(snapshot,action,control) {
     if (action === 'toggle-auto') return {p_action:'set_auto',p_input:{enabled:!snapshot.auto_assign}};
     if (action !== 'swap-team' && action !== 'unassign') return null;

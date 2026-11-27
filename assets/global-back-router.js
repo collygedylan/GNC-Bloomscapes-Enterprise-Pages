@@ -1,7 +1,9 @@
+/** @returns {void} Synchronizes the global Back control after a modal transition. */
 function syncGlobalModalBack() {
     updateGlobalBackButton();
 }
 
+/** @returns {void} Observes mounted modal visibility for Back navigation. */
 function initializeModalBackNavigation() {
     let queued = false;
     const observer = new MutationObserver(() => {
@@ -17,6 +19,7 @@ function initializeModalBackNavigation() {
     syncGlobalModalBack();
 }
 
+/** @returns {unknown} Result of dispatching Back to the active surface. */
 function goBackUniversal() {
     if (typeof closeActiveModuleSubview === 'function' && closeActiveModuleSubview()) return false;
     const modalBack=getVisibleSecondaryBack(true);
@@ -24,7 +27,6 @@ function goBackUniversal() {
     if (getManagerAssignedColumnState().editor) return closeManagerAssignedColumnFilter();
     const currentView=getCurrentVisibleViewId();
     if (isDrawerOpen()) { setMenuOpenState(false); updateGlobalBackButton(); return false; }
-    if (currentView==='home' && !hasOpenInteractiveSurfaceForBack() && backBloomscapesHomeDepartment()) return false;
     if (currentView==='docks' && dockViewLevel>0) return backGlobalDocksSurface({restoreViewBack:restoreGlobalViewBack,currentView});
     if (typeof backBloomscapesActiveWorkBrowser==='function' && backBloomscapesActiveWorkBrowser()) return false;
     if (closeOpenInteractiveSurfaceForBack()) return false;

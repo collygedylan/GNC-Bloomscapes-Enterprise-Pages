@@ -80,14 +80,17 @@ function evalAggregateDashboardState() {
         nurseryReport:retained?.nurseryReport || null, model:null, source:null, pending:null, attempted:false, error:'' };
 }
 
+/** @returns {boolean} */
 function isEvalAggregateDashboardVisible() {
     return !evalAggregateDashboardState().selected;
 }
 
+/** @returns {void} */
 function enterEvalAggregateDashboard() {
     evalAggregateDashboardState().selected = '';
 }
 
+/** @returns {boolean} */
 function showEvalAggregateDashboard() {
     if (!canViewManagerEvalReports2()) return false;
     enterEvalAggregateDashboard();
@@ -97,6 +100,7 @@ function showEvalAggregateDashboard() {
     return false;
 }
 
+/** @returns {boolean} */
 function backEvalAggregateDashboard() {
     const state=evalAggregateDashboardState();
     if (backNurseryPlanningReport(state)) return true;
@@ -141,6 +145,7 @@ function getEvalAggregateDashboardModel(state = evalAggregateDashboardState()) {
 }
 
 function isPublishedScheduleReportActive(state) {
+    if (!state.nurseryReport) return false;
     const report = currentNurseryPlanningReport(state);
     return report?.tab === 'schedule' || report?.showSchedule === true;
 }
@@ -163,6 +168,7 @@ function queueEvalAggregateDashboardRefresh(force = false) {
     });
 }
 
+/** @returns {void} */
 function syncEvalOverviewAuditRows() {
     const state = evalAggregateDashboardState();
     if (state.selected !== 'field-audit') return;
@@ -175,12 +181,14 @@ function syncEvalOverviewAuditRows() {
     audit.inventoryReady = state.source.ready;
 }
 
+/** @returns {void} */
 function refreshVisibleEvalOverview() {
     if (activeHomeTab !== MANAGER_EVAL_REPORTS_2_VIEW || getCurrentVisibleViewId() !== 'managers' || !canViewManagerEvalReports2()) return;
     const state = evalAggregateDashboardState();
     if (!isPublishedScheduleReportActive(state) && (!state.selected || state.selected === 'field-audit')) scheduleManagersRender(true);
 }
 
+/** @param {string} reportId @returns {boolean} */
 function openEvalAggregateReport(reportId) {
     if (!canViewManagerEvalReports2()) return false;
     const state = evalAggregateDashboardState();
@@ -204,6 +212,7 @@ function openEvalAggregateReport(reportId) {
     return false;
 }
 
+/** @returns {*} */
 function renderEvalAggregateDashboard() {
     const state = evalAggregateDashboardState();
     queueEvalAggregateDashboardRefresh();

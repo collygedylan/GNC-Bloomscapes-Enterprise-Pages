@@ -1,3 +1,4 @@
+/** @param {object} context @returns {string} */
 function renderSalesOfficeOrderInventoryCard(context) {
     let { item, buildHoldReasonHtml, inlineThumbHtml, holdBorderClass, renderMeta, sourceView, isChecked, safeCardSourceViewKey, compactCardFieldChipsHtml, inventoryEditActionHtml, safeUidJs } = context;
     const orderQty = firstNonEmptyValue(item.ORDER_QTY, item.REQ_QTY, '0');
@@ -20,6 +21,19 @@ function renderSalesOfficeOrderInventoryCard(context) {
     const orderRightColumnHtml = specialStageBadgeHtml ? `<div class="flex flex-col items-end gap-2">${specialStageBadgeHtml}${inlineThumbHtml}</div>` : inlineThumbHtml;
     return `<div class="flex items-center w-full mb-3 item-row app-smart-card relative bg-white p-4 rounded-xl border border-emerald-200 shadow-sm active:scale-[0.99] transition-transform cursor-pointer overflow-hidden ${holdBorderClass}" data-dom-id="${item.DOM_ID}" oncontextmenu="return handleCardContextMenu(event, '${item.DOM_ID}')" ${buildCardActivationAttrs(item.DOM_ID, item.UNIQUE_ID, renderMeta.originView || sourceView, 'Open Bloom Picker row')}><div class="card-checkbox-container flex-shrink-0"><input type="checkbox" class="card-checkbox w-6 h-6 rounded border-gray-300 text-[#007a4d] focus:ring-[#007a4d] shadow-sm" ${isChecked} onclick="event.stopPropagation(); toggleGlobalItem('${item.DOM_ID}', this.checked, '${safeCardSourceViewKey}')"></div><div class="flex flex-col w-full min-w-0"><div class="flex justify-between items-start w-full"><div class="app-card-main flex-grow min-w-0 pr-2"><div class="app-card-eyebrow text-[10px] font-black uppercase tracking-[0.16em] text-[#007a4d] mb-1">Bloom Picker</div><div class="app-card-title font-black text-gray-800 text-[16px] leading-tight break-words mb-1">${item.COMMONNAME || 'Unknown'}</div><div class="app-card-subtitle font-bold text-[#007a4d] text-sm mb-2">${item.CONTSIZE || '-'}</div><div class="app-card-chip-row flex flex-wrap gap-x-2 gap-y-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-600"><span class="bg-emerald-50 text-emerald-700 px-2 py-1 rounded border border-emerald-200">Qty ${orderQty}</span><span class="bg-white text-slate-600 px-2 py-1 rounded border border-slate-200">Order ${item.ORDER_NUMBER || '-'}</span><span class="bg-blue-50 text-blue-700 px-2 py-1 rounded border border-blue-100">Loc ${item.LOCATIONCODE || '-'}</span><span class="bg-gray-100 text-gray-700 px-2 py-1 rounded border border-gray-200">Lot ${item.LOTCODE || '-'}</span><span class="px-2 py-1 rounded border ${statusTone}">${orderStatus}</span>${compactCardFieldChipsHtml}</div>${orderDetailBits ? `<div class="mt-2 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-wider text-gray-600">${orderDetailBits}</div>` : ''}<div class="mt-2 text-[11px] font-semibold text-slate-500">Submitted ${submittedAt}</div>${renderBloomscapesLoadMaximizer({kind:'order',id:item.ORDER_UID || item.UNIQUE_ID})}${pickNoteHtml}${holdHtml}${avNoteHtml}${inventoryEditActionHtml}</div>${orderRightColumnHtml}</div><div class="flex gap-2 mt-3"><button class="flex-1 bg-[#007a4d] hover:bg-green-700 text-white text-[10px] font-bold py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-md active:scale-95" onclick="event.stopPropagation(); return markSalesOfficeComplete('${safeUidJs}', '${escJsAttrValue(item.DOM_ID)}', this)"><i class="ph-bold ph-check-circle text-lg"></i>DONE</button></div></div></div>`;
 }
+function salesOfficeStagingBadge(item) {
+    const stagingStatus = String(firstNonEmptyValue(item.WORKFLOW_STATUS, item.workflow_status, 'needs_photo_data') || 'needs_photo_data').trim().toLowerCase();
+    const stagingStatusConfig = stagingStatus === 'ready_for_custom_av'
+        ? { label: 'Ready for Custom AV', tone: 'border-emerald-200 bg-emerald-50 text-emerald-700' }
+        : stagingStatus === 'reopened_cav_blank'
+            ? { label: 'Reopened — CAV Blank', tone: 'border-amber-200 bg-amber-50 text-amber-700' }
+            : stagingStatus === 'reopened_evidence_invalid'
+                ? { label: 'Reopened — Evidence Invalid', tone: 'border-red-200 bg-red-50 text-red-700' }
+                : { label: 'Needs Photo/Data', tone: 'border-blue-200 bg-blue-50 text-blue-700' };
+    return `<div class="mb-3 inline-flex items-center rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${stagingStatusConfig.tone}">${esc(stagingStatusConfig.label)}</div>`;
+}
+
+/** @param {object} context @returns {string} */
 function renderSalesOfficeInventoryCard(context) {
     let { item, salesNoteText, safeUidJs, hasCardPhotoEvidence, inlineThumbHtml, renderMeta, sourceView, isChecked, safeCardSourceViewKey, compactCardFieldChipsHtml, inventoryEditActionHtml, seasonCardShellClass, salesOfficeStatusClass, salesOfficeCardToneClass, salesOfficeAccentTextClass, salesOfficePanelToneClass } = context;
     let avNoteText = getSalesOfficeDisplayAvNote(item, 'No AV Note Provided');
@@ -31,17 +45,7 @@ function renderSalesOfficeInventoryCard(context) {
     let safeItemCode = escJsAttrValue(itemCode);
     let safeDomId = escJsAttrValue(item.DOM_ID);
     const salesOfficeSource = String(firstNonEmptyValue(item.SO_SOURCE, item.so_source, '') || '').toLowerCase().trim();
-    const stagingStatus = String(firstNonEmptyValue(item.WORKFLOW_STATUS, item.workflow_status, 'needs_photo_data') || 'needs_photo_data').trim().toLowerCase();
-    const stagingStatusConfig = stagingStatus === 'ready_for_custom_av'
-        ? { label: 'Ready for Custom AV', tone: 'border-emerald-200 bg-emerald-50 text-emerald-700' }
-        : stagingStatus === 'reopened_cav_blank'
-            ? { label: 'Reopened — CAV Blank', tone: 'border-amber-200 bg-amber-50 text-amber-700' }
-            : stagingStatus === 'reopened_evidence_invalid'
-                ? { label: 'Reopened — Evidence Invalid', tone: 'border-red-200 bg-red-50 text-red-700' }
-                : { label: 'Needs Photo/Data', tone: 'border-blue-200 bg-blue-50 text-blue-700' };
-    const stagingStatusBadgeHtml = salesOfficeSource === 'season'
-        ? `<div class="mb-3 inline-flex items-center rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${stagingStatusConfig.tone}">${esc(stagingStatusConfig.label)}</div>`
-        : '';
+    const stagingStatusBadgeHtml = salesOfficeSource === 'season' ? salesOfficeStagingBadge(item) : '';
     const seasonArrivedAt = salesOfficeSource === 'season'
         ? formatSalesOfficeArrivedAt(firstNonEmptyValue(item.ARRIVED_AT, item.arrived_at, ''))
         : '';
@@ -71,6 +75,7 @@ function hasDriveCardEvaluation(item) {
     return item?.completed === true || String(item?.DATE_COMPLETED || item?.date_completed || item?.completed_at || '').trim() !== '';
 }
 
+/** @param {object} item @returns {string} */
 function buildCompletedRowBadge(item) {
     return '<span class="completed-row-badge" data-completed-row="'+escapeHtml(getCompletedRowUnlockKey(item))+'"'+(hasDriveCardEvaluation(item)?'':' hidden')+'>✅ COMPLETED</span>';
 }
@@ -144,10 +149,12 @@ function renderDriveInventoryCardMarkup(context) {
     return `<div class="flex items-center w-full mb-3 item-row app-smart-card app-smart-card--inventory app-drive-compact-card ${sourceView === 'drive' ? 'app-shared-drive-layout' : ''} app-inventory-card-overhaul ${seasonCardShellClass} ${driveCardActionClass} relative ${inventoryCardToneClass} p-4 rounded-xl border shadow-sm active:scale-[0.99] transition-transform cursor-pointer overflow-hidden ${holdBorderClass}" data-dom-id="${item.DOM_ID}"${scanAttribute} oncontextmenu="return handleCardContextMenu(event, '${item.DOM_ID}')" ${bloomscapesDriveCardActivation(item,renderMeta,sourceView)}>${driveCheckboxHtml}${buildSharedInventoryCardLayout(item, { photoHtml: inlineThumbHtml, actionsHtml: driveReclassActionHtml, headerHtml: driveListPriceHtml, metricsHtml: driveQuantityRowHtml, detailsHtml: `${driveSpecHtml}${driveAvNoteHtml}${quickRequestBtn ? `<div class="app-drive-card-bottom">${quickRequestBtn}</div>` : ''}${driveHoldDataHtml}${driveChipRowHtml ? `<div class="app-drive-card-chip-row">${driveChipRowHtml}</div>` : ''}${noteHtml}${customerOutreachHtml}${inventoryEditActionHtml}` })}</div>`;
 }
 
+/** @param {object} context @returns {string} */
 function renderDriveInventoryCard(context) {
     return renderDriveInventoryCardMarkup({ ...context, ...createDriveInventoryCardModel(context) });
 }
 
+/** @param {object} context @returns {string} */
 function renderTaskInventoryCard(context) {
     let { sourceView, hasCardPhotoEvidence, item, buildHoldReasonHtml, seasonCardShellClass, inventoryCardToneClass, holdBorderClass, renderMeta, isChecked, safeCardSourceViewKey, buildInventoryToplineHtml, buildInventorySecondarylineHtml, cardFieldChipsHtml, inventoryEditActionHtml, inlineThumbHtml } = context;
     const displaySourceView = sourceView;
@@ -171,6 +178,7 @@ function renderTaskInventoryCard(context) {
     return `<div class="flex items-center w-full mb-3 item-row app-smart-card app-smart-card--inventory ${seasonCardShellClass} ${taskBloomPickerBtn ? 'app-card-with-bottom-rail' : ''} relative ${inventoryCardToneClass} p-4 rounded-xl border shadow-sm active:scale-[0.99] transition-transform cursor-pointer overflow-hidden ${holdBorderClass}" data-dom-id="${item.DOM_ID}" oncontextmenu="return handleCardContextMenu(event, '${item.DOM_ID}')" ${buildCardActivationAttrs(item.DOM_ID, item.UNIQUE_ID, renderMeta.originView || sourceView, 'Open item details')}><div class="card-checkbox-container flex-shrink-0"><input type="checkbox" class="card-checkbox w-6 h-6 rounded border-gray-300 text-[#007a4d] focus:ring-[#007a4d] shadow-sm" ${isChecked} onclick="event.stopPropagation(); toggleGlobalItem('${item.DOM_ID}', this.checked, '${safeCardSourceViewKey}')"></div><div class="flex flex-grow min-w-0 flex-col"><div class="flex items-start justify-between min-w-0"><div class="app-card-main flex-grow min-w-0 pr-2">${buildInventoryToplineHtml(item.COMMONNAME || 'Unknown', item.CONTSIZE || '-', item)}${buildInventorySecondarylineHtml(item.LOCATIONCODE || 'No Loc', firstNonEmptyValue(item.SOURCE, item.source, ''))}<div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-black"><span class="text-[12px] font-black uppercase">PRI ${item.PRIORITY || '-'}</span><span class="text-[12px] font-black">${item.ITEMCODE || '-'}</span><span class="text-[12px] font-black">${item.LOTCODE || '-'}</span></div><div class="mt-3 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-[0.12em]"><span class="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-blue-700">LOC <span class="text-blue-900">${item.LOCATIONCODE || 'No Loc'}</span></span><span class="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-slate-700">LOT <span class="text-slate-900">${item.LOTCODE || '-'}</span></span><span class="rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-orange-700">PRI <span class="text-orange-900">${item.PRIORITY || '-'}</span></span>${cardFieldChipsHtml}</div>${extraData}${noteHtml}${inventoryEditActionHtml}</div>${inlineThumbHtml}</div>${taskBloomPickerBtn}</div></div>`;
 }
 
+/** @param {object} context @returns {string} */
 function renderDefaultInventoryCard(context) {
     let { item, sourceView, renderMeta, isChecked, safeCardSourceViewKey, colorClass, buildInventoryToplineHtml, buildInventorySecondarylineHtml, cardFieldChipsHtml, inventoryEditActionHtml, inlineThumbHtml } = context;
     const defaultArgosRailHtml = buildArgosInventoryTransactionRailHtml(item, sourceView);
@@ -181,6 +189,7 @@ function renderDefaultInventoryCard(context) {
     return `<div class="flex items-center w-full mb-2 item-row overflow-hidden" data-dom-id="${item.DOM_ID}" oncontextmenu="return handleCardContextMenu(event, '${item.DOM_ID}')" ${buildCardActivationAttrs(item.DOM_ID, item.UNIQUE_ID, renderMeta.originView || sourceView, 'Open item details')}><div class="card-checkbox-container flex-shrink-0"><input type="checkbox" class="card-checkbox w-6 h-6 rounded border-gray-300 text-[#007a4d] focus:ring-[#007a4d] shadow-sm" ${isChecked} onclick="event.stopPropagation(); toggleGlobalItem('${item.DOM_ID}', this.checked, '${safeCardSourceViewKey}')"></div><div class="inv-card app-smart-card app-smart-card--inventory ${colorClass} ${defaultBottomRailHtml ? 'app-card-with-bottom-rail' : ''} flex flex-col flex-grow !mb-0 transition-transform active:scale-[0.99]"><div class="flex items-start justify-between min-w-0"><div class="app-card-main flex-grow min-w-0 text-[#007a4d]">${buildInventoryToplineHtml(item.COMMONNAME || 'Unknown', item.CONTSIZE || '-', item)}${buildInventorySecondarylineHtml(item.LOCATIONCODE || 'No Loc', firstNonEmptyValue(item.SOURCE, item.source, ''))}<div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-black"><span class="text-[12px] font-black uppercase">PRI ${item.PRIORITY || '-'}</span><span class="text-[12px] font-black">${item.ITEMCODE || '-'}</span><span class="text-[12px] font-black">${item.LOTCODE || '-'}</span></div><div class="mt-3 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-[0.12em]"><span class="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-slate-700">SUPPLY <span class="text-slate-900">${item.SEASONSUPPLY || '0'}</span></span>${cardFieldChipsHtml}</div><div class="mt-2 text-[12px] font-black text-black">${item.ITEMCODE || '-'}</div>${inventoryEditActionHtml}</div>${inlineThumbHtml}</div>${defaultBottomRailHtml}</div></div>`;
 }
 
+/** @param {object|null} [row] @returns {string} */
 function renderNonSaleableBucketsReportCard(row = null) {
     const salesYear = row && row.__NON_SALEABLE_SALESYEAR != null ? `SY${row.__NON_SALEABLE_SALESYEAR}` : 'SY -';
     const season = row && row.__NON_SALEABLE_SEASON ? row.__NON_SALEABLE_SEASON : '-';

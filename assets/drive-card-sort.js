@@ -1,6 +1,7 @@
 const driveCardNaturalOrder = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' }).compare;
 const driveCardItemOrder = new Intl.Collator(undefined, { sensitivity: 'base' }).compare;
 
+/** @param {*} value @returns {number|null} */
 function driveCardSortNumber(value) {
     if (value === null || value === undefined || String(value).trim() === '') return null;
     const number = Number(value);
@@ -13,6 +14,7 @@ function driveCardYearPrefix(value) {
     return Number(match[0]) + (match[0].length === 2 ? 2000 : 0);
 }
 
+/** @param {object} row @returns {number} */
 function driveCardSalesYear(row) {
     const raw = [row.salesyear, row.SALESYEAR, row.saleyear, row.SALEYEAR];
     const direct = raw.map(driveCardSortNumber).find(value => Number.isInteger(value) && value >= 0 && value <= 9999);
@@ -20,6 +22,7 @@ function driveCardSalesYear(row) {
     return [row.lotcode, row.LOTCODE, row.season, row.SEASON].map(driveCardYearPrefix).find(year => year !== null) ?? null;
 }
 
+/** @param {object} row @returns {number} */
 function driveCardPriority(row) {
     return [row.priority, row.PRIORITY, row.pri, row.PRI].map(driveCardSortNumber).find(value => value !== null) ?? null;
 }
@@ -42,6 +45,7 @@ function driveHasSpecificDrill(value) {
     return !!value && String(value).toLowerCase() !== 'all' && !isDriveDrillAllValue(value);
 }
 
+/** @param {object} [reportFilters] @returns {boolean} */
 function driveHasSeasonCardSort(reportFilters = {}) {
     const { filters } = getInventoryExcelState('drive');
     const size = driveHasSpecificDrill(selectedDriveSize) || driveHasSpecificDrill(driveQuickFilterSize)
@@ -51,6 +55,7 @@ function driveHasSeasonCardSort(reportFilters = {}) {
     return size && season;
 }
 
+/** @param {Array<object>} rows @param {Function} [fallback] @returns {Array<object>} */
 function sortDriveCardsForActiveFilters(rows, fallback = sortDriveCardItems) {
     return driveHasSeasonCardSort() ? sortDriveSeasonCards(rows) : fallback(rows);
 }

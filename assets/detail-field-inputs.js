@@ -1,3 +1,4 @@
+/** @param {string} prefix Active editor field prefix. @returns {object} Spec and caliper values from the active editor. */
 function getAvNoteSpecCaliperValues(prefix = '') {
     const normalizedPrefix = String(prefix || '').trim();
     const currentItem = activeItem || {};
@@ -26,6 +27,7 @@ function getAvNoteSpecCaliperValues(prefix = '') {
     };
 }
 
+/** @param {unknown} value Value to normalize. @returns {string} The normalized specification or range. */
 function normalizeDetailSpecTextForSave(value = '') {
     const text = String(value || '')
         .replace(/\\+(?=[\'"])/g, '')
@@ -42,19 +44,18 @@ function normalizeDetailSpecTextForSave(value = '') {
     return text;
 }
 
+/** @param {HTMLElement|null} input Detail editor input. @returns {boolean} Whether the measurement keypad owns this input. */
 function shouldApplyDetailMeasurementReadonly(input = null) {
     if (!input) return false;
     return shouldPreferDetailMeasurementKeyboard() && !/(?:av-note|pick|comments)/i.test(input.id || '');
 }
 
-function dismissMobilePushEnablePrompt() {
-    hideMobilePushEnablePrompt();
-}
-
+/** @param {unknown} value Value to normalize. @returns {string} Display text with escaped quotes restored. */
 function normalizeDetailEvidenceText(value = '') {
     return String(value ?? '').replace(/\\+(?=['"])/g,'');
 }
 
+/** @param {Event} event User interaction. @returns {void} Hands typing back to the native field. */
 function closeCustomKeyboardForNativeInput(event) {
     const target = event.target;
     if (!target?.closest?.('#view-detail')) return;
@@ -72,16 +73,19 @@ function closeCustomKeyboardForNativeInput(event) {
     input.inputMode = 'text';
 }
 
+/** @returns {void} Installs the shared field event listeners once. */
 function installDetailNativeKeyboardHandoff() {
     document.addEventListener('pointerdown',closeCustomKeyboardForNativeInput,true);
     document.addEventListener('focusin',closeCustomKeyboardForNativeInput,true);
 }
 installDetailNativeKeyboardHandoff();
 
+/** @param {HTMLElement|null} element Candidate input. @returns {boolean} Whether the field belongs to a native detail editor. */
 function isRequestDetailNativeTypingInput(element = null) {
     return /(?:av-note|pick|comments)/i.test(element?.id || '');
 }
 
+/** @param {object} item Current physical inventory row. @returns {object} Current notes and measurements from the Suspend form. */
 function getDockSuspendDcRequestFormValues(item = activeItem) {
             const draft = suspendTagFormDrafts.get(getSuspendTagFormDraftKey(item)) || {};
             const valueOf = (id) => {

@@ -1,3 +1,8 @@
+/**
+ * @param {object} context Mounted nursery table model.
+ * @param {object} p Approved bunch note proposal.
+ * @returns {void} Updates the approved bunch card and its issue count.
+ */
 function nurseryTable_patchBunchApproval(context, p){
       context.state.bodySignature=null;
       const card=[...context.root.querySelectorAll('[data-bunch-card]')].find(el=>el.dataset.bunchCard===p.uid);
@@ -6,6 +11,13 @@ function nurseryTable_patchBunchApproval(context, p){
       const issues=context.root.querySelector('[data-bunch-subview="issues"]');if(issues)issues.textContent='⚠️ Issues ('+context.state.currentIssues.filter(p=>!p.approved&&p.bunchNoteIssues.length).length+')';
     }
 
+/**
+ * @param {object} context Mounted nursery table model.
+ * @param {string} top Drill header markup.
+ * @param {string} body Drill body markup.
+ * @param {string} level Active drill depth.
+ * @returns {void} Updates the mounted bunch drill while retaining its scroll shell.
+ */
 function nurseryTable_commitBunchMarkup(context, top,body,level){
       let shell=context.root.querySelector('.bunch-drill-shell');
       if(!shell){context.root.innerHTML='<section class="nursery-shell bunch-drill-shell"><div class="bunch-drill-top"></div><div class="bunch-drill-scroll"></div><p role="status" data-nursery-status></p></section>';shell=context.root.querySelector('.bunch-drill-shell');}
@@ -25,6 +37,11 @@ function nurseryTable_commitBunchMarkup(context, top,body,level){
       observeNurseryTableContinuation(context);
     }
 
+/**
+ * @param {object} context Mounted nursery table model.
+ * @param {object} data Control dataset or nursery projection.
+ * @returns {void} Paints the selected location, planting or issue drill.
+ */
 function nurseryTable_drawBunchDrill(context, data){
       if(context.state.bunchData!==data)context.state.plantChoiceCache=new Map();
       context.state.bunchData=data;const all=context.state.currentIssues,q=context.state.q.toLowerCase(),level=context.state.bunchSimulatorDrillLevel,planting=context.state.subview==='planting',plans=context.plantingRows(),issues=all.filter(p=>!p.approved&&p.bunchNoteIssues.length),cards=context.locationCards();
@@ -40,6 +57,10 @@ function nurseryTable_drawBunchDrill(context, data){
       context.commitBunchMarkup(top,body||'<p>No matching rows.</p>',level);
     }
 
+/**
+ * @param {object} context Mounted nursery table model.
+ * @returns {void} Paints the active nursery management table.
+ */
 function nurseryTable_draw(context){
       if(context.state.destroyed||!context.root.isConnected)return;
       const view=context.model.TABLES.find(t=>t.id===context.state.view),isPlan=context.isNurseryWorkspace()||!view.relation;

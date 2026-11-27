@@ -115,6 +115,7 @@ function isSuperAdminLensOwner() {
         && currentUser === nativeAuthProfile.username && !window.__agdataSessionBoundary;
 }
 
+/** @returns {object|null} Current account-scoped borrowed-help preview. */
 function borrowedHelpPreview() {
     if (!isSuperAdminLensOwner() || !superAdminLens) return null;
     const owner=borrowedHelpIdentity();
@@ -140,6 +141,7 @@ function superAdminPreviewRoles(receipt) {
     }));
 }
 
+/** @returns {void} Mounts the authorized access preview controls. */
 function mountSuperAdminViewAs() {
     const root = document.querySelector('.nav-header-meta-row');
     if (!root) return;
@@ -290,7 +292,6 @@ function applySuperAdminLens(state,profile) {
     const view = getCurrentVisibleViewId();
     if (view !== 'home' && !canDisplayNavigationView(view)) switchView('home');
     const grid = document.getElementById('home-dashboard-grid');
-    clearBloomscapesHomeDepartment();
     syncBloomscapesHomeTileVisibility(grid);
     updateFooterNavState();
     updateGlobalBackButton();
@@ -313,12 +314,14 @@ function finishSuperAdminLens(state,profile,grid) {
     if (view === 'borrowed-work') renderBloomscapesBorrowedField(view);
 }
 
+/** @param {object} preview Selected access preview. @param {string} key Area or subview identifier. @returns {boolean} Whether the preview grants visibility. */
 function previewShowsAreaView(preview,key) {
     if (key === 'borrowed-help') return preview.borrowed;
     if (key === 'docks-issues') key = 'docks';
     return ['FULL_EDIT','VIEW_ONLY'].includes(preview.area_access?.[key]);
 }
 
+/** @param {object} preview Selected access preview. @param {object} row Queue row. @param {string} tab Queue tab. @returns {boolean} Whether the preview includes the row. */
 function previewShowsQueueRow(preview,row,tab) {
     if (tab === 'pending' && preview.queue_scope === 'all') return true;
     if (!preview.username) return false;

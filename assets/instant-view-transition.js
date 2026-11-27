@@ -1,3 +1,9 @@
+/**
+ * @param {string} viewId Visible view identifier.
+ * @param {number} sequence Navigation transition sequence.
+ * @param {Function} render Paint callback.
+ * @returns {void} Schedules rendering for the current authorized transition.
+ */
 function afterNavigationPaint(viewId, sequence, render) {
     const owner = bloomscapesStaticBodyScope();
     requestAnimationFrame(() => {
@@ -8,6 +14,12 @@ function afterNavigationPaint(viewId, sequence, render) {
     });
 }
 
+/**
+ * @param {object} options Configuration for this operation.
+ * @param {string} viewId Visible view identifier.
+ * @param {string} renderKey Current render signature.
+ * @returns {void} Adds the saved scroll action to the post-render callbacks.
+ */
 function attachTrackedScrollRestore(options, viewId, renderKey) {
     const {afterRender, restoreScrollTopAfterRender: saved, resetScrollTopAfterRender: reset} = options;
     const key = String(options.scrollResetKey || renderKey || viewId || 'tracked').trim() || viewId || 'tracked';
@@ -27,6 +39,11 @@ function runTrackedNavigationCallback(callback) {
     catch { globalThis.reportHandledRuntimeIssue?.('runDirectTrackedNavigation','HANDLED_OPERATION_FAILURE'); }
 }
 
+/**
+ * @param {string} tab Requested Drive tab.
+ * @param {object} options Configuration for this operation.
+ * @returns {unknown} Tracked navigation result for the selected tab.
+ */
 function setDriveTab(tab, { exitReport = false } = {}) {
     closeDriveQuickFiltersModal();
     lastViewSwitchAt = Date.now();
@@ -46,14 +63,7 @@ function setDriveTab(tab, { exitReport = false } = {}) {
         if (mobileMode) mobileMode.value = nextTab;
         if (nextTab === 'hold' && previousTab !== 'hold') activeDriveHoldStopReport = 'hold-stop';
         driveQuickRequestCardMode = nextTab === 'card';
-        driveViewDropdownOpen = false;
-        driveSeasonDropdownOpen = false;
-        driveGenusFilterOpen = false;
-        driveContSizeFilterOpen = false;
-        driveLocationFilterOpen = false;
-        driveLotFilterOpen = false;
-        driveColumnFilterDropdownOpen = false;
-        driveQuickHoldStopOnly = false;
+        closeDriveTabFilters();
         if (!preserveNameDrillSelection) resetDriveDrillSelectionState();
         else {
             selectedDriveBlock = null;
@@ -76,6 +86,17 @@ function setDriveTab(tab, { exitReport = false } = {}) {
 }
 
 
+function closeDriveTabFilters() {
+    driveViewDropdownOpen = false;
+    driveSeasonDropdownOpen = false;
+    driveGenusFilterOpen = false;
+    driveContSizeFilterOpen = false;
+    driveLocationFilterOpen = false;
+    driveLotFilterOpen = false;
+    driveColumnFilterDropdownOpen = false;
+    driveQuickHoldStopOnly = false;
+}
+
 function mountDriveLocationWindow(container, entries, modeKey, renderEntry, reportSort) {
     const key = modeKey + (reportSort ? ':report:' : ':') + selectedDriveBlock;
     const code = row => row.location;
@@ -91,66 +112,16 @@ function mountDriveLocationWindow(container, entries, modeKey, renderEntry, repo
     },reportSort);
 }
 
-function openQuickAccessTab(nested) {
-    if (nested.parent === 'managers' && nested.tab) return setHomeTab(nested.tab);
-    if (nested.parent === 'request' && nested.tab) return setReqTab(nested.tab);
-    if (nested.parent === 'sales-office' && nested.tab) return setSalesOfficeTab(nested.tab);
-    if (nested.archiveTab) document.querySelector(`[data-archive-tab="${nested.archiveTab}"]`)?.click();
-}
-
-function navigateQuickAccessView(view = '') {
-    if (!canAccessQuickAccessView(view)) { showToast('Access unavailable','You do not have permission to open this view.',true); return false; }
-    const safeView = String(view || '').trim();
-    if (safeView === 'bloom') return toggleCartPanel();
-    if (safeView.startsWith('production:')) return openProductionWorkflow(safeView.split(':')[1]);
-    const nested = QUICK_ACCESS_NESTED_ROUTES[safeView];
-    if (!nested) return switchView(safeView);
-    const navigationGeneration = ++quickAccessNavigationGeneration;
-    const originView = getCurrentVisibleViewId();
-    const identity = getSupabaseReadIdentityScope();
-    switchView(nested.parent, { quickAccessRoute: safeView, quickAccessOrigin: originView, quickAccessTab: nested.tab || nested.archiveTab || '' });
-    const historicalOwner = nested.archiveTab ? getHistoricalRequestsOwnerKey() : '';
-    if (!nested.archiveTab || nested.parent !== 'historical-requests') {
-        afterNavigationPaint(nested.parent, navTransitionSeq, () => {
-            if (navigationGeneration === quickAccessNavigationGeneration && canAccessQuickAccessView(safeView)) openQuickAccessTab(nested);
-        });
-        return false;
-    }
-    void (async () => {
-        try { await ensureHistoricalRequestsIsland(); } catch { return; }
-        const host = document.getElementById('historical-requests-content');
-        if (!host) return;
-        const isCurrentOwner = () => navigationGeneration === quickAccessNavigationGeneration
-            && getCurrentVisibleViewId() === nested.parent && isViewVisible(nested.parent)
-            && identity === getSupabaseReadIdentityScope() && historicalOwner === getHistoricalRequestsOwnerKey()
-            && canAccessQuickAccessView(safeView);
-        const tabSelector = `[data-archive-tab="${nested.archiveTab}"]`;
-        let observer = null;
-        let timeout = null;
-        const cleanup = () => {
-            if (observer) observer.disconnect();
-            observer = null;
-            if (timeout != null) clearTimeout(timeout);
-            timeout = null;
-        };
-        const selectWhenReady = () => {
-            if (!isCurrentOwner()) { cleanup(); return true; }
-            const button = host.querySelector(tabSelector);
-            if (!button) return false;
-            cleanup();
-            button.click();
-            return true;
-        };
-        if (selectWhenReady()) return;
-        if (typeof MutationObserver !== 'function') return;
-        observer = new MutationObserver(selectWhenReady);
-        observer.observe(host, { childList: true, subtree: true });
-        if (selectWhenReady()) return;
-        timeout = setTimeout(cleanup, 5000);
-    })();
-    return false;
-}
-
+/**
+ * @param {HTMLElement} container Mounted controls.
+ * @param {HTMLElement} crumb Breadcrumb element.
+ * @param {string} crumbText Visible breadcrumb.
+ * @param {Array} entries Drill groups to display.
+ * @param {string} modeKey Drive grouping mode.
+ * @param {Function} renderEntry Renders a drill group.
+ * @param {object} options Configuration for this operation.
+ * @returns {void} Paints Drive groups using the active card or grid presentation.
+ */
 function renderDriveDrillEntries(container, crumb, crumbText, entries, modeKey, renderEntry, options = {}) {
     const safeEntries = Array.isArray(entries) ? entries : [];
     if (container && container.dataset) {
@@ -189,6 +160,10 @@ function renderDriveDrillEntries(container, crumb, crumbText, entries, modeKey, 
     if (renderInventoryCardWindow(container,safeEntries,renderEntry,{
         view:'drive',signature:renderKey,estimatedHeight:Number(options.approxCardHeight)||96
     })) { if(getCurrentVisibleViewId()==='drive'){syncDriveCrumb(crumb,crumbText);container.dataset.driveRenderKey=renderKey;}return; }
+    renderDriveDrillRemainder(container, crumb, crumbText, safeEntries, modeKey, renderEntry, renderKey, options);
+}
+
+function renderDriveDrillRemainder(container, crumb, crumbText, safeEntries, modeKey, renderEntry, renderKey, options) {
     if (shouldUseChunkedCardRender(safeEntries.length, options.threshold || 110, options.chunkThreshold || 190)) {
         syncDriveCrumb(crumb, crumbText);
         if (container.dataset && container.dataset.driveRenderKey === renderKey) return;
@@ -203,6 +178,76 @@ function renderDriveDrillEntries(container, crumb, crumbText, entries, modeKey, 
 }
 
 
+/**
+ * @param {object} group Grouped common name and row counts.
+ * @returns {string} Common-name group card markup.
+ */
 function renderDriveCommonNameGroupCard(group) {
     return `<div class="drive-card bg-white border border-green-200 rounded-xl shadow-sm mb-3 p-4 flex items-center justify-between gap-3 cursor-pointer active:scale-95 transition-transform" ${buildFastInvokeAttrs('selectDriveName', [group.name], `Open ${normalizeEscapedDisplayText(group.name)}`)}><div class="min-w-0"><div class="text-lg font-black text-[#007a4d] leading-tight truncate">${esc(normalizeEscapedDisplayText(group.name))}</div><div class="mt-1 text-[11px] font-bold uppercase tracking-[0.1em] text-slate-400">${group.rowCount} Rows &bull; ${group.sizeCount} Sizes</div></div><i class="ph-bold ph-caret-right text-lg text-emerald-500"></i></div>`;
+}
+
+function openQuickAccessTab(nested) {
+    if (nested.parent === 'managers' && nested.tab) return setHomeTab(nested.tab);
+    if (nested.parent === 'request' && nested.tab) return setReqTab(nested.tab);
+    if (nested.parent === 'sales-office' && nested.tab) return setSalesOfficeTab(nested.tab);
+    if (nested.archiveTab) document.querySelector(`[data-archive-tab="${nested.archiveTab}"]`)?.click();
+}
+
+/**
+ * @param {string} view Selected view identifier.
+ * @returns {unknown} Result of opening the permitted destination.
+ */
+function navigateQuickAccessView(view = '') {
+    if (!canAccessQuickAccessView(view)) { showToast('Access unavailable','You do not have permission to open this view.',true); return false; }
+    const safeView = String(view || '').trim();
+    if (safeView === 'bloom') return toggleCartPanel();
+    if (safeView.startsWith('production:')) return openProductionWorkflow(safeView.split(':')[1]);
+    const nested = QUICK_ACCESS_NESTED_ROUTES[safeView];
+    if (!nested) return switchView(safeView);
+    const navigationGeneration = ++quickAccessNavigationGeneration;
+    const originView = getCurrentVisibleViewId();
+    const identity = getSupabaseReadIdentityScope();
+    switchView(nested.parent, { quickAccessRoute: safeView, quickAccessOrigin: originView, quickAccessTab: nested.tab || nested.archiveTab || '' });
+    const historicalOwner = nested.archiveTab ? getHistoricalRequestsOwnerKey() : '';
+    if (!nested.archiveTab || nested.parent !== 'historical-requests') {
+        afterNavigationPaint(nested.parent, navTransitionSeq, () => {
+            if (navigationGeneration === quickAccessNavigationGeneration && canAccessQuickAccessView(safeView)) openQuickAccessTab(nested);
+        });
+        return false;
+    }
+    void selectQuickAccessArchiveTab(nested, safeView, navigationGeneration, identity, historicalOwner);
+    return false;
+}
+
+async function selectQuickAccessArchiveTab(nested, safeView, navigationGeneration, identity, historicalOwner) {
+    try { await ensureHistoricalRequestsIsland(); } catch { return; }
+    const host = document.getElementById('historical-requests-content');
+    if (!host) return;
+    const isCurrentOwner = () => navigationGeneration === quickAccessNavigationGeneration
+        && getCurrentVisibleViewId() === nested.parent && isViewVisible(nested.parent)
+        && identity === getSupabaseReadIdentityScope() && historicalOwner === getHistoricalRequestsOwnerKey()
+        && canAccessQuickAccessView(safeView);
+    const tabSelector = `[data-archive-tab="${nested.archiveTab}"]`;
+    let observer = null;
+    let timeout = null;
+    const cleanup = () => {
+        if (observer) observer.disconnect();
+        observer = null;
+        if (timeout != null) clearTimeout(timeout);
+        timeout = null;
+    };
+    const selectWhenReady = () => {
+        if (!isCurrentOwner()) { cleanup(); return true; }
+        const button = host.querySelector(tabSelector);
+        if (!button) return false;
+        cleanup();
+        button.click();
+        return true;
+    };
+    if (selectWhenReady()) return;
+    if (typeof MutationObserver !== 'function') return;
+    observer = new MutationObserver(selectWhenReady);
+    observer.observe(host, { childList: true, subtree: true });
+    if (selectWhenReady()) return;
+    timeout = setTimeout(cleanup, 5000);
 }

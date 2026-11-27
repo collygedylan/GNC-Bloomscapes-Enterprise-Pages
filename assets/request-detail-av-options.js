@@ -1,30 +1,7 @@
-let avInventoryOptionIndex = null;
-
-function indexAvInventoryOptions(rows) {
-    const byCode = new Map();
-    for (const row of rows) {
-        const code = getRequestItemCodeOptionItemCode(row);
-        if (!code) continue;
-        if (!byCode.has(code)) byCode.set(code, []);
-        byCode.get(code).push(row);
-    }
-    return byCode;
-}
-
-function getAvInventoryOptionRowsForItem(item, rows, revision) {
-    const code = getRequestItemCodeOptionItemCode(item);
-    if (!code || !Array.isArray(rows) || !rows.length) return [];
-    const owner = getSupabaseReadIdentityScope();
-    const index = avInventoryOptionIndex;
-    if (index?.rows !== rows || index.owner !== owner || index.revision !== revision || index.count !== rows.length) {
-        avInventoryOptionIndex = { rows, owner, revision, count: rows.length, byCode: indexAvInventoryOptions(rows) };
-    }
-    return avInventoryOptionIndex.byCode.get(code) || [];
-}
-
 const avOptionCheckboxSelector = '[data-request-itemcode-option="true"]';
 const avOptionDraftSelector = 'input[id^="suspend-split-"], [data-pull-code], [data-pull-lot]';
 
+/** @param {HTMLElement} panel @param {object} state @returns {Set<string>} */
 function rememberRequestAvOptionSelection(panel, state) {
     const selected = state.selectedOptionIds ||= new Set();
     if (panel?.__requestAvSelectionOwner !== state) return selected;
@@ -36,6 +13,7 @@ function rememberRequestAvOptionSelection(panel, state) {
     return selected;
 }
 
+/** @param {HTMLInputElement|null} [input] @returns {boolean} */
 function syncSuspendAvOptionSelectionControls(input = null) {
     const panel = input?.closest?.('#detail-av-options-panel, #req-matching-inventory-container')
         || document.getElementById('detail-av-options-panel') || document.getElementById('req-matching-inventory-container');
@@ -54,6 +32,7 @@ function syncSuspendAvOptionSelectionControls(input = null) {
     return false;
 }
 
+/** @param {HTMLElement} panel @param {object} state @param {Array<object>} rows @returns {void} */
 function syncRenderedAvOptionSelection(panel, state, rows) {
     const allowed = new Set(rows.map(getRequestItemCodeOptionMasterId));
     for (const id of state.selectedOptionIds) {
@@ -66,6 +45,7 @@ function syncRenderedAvOptionSelection(panel, state, rows) {
     syncSuspendAvOptionSelectionControls(panel.querySelector(avOptionCheckboxSelector));
 }
 
+/** @param {HTMLElement} panel @param {object} state @param {boolean} [restore] @returns {void} */
 function keepRequestAvOptionDraftInputs(panel, state, restore = false) {
     if (panel.__requestAvSelectionOwner !== state) return;
     const drafts = state.optionInputDrafts ||= new Map();
@@ -77,6 +57,32 @@ function keepRequestAvOptionDraftInputs(panel, state, restore = false) {
     }
 }
 
+let avInventoryOptionIndex = null;
+
+function indexAvInventoryOptions(rows) {
+    const byCode = new Map();
+    for (const row of rows) {
+        const code = getRequestItemCodeOptionItemCode(row);
+        if (!code) continue;
+        if (!byCode.has(code)) byCode.set(code, []);
+        byCode.get(code).push(row);
+    }
+    return byCode;
+}
+
+/** @param {object} item @param {Array<object>} rows @param {number} revision @returns {Array<object>} */
+function getAvInventoryOptionRowsForItem(item, rows, revision) {
+    const code = getRequestItemCodeOptionItemCode(item);
+    if (!code || !Array.isArray(rows) || !rows.length) return [];
+    const owner = getSupabaseReadIdentityScope();
+    const index = avInventoryOptionIndex;
+    if (index?.rows !== rows || index.owner !== owner || index.revision !== revision || index.count !== rows.length) {
+        avInventoryOptionIndex = { rows, owner, revision, count: rows.length, byCode: indexAvInventoryOptions(rows) };
+    }
+    return avInventoryOptionIndex.byCode.get(code) || [];
+}
+
+/** @param {number} direction @returns {boolean} */
 function changeRequestAvOptionPage(direction) {
     if (!activeItem || requestAvOptionsDropdownOpen !== true) return false;
     const state = ensureRequestItemCodeOptionState(activeItem);
@@ -238,6 +244,7 @@ function renderCompactRequestAvOptions(item, context) {
                 onclick="return addSelectedRequestItemCodeOptions()">+ Add Selected to ${destination}</button>` : ''}</div>` : ''}</div>`;
 }
 
+/** @param {object} [item] @param {string} [detailSourceView] @param {object} [options] @returns {void} */
 function renderRequestMatchingInventoryOptions(item = activeItem, detailSourceView = '', options = {}) {
     const context = prepareRequestAvOptions(item,detailSourceView,options);
     if (!context) return;

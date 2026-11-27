@@ -12,6 +12,7 @@ function resolveVerifiedReclassRole(input = {}) {
     return { actor, profileId: profile.id, matrix, role };
 }
 
+/** @param {*} [input] @returns {object} */
 function resolveReclassAdministrator(input = {}) {
     const grant = resolveVerifiedReclassRole(input);
     return grant && /^(admin|super[-_ ]?admin)$/.test(grant.role)
@@ -33,11 +34,13 @@ function getVerifiedReclassAdministrator(user = currentUser) {
     return resolveReclassAdministrator(getReclassAuthorityInput(user));
 }
 
+/** @param {*} [user] @returns {boolean} */
 function getVerifiedReclassExplanationExemption(user = currentUser) {
     const grant = resolveVerifiedReclassRole(getReclassAuthorityInput(user));
     return !!grant && /^(admin|super[-_ ]?admin|exec[-_ ]vp[-_ ]gm|executive|exec)$/.test(grant.role);
 }
 
+/** @param {HTMLInputElement} input @returns {boolean} */
 function updateReclassExplanation(input) {
     const uid = input?.getAttribute('data-reclass-explanation-uid');
     if (!uid) return false;
@@ -50,6 +53,7 @@ function updateReclassExplanation(input) {
     return true;
 }
 
+/** @param {string} uid @returns {string} */
 function buildReclassExplanationField(uid) {
     const exempt = isReclassExplanationExempt();
     const label = exempt ? 'Reclass Explanation (Optional for Admin or Exec)' : 'Reclass Explanation * (Required)';
@@ -60,6 +64,7 @@ function buildReclassExplanationField(uid) {
         + style + '" oninput="updateReclassExplanation(this)">' + escapeHtml(getReclassExplanation(uid)) + '</textarea></label>';
 }
 
+/** @param {object} row @returns {boolean} */
 function isSeasonYReclassSource(row) {
     const raw = row?.__reclassIdentityRaw || row;
     const season = String(raw?.SEASON ?? raw?.season ?? '').trim().toUpperCase();
@@ -76,12 +81,14 @@ function reclassSourceModuleAllowed(matrix, sourceView) {
     return !flags.some(flag => [matrix.view_permissions?.[flag], matrix[flag]].some(value => value === 'N' || value === false));
 }
 
+/** @param {object} row @param {string} sourceView @param {*} [user] @returns {boolean} */
 function getSeasonYReclassAdministratorAccess(row, sourceView, user = currentUser) {
     if (!isSeasonYReclassSource(row)) return null;
     const administrator = getVerifiedReclassAdministrator(user);
     return administrator ? reclassSourceModuleAllowed(administrator.matrix, sourceView) : null;
 }
 
+/** @param {object} entry @returns {boolean} */
 function isArgosReclassRepOperations(entry) {
     const access = getSeasonYReclassAdministratorAccess(entry?.sourceRow, argosInventoryTransactionState?.sourceView || '');
     return access === true ? false : canCurrentUserSubmitRepInventoryOperations();
@@ -111,6 +118,7 @@ function getArgosReclassRowAccessDenial(item, sourceView, mode) {
     return null;
 }
 
+/** @param {object} item @param {string} [sourceView] @param {*} [mode] @returns {boolean} */
 function authorizeArgosReclassRow(item, sourceView = '', mode = 'submit') {
     const denial = getArgosReclassRowAccessDenial(item, sourceView, mode);
     if (!denial) return true;
@@ -118,6 +126,7 @@ function authorizeArgosReclassRow(item, sourceView = '', mode = 'submit') {
     return false;
 }
 
+/** @param {string} uid @returns {boolean} */
 function canStageArgosReclassRow(uid) {
     const entry = getArgosReclassRowEditorEntry(String(uid || ''));
     const row = entry?.sourceRow;
@@ -128,6 +137,7 @@ function canStageArgosReclassRow(uid) {
     return authorizeArgosReclassRow(row, argosInventoryTransactionState?.sourceView || '', 'submit');
 }
 
+/** @param {object} entry @param {*} action @returns {boolean} */
 function canStageArgosReclassAction(entry, action) {
     if (!['move_up', 'move_down'].includes(action)) return true;
     const row = entry?.sourceRow?.__reclassIdentityRaw || entry?.sourceRow;
@@ -153,6 +163,7 @@ function getTouchedReclassSourceUids(payload) {
     return uids;
 }
 
+/** @param {object} payload @param {object} state @returns {void} */
 function authorizeArgosReclassSubmissionRows(payload, state) {
     const entries = new Map((state.inquiryModel?.locationRows || []).map(entry => [String(entry.unique_id || ''), entry]));
     const uids = getTouchedReclassSourceUids(payload);
@@ -171,6 +182,7 @@ function authorizeArgosReclassSubmissionRows(payload, state) {
 
 globalThis.getVerifiedReclassAdministrator = getVerifiedReclassAdministrator;
 
+/** @param {Array<object>} [records] @returns {Array<object>} */
 function getInventoryOfficeRecordsForActiveTab(records = getInventoryOfficeMoveRecords()) {
     const active = normalizeInventoryOfficeApprovalType(activeInventoryOfficeApprovalType);
     const candidates = active === 'inventory-edits' ? getInventoryEditMockOfficeRecords()
@@ -182,6 +194,7 @@ function getInventoryOfficeRecordsForActiveTab(records = getInventoryOfficeMoveR
         && canShowBloomscapesReclassRow(findItemByUniqueId(record.source_unique_id),access));
 }
 
+/** @param {object} item @param {string} sourceView @returns {boolean} */
 function canShowBloomscapesDetailItemInquiry(item,sourceView) {
     if (sourceView === 'not-on-inventory' || !getItemInquiryItemCode(item)) return false;
     if (!['drive','request'].includes(sourceView)) return true;

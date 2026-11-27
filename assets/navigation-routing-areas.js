@@ -1,11 +1,3 @@
-const bloomscapesHomeDepartmentNames = Object.freeze({
-    INVENTORY:'Inventory',PRODUCTION:'Production',QC:'QC',DOCKS:'Docks',SALES:'Sales',ADMIN:'Managers'
-});
-const bloomscapesHomeDepartmentLabels = Object.freeze({
-    requests:'Que → Requests',suspend:'Que → Suspend Tags',po:'PO Management',
-    historical:'Historical Requests'
-});
-const bloomscapesHomeDetailOnly = new Set(['messages','walkie','docks-issues','sales-flyer','sales-history','sales-rep','sales-archive']);
 const bloomscapesHomeAreaOverrides = Object.freeze({
     INVENTORY:area => [...area.views.flatMap(view=>view[0] === 'assigned-items' ? []
         : [view[0] === 'eval2' ? ['reports','Reports','reports'] : view]),['queue','Que','request']],
@@ -14,97 +6,7 @@ const bloomscapesHomeAreaOverrides = Object.freeze({
 const bloomscapesHomeAreas = BLOOMSCAPES_BUSINESS_AREAS.map(area=>({...area,
     views:bloomscapesHomeAreaOverrides[area.id]?.(area) || area.views
 }));
-const bloomscapesHomeDepartmentState = new WeakMap();
-
-function bloomscapesHomeDepartmentOwner() {
-    return JSON.stringify([currentUser,nativeAuthProfile?.id,getBloomscapesFarm(),borrowedHelpPreview()?.id]);
-}
-
-function getBloomscapesHomeDepartment(grid = document.getElementById('home-dashboard-grid')) {
-    const selected = grid && bloomscapesHomeDepartmentState.get(grid);
-    return selected?.owner === bloomscapesHomeDepartmentOwner() ? selected.area : null;
-}
-
-function bloomscapesHomeChoices(area) {
-    const choices = bloomscapesAreaChoices(area);
-    const shown = choices.filter(([key]) => !bloomscapesHomeDetailOnly.has(key));
-    const sales = choices.find(([key]) => key.startsWith('sales-') && key !== 'sales-av');
-    if (sales && !shown.includes(sales)) shown.unshift(sales);
-    return shown;
-}
-
-function bloomscapesHomeDepartmentTitle() {
-    return bloomscapesHomeDepartmentNames[getBloomscapesHomeDepartment()?.id] || '';
-}
-
-function clearBloomscapesHomeDepartment() {
-    const grid = document.getElementById('home-dashboard-grid');
-    return Boolean(grid && bloomscapesHomeDepartmentState.delete(grid));
-}
-
-function selectBloomscapesHomeDepartment(grid, area) {
-    if (getCurrentVisibleViewId() !== 'home' || !bloomscapesHomeChoices(area).length) return;
-    bloomscapesHomeDepartmentState.set(grid,{area,owner:bloomscapesHomeDepartmentOwner()});
-    syncBloomscapesHomeTileVisibility(grid);
-    document.getElementById('view-home').scrollTop = 0;
-    syncGlobalHeaderChrome({reason:'home-department',force:true});
-    grid.querySelector('[data-home-department-module]')?.focus({preventScroll:true});
-}
-
-function backBloomscapesHomeDepartment() {
-    const area = getBloomscapesHomeDepartment();
-    if (!area || !clearBloomscapesHomeDepartment()) return false;
-    const grid = document.getElementById('home-dashboard-grid');
-    syncBloomscapesHomeTileVisibility(grid);
-    syncGlobalHeaderChrome({reason:'home-department',force:true});
-    grid.querySelector('[data-home-department="'+area.id+'"]')?.focus({preventScroll:true});
-    return true;
-}
-
-function paintBloomscapesHomeDepartments(grid) {
-    let area = getBloomscapesHomeDepartment(grid);
-    const choices = area && bloomscapesHomeChoices(area);
-    if (area && !choices.length) {
-        bloomscapesHomeDepartmentState.delete(grid);
-        area = null;
-    }
-    const tiles = area
-        ? choices.map(([key,label])=>[key,key.startsWith('sales-') && key !== 'sales-av'
-            ? 'Sales & Marketing Studio' : bloomscapesHomeDepartmentLabels[key] || label,area.icon])
-        : bloomscapesHomeAreas.filter(department => bloomscapesHomeChoices(department).length)
-            .map(department=>[department.id,bloomscapesHomeDepartmentNames[department.id],department.icon]);
-    syncBloomscapesDepartmentButtons(grid,area,tiles);
-    return tiles.length;
-}
-
-function syncBloomscapesDepartmentButtons(grid, area, tiles) {
-    const signature = JSON.stringify([area?.id,tiles]);
-    if (grid.dataset.departmentTiles === signature && grid.querySelectorAll('[data-home-department], [data-home-department-module]').length === tiles.length) return;
-    for (const button of grid.querySelectorAll('[data-home-department], [data-home-department-module]')) button.remove();
-    const fragment = document.createDocumentFragment();
-    for (const [key,label,icon] of tiles) fragment.append(bloomscapesDepartmentButton(grid,area,key,label,icon));
-    grid.prepend(fragment);
-    grid.dataset.departmentTiles = signature;
-}
-
-function bloomscapesDepartmentButton(grid, area, key, label, icon) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'home-module-tile';
-    button.setAttribute('aria-label','Open '+label);
-    button.innerHTML = '<i class="ph '+icon+'" aria-hidden="true"></i>';
-    const title = button.appendChild(document.createElement('span'));
-    title.textContent = label;
-    if (area) {
-        button.dataset.homeDepartmentModule = key;
-        button.onclick = () => openBloomscapesAreaView(area,key);
-    } else {
-        button.dataset.homeDepartment = key;
-        button.onclick = () => selectBloomscapesHomeDepartment(grid,bloomscapesHomeAreas.find(entry=>entry.id===key));
-    }
-    return button;
-}
-
+/** @param {object} area Business area definition. @param {string} key Selected field or route key. @returns {unknown} The selected route's navigation result. */
 function openBloomscapesAreaView(area, key) {
     const entry = bloomscapesAreaChoices(area).find(([id]) => id === key);
     if (!entry) return false;
@@ -125,6 +27,7 @@ function openBloomscapesAreaView(area, key) {
     return switchView(view);
 }
 
+/** @param {object} context Current navigation request. @returns {void} Prepares Manager, inventory and history state for entry. */
 function preparePrimaryNavigationTarget(context) {
     const { nextViewId, currentViewId, switchOptions, fromHistory } = context;
     const plainManagersHubEntry = nextViewId === 'managers' && !fromHistory
@@ -159,6 +62,7 @@ function preparePrimaryNavigationTarget(context) {
     }
 }
 
+/** @param {string} view Target view identifier. @param {object} options Navigation or startup options. @returns {boolean} Whether the requested studio route may proceed. */
 function preparePermittedStudioNavigation(view, options) {
     if (isFieldWorkConsolidationRoute(view,options.studioPhase)) return prepareFieldWorkConsolidationNavigation();
     if (options.fromHistory && view==='production' && bloomscapesDepartmentTabs.get(bloomscapesDepartmentKey(view))==='bloomscapes-consolidation') {
@@ -211,12 +115,14 @@ function openBloomscapesAreaSalesSection(section) {
     return false;
 }
 
+/** @param {HTMLElement} grid Home tile grid. @returns {void} Synchronizes authorized Home and drawer choices. */
 function mountBloomscapesAreaHubs(grid) {
     if (!nativeAuthSessionActive || !grid) return;
     syncBloomscapesHomeTileVisibility(grid);
     syncBloomscapesDrawerAreaHubs();
 }
 
+/** @returns {void} Refreshes the drawer for the current farm and permissions. */
 function syncBloomscapesDrawerAreaHubs() {
     const drawer = queryBloomscapesStaticBody('side-drawer','[data-drawer-business-areas]');
     if (drawer) paintBloomscapesAreaHubs(drawer);
@@ -250,4 +156,19 @@ function insertBloomscapesAreaCard(host, area) {
         .map(({id})=>host.querySelector('[data-business-area="' + id + '"]')).find(Boolean);
     host.insertBefore(card, nextArea || null);
     return card;
+}
+
+/** @param {string} viewId Requested destination. @param {object} options Shell route options. @returns {string} Canonical route for the active profile. */
+function resolvePrimaryShellRoute(viewId, options) {
+    return String(BLOOMSCAPES_SHELL_ROUTE_ALIASES[viewId] || (viewId==='field-work-consolidation' && 'production')
+        || (viewId === 'field-work-studio' && options.parkHillStudio === true && 'production')
+        || (nativeAuthSessionActive && viewId === 'sales-office' && 'sales')
+        || (nativeAuthSessionActive && viewId === 'production' && currentUser !== 'dylan_collyge' && currentUser !== 'megan_kelly'
+            && !BLOOMSCAPES_FIELD_ENTRY_ROLES[nativeAuthProfile?.role] && 'drive')
+        || (nativeAuthSessionActive && (currentUser === 'dylan_collyge' || currentUser === 'megan_kelly'
+            || BLOOMSCAPES_FIELD_ENTRY_ROLES[nativeAuthProfile?.role]) && (
+            viewId==='field-work-studio'
+            || typeof BLOOMSCAPES_STUDIO_LEGACY_ROUTES !== 'undefined' && BLOOMSCAPES_STUDIO_LEGACY_ROUTES[viewId]!==undefined
+            || viewId==='production-workflow' && productionWorkflowActive==='can-filling')
+            ? 'production' : viewId==='chat' && nativeAuthSessionActive ? 'messages' : viewId || 'home')).trim();
 }

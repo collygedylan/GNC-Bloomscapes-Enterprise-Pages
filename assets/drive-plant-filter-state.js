@@ -2,6 +2,7 @@ function drivePlantDimensionKey(mode, selection, search) {
     return [mode, mode === 'all' ? null : [...selection].sort(), search];
 }
 
+/** @param {Array<object>} baseItems @returns {string} */
 function getDrivePlantFilterScopeKey(baseItems) {
     const source = baseItems === driveBaseFilterCacheItems || baseItems === drivePlantFilterItemsCache
         ? driveBaseFilterCacheKey : activeDriveTab;
@@ -13,6 +14,7 @@ function getDrivePlantFilterScopeKey(baseItems) {
         drivePlantDimensionKey(driveLotSelectionMode,selectedDriveLotCodes,driveLotSearchTerm)]);
 }
 
+/** @param {Array<object>} items @returns {object} */
 function buildDrivePlantOptionLists(items) {
     const genus=new Set(), size=new Set(), location=new Set(), lot=new Set();
     for (const item of items) {
@@ -31,6 +33,7 @@ function buildDrivePlantOptionLists(items) {
     };
 }
 
+/** @param {Array<object>} inventory @returns {object} */
 function prepareBloomscapesDriveProjection(inventory) {
     const rows = buildDriveModeRows(inventory);
     const assignedFields=buildDriveColumnFilterFields(rows,true);
@@ -88,6 +91,7 @@ function createDrivePlantFilterModel(baseItems,state) {
     };
 }
 
+/** @param {Array<object>} [items] @returns {object} */
 function buildDrivePlantFilterState(items = []) {
     const baseItems = Array.isArray(items) ? items : [];
     const stateScopeKey = getDrivePlantFilterScopeKey(baseItems);
@@ -101,6 +105,7 @@ function buildDrivePlantFilterState(items = []) {
     return drivePlantFilterStateCache;
 }
 
+/** @param {Array<object>} [items] @param {boolean} [exposeAssignedTo] @returns {Array<object>} */
 function buildDriveColumnFilterFields(items = [],exposeAssignedTo = false) {
     const fieldsByKey = new Map();
     const seenRawKeys = new Set();
@@ -128,25 +133,7 @@ function buildDriveColumnFilterFields(items = [],exposeAssignedTo = false) {
     });
 }
 
-function driveCardSortFields(item) {
-    const priority = parseFloat(item.PRIORITY);
-    const qty = parseAppNumber(firstNonEmptyValue(item.PTRAVAILABLE,item.ptravailable,item.PRTAVAILABLE,item.prtavailable,'0'));
-    return {item,priority:Number.isNaN(priority)?Infinity:priority,name:String(item.COMMONNAME || ''),
-        size:String(item.CONTSIZE || ''),code:String(item.ITEMCODE || ''),lot:String(item.LOTCODE || ''),
-        assignment:getDriveCardAssignmentRank(item),quantity:Number.isFinite(qty)?qty:-1};
-}
-
-function sortDriveCardItems(items) {
-    const text = new Intl.Collator().compare;
-    const numeric = new Intl.Collator(undefined,{numeric:true}).compare;
-    const sorted = items.map(driveCardSortFields).sort((a,b)=>
-        a.priority-b.priority || text(a.name,b.name) || numeric(a.size,b.size) || numeric(a.code,b.code)
-        || a.assignment-b.assignment || b.quantity-a.quantity || numeric(a.lot,b.lot)
-        || compareLocationCodeValues(a.item.LOCATIONCODE,b.item.LOCATIONCODE));
-    return sorted.map(entry=>entry.item);
-}
-
-
+/** @param {Array<object>} [items] @returns {Array<object>} */
 function getDriveColumnFilterFields(items = []) {
     const prepared = preparedDriveProjection();
     const exposeAssignedTo = activeDriveTab==='season-sales-notes';
@@ -154,6 +141,7 @@ function getDriveColumnFilterFields(items = []) {
         ? (exposeAssignedTo ? prepared.assignedFields : prepared.fields) : buildDriveColumnFilterFields(items, exposeAssignedTo));
 }
 
+/** @param {string} contextKey @returns {string} */
 function getDriveQuickFilterStateKey(contextKey) {
     return [
         contextKey,
@@ -171,9 +159,29 @@ function getDriveQuickFilterStateKey(contextKey) {
 function getDrivePlantGenusValue(item) {
     return String(getTaskGenusName(item) || '').trim() || '(Blank)';
 }
+/** @param {object} item @returns {string} */
 function getDrivePlantCommonName(item) {
     const name = String(firstNonEmptyValue(item?.COMMONNAME,item?.DESCRIPTION,item?.PLANT_NAME,item?.ITEMCODE,'')).trim();
     return name.includes('\\') ? normalizeEscapedDisplayText(name) : name;
+}
+
+function driveCardSortFields(item) {
+    const priority = parseFloat(item.PRIORITY);
+    const qty = parseAppNumber(firstNonEmptyValue(item.PTRAVAILABLE,item.ptravailable,item.PRTAVAILABLE,item.prtavailable,'0'));
+    return {item,priority:Number.isNaN(priority)?Infinity:priority,name:String(item.COMMONNAME || ''),
+        size:String(item.CONTSIZE || ''),code:String(item.ITEMCODE || ''),lot:String(item.LOTCODE || ''),
+        assignment:getDriveCardAssignmentRank(item),quantity:Number.isFinite(qty)?qty:-1};
+}
+
+/** @param {Array<object>} items @returns {Array<object>} */
+function sortDriveCardItems(items) {
+    const text = new Intl.Collator().compare;
+    const numeric = new Intl.Collator(undefined,{numeric:true}).compare;
+    const sorted = items.map(driveCardSortFields).sort((a,b)=>
+        a.priority-b.priority || text(a.name,b.name) || numeric(a.size,b.size) || numeric(a.code,b.code)
+        || a.assignment-b.assignment || b.quantity-a.quantity || numeric(a.lot,b.lot)
+        || compareLocationCodeValues(a.item.LOCATIONCODE,b.item.LOCATIONCODE));
+    return sorted.map(entry=>entry.item);
 }
 
 function buildDriveModeRows(items) {

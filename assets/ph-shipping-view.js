@@ -1,5 +1,9 @@
+/**
+ * @param {object} fields Display values and prepared card sections.
+ * @returns {string} Shared compact order card markup.
+ */
 function renderBloomscapesOrderCardLayout({name, size, identity, photo, badges, strip, metrics, actions, details = ''}) {
-    const title = String(name || 'Unknown').replace(/\\+'/g, "'");
+    const title = normalizeEscapedDisplayText(String(name || 'Unknown'));
     return `<div class="app-drive-card-grid app-drive-card-grid--no-actions flex-grow">
         <div class="app-drive-card-photo">${photo}</div>
         <div class="app-drive-card-main">
@@ -16,6 +20,10 @@ function renderBloomscapesOrderCardLayout({name, size, identity, photo, badges, 
     </div>`;
 }
 
+/**
+ * @param {object} row Order line.
+ * @returns {number|string|null} Ordered quantity as supplied by the source line.
+ */
 function phShippingOrderedQty(row) {
     return row.orderedqty ?? row.qty_ordered ?? row.quantityordered ?? null;
 }
@@ -25,11 +33,16 @@ function phShippingTile(label,value,detail = '') {
         +(detail ? '<span>'+esc(detail)+'</span>' : '')+'</div>';
 }
 
+/**
+ * @param {object} row Physical pull tag.
+ * @param {object} state Active team and edit scope.
+ * @returns {HTMLElement} Stop card.
+ */
 function phShippingStopCard(row,state) {
     const bay = phQrBayNumber(row.locationcode,row.bay_number);
     const drop = phQrPullDrop(row);
     const destination = drop || formatDockViewDockLabel(row.dock)+' · Drop '+row.stopnumber;
-    const name = String(row.common_name || row.itemcode || '').replace(/\\+'/g,"'");
+    const name = normalizeEscapedDisplayText(String(row.common_name || row.itemcode || ''));
     const urgent = phPullDockLabel(row.dock_status) === 'Live Driver';
     const note = [row.spec && 'Spec · '+row.spec,row.pick_note && 'Pick note · '+row.pick_note].filter(Boolean);
     const manual = state.teamOnly && state.edit && row.pull_status === 'claimed' && Number(row.priority) < 5;
@@ -51,6 +64,11 @@ function phShippingTelemetry(load) {
         +'m · 📦 Unload ('+esc(load.dockLabel)+'): '+load.unloadMin+'m</small>';
 }
 
+/**
+ * @param {object} load Assigned load.
+ * @param {boolean} drill Whether the summary opens a drill-down.
+ * @returns {string} Load summary markup.
+ */
 function phShippingSummary(load,drill = true) {
     const route = load.route;
     const crew = [route.puller_primary,route.puller_helper].filter(Boolean).join(' + ');
@@ -64,6 +82,10 @@ function phShippingSummary(load,drill = true) {
         +phShippingTelemetry(load.estimate)+(drill ? '<i aria-hidden="true">›</i></button>' : '</header>');
 }
 
+/**
+ * @param {object} state Team dispatch view.
+ * @returns {string} Available unload controls.
+ */
 function phShippingUnloadMarkup(state) {
     const receipt = state.receipt;
     const groups = orderPullUnloadStops(receipt);
@@ -77,23 +99,35 @@ function phShippingUnloadMarkup(state) {
 
 let phShippingState;
 
+/**
+ * @returns {object|undefined} Access row matching the signed-in operator.
+ */
 function phShippingGrant() {
     const profile = nativeAuthProfile;
     return window.GncUserAccessControl?.state?.userAccess?.find(row =>
         row.username === profile?.username && (!row.profile_id || row.profile_id === profile.id));
 }
 
+/**
+ * @returns {boolean} Whether Shipping is available for the current operator and farm.
+ */
 function canOpenPhShipping() {
     if (typeof nativeAuthSessionActive === 'undefined' || !nativeAuthSessionActive || !nativeAuthProfile
         || nativeAuthProfile.username !== currentUser || getBloomscapesFarm() !== '10-PH') return false;
     return orderPullEligible(nativeAuthProfile,phShippingGrant(),getBloomscapesFarm(),borrowedHelpPreview());
 }
 
+/**
+ * @returns {void}
+ */
 function resetPhShippingView() {
     phShippingState = null;
     document.getElementById('view-shipping')?.replaceChildren();
 }
 
+/**
+ * @returns {object|null} Current Shipping workspace state.
+ */
 function currentPhShippingState() {
     if (!canOpenPhShipping()) return null;
     const owner = getSupabaseReadIdentityScope();
@@ -107,24 +141,23 @@ function currentPhShippingState() {
     return phShippingState;
 }
 
+/**
+ * @param {object} state Workspace owning the request.
+ * @returns {boolean} Whether its account and farm still match.
+ */
 function phShippingIsCurrent(state) {
     return getCurrentVisibleViewId() === 'shipping' && currentPhShippingState() === state;
-}
-
-function phShippingButton(action,label,pressed) {
-    const active = pressed == null ? '' : ' aria-pressed="'+Boolean(pressed)+'"';
-    return '<button type="button" data-shipping-action="'+action+'"'+active+'>'+esc(label)+'</button>';
 }
 
 function paintPhShippingToolbar(root,state,count) {
     const toolbar = root.querySelector('[data-shipping-tools]');
     let buttons = '';
     if (state.manager) {
-        buttons = state.selected && state.tab === 'loads' ? phShippingButton('back','← All Active Loads ('+count+')')
-            : phShippingButton('loads','Active Loads ('+count+')',state.tab === 'loads')
-            +(state.edit ? phShippingButton('teams','Teams & Dispatch',state.tab === 'teams')+phShippingButton('signs','QR Signs',state.tab === 'signs') : '');
-        if (state.tab === 'loads') buttons += phShippingButton('filters','⚙ Filters',state.filterOpen);
-    } else buttons = '<strong>My WingDing load</strong>'+phShippingButton('refresh','Refresh');
+        buttons = state.selected && state.tab === 'loads' ? renderCompactToolbarButton('data-shipping-action','back','← All Active Loads ('+count+')')
+            : renderCompactToolbarButton('data-shipping-action','loads','Active Loads ('+count+')',state.tab === 'loads')
+            +(state.edit ? renderCompactToolbarButton('data-shipping-action','teams','Teams & Dispatch',state.tab === 'teams')+renderCompactToolbarButton('data-shipping-action','signs','QR Signs',state.tab === 'signs') : '');
+        if (state.tab === 'loads') buttons += renderCompactToolbarButton('data-shipping-action','filters','⚙ Filters',state.filterOpen);
+    } else buttons = '<strong>My WingDing load</strong>'+renderCompactToolbarButton('data-shipping-action','refresh','Refresh');
     toolbar.innerHTML = buttons;
     if (state.teamOnly && state.edit) paintPhQrScanHeader(state);
     root.querySelector('[data-shipping-filters]').hidden = !state.manager || state.tab !== 'loads' || !state.filterOpen;
@@ -157,6 +190,9 @@ function phShippingStatus(state,hasRows) {
     return state.teamOnly ? 'Standby · Ready' : 'No active WingDing loads.';
 }
 
+/**
+ * @returns {void}
+ */
 function redrawPhShippingView() {
     const state = currentPhShippingState();
     const root = document.getElementById('view-shipping');
@@ -174,11 +210,17 @@ function redrawPhShippingView() {
     const hasRows = selected ? paintPhShippingStops(root,state,selected) : paintPhShippingBoard(root,state,loads);
     root.querySelector('[data-shipping-status]').textContent = phShippingStatus(state,hasRows);
     if (state.receipt && !state.receipt.buggy && state.teamOnly && state.edit) {
-        header.innerHTML = phShippingButton('deal','Get Next Buggy');
+        header.innerHTML = renderCompactToolbarButton('data-shipping-action','deal','Get Next Buggy');
     }
     renderPendingSuspendPullAllocations();
 }
 
+/**
+ * @param {object} state Active dispatch workspace.
+ * @param {string} action Dispatch action.
+ * @param {object} input Action arguments.
+ * @returns {Promise<void>}
+ */
 async function runPhShippingCommand(state,action,input = {}) {
     if (state.pending || !phShippingIsCurrent(state) || action !== 'list' && !state.edit) return;
     state.error = '';
@@ -195,6 +237,10 @@ async function runPhShippingCommand(state,action,input = {}) {
     }
 }
 
+/**
+ * @param {number} revision Installed water revision.
+ * @returns {Promise<void>}
+ */
 async function refreshPhShippingAfterWater(revision) {
     const state = currentPhShippingState();
     if (!state || !phShippingIsCurrent(state) || state.tab !== 'loads' || (state.waterRevision ?? -1) >= revision) return;
@@ -253,6 +299,10 @@ function mountPhShippingShell(root,state) {
     };
 }
 
+/**
+ * @param {boolean} entering Whether the user just entered the view.
+ * @returns {boolean} Whether the authorized workspace rendered.
+ */
 function renderPhShipping(entering = false) {
     const root = document.getElementById('view-shipping');
     if (!root) return false;

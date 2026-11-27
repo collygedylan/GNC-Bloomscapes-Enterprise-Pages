@@ -1,7 +1,9 @@
+/** @param {object} item @param {string} sourceView @returns {boolean} */
 function isCompactQueueDetail(item, sourceView) {
     return sourceView === 'request' && !!item && isRequestDetailItem(item, sourceView);
 }
 
+/** @param {object} snapshot @returns {string} */
 function renderRequestCompactSummary(snapshot) {
     const text = value => escapeShareHtml(String(value ?? '--'));
     const identity = [snapshot.commonName, snapshot.contSize, snapshot.lotCode,
@@ -11,10 +13,12 @@ function renderRequestCompactSummary(snapshot) {
     </div>`;
 }
 
+/** @param {string} uid @returns {object} */
 function captureRequestSummaryIntent(uid) {
     return { key: String(uid || '') };
 }
 
+/** @returns {void} */
 function clearRequestSummaryEntry() {
     const host = document.getElementById('request-detail-info');
     if (host) host.replaceChildren();
@@ -28,6 +32,7 @@ function compactDetailCell(label, value) {
         <span class="request-compact-value" title="${escapeShareHtml(text)}">${escapeShareHtml(text)}</span></div>`;
 }
 
+/** @param {object} item @param {object} snapshot @returns {string} */
 function buildCompactRequestDetailHeader(item, snapshot) {
     const identity = { ...snapshot,
         contSize: firstNonEmptyValue(item.CONTSIZE, item.contsize, '--'),
@@ -48,6 +53,7 @@ function buildCompactRequestDetailHeader(item, snapshot) {
         <div class="request-compact-metadata" aria-label="Request metadata">${metadata.map(([label,value]) => compactDetailCell(label,value)).join('')}</div></div>`;
 }
 
+/** @param {object} item @param {string} sourceView @param {object|null} [options] @returns {void} */
 function renderRequestDetailInfo(item, sourceView, options = null) {
     const host = document.getElementById('request-detail-info');
     const root = document.getElementById('view-detail');
@@ -114,12 +120,14 @@ function getRequestOpenInfoSnapshot(item = activeItem, detailSourceView = '') {
             };
         }
 
+/** @param {object} [item] @param {string} [detailSourceView] @returns {string} */
 function buildRequestOpenInfoHtml(item = activeItem, detailSourceView = '') {
             const snapshot = getRequestOpenInfoSnapshot(item, detailSourceView);
             return snapshot ? buildCompactRequestDetailHeader(item, snapshot) : '';
         }
 
 
+/** @param {string} [prefix] @param {string} [inputId] @returns {Promise<*>} */
 function queueLagSensitiveInputSave(prefix = '', inputId = '') {
             const safePrefix = String(prefix || '');
             if (!isLagSensitiveDetailPrefix(safePrefix) || !activeItem) return;

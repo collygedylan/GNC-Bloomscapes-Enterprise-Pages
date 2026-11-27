@@ -1,3 +1,4 @@
+/** @param {object} state @param {number} [subjectOffset] @returns {object} */
 function accessControlMatrixQuery(state,subjectOffset=0) {
     return {subjectType:state.viewMode,search:String(managersSearchTerm || '').trim(),
         role:state.selectedRole==='all'?'':state.selectedRole,
@@ -6,6 +7,7 @@ function accessControlMatrixQuery(state,subjectOffset=0) {
         permissionOffset:Number(state.columnOffset || 0),permissionLimit:Number(state.columnPageSize || 8)};
 }
 
+/** @param {object} query @returns {Promise<*>} */
 async function readAccessControlMatrixWindow(query) {
     const name=isKaylaLimitedAccessManagerUser() ? 'get_limited_access_control_matrix_v1' : 'get_access_control_matrix_v2';
     const value=normalizeAccessControlMatrix(await supabaseRpc(name,{p_query:query},{timeoutMs:20000}));
@@ -29,6 +31,7 @@ function mountAccessAuditScroll(container) {
     if (end) observeContinuousListEnd(end,appendAccessAuditMatrix);
 }
 
+/** @param {HTMLElement} container @param {string} tab @returns {void} */
 function mountManagerContinuousSurfaces(container,tab) {
     if (tab===MANAGER_ACCESS_CONTROL_VIEW) mountAccessAuditScroll(container);
     if (tab===MANAGER_HISTORICAL_REPORT_VIEW) mountContinuousImportedFilesPanel(container);
@@ -57,6 +60,7 @@ async function appendAccessAuditMatrix() {
     }
 }
 
+/** @param {number} [offset] @returns {boolean} */
 function setAccessControlColumnWindow(offset = 0) {
     accessControlAdminState.columnOffset = Math.max(0, Number(offset) || 0);
     accessControlAdminState.editor = null;
@@ -64,6 +68,7 @@ function setAccessControlColumnWindow(offset = 0) {
     return false;
 }
 
+/** @returns {string} */
 function renderAccessControlPanel() {
     if (!canViewAccessControl()) return '<div class="rounded-2xl border border-red-200 bg-red-50 p-8 text-center text-sm font-bold text-red-700">Access Control is available only to active Admin and Manager profiles.</div>';
     const state = accessControlAdminState;

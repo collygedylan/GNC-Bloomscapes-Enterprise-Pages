@@ -12,6 +12,7 @@ function driveReport2ColumnControls(columns, fields, layout) {
     }).join('');
 }
 
+/** @param {HTMLDialogElement} dialog Report dialog. @param {Map} fields Available report fields by key. @param {object} layout Mutable column layout. @returns {void} Renders the ordered report columns in the dialog. */
 function renderDriveReport2Columns(dialog, fields, layout) {
     const columns = [...layout.columns.map(key => fields.get(key)), ...[...fields.values()].filter(field => !layout.columns.includes(field.key))];
     const scroll = dialog.querySelector('.drive-custom-reports-v2-dialog-scroll');
@@ -30,6 +31,7 @@ function driveReport2EditColumnOrder(columns, key, action) {
     columns.splice(to, 0, key);
 }
 
+/** @param {object} layout Mutable column layout. @param {string} key Selected field or route key. @param {string} action Selected column action. @param {HTMLElement} control Edited control. @returns {void} Applies the selected layout edit. */
 function editDriveReport2Column(layout, key, action, control) {
     const { columns, pinned, widths } = layout;
     const checked = control.checked;
@@ -43,6 +45,7 @@ function editDriveReport2Column(layout, key, action, control) {
     if (action === 'up' || action === 'down') driveReport2EditColumnOrder(columns, key, action);
 }
 
+/** @param {HTMLDialogElement} dialog Report dialog. @param {object|null} report Currently selected report. @param {boolean} canEdit Report editing permission. @param {string} farm Current farm code. @param {Array} farmOptions Available farm codes. @returns {void} Shows the report name, visibility and farm controls. */
 function renderDriveReport2SaveDialog(dialog, report, canEdit, farm, farmOptions) {
     const edit = report && canEdit;
     const targets = [...new Set([farm, ...farmOptions])];
@@ -59,6 +62,7 @@ function renderDriveReport2SaveDialog(dialog, report, canEdit, farm, farmOptions
     if (!dialog.open) dialog.showModal();
 }
 
+/** @param {Element|Document} root Root of the mounted surface. @param {object} state Current view state. @returns {void} Updates saved report selection and actions. */
 function paintDriveReport2Saved(root, state) {
     const select = root.querySelector('[data-drive-custom-reports-v2-saved]');
     const status = root.querySelector('[data-drive-custom-reports-v2-saved-status]');
@@ -73,6 +77,7 @@ function paintDriveReport2Saved(root, state) {
     root.querySelector('[data-drive-report-exit]').hidden = !state.scoped;
 }
 
+/** @param {HTMLFormElement} form Current form. @param {object} state Current view state. @param {object|null} report Currently selected report. @returns {object} The saved report fields from the form and current layout. */
 function driveReport2SavedInput(form, state, report) {
     const entry = {
         report_name: form.elements.reportName.value.trim(),
@@ -109,59 +114,8 @@ function paintDriveReport2Picker(bar, state) {
     bar.querySelector('[data-drive-report-status]').textContent = state.savedLoadFailed ? state.savedMessage : '';
 }
 
-function handleDriveReport2BrowseClick(event) {
-    const data = event.target.closest('button')?.dataset;
-    const state = activeDriveReport2State;
-    if (!data || !state || !driveReport2StateCurrent(state)) return;
-    if (data.driveReportView) return openDriveReport2View(state, data.driveReportView);
-    if (data.driveReportRetry !== undefined) return loadDriveReport2Saved(state);
-    if (data.driveReportExit !== undefined) return exitDriveReport2(state);
-}
-
-function handleDriveReport2BrowseChange(event) {
-    const state = activeDriveReport2State;
-    if (!state || !event.target.matches('select') || !event.target.value) return;
-    if (driveReport2ApplySaved(state, event.target.value)) setDriveTab(activeDriveTab);
-}
-
-function makeDriveReport2BrowseBar(crumb) {
-    const bar = document.createElement('div');
-    bar.id = 'drive-report-browse';
-    bar.innerHTML = `<div data-drive-report-scope role="group" aria-label="Active report">
-        <strong data-drive-report-label aria-live="polite"></strong>
-        ${driveReport2ViewButtons(true)}
-        <button type="button" data-drive-report-exit>✕ Exit Report</button>
-    </div>
-    <select aria-label="Saved Reports"></select>
-    <button type="button" data-drive-report-retry hidden>Retry saved reports</button>
-    <output data-drive-report-status aria-live="polite"></output>`;
-    bar.addEventListener('click', handleDriveReport2BrowseClick);
-    bar.addEventListener('change', handleDriveReport2BrowseChange);
-    crumb.before(bar);
-    return bar;
-}
-
+/** @returns {void} Hides the mounted browse toolbar when present. */
 function hideDriveReport2BrowseBar() {
     const bar = document.getElementById('drive-report-browse');
     if (bar) bar.hidden = true;
-}
-
-function syncDriveReport2BrowseBar(crumb, state, rows, tab) {
-    if (!crumb) return;
-    const showPicker = tab === 'loc' || tab === 'name';
-    const bar = document.getElementById('drive-report-browse') || makeDriveReport2BrowseBar(crumb);
-    state.browseBar = bar;
-    bar.hidden = !rows && !showPicker;
-    bar.querySelector('select').hidden = !showPicker;
-    bar.querySelector('[data-drive-report-scope]').hidden = !rows;
-    if (rows) {
-        const name = driveReport2Selected(state)?.report_name || 'Custom Report';
-        const text = `📊 ${name} · ${rows.length.toLocaleString()} rows`;
-        const label = bar.querySelector('[data-drive-report-label]');
-        if (label.textContent !== text) label.textContent = text;
-        for (const button of bar.querySelectorAll('[data-drive-report-view]')) {
-            button.setAttribute('aria-pressed', String(button.dataset.driveReportView === tab));
-        }
-    }
-    paintDriveReport2Picker(bar, state);
 }

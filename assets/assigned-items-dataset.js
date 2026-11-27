@@ -1,9 +1,19 @@
+/**
+ * @param {object} a Left inventory row.
+ * @param {object} b Right inventory row.
+ * @returns {number} Item-code sort order.
+ */
 function compareAssignedItemCodes(a, b) {
     const left = buildManagerEvalAssignmentKey(a.ITEMCODE || a.itemcode);
     const right = buildManagerEvalAssignmentKey(b.ITEMCODE || b.itemcode);
     return left < right ? -1 : left > right ? 1 : 0;
 }
 
+/**
+ * @param {Array|null} rows Rows supplied for projection.
+ * @param {object|null} batch Batch source options.
+ * @returns {Array} Farm-visible assigned rows with physical locations and stock targets.
+ */
 function getManagerAssignedItemsDisplayRows(rows = null, batch = null) {
     const state = getManagerAssignedColumnState();
     const useMaster = batch ? batch.useMaster : !Array.isArray(rows) && typeof fullInventory !== 'undefined' && Array.isArray(fullInventory) && fullInventory.length > 0;
@@ -15,12 +25,7 @@ function getManagerAssignedItemsDisplayRows(rows = null, batch = null) {
         ? getBloomscapesAssignmentIndex() : null;
     const sourceRows = (batch ? input : enrichManagerAssignedPlantGroups(input)).filter(bloomscapesFarmRowIsVisible)
         .map((row, index) => projectManagerAssignedOwnerRow(row, index, state, useMaster, ownerIndex)).filter(Boolean);
-    for (const row of sourceRows) {
-        if (row.LOCATIONCODE || !row.ITEMCODE || typeof masterInventoryByItemCode === 'undefined') continue;
-        const active = (masterInventoryByItemCode.get(row.ITEMCODE.toUpperCase()) || []).filter(item =>
-            item.present_in_drive !== false && item.is_active !== false && item.active !== false && item.ACTIVE !== false);
-        row.LOCATIONCODE = [...new Set(active.flatMap(getAssignedLocationTokens).filter(Boolean))].sort((a,b) => a.localeCompare(b,undefined,{numeric:true})).join(', ');
-    }
+    fillMissingAssignedLocations(sourceRows);
     state.rowCollator ||= new Intl.Collator(undefined, { numeric: true });
     const compare = state.rowCollator.compare;
     const output = sourceRows.sort((a, b) => {
@@ -51,6 +56,20 @@ function getManagerAssignedItemsDisplayRows(rows = null, batch = null) {
     return retainAssignedDisplayRows(state, input, signature, output);
 }
 
+function fillMissingAssignedLocations(sourceRows) {
+    for (const row of sourceRows) {
+        if (row.LOCATIONCODE || !row.ITEMCODE || typeof masterInventoryByItemCode === 'undefined') continue;
+        const active = (masterInventoryByItemCode.get(row.ITEMCODE.toUpperCase()) || []).filter(item =>
+            item.present_in_drive !== false && item.is_active !== false && item.active !== false && item.ACTIVE !== false);
+        row.LOCATIONCODE = [...new Set(active.flatMap(getAssignedLocationTokens).filter(Boolean))].sort((a,b) => a.localeCompare(b,undefined,{numeric:true})).join(', ');
+    }
+}
+
+/**
+ * @param {Array|null} rows Rows supplied for projection.
+ * @param {string} exceptField Filter field excluded from this projection.
+ * @returns {Array} Rows matching the active assignment filters.
+ */
 function getFilteredManagerAssignedItemsExportRows(rows = null, exceptField = '') {
     const state = getManagerAssignedColumnState();
     const sourceRows = Array.isArray(rows) ? rows : state.displayCache?.rows || getManagerAssignedItemsDisplayRows();
@@ -94,12 +113,14 @@ function getFilteredManagerAssignedItemsExportRows(rows = null, exceptField = ''
     return output;
 }
 
+/** @returns {Array} Column descriptors in workbook order. */
 function getManagerAssignedItemsExportColumns() {
     return getManagerAssignedColumnDefinitions().slice(0, 8).map(([field, label]) => ({
         label, value: row => row[field] ?? ''
     }));
 }
 
+/** @returns {Promise} Workbook download result or false when access is unavailable. */
 async function exportManagerAssignedItemsToExcel() {
     if (!canViewAssignedItemsExport()) return false;
     const owner = getSupabaseReadIdentityScope();
@@ -129,6 +150,7 @@ function retainAssignedDisplayRows(state, input, signature, output) {
     return result;
 }
 
+/** @returns {void} Schedules loading of the visible assignment data. */
 function hydrateAssignedItemsHomeTab() {
     const loadAssignmentSources = () => {
         if (activeHomeTab !== MANAGER_ASSIGNED_ITEMS_EXPORT_VIEW || !canViewAssignedItemsExport()) return;

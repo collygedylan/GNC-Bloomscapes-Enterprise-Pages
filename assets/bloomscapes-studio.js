@@ -1,13 +1,34 @@
+/**
+ * @param {string} attribute Delegated data attribute owned by the toolbar.
+ * @param {string} action Value dispatched by its click handler.
+ * @param {string} label Visible button text.
+ * @param {boolean} [pressed] Current selection for toggle buttons.
+ * @returns {string} Button markup for a compact operational toolbar.
+ */
+function renderCompactToolbarButton(attribute,action,label,pressed) {
+    const active = pressed == null ? '' : ' aria-pressed="'+Boolean(pressed)+'"';
+    return '<button type="button" '+attribute+'="'+esc(String(action))+'"'+active+'>'+esc(String(label))+'</button>';
+}
+
+/**
+ * @param {object} state Current dispatch form.
+ * @returns {object} Crew size and route origin.
+ */
 function phWorkChosenCrew(state) {
     const id = state.root.querySelector('[data-ph-dispatch-team]').value;
     const team = state.snapshot.teams.find(entry => entry.team_id === id);
     return {hasPartner:Boolean(team ? team.puller_helper : state.draft.helper),origin:team?.previous_dock_zone};
 }
 
-function phBuggyMetricPills(load) {
+/**
+ * @param {object|null} load Estimated route metrics.
+ * @param {number} fuelDigits Decimal places shown for gallons.
+ * @returns {string} Accessible metric pills, or empty markup without a load.
+ */
+function phBuggyMetricPills(load,fuelDigits = 3) {
     if (!load) return '';
     const values = [
-        ['Fuel','⛽ '+load.fuelGal.toFixed(3)+' gal'],
+        ['Fuel','⛽ '+load.fuelGal.toFixed(fuelDigits)+' gal'],
         ['Get Load','⏱️ Get Load: '+load.getLoadMin+'m'],
         ['Unload','📦 Unload ('+load.dockLabel+'): '+load.unloadMin+'m'],
         ['Total cycle','🔄 Total: '+load.totalCycleMin+'m'],
@@ -17,6 +38,10 @@ function phBuggyMetricPills(load) {
         +values.map(([label,value]) => '<span title="'+esc(label)+'">'+esc(value)+'</span>').join('')+'</div>';
 }
 
+/**
+ * @param {object} state Current load selection.
+ * @returns {void}
+ */
 function paintPhSelectedMetrics(state) {
     const rows = state.snapshot.rows.filter(row => state.selected.has(row.pull_tag_id));
     const load = rows.length && phEstimateBuggyLoad(rows,phWorkChosenCrew(state));
@@ -25,6 +50,10 @@ function paintPhSelectedMetrics(state) {
     if (rows.length && !load) output.textContent = 'Estimate unavailable for this route.';
 }
 
+/**
+ * @param {object} row Inventory row or pull tag.
+ * @returns {string} Explicit pull side or the side specified in its pick note.
+ */
 function phPullSideLabel(row) {
     const explicit = row?.PULL_SIDE || row?.pull_side || row?.PULLSIDE || row?.pullside;
     if (explicit) return String(explicit).trim();
@@ -32,6 +61,10 @@ function phPullSideLabel(row) {
     return note.match(/\bpull\s+side\s*[:=\-]\s*([^;|\r\n.]{1,64})/i)?.[1].trim() || '';
 }
 
+/**
+ * @param {object} item Displayed inventory row.
+ * @returns {string} Pull side for the active Park Hill row.
+ */
 function phInventoryPullSide(item) {
     if (typeof getBloomscapesFarm !== 'function' || getBloomscapesFarm() !== '10-PH') return '';
     const farm = item?.WAREHOUSEID || item?.WAREHOUSE_ID || item?.warehouse_id || item?.warehouse || item?.FARM_CODE;

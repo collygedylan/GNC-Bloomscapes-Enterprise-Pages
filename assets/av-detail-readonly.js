@@ -1,3 +1,4 @@
+/** @param {*} source @returns {boolean} */
 function isAvDetailSource(source) {
     return ['av', 'av-photo'].includes(String(source || '').trim().toLowerCase());
 }
@@ -15,6 +16,7 @@ function renderAvDetailMetrics(item) {
     return `<div class="detail-meta-line">${metadata.map(part => escapeShareHtml(part)).join(' &bull; ')}</div>`;
 }
 
+/** @param {object} item @param {string} sourceView @param {boolean} isRequestDetail @returns {void} */
 function paintAvDetailExtraInfo(item, sourceView, isRequestDetail) {
     const panel = document.getElementById('det-extra-info');
     if (!panel) return;
@@ -28,11 +30,13 @@ function paintAvDetailExtraInfo(item, sourceView, isRequestDetail) {
     panel.innerHTML = (isRequestDetail ? '' : renderAvDetailMetrics(item)) + noteHtml;
 }
 
+/** @param {boolean} hasPhotos @returns {string} */
 function buildAvCardPhotoActivationAttrs(hasPhotos) {
     if (!hasPhotos) return '';
     return 'role="button" tabindex="0" aria-label="Open card photos" onclick="return activateAvCardPhotos(event)" onkeydown="return activateAvCardPhotos(event)"';
 }
 
+/** @param {object} item @param {string} sourceView @param {boolean} hasPhotos @returns {string} */
 function buildAuthorizedAvCardActivationAttrs(item, sourceView, hasPhotos) {
     if (isAvDetailSource(sourceView)) {
         return buildAvCardPhotoActivationAttrs(hasPhotos);
@@ -40,6 +44,7 @@ function buildAuthorizedAvCardActivationAttrs(item, sourceView, hasPhotos) {
     return buildExactInventoryCardActivationAttrs(item,sourceView === 'reserves_drill' ? 'av' : sourceView,'Open Item Detail');
 }
 
+/** @param {Event} event @returns {boolean} */
 function activateAvCardPhotos(event) {
     if (event.type === 'keydown' && (event.repeat || !['Enter', ' '].includes(event.key))) return true;
     const photoSurface = event.type === 'click'
@@ -52,6 +57,7 @@ function activateAvCardPhotos(event) {
     return false;
 }
 
+/** @param {object} item @param {object} [options] @returns {boolean} */
 function openAvGallery(item, options = {}) {
     if (!item) return;
     const photos = resolveCanonicalPhotoUrls(item, 'av');
@@ -63,11 +69,13 @@ function openAvGallery(item, options = {}) {
     return true;
 }
 
+/** @param {string} _domId @param {string} uniqueId @returns {boolean} */
 function openAvInventoryCardPhotos(_domId, uniqueId) {
     const item = resolveDetailItemBySource(uniqueId, 'av');
     return openAvGallery(item, { silentIfMissing: true });
 }
 
+/** @returns {boolean} */
 function isAvDetailReadOnlyContext() {
     return isAvDetailSource(activeDetailSourceView || lastView || '')
         && ['av', 'detail'].includes(getCurrentVisibleViewId())
@@ -84,6 +92,7 @@ function setAvDetailControlDisabled(control, readOnly) {
     }
 }
 
+/** @param {string} [sourceView] @returns {void} */
 function applyAvDetailReadOnlyState(sourceView = activeDetailSourceView || lastView || '') {
     const root = document.getElementById('view-detail');
     if (!root) return;
@@ -101,6 +110,7 @@ function applyAvDetailReadOnlyState(sourceView = activeDetailSourceView || lastV
     });
 }
 
+/** @param {object} [item] @param {string} [detailSourceView] @returns {string} */
 function getPrimaryDetailTabForItemContext(item = activeItem, detailSourceView = '') {
             const safeSourceView = String(detailSourceView || activeDetailSourceView || lastView || '').trim().toLowerCase();
             const assignment = String(firstNonEmptyValue(item && item.APP_TAB_ASSIGNMENT, item && item.app_tab_assignment, '')).toLowerCase();
@@ -118,6 +128,7 @@ function getPrimaryDetailTabForItemContext(item = activeItem, detailSourceView =
             return 'overview';
         }
 
+/** @param {string} link @param {string} title @param {number} [index] @returns {*} */
 function handlePhotoThumbClick(link, title, index = 0) {
     if (photoDeleteLongPressFired) {
         photoDeleteLongPressFired = false;

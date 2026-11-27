@@ -11,6 +11,7 @@ function detectBloomscapesViewport(width, height, touch = false) {
         filterCols:Math.max(1,Math.floor((width - 16) / 111))};
 }
 
+/** @returns {void} Installs viewport sizing and lifecycle listeners once. */
 function mountBloomscapesViewportScaler() {
     if (bloomscapesViewportDisposer) return;
     const root = document.documentElement;

@@ -74,6 +74,7 @@ function mountDriveCompleteNameWindow(container,entries,renderEntry,renderKey) {
     return true;
 }
 
+/** @param {HTMLElement} container @param {HTMLElement} crumb @param {string} crumbText @param {Array<object>} entries @param {Function} renderEntry @param {string} renderKey @returns {*} */
 function renderDriveCompleteCommonNames(container, crumb, crumbText, entries, renderEntry, renderKey) {
     ensureDriveToolbarControls();
     syncDriveCrumb(crumb, crumbText);

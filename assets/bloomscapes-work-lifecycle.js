@@ -4,12 +4,7 @@ const BLOOMSCAPES_LIFECYCLE_ACTIONS=[
     ['Shift Grading','Y_GRADING'],['Haul','HAULING'],['Consolidate','HAULING'],['Haul / Consolidate','HAULING'],['Grade & Haul','Y_GRADING'],['Add to Shear List','SHEARING'],['Can Filling','CAN_FILLING']
 ];
 
-function bloomscapesLifecyclePicker() {
-    return '<fieldset data-work-steps><legend>Chain work · ordered steps</legend>'
-        +BLOOMSCAPES_LIFECYCLE_ACTIONS.filter(([action])=>allowsBloomscapesMovementAction(action))
-            .map(([action])=>'<label><input type="checkbox" name="lifecycleStep" value="'+esc(action)+'">'+esc(action)+'</label>').join('')+'</fieldset>';
-}
-
+/** @param {HTMLFormElement} form Current form. @returns {void} Binds the ordered work steps to the creator. */
 function bindBloomscapesLifecyclePicker(form) {
     form.querySelector('[data-work-steps]').addEventListener('change',()=>{
         const steps=[...form.querySelectorAll('[name=lifecycleStep]:checked')].map(input=>input.value);
@@ -21,13 +16,7 @@ function bindBloomscapesLifecyclePicker(form) {
     });
 }
 
-function readBloomscapesLifecycleSteps(form,input) {
-    const steps=[...form.querySelectorAll('[name=lifecycleStep]:checked')].map(field=>field.value);
-    if (steps.length) return {...input,steps,actionType:steps[0]};
-    if (input.actionType==='Shift Grading') return {...input,steps:['Shift Grading','Haul']};
-    return BLOOMSCAPES_LIFECYCLE_ACTIONS.some(([action])=>action===input.actionType) ? {...input,steps:[input.actionType]} : input;
-}
-
+/** @param {HTMLFormElement} form Current form. @param {object} job Job and its completion facts. @returns {void} Restores saved answers to their corresponding rows. */
 function restoreBloomscapesMeasuredAnswers(form,job) {
     for (const fieldset of form.querySelectorAll('[data-answer-row]')) {
         const answers=job.completion_answers?.rows?.[fieldset.dataset.answerRow] || {};

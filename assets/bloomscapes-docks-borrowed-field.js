@@ -1,9 +1,28 @@
+/** @param {object} row @returns {string} */
+function borrowerTargetLabel(row) {
+    const physical = resolveCanonicalInventoryRow(row) || row;
+    return [physical.ITEMCODE || physical.itemcode,physical.COMMONNAME || physical.commonname,
+        physical.LOCATIONCODE || physical.locationcode,physical.LOTCODE || physical.lotcode].filter(Boolean).join(' · ');
+}
+
+/** @param {HTMLSelectElement} select @param {Array<object>} choices @param {string} placeholder @returns {void} */
+function borrowedFieldOptionSet(select, choices, placeholder) {
+    const value = select.value;
+    select.replaceChildren(new Option(placeholder,''),...choices.map(row => new Option(row.label,row.id)));
+    if (choices.some(row => row.id === value)) select.value = value;
+}
+
+/** @param {Array<object>} people @returns {Array<object>} */
+function borrowedFieldRoster(people) {
+    return people.map(row => ({...row,id:row.username,label:[row.name || row.username,row.department].filter(Boolean).join(' · ')}));
+}
 
 const borrowedFieldRoute = 'borrowed-work';
 const borrowedFieldDepartments = {'inventory':'156','qc':'161'};
 const borrowedFieldModules = {'sales-inventory':'inventory','qc':'qc','drive':'inventory'};
 let borrowedFieldState = null;
 
+/** @returns {object} */
 function getBorrowedFieldState() {
     const farm = getBloomscapesFarm();
     const scope = getSupabaseReadIdentityScope();
@@ -18,6 +37,7 @@ function borrowedFieldStateCurrent(state) {
     return nativeAuthSessionActive && getBorrowedFieldState() === state;
 }
 
+/** @param {object} state @param {boolean} [force] @returns {Promise<*>} */
 function refreshBorrowedFieldBoard(state,force=false) {
     if (!borrowedFieldStateCurrent(state)) return Promise.resolve();
     if (!force && state.board && Date.now()-(state.readyAt || 0)<45000) return Promise.resolve(state.board);
@@ -46,12 +66,14 @@ async function loadBorrowedFieldBoard(state) {
     }
 }
 
+/** @param {string} view @returns {void} */
 function activateBloomscapesBorrowedField(view) {
     if (!nativeAuthSessionActive) return;
     const state = getBorrowedFieldState();
     if (view === borrowedFieldRoute) void refreshBorrowedFieldBoard(state);
 }
 
+/** @param {string} view @returns {boolean} */
 function renderBloomscapesBorrowedField(view) {
     if (view !== borrowedFieldRoute) return false;
     const host = document.getElementById('view-'+borrowedFieldRoute);
@@ -63,6 +85,7 @@ function renderBloomscapesBorrowedField(view) {
     return true;
 }
 
+/** @param {Event} event @returns {void} */
 function handleBorrowedFieldAssignmentSubmit(event) {
     const form = event.target.closest('[data-borrowed-field-action]');
     if (!form) return;
@@ -76,6 +99,7 @@ function handleBorrowedFieldAssignmentSubmit(event) {
     void applyBorrowedFieldCommand(state,form,action,input,event.currentTarget.querySelector('[role="status"]'));
 }
 
+/** @param {string} view @returns {void} */
 function mountBloomscapesFieldBorrowing(view) {
     const route = borrowedFieldModules[view];
     if (!nativeAuthSessionActive || (!route && view !== 'av')) return;
@@ -131,22 +155,6 @@ function borrowedFieldPickerMarkup(routes) {
         ${renderBloomscapesChoiceField('supervisor','Receiving supervisor','borrowed-field-supervisor','','',{required:true,className:pullWorkspacePill})}
         <button type="submit" class="${pullWorkspacePill}">Assign help</button><p role="status"></p></form>
         <section data-borrowed-field-existing><p role="status"></p><div data-borrowed-field-assignment-list></div></section>`;
-}
-
-function borrowerTargetLabel(row) {
-    const physical = resolveCanonicalInventoryRow(row) || row;
-    return [physical.ITEMCODE || physical.itemcode,physical.COMMONNAME || physical.commonname,
-        physical.LOCATIONCODE || physical.locationcode,physical.LOTCODE || physical.lotcode].filter(Boolean).join(' · ');
-}
-
-function borrowedFieldOptionSet(select, choices, placeholder) {
-    const value = select.value;
-    select.replaceChildren(new Option(placeholder,''),...choices.map(row => new Option(row.label,row.id)));
-    if (choices.some(row => row.id === value)) select.value = value;
-}
-
-function borrowedFieldRoster(people) {
-    return people.map(row => ({...row,id:row.username,label:[row.name || row.username,row.department].filter(Boolean).join(' · ')}));
 }
 
 function bindBorrowedFieldPicker(state, dialog) {

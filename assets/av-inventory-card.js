@@ -1,3 +1,4 @@
+/** @param {object} context @returns {string} */
 function renderInventoryCardAvHero(context) {
     const { hasValidAvPhotos, validAvPhotoUrls, resolvedAvPhotoLink, item, photoCaption } = context;
     if (!hasValidAvPhotos) {
@@ -17,6 +18,7 @@ function renderInventoryCardAvHero(context) {
     return `<div class="app-av-hero"><div class="app-av-photo-carousel" data-fast-press-ignore><div class="app-av-photo-track">${previewHtml}</div><span class="app-av-photo-count" aria-hidden="true">1/${photoCount}</span></div></div>`;
 }
 
+/** @param {HTMLImageElement} image @returns {void} */
 function handleAvCardPhotoError(image) {
     if(image.dataset.photoCancelled==='1')return;
     const fallback = image.dataset.avPhotoFallback;
@@ -102,6 +104,7 @@ function renderAvCardHold(context) {
         : '';
 }
 
+/** @param {object} context @returns {string} */
 function renderAvInventoryCardMarkup(context) {
     const { item, kiosk, sourceView, liveEvidenceRow, avNoteText, pickNoteText, hasValidAvPhotos, holdBorderClass, heroHtml, photoDateHtml } = context;
     const commonNameText = String(firstNonEmptyValue(item.COMMONNAME, 'Unknown') || 'Unknown').trim() || 'Unknown';
@@ -121,10 +124,12 @@ function renderAvInventoryCardMarkup(context) {
     </div>`;
 }
 
+/** @param {object} context @returns {string} */
 function renderAvInventoryCard(context) {
     return renderAvInventoryCardMarkup({ ...context, ...createAvInventoryCardModel(context) });
 }
 
+/** @param {string} [tab] @param {object} [options] @returns {Array<object>} */
 function getAvRawTabItems(tab = activeAVTab, options = {}) {
     const mode = options?.ignoreSecondaryTab ? 'all' : getAvPhotoMode();
     if (mode === 'valid_photos') return filterBloomscapesPreviewInventoryRows(getCanonicalValidPhotoRows());

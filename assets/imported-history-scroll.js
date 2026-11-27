@@ -36,6 +36,7 @@ function replaceImportedSnapshotPicker(root,state) {
     older?.parentElement.remove();
 }
 
+/** @param {HTMLElement} container @returns {void} */
 function mountContinuousImportedFilesPanel(container) {
     const root=container.querySelector('[aria-label="Imported files history"]');
     if (!root) return;
@@ -50,10 +51,12 @@ function mountContinuousImportedFilesPanel(container) {
         ? loadManagerImportedHistoryNextPage : null);
 }
 
+/** @param {boolean} [refresh] @returns {*} */
 function loadManagerImportedHistoryRows(refresh = true) {
     return loadManagerImportedHistoryRowsAt(0, refresh, 'reset');
 }
 
+/** @param {number} columnIndex @param {boolean} checked @returns {boolean} */
 function toggleManagerImportedHistoryColumn(columnIndex, checked) {
     const state = getManagerImportedHistoryState(), columns = state.selectedSnapshot?.columns || [];
     const index = Number(columnIndex);
@@ -69,6 +72,7 @@ function toggleManagerImportedHistoryColumn(columnIndex, checked) {
     return false;
 }
 
+/** @param {*} [value] @returns {boolean} */
 function setManagerImportedHistoryColumnSearch(value = '') {
     const state = getManagerImportedHistoryState();
     state.columnSearch = String(value || '').slice(0, 80);
@@ -79,6 +83,7 @@ function setManagerImportedHistoryColumnSearch(value = '') {
     return false;
 }
 
+/** @returns {string} */
 function renderManagerImportedFilesPanel() {
     const state = getManagerImportedHistoryState();
     const selected = state.selectedSnapshot;
@@ -98,6 +103,7 @@ function renderManagerImportedFilesPanel() {
     return '<div class="rounded-xl border border-emerald-100 bg-white p-6 text-center text-sm font-bold text-emerald-700">Loading Imported Files tools…</div>';
 }
 
+/** @returns {*} */
 function loadManagerImportedHistoryNextPage() {
     const state = getManagerImportedHistoryState();
     if (!state.hasMoreRows || state.nextRow === null) return false;

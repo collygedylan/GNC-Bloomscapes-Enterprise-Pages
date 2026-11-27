@@ -17,10 +17,20 @@ const BLOOMSCAPES_STUDIO_LEGACY_ROUTES=Object.assign(Object.create(null),{
     'hauling':'hauling','field-work-hauling':'hauling','bloomscapes-hauling':'hauling'
 });
 
+/**
+ * @param {string} route Requested studio route.
+ * @returns {string|undefined} Work studio phase associated with a route.
+ */
 function bloomscapesStudioRoute(route) {
     return BLOOMSCAPES_STUDIO_LEGACY_ROUTES[route];
 }
 
+/**
+ * @param {Element|Document} root Root of the mounted surface.
+ * @param {HTMLFormElement} form Current form.
+ * @param {object} options Configuration for this operation.
+ * @returns {void} Selects the initial phase and shows its eligible controls.
+ */
 function bindBloomscapesWorkTypes(root,form,options) {
     const phase=BLOOMSCAPES_STUDIO_PHASES.find(([id])=>id===options.phase);
     if (!phase) return;
@@ -29,6 +39,11 @@ function bindBloomscapesWorkTypes(root,form,options) {
     root.querySelector('[data-work-browser]').hidden=options.quick===true;
 }
 
+/**
+ * @param {Element|Document} root Root of the mounted surface.
+ * @param {string} sourceId Physical inventory row ID.
+ * @returns {void} Mounts the current editor alongside the chosen row.
+ */
 function placeBloomscapesWorkRowEditor(root,sourceId) {
     const panel=root.querySelector('[data-work-row-editor]');
     const source=[...root.querySelectorAll('[data-work-source-row]')]
@@ -37,28 +52,50 @@ function placeBloomscapesWorkRowEditor(root,sourceId) {
     panel.hidden=false;
 }
 
+/**
+ * @param {HTMLElement} host Mounted view host.
+ * @returns {void} Retains the row editor while the list is replaced.
+ */
 function parkBloomscapesWorkRowEditor(host) {
     const root=host.closest('[data-work-creator]');
     const panel=root?.querySelector('[data-work-row-editor]');
     if (panel && host.contains(panel)) root.appendChild(panel);
 }
 
+/**
+ * @param {string} key View or filter key.
+ * @returns {string} Area permission required by the work studio phase.
+ */
 function bloomscapesStudioPermission(key) {
     if (key === 'hauling') return 'field-work-hauling';
     if (key === 'consolidate') return 'consolidate-inventory';
     return 'studio-'+key;
 }
 
+/**
+ * @param {string} kind Work queue kind.
+ * @param {string} action Selected work action.
+ * @returns {boolean} Whether the current user may create the selected work.
+ */
 function bloomscapesCanChooseWork(kind, action) {
     return allowsBloomscapesMovementAction(action)
         && (isFullAppAdministrator() || bloomscapesFieldQueueState.canCreate?.[kind]===true);
 }
 
+/**
+ * @param {string} action Selected work action.
+ * @returns {boolean} Whether the active area permits the movement.
+ */
 function allowsBloomscapesMovementAction(action) {
     if (typeof isBloomscapesAreaScoped !== 'function' || !isBloomscapesAreaScoped()) return true;
     return getBloomscapesWorkActionPermission(action).every(key => allowsBloomscapesAreaSubview(key, 'FULL_EDIT'));
 }
 
+/**
+ * @param {HTMLFormElement} form Current form.
+ * @param {string} action Selected work action.
+ * @returns {boolean} Whether the action was accepted and applied.
+ */
 function selectBloomscapesStudioAction(form,action) {
     const entry=BLOOMSCAPES_LIFECYCLE_ACTIONS.find(([label])=>label===action)
         || (action==='Custom Bunch Note' && [action,'BUNCH_NOTES']);
@@ -80,6 +117,11 @@ function syncBloomscapesWorkDetailFields(form) {
     for (const name of ['container','media','fertilizer']) form.elements[name].closest('label').hidden=kind!=='CAN_FILLING';
 }
 
+/**
+ * @param {Element|Document} root Root of the mounted surface.
+ * @param {HTMLFormElement} form Current form.
+ * @returns {void} Updates destination choices for the source row.
+ */
 function syncBloomscapesWorkDestinations(root,form) {
     const source=bloomscapesWorkBrowserRows().find(row=>String(row.UNIQUE_ID || row.unique_id)===form.elements.sourceId.value);
     if (!source) return;

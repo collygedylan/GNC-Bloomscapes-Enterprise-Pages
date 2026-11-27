@@ -1,3 +1,7 @@
+/**
+ * @param {object} source Source inventory row.
+ * @returns {Array} Physical inventory siblings for the source row.
+ */
 function bloomscapesWorkSiblingRows(source) {
     const field=(row,key)=>String(row[key] ?? row[key.toLowerCase()] ?? '');
     return bloomscapesWorkBrowserRows().filter(row=>field(row,'ITEMCODE')===field(source,'ITEMCODE')
@@ -14,6 +18,10 @@ function bloomscapesWorkSiblingTable(rows,checked=false) {
         +'</tbody></table></div>';
 }
 
+/**
+ * @param {object} source Source inventory row.
+ * @returns {string} Sibling row summary shown in the editor.
+ */
 function bloomscapesWorkSiblingMarkup(source) {
     const rows=bloomscapesWorkSiblingRows(source);
     if (rows.length<2) return '';
@@ -21,6 +29,11 @@ function bloomscapesWorkSiblingMarkup(source) {
         +' @ '+esc(String(source.LOCATIONCODE || source.locationcode))+'</strong>'+bloomscapesWorkSiblingTable(rows)+'</aside>';
 }
 
+/**
+ * @param {object} source Source inventory row.
+ * @param {object} input Pending work command.
+ * @returns {Promise<Array|null>} Confirmed physical row IDs or null when no choice is needed.
+ */
 function confirmBloomscapesWorkRowScope(source,input) {
     const rows=bloomscapesWorkSiblingRows(source);
     if (rows.length<2 || ['BLOCK','LOCATION','ITEM_FARM','ITEM_LOT'].includes(input.scope)) return Promise.resolve(null);

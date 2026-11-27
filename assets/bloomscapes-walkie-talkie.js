@@ -1,6 +1,10 @@
 let bloomscapesWalkieCapture=null, bloomscapesWalkieEpoch=0, bloomscapesWalkiePhase='ready';
 let bloomscapesWalkieTimers=[];
 
+/**
+ * @param {HTMLElement} host Mounted view host.
+ * @returns {void} Binds the press and release recording gestures.
+ */
 function bindBloomscapesWalkieButton(host) {
     const button=host.querySelector('[data-comm-talk]');
     let pointer=null, key='';
@@ -76,6 +80,10 @@ function statusBloomscapesWalkie(message,phase) {
     void refreshBloomscapesRadioInbox().catch(error=>showBloomscapesCommStatus(error.message));
 }
 
+/**
+ * @param {boolean} cancel Whether to discard the recording.
+ * @returns {void} Stops the active recording and applies its cancellation choice.
+ */
 function stopBloomscapesWalkie(cancel=false) {
     const capture=bloomscapesWalkieCapture, recorded=!!capture?.recording;
     if (!cancel && bloomscapesWalkiePhase==='sending') return;
@@ -127,6 +135,10 @@ function syncBloomscapesWalkieRecording() {
     host.querySelector('[data-comm-cancel-record]').hidden=phase!=='live';
 }
 
+/**
+ * @param {object} data Control dataset or nursery projection.
+ * @returns {void} Dispatches the selected radio control.
+ */
 function dispatchBloomscapesWalkieClick(data) {
     if ('commCancelRecord' in data) return stopBloomscapesWalkie(true);
     if ('commPlay' in data) return void playBloomscapesCommVoice(data.commPlay).catch(error=>showBloomscapesCommStatus(error.message));
@@ -142,6 +154,7 @@ window.addEventListener('pagehide',()=>stopBloomscapesWalkie(true));
 window.addEventListener('bloomscapes-farm-changing',()=>stopBloomscapesWalkie(true));
 document.addEventListener('visibilitychange',()=>{if(document.hidden)stopBloomscapesWalkie(true);});
 
+/** @returns {string} Push-to-talk workspace markup. */
 function renderWalkieShell() {
     return '<section data-comm-hub data-radio-panel aria-label="Push to Talk"><header class="radio-channel-bar">'
         +'<div class="radio-identity"><strong data-radio-user></strong><span data-radio-title></span></div>'
@@ -166,6 +179,10 @@ function walkieChannelButton(slug,title,command,active,disabled=false) {
         +'<i aria-hidden="true"></i><span>'+commEscape(title)+'</span></button>';
 }
 
+/**
+ * @param {HTMLElement} host Mounted view host.
+ * @returns {void} Paints active recording and channel controls.
+ */
 function renderWalkieControls(host) {
     const state=bloomscapesCommState;
     const selected=state.conversations.find(row=>row.id===state.selected);
@@ -193,6 +210,10 @@ function renderWalkieControls(host) {
     syncBloomscapesWalkieRecording();
 }
 
+/**
+ * @param {HTMLElement} host Mounted view host.
+ * @returns {void} Paints the available voice clips.
+ */
 function renderWalkieClips(host) {
     const state=bloomscapesCommState;
     const selected=state.conversations.find(row=>row.id===state.selected);

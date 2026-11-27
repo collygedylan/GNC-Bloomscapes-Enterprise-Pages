@@ -70,10 +70,12 @@ function renderRequestInventoryCardMarkup(context) {
     }
     return `<article class="flex items-start w-full mb-3 item-row app-smart-card app-smart-card--inventory app-drive-compact-card app-request-compact-card app-inventory-card-overhaul ${seasonCardShellClass} relative ${requestCardToneClass} p-4 rounded-xl border shadow-sm active:scale-[0.99] transition-transform cursor-pointer overflow-hidden ${requestBorderClass}" data-dom-id="${esc(item.DOM_ID)}" data-request-uid="${esc(item.UNIQUE_ID)}" data-watchdog-foreign-owner="${watchdogQueueOwnerMismatch(item)}" data-request-history="${item.REQUEST_HISTORY ? 'true' : 'false'}"${suspendTagPlanstartToneDataAttr} oncontextmenu="return handleCardContextMenu(event, '${escJsAttrValue(item.DOM_ID)}')" ${buildExactInventoryCardActivationAttrs(item, renderMeta.originView || sourceView, 'Open request row')}><div class="card-checkbox-container flex-shrink-0"><input type="checkbox" aria-label="Select request for ${esc(requestCustomer)}" class="card-checkbox w-6 h-6 rounded border-gray-300 text-[#007a4d] focus:ring-[#007a4d] shadow-sm" ${isChecked} onclick="event.stopPropagation(); toggleGlobalItem('${escJsAttrValue(item.DOM_ID)}', this.checked, '${safeCardSourceViewKey}')"></div><div class="app-drive-card-grid ${requestGridClass} flex-grow">${requestPhotoCellHtml}<div class="app-drive-card-main"><div class="app-drive-card-header"><div class="app-drive-card-title-row"><div class="app-drive-card-title">${esc(item.COMMONNAME || 'Unknown')} <span class="app-drive-card-title-size">${esc(item.CONTSIZE || '-')}</span></div><div class="app-request-card-status-row">${historyBadge}${statusChip}${reserveBadge}${buildEvalOwnerBadge(item)}</div></div><div class="app-drive-card-itemcode"><span class="app-request-qty-badge">Qty ${esc(reqQty)}</span> · ${esc(item.ITEMCODE || '-')}</div><div class="app-drive-card-meta">${esc(loc)} · ${esc(lot)} · PRI ${esc(priority)}</div></div></div>${requestMetaHtml}${requestHoldBar}<div class="app-request-card-extra">${dockSuspendCardDataHtml}${inventoryEditActionHtml}</div><div class="app-drive-card-quantity-band">${requestMetricsHtml}</div><div class="app-request-card-bottom">${requestReclassButton}${requestRemoveButtonHtml}${actionBadge}</div></div></article>`;
 }
+/** @param {object} context @returns {string} */
 function renderRequestInventoryCard(context) {
     return renderRequestInventoryCardMarkup({ ...context, ...createRequestInventoryCardModel(context) });
 }
 
+/** @param {object} context @returns {string} */
 function renderEvalWorkInventoryCard(context) {
     let { item, holdBorderClass, buildInventoryToplineHtml, buildInventorySecondarylineHtml, compactCardFieldChipsHtml, inlineThumbHtml } = context;
     const workId = String(item.EVAL_WORK_ID || '');
@@ -115,6 +117,7 @@ function compactDockOrderActions(item) {
         <button type="button" data-fast-press-ignore onclick="event.stopPropagation();return reviewEvaluatedDrop('${uid}')">✉ Rep</button>`;
 }
 
+/** @param {string} id @returns {boolean} */
 function openCompactDockOrderLocation(id) {
     const tag = findDockSuspendDcRequestMirrorRowByUniqueId(getDockSuspendDcRequestMirrorUidForRow({UNIQUE_ID:id}));
     if (tag && getBloomscapesFarm() === '10-PH') openSuspendFulfillmentPicker(tag);
@@ -136,6 +139,7 @@ function compactDockCardDetails(item,inventoryEditActionHtml,actionBtns) {
         + noteHtml + buildDocksCreditAction(item) + inventoryEditActionHtml + actionBtns;
 }
 
+/** @param {object} context @returns {string} */
 function renderDockInventoryCard(context) {
     const { item, safeUidJs, safeDockIssueSourceUidJs, renderMeta, sourceView, isChecked, safeCardSourceViewKey, inlineThumbHtml, inventoryEditActionHtml } = context;
     const dockPlanstartInfo = getDockSuspendDcRequestPlanstartInfo(item);
@@ -183,6 +187,7 @@ function renderSuspendCardMetrics(item, falseBlock) {
         : tiles;
 }
 
+/** @param {object} item @param {*} targeted @param {Function} helper @returns {*} */
 function resolveTargetedSuspendMetricFallback(item, targeted, helper) {
     const source = findDockSuspendDcRequestSourceRow(item) || item;
     const wanted = helper.identity(getSuspendTagInventoryIdentity(item, source));
@@ -201,6 +206,7 @@ function resolveTargetedSuspendMetricFallback(item, targeted, helper) {
     return { ...found, row };
 }
 
+/** @param {object} item @param {string} [pressAttrs] @returns {string} */
 function buildSuspendTagActions(item, pressAttrs = '') {
     initializeSuspendTagCardActionDelegation();
     const status = getSuspendTagStatus(item), uid = esc(item.UNIQUE_ID || '');

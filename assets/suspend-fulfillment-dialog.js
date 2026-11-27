@@ -1,3 +1,4 @@
+/** @param {object} row @param {*} actions @returns {string} */
 function suspendInventoryCard(row,actions) {
     const canonical = resolveCanonicalInventoryRow(row) || row;
     const links = currentCanonicalAvPhotoUrls(canonical);
@@ -12,6 +13,7 @@ function suspendInventoryCard(row,actions) {
         metricsHtml:metrics,detailsHtml:'<div class="suspend-choice-facts">'+facts+'</div>'+actions});
 }
 
+/** @returns {*} */
 function prepareSuspendPickerCatalog() {
     const source = activeDriveMode==='ok' ? getDriveModeItems() : rowsInBloomscapesPersonalScope(buildDriveModeRows(fullInventory));
     const physical = source.flatMap(row=>row.__physicalInventoryRows || [row]);
@@ -24,6 +26,7 @@ function prepareSuspendPickerCatalog() {
     }).sort((a,b)=>b.available-a.available || b.onHand-a.onHand);
 }
 
+/** @param {*} source @param {object} filters @param {object} [catalog] @returns {Array<object>} */
 function suspendPickerRows(source,filters,catalog=prepareSuspendPickerCatalog()) {
     const search = String(filters.item || '').trim().toUpperCase().split(/\s+/).filter(Boolean);
     const location = String(filters.location || '').trim().toUpperCase(), code = suspendField(source,'itemcode');
@@ -32,6 +35,7 @@ function suspendPickerRows(source,filters,catalog=prepareSuspendPickerCatalog())
         && (filters.sub ? search.every(term=>entry.item.includes(term)) : isSuspendPullItemMatch(entry.code,code))).map(entry=>entry.row);
 }
 
+/** @param {object} row @param {string} sub @param {boolean} addingOnly @returns {string} */
 function suspendPickerCard(row,sub,addingOnly) {
     const uid = esc(getRequestItemCodeOptionMasterId(row));
     const disabled = isFalseBlockLocation(suspendField(row,'locationcode')) ? ' disabled' : '';
@@ -54,6 +58,7 @@ function suspendCardSubAction(item) {
     return quantity+badge+(resolveCanonicalRowAccess(currentUser,item).canManageLocations ? button : '');
 }
 
+/** @param {object|null} [item] @returns {string} */
 function buildDockSuspendDcRequestCardDataHtml(item = null) {
     if (!item || !isDockSuspendDcRequestMirrorRow(item)) return '';
     const sourceRow = findDockSuspendDcRequestSourceRow(item) || item;
@@ -76,6 +81,7 @@ function buildDockSuspendDcRequestCardDataHtml(item = null) {
 }
 
 let suspendTagCardActionDelegationBound = false;
+/** @param {Function} [handler] @returns {void} */
 function initializeSuspendTagCardActionDelegation(handler=dispatchSuspendTagCardAction) {
     if (suspendTagCardActionDelegationBound || typeof document==='undefined') return;
     suspendTagCardActionDelegationBound = true;

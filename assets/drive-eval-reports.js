@@ -163,6 +163,7 @@ function scopeDriveSavedReportRows(rows,key) {
     return getDriveReport2PhysicalRows(saved);
 }
 
+/** @param {string} [term] @returns {object} */
 function buildDriveUniversalSearchState(term = '') {
     const safeTerm = String(term || '').trim();
     let baseItems = scopeDriveEvaluatorRows(getDriveModeItems());
@@ -191,6 +192,7 @@ function buildDriveUniversalSearchState(term = '') {
 }
 
 
+/** @param {string} [term] @param {boolean} [fromInputFrame] @returns {void} */
 function scheduleDriveSearchRequest(term = '', fromInputFrame = false) {
     cancelDriveSearchRenderWork();
     const requestToken = ++driveSearchRequestToken;
@@ -223,6 +225,7 @@ function paintWarmDriveSearch() {
     return true;
 }
 
+/** @param {object} row @param {string} cleanCommonName @param {string} sizeKey @returns {string} */
 function buildDriveSearchKey(row,cleanCommonName,sizeKey) {
     const location = String(row.LOCATIONCODE ?? row.locationcode ?? '');
     const block = location.split('.').slice(0,2).join('.');
@@ -240,6 +243,7 @@ function filterDriveIndexedRows(rows,term,profile) {
     });
 }
 
+/** @returns {Array<object>} */
 function getDriveBaseFilteredItems() {
     const cacheKey = getDriveBaseFilterKey();
     if (driveBaseFilterCacheKey === cacheKey) return driveBaseFilterCacheItems;
@@ -275,11 +279,13 @@ function canPaintWarmDriveSearch() {
     return isMasterFullProjectionReady() || !!(state?.rows.length && state.scope === getSupabaseReadIdentityScope());
 }
 
+/** @param {HTMLInputElement} input @param {Event} event @returns {*} */
 function queueNativeDriveSearch(input,event) {
     if (canPaintWarmDriveSearch()) return handleDriveSearch(event);
     scheduleFieldSearch(input,()=>handleDriveSearch(event));
 }
 
+/** @param {Array<object>} rows @param {*} source @returns {*} */
 function indexDriveSearchRows(rows,source) {
     const year = normalizeEvalReportSalesYear(getConfiguredCurrentSalesYearCode()) ?? 2027;
     const prepared = canonicalPreparedDriveIsCurrent(source) && getCurrentPreparedMasterRows(source)?.driveReportFacts;
@@ -298,6 +304,7 @@ function indexDriveRowFacts(row,facts) {
     return crop;
 }
 
+/** @param {string} view @param {*} previous @returns {void} */
 function paintCachedDriveOnNavigation(view,previous) {
     if (view !== 'drive' || previous === view || !nativeAuthSessionActive || !canAccessView('drive')) return;
     if (hasConfirmedCurrentAccountRevocation()) return;

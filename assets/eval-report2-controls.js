@@ -1,3 +1,4 @@
+/** @param {Array<object>} reports @param {*} selected @param {Function} countSignals @param {Function} escape @returns {string} */
 function renderEvalReport2PickerMarkup(reports, selected, countSignals, escape) {
     const options = reports.map(report => renderEvalReport2OptionMarkup(report,selected,escape)).join('');
     return `<fieldset class="manager-eval2-report-selection" data-manager-eval2-report-picker
@@ -23,6 +24,7 @@ function renderEvalReport2OptionMarkup(report,selected,escape) {
     </label>`;
 }
 
+/** @returns {string} */
 function renderManagerEvalReport2OptionalFilters() {
     const rows = getManagerEvalReport2Rows();
     const options = useManagerReportPages('eval2')
@@ -37,6 +39,7 @@ function renderManagerEvalReport2OptionalFilters() {
     </div>`;
 }
 
+/** @param {Array<object>} rows @returns {*[]} */
 function getManagerEvalReport2LocationOptions(rows) {
     return [...new Set(rows.map(getManagerEvalReportRowLocation).filter(Boolean))]
         .sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
@@ -50,6 +53,7 @@ function renderEvalReport2PriorityMarkup(value) {
     </select></label>`;
 }
 
+/** @param {string} [moreHtml] @returns {string} */
 function renderManagerEvalReport2ReportsPanel(moreHtml = '') {
     const api = getManagerEvalReports2Api();
     const index = getManagerEvalReport2Index();
@@ -78,6 +82,7 @@ function renderManagerEvalReport2ReportsPanel(moreHtml = '') {
     </div>`;
 }
 
+/** @param {object|null} [index] @param {object|null} [meta] @param {string} [sourceUpdated] @returns {string} */
 function renderManagerEvalReport2MoreMenu(index = null, meta = null, sourceUpdated = '') {
     if (!index || !meta) return '';
     const inventoryCount = index.inventoryRowCount ?? fullInventory.length;
@@ -98,6 +103,7 @@ function renderManagerEvalReport2MoreMenu(index = null, meta = null, sourceUpdat
     </details>`;
 }
 
+/** @returns {*} */
 function renderManagerEvalReports2Panel() {
     if (!canViewManagerEvalReports2()) return renderManagerEvalReports2LegacyPanel();
     if (isEvalAggregateDashboardVisible()) {
@@ -113,6 +119,7 @@ function evalReport2DrillAttrs(kind, value, audit = false) {
         ${audit ? 'data-eval2-field-audit' : ''}`;
 }
 
+/** @param {object} group @param {object|null} [presentation] @returns {string} */
 function renderManagerEvalReport2DrillGroupCard(group, presentation = null) {
     const isBlock = group.kind === 'blockalpha';
     const eyebrow = isBlock ? 'Block Alpha' : 'LocationCode';
@@ -129,6 +136,7 @@ function renderManagerEvalReport2DrillGroupCard(group, presentation = null) {
         <i class="ph-bold ph-caret-right shrink-0 text-2xl text-[#007a4d]" aria-hidden="true"></i></button>`;
 }
 
+/** @param {string} [kind] @param {string} [encodedValue] @returns {boolean} */
 function openManagerEvalReport2DrillValue(kind = '', encodedValue = '') {
     if (!['commonname', 'contsize', 'blockalpha', 'locationcode', 'blockrows'].includes(kind)) return false;
     let value = String(encodedValue || '');
@@ -163,6 +171,7 @@ function setEvalReport2DrillValue(kind, value) {
     managerEvalReport2DrillLevel = 2;
 }
 
+/** @param {HTMLElement} container @returns {void} */
 function bindEvalReport2DrillCommands(container) {
     if (container.dataset.eval2DrillBound) return;
     container.dataset.eval2DrillBound = 'true';
@@ -183,6 +192,7 @@ function dispatchEvalReport2Drill(event) {
     } else openManagerEvalReport2DrillValue(kind, encodeURIComponent(value));
 }
 
+/** @param {string} block @param {boolean} [audit] @returns {string} */
 function renderEvalReport2BlockRowsButton(block, audit = false) {
     return `<button type="button" class="min-h-[40px] rounded-xl border border-emerald-300 px-4 text-sm font-bold"
         ${evalReport2DrillAttrs('blockrows', block, audit)}>View All Block Rows</button>`;

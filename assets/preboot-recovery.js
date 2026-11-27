@@ -1,3 +1,4 @@
+/** @returns {void} Applies the saved outdoor display preference. */
 function applyPrebootOutdoorPreference() {
   try {
     const mode = localStorage.getItem('gnc_outdoor_mode_v1');
@@ -7,6 +8,10 @@ function applyPrebootOutdoorPreference() {
   } catch { globalThis.safeIgnoreProbeError?.('shell-bootstrap'); }
 }
 
+/**
+ * @param {object} env Browser boot environment.
+ * @returns {boolean} Whether an unexpired remembered session is present.
+ */
 function hasPrebootRememberedSession(env) {
   try {
     if (env.window.__agdataSessionBoundary === true || env.localStorage.getItem('gnc_explicit_logout_v1') === '1') return false;
@@ -83,6 +88,11 @@ function checkPreboot(state) {
   recoverPreboot(state, 'BOOT_TIMEOUT');
 }
 
+/**
+ * @param {string} version Application release.
+ * @param {object} env Browser boot environment.
+ * @returns {void} Installs the scoped boot recovery handlers.
+ */
 function installAgDataPrebootRecovery(version, env = globalThis) {
   const state = { version, env, recovered: false, timer: null, key: 'agdata_sw_recovered_' + version.replace(/\./g, '_') };
   const { window, document } = env;

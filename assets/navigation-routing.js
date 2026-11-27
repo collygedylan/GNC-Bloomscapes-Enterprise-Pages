@@ -1,16 +1,7 @@
 let pendingNavigationDisplay = null;
+/** @param {string} viewId Requested view. @param {object} options Navigation options. @returns {unknown} Selected route handler result. */
 function switchView(viewId, options = {}) {
-    const target = String(BLOOMSCAPES_SHELL_ROUTE_ALIASES[viewId] || (viewId==='field-work-consolidation' && 'production')
-        || (viewId === 'field-work-studio' && options.parkHillStudio === true && 'production')
-        || (nativeAuthSessionActive && viewId === 'sales-office' && 'sales')
-        || (nativeAuthSessionActive && viewId === 'production' && currentUser !== 'dylan_collyge' && currentUser !== 'megan_kelly'
-            && !BLOOMSCAPES_FIELD_ENTRY_ROLES[nativeAuthProfile?.role] && 'drive')
-        || (nativeAuthSessionActive && (currentUser === 'dylan_collyge' || currentUser === 'megan_kelly'
-            || BLOOMSCAPES_FIELD_ENTRY_ROLES[nativeAuthProfile?.role]) && (
-            viewId==='field-work-studio'
-            || typeof BLOOMSCAPES_STUDIO_LEGACY_ROUTES !== 'undefined' && BLOOMSCAPES_STUDIO_LEGACY_ROUTES[viewId]!==undefined
-            || viewId==='production-workflow' && productionWorkflowActive==='can-filling')
-            ? 'production' : viewId==='chat' && nativeAuthSessionActive ? 'messages' : viewId || 'home')).trim();
+    const target = resolvePrimaryShellRoute(viewId, options);
     if (!canDisplayNavigationView(target)) {
         viewId!=='field-work-consolidation' && showToast('Access unavailable', 'You do not have permission to open this view.', true);
         return false;
@@ -32,9 +23,6 @@ function switchView(viewId, options = {}) {
     const navigationSeq = ++navTransitionSeq;
     if (viewId === 'home' && restoreCameraDetailSession()) return;
     if (typeof getManagerTableManagementKey === 'function' && getManagerTableManagementKey(viewId)) return openManagerTableManagement(getManagerTableManagementKey(viewId));
-    if (target === 'home' && !options.fromHistory && clearBloomscapesHomeDepartment()) {
-        syncBloomscapesHomeTileVisibility(document.getElementById('home-dashboard-grid'));
-    }
     const context = beginPrimaryViewNavigation(target, options, navigationSeq);
     preparePrimaryNavigationTarget(context);
     if (!preparePrimaryNavigationOrigin(context)) return false;

@@ -11,6 +11,7 @@ function deduplicateSuspendTagPageRows(rows) {
   });
 }
 
+/** @param {string[]} updatedCodes @returns {void} */
 function refreshHydratedSuspendItemDetail(updatedCodes) {
     const code=getRequestItemCodeOptionItemCode(activeItem);
     if (!updatedCodes.includes(code)) return;
@@ -123,6 +124,7 @@ function buildSuspendTagPageOptions(context, runtime) {
   });
 }
 
+/** @param {*} [input] @param {object} [runtime] @returns {*} */
 function renderSuspendTagPage(input = {}, runtime = {}) {
   if (!runtime.isCurrentNavigationTransition(input.navigationSeq, 'request')) {
     runtime.paintFooterRequestBadgeOnly();
@@ -149,6 +151,7 @@ function renderSuspendTagPage(input = {}, runtime = {}) {
   return didSchedule;
 }
 
+/** @param {object} row @param {string} draftKey @param {object} savedDraft @param {boolean} applied @returns {void} */
 function finishSavedSuspendDetailDraft(row, draftKey, savedDraft, applied) {
     if (applied && suspendTagFormDrafts.has(draftKey)) {
         const nextKey=getSuspendTagFormDraftKey();

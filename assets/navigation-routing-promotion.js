@@ -1,3 +1,8 @@
+/**
+ * @param {string} viewId Visible view identifier.
+ * @param {object} options Configuration for this operation.
+ * @returns {boolean} Navigation handler result after displaying cached state.
+ */
 function openDisplayOnlyNavigation(viewId, options = {}) {
     if (options.boot === true && shouldPreserveMountedBootView()) return false;
     const previous = getCurrentVisibleViewId();
@@ -46,6 +51,7 @@ function isNavigationDisplayPromotionCurrent(pending) {
         && pending.sequence === navTransitionSeq && getCurrentVisibleViewId() === pending.viewId
         && pending.viewId !== 'detail' && canAccessView(pending.viewId);
 }
+/** @returns {boolean} Whether the verified view promotion was scheduled. */
 function promoteNavigationDisplayAfterAccess() {
     const pending = pendingNavigationDisplay;
     if (!pending || !isNavigationDisplayPromotionCurrent(pending)) return false;
