@@ -1,9 +1,12 @@
 const phLocationOrder = new Intl.Collator(undefined,{numeric:true});
 const phRoutingNodes = new Map();
 const phCorridorRadius = new Map();
+const phMainRoads = ['AB','CD','E','FG','HI','JKL'];
 for (const [code,orientation,permanent_shade,house_count,x_m,y_m,corridor_id,spine_group,sweep] of PH_NURSERY_BLOCKS) {
-    phRoutingNodes.set(code,Object.freeze({code,orientation,permanent_shade,house_count,x_m,y_m,corridor_id,spine_group,sweep}));
-    phCorridorRadius.set(corridor_id,Math.max(phCorridorRadius.get(corridor_id) || 0,Math.abs(x_m)+Math.abs(y_m)));
+    const mainRoad = phMainRoads.find(road => road.includes(code[0]));
+    const blockNumber = Number(code.slice(2));
+    phRoutingNodes.set(code,Object.freeze({code,orientation,permanent_shade,house_count,x_m,y_m,corridor_id,spine_group,sweep,mainRoad,blockNumber}));
+    phCorridorRadius.set(mainRoad,Math.max(phCorridorRadius.get(mainRoad) || 0,Math.abs(x_m)+Math.abs(y_m)));
 }
 for (const [code,landmark] of Object.entries(PH_YARD_LANDMARKS)) {
     phRoutingNodes.set(code,Object.freeze({code,...landmark}));
@@ -58,23 +61,76 @@ function phRoadMeters(from,to) {
     return Math.abs(from.x_m-to.x_m)+Math.abs(from.y_m-to.y_m);
 }
 
-function phComparePullStops(a,b) {
-    const left = phRouteNode(a.locationcode);
-    const right = phRouteNode(b.locationcode);
-    if (!left || !right) return Number(Boolean(right))-Number(Boolean(left));
-    return (phCorridorRadius.get(right.corridor_id) || 0)-(phCorridorRadius.get(left.corridor_id) || 0)
-        || String(left.corridor_id ?? '').localeCompare(String(right.corridor_id ?? ''))
-        || (left.sweep ?? 0)-(right.sweep ?? 0) || left.code.localeCompare(right.code)
-        || phLocationOrder.compare(String(a.locationcode),String(b.locationcode))
-        || String(a.pull_tag_id).localeCompare(String(b.pull_tag_id));
+/** @param {object} a First node. @param {string} zoneA Dock zone. @param {object} b Other node. @param {string} zoneB Dock zone. @returns {boolean} Whether a remainder can pick this neighboring stop. */
+function phAdjacentShippingStop(a,zoneA,b,zoneB) {
+    return Boolean(a?.mainRoad && a.mainRoad === b?.mainRoad && zoneA === zoneB && Math.abs(a.blockNumber-b.blockNumber)<=1);
+}
+
+function phBlockOrder(left,right) {
+    return (phCorridorRadius.get(right.mainRoad) || 0)-(phCorridorRadius.get(left.mainRoad) || 0)
+        || String(left.mainRoad ?? left.code).localeCompare(String(right.mainRoad ?? right.code))
+        || right.blockNumber-left.blockNumber || left.code.localeCompare(right.code);
+}
+
+function phBayOrder(row) {
+    const location = String(row.locationcode ?? '').trim();
+    const canonicalBay = phQrBayNumber(location,row.bay_number);
+    if (canonicalBay) return Number(canonicalBay);
+    const aliasBay = !row.bay_number && /^[a-l][.]?\d{1,2}[.](\d{1,3})$/i.exec(location);
+    return aliasBay ? Number(aliasBay[1]) : -1;
+}
+
+function phTagsAtBlock(a,b) {
+    const bay = phBayOrder(a);
+    const sameBayDrop = bay < 0 ? 0 : phLocationOrder.compare(String(b.stopnumber ?? ''),String(a.stopnumber ?? ''));
+    return bay-phBayOrder(b) || sameBayDrop || String(a.pull_tag_id).localeCompare(String(b.pull_tag_id));
+}
+
+function phBlocksAndTags(rows) {
+    const blocks = new Map();
+    const unknown = [];
+    for (const row of rows) {
+        const node = phRouteNode(row.locationcode);
+        if (!node) { unknown.push(row); continue; }
+        if (!blocks.has(node)) blocks.set(node,[]);
+        blocks.get(node).push(row);
+    }
+    return {blocks,unknown};
+}
+
+function phPolishBand(stops,start,end,origin,zones) {
+    const first = stops[start];
+    const last = stops[end];
+    const previous = stops[start-1] || origin;
+    const next = stops[end+1];
+    const exitMeters = node => next ? phRoadMeters(node,next) : phDockReturn(node,zones).meters;
+    const before = phRoadMeters(previous,first)+exitMeters(last);
+    const after = phRoadMeters(previous,last)+exitMeters(first);
+    if (after < before) stops.splice(start,end-start+1,...stops.slice(start,end+1).reverse());
+}
+
+function phPolishCorridorRoute(stops,origin,zones) {
+    for (let start=0;start<stops.length;) {
+        const node = stops[start];
+        let end = start;
+        while (node.mainRoad && stops[end+1]?.mainRoad === node.mainRoad && stops[end+1].blockNumber === node.blockNumber) end++;
+        if (end>start) phPolishBand(stops,start,end,origin,zones);
+        start = end+1;
+    }
 }
 
 /**
- * @param {Array<object>} rows Pull tags to route.
- * @returns {Array<object>} New array in corridor and bay sweep order.
+ * @param {Array<object>} rows Park Hill pull tags to route.
+ * @param {string} [origin] Departure dock for constrained two-opt.
+ * @returns {Array<object>} Each numbered band once, adjacent road twins together.
  */
-function phSortPullStops(rows) {
-    return [...rows].sort(phComparePullStops);
+function phSortPullStops(rows,origin = rows[0]?.load_origin) {
+    if (rows.some(row => row.warehouse && row.warehouse !== '10-PH')) return [...rows];
+    const {blocks,unknown} = phBlocksAndTags(rows);
+    const stops = [...blocks.keys()].sort(phBlockOrder);
+    const zones = new Set(rows.map(row => phDockZone(row.dock)));
+    phPolishCorridorRoute(stops,phRouteOrigin(origin),zones);
+    return stops.flatMap(node => blocks.get(node).sort(phTagsAtBlock)).concat(unknown);
 }
 
 function phDockOrders(zones) {
@@ -163,9 +219,24 @@ function phPullToggleTag(rows, selected, id) {
     if (selected.delete(id)) return true;
     const row = rows.find(candidate => candidate.pull_tag_id === id);
     const wdu = row && phPullTagWdu(row);
-    if (!(wdu>0) || phPullSelectedWdu(rows,selected)+wdu>PH_PULL_CAP*1e12) return false;
+    if (!(wdu>0) || row.shuttle_ready === false || row.warehouse && row.warehouse !== '10-PH') return false;
+    const heavy = selected.size === 0 && Number(row.pull_qty) === 1;
+    if (!heavy && phPullSelectedWdu(rows,selected)+wdu>PH_PULL_CAP*1e12) return false;
+    const batch = rows.filter(candidate=>candidate===row || selected.has(candidate.pull_tag_id));
+    if (!phShuttleSelectionFits(batch)) return false;
     selected.add(id);
     return true;
+}
+
+function phShuttleSelectionFits(batch) {
+    if (batch.length===1) return true;
+    const shuttles = batch.filter(row=>row.trip_total>1);
+    if (shuttles.length===0) return true;
+    const anchor = shuttles[0];
+    if (shuttles.length>1 || anchor.trip_index!==anchor.trip_total) return false;
+    const node = phRouteNode(anchor.locationcode);
+    const zone = phDockZone(anchor.dock);
+    return batch.every(row=>row===anchor || phAdjacentShippingStop(node,zone,phRouteNode(row.locationcode),phDockZone(row.dock)));
 }
 
 const phPullPriorityLabels = new Map(['Live Driver','Drop Trailer','Hold Trailer'].map(label => [label.toUpperCase(),label]));
@@ -184,6 +255,7 @@ function phPullDockLabel(value) {
  * @returns {number} Dispatch priority of the current physical tag.
  */
 function phPullQueueRank(row) {
+    if (row.shuttle_ready === false) return 5;
     if (phPullDockLabel(row.dock_status) === 'Live Driver') return 0;
     const priority = Number(row.priority ?? 3);
     return Number.isFinite(priority) ? priority : 3;

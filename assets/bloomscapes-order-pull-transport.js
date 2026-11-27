@@ -80,6 +80,56 @@ function matchesPhPullTeamReceipt(team,input) {
         && team.puller_primary === input.p_primary && team.puller_helper === input.p_helper;
 }
 
+function phDispatchSlots(snapshot,visible) {
+    const byId = new Map(visible.filter(row=>row.shuttle_ready!==false && phPullQueueRank(row)<5).map(row=>[row.pull_tag_id,row]));
+    const slots = [];
+    for (const queue of snapshot.queued_loads) {
+        const rows = queue.load_manifest.map(row=>byId.get(row.pull_tag_id));
+        if (!rows.length || rows.some(row=>!row || row.dispatch_slot!==queue.queue_position)) continue;
+        slots.push({rows,slot:queue.queue_position,owner:rows.find(row=>row.shuttle_team_id)?.shuttle_team_id,
+            rank:Math.min(...rows.map(phPullQueueRank))});
+    }
+    return slots.sort((a,b)=>a.rank-b.rank || a.slot-b.slot);
+}
+
+function phSlotReadyTeams(snapshot) {
+    const ready = snapshot.teams.filter(team=>team.active!==false && !team.batch_open);
+    const choices = phPullTeamChoices(snapshot,'');
+    const people = choices.primary.filter(name=>/^puller_(?:00[1-9]|0[1-5]\d|060)$/.test(name));
+    for (const unit of choices.units) {
+        if (!people.length) break;
+        if (Number(unit)<205 || Number(unit)>235) continue;
+        ready.push({unit_number:unit,puller_primary:people.shift(),puller_helper:people.shift() || null});
+    }
+    return ready;
+}
+
+/**
+ * @param {object} snapshot Full native pool, crew and queue receipt.
+ * @param {object[]} visible Rows included by current water, search and priority filters.
+ * @param {string|null} [chosen] Optional selected team.
+ * @param {boolean} [preview] Allow a single unpinned manual selection without a ready crew.
+ * @returns {object[]} Complete native trips paired with available crews.
+ */
+function phScheduledDispatchPlans(snapshot,visible,chosen=null,preview=false) {
+    if (snapshot.warehouse!=='10-PH') return [];
+    const slots = phDispatchSlots(snapshot,visible);
+    const occupied = new Set(snapshot.rows.filter(row=>row.shuttle_team_id).map(row=>row.shuttle_team_id));
+    const available = new Set(slots);
+    const teams = phSlotReadyTeams(snapshot).filter(team=>!chosen || team.team_id===chosen);
+    if (preview && !chosen && !teams.length) teams.push({});
+    const result = [];
+    for (const team of teams) {
+        const reserved = team.shuttle_source || occupied.has(team.team_id);
+        const slot = reserved ? slots.find(candidate=>candidate.owner===team.team_id)
+            : slots.find(candidate=>!candidate.owner && available.has(candidate));
+        if (!slot || !available.delete(slot)) continue;
+        result.push({team,load:{rows:slot.rows}});
+        if (preview) break;
+    }
+    return result;
+}
+
 async function reconcilePhDispatchFailure(error,dispatched,unit,isCurrent,acceptSnapshot) {
     const confirmed = dispatched+' load'+(dispatched === 1 ? '' : 's')+' confirmed. Unit '+unit+': ';
     const reason = error?.message || 'The server could not confirm the batch.';
@@ -92,6 +142,13 @@ async function reconcilePhDispatchFailure(error,dispatched,unit,isCurrent,accept
     throw new Error(confirmed+reason);
 }
 
+/**
+ * @param {object[]} plans Visible tag and team proposals.
+ * @param {Function} isCurrent Account and farm scope check.
+ * @param {Function} acceptSnapshot Publisher for verified assignment receipts.
+ * @param {Function} [dockRevision] Current dock-priority revision.
+ * @returns {Promise<number>} Confirmed load count.
+ */
 async function dispatchPhReadyTeams(plans, isCurrent, acceptSnapshot, dockRevision = () => 0) {
     let dispatched = 0;
     const plannedRevision = dockRevision();

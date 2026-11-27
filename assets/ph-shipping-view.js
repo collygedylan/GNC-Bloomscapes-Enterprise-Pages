@@ -33,6 +33,17 @@ function phShippingTile(label,value,detail = '') {
         +(detail ? '<span>'+esc(detail)+'</span>' : '')+'</div>';
 }
 
+function phTripQuantity(row) {
+    return row.trip_total > 1 ? row.pull_qty : phShippingOrderedQty(row);
+}
+
+function phShippingTripBadge(row) {
+    if (!(row.trip_total > 1 || row.wingdingunits > 650 && row.pull_qty === 1)) return '';
+    const title = row.trip_total > 1 ? '🔁 TRIP '+row.trip_index+' OF '+row.trip_total : 'HEAVY HAUL';
+    return '<strong class="ph-pull-stop" data-ph-shuttle-trip>'+esc(title+' · PULL QTY '+row.pull_qty
+        +' (OF '+phShippingOrderedQty(row)+') · '+Number(row.wingdingunits).toFixed(2)+' / 650 WDU')+'</strong>';
+}
+
 /**
  * @param {object} row Physical pull tag.
  * @param {object} state Active team and edit scope.
@@ -50,9 +61,9 @@ function phShippingStopCard(row,state) {
         +'<header class="app-drive-card-header"><div><b>'+esc([name,row.container_size].filter(Boolean).join(' '))+'</b>'
         +'<small>'+esc([row.itemcode,row.lotcode].filter(Boolean).join(' · '))+'</small></div><aside data-ph-stop-qr></aside></header>'
         +'<div class="ph-shipping-tiles">'+phShippingTile('Location','📍 '+(row.locationcode || '—'),Number(bay)>0 ? 'Bay '+bay : '')
-        +phShippingTile('Ordered Qty (Pull)',phShippingOrderedQty(row) ?? '—',String(row.wingdingunits)+' WDU')
+        +phShippingTile('Ordered Qty (Pull)',phTripQuantity(row) ?? '—',String(row.wingdingunits)+' WDU')
         +phShippingTile('Dock / Drop','🚚 '+destination,row.consignee)+'</div>'
-        +(urgent ? '<b class="ph-live-driver">🚨 LIVE DRIVER</b>' : '')
+        +phShippingTripBadge(row)+(urgent ? '<b class="ph-live-driver">🚨 LIVE DRIVER</b>' : '')
         +note.map(line=>'<p>'+esc(line)+'</p>').join('')
         +(manual ? '<button type="button" data-pull-action="pull" data-pull-key="'+esc(row.pull_tag_id)+'">✓ Pulled onto Buggy</button>' : '')
         +'</article>');
@@ -83,6 +94,12 @@ function phShippingTelemetry(load) {
         +'m · 📦 Unload ('+esc(load.dockLabel)+'): '+load.unloadMin+'m</small>';
 }
 
+function phShippingSeriesSummary(series) {
+    if (!series) return '';
+    return '<small data-ph-shuttle-totals>'+series.trips+' shuttle trips · ⛽ '+series.fuelGal.toFixed(2)
+        +' gal · ⏱️ Get '+series.getLoadMin.toFixed(1)+'m · 📦 Unload '+series.unloadMin.toFixed(1)+'m</small>';
+}
+
 /**
  * @param {object} load Assigned load.
  * @param {boolean} drill Whether the summary opens a drill-down.
@@ -93,12 +110,12 @@ function phShippingSummary(load,drill = true) {
     const crew = [route.puller_primary,route.puller_helper].filter(Boolean).join(' + ');
     const heading = 'Unit '+(route.unit_number || '—');
     const weight = phShippingLoadWdu(load);
-    const total = load.rows.every(row=>phShippingOrderedQty(row) != null)
-        ? load.rows.reduce((sum,row)=>sum+Number(phShippingOrderedQty(row)),0) : '—';
+    const total = load.rows.every(row=>phTripQuantity(row) != null)
+        ? load.rows.reduce((sum,row)=>sum+Number(phTripQuantity(row)),0) : '—';
     const start = drill ? '<button type="button" data-shipping-load="'+esc(load.id)+'"' : '<header data-ph-load-header="'+esc(load.id)+'"';
     return start+' class="ph-shipping-summary"><span><b>'+esc(heading)+'</b> '+esc(crew)
         +'</span><strong class="ph-shipping-wdu">'+weight+' / 650 WDU</strong><small>'+load.manifest.length+' Stops · Total Qty '+total+'</small>'
-        +phShippingTelemetry(load.estimate)+(drill ? '<i aria-hidden="true">›</i></button>' : '</header>');
+        +phShippingTelemetry(load.estimate)+phShippingSeriesSummary(load.series)+(drill ? '<i aria-hidden="true">›</i></button>' : '</header>');
 }
 
 /**

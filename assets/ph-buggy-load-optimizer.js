@@ -43,6 +43,36 @@ function phEstimateBuggyLoad(tags,{hasPartner = false,origin} = {}) {
         finalDockZone:dockZones.at(-1),miles:(d_out_m+d_ret_m)/1609.344,totalCycleMin:phRoundMetric(getLoadMin+unloadMin,1)};
 }
 
+function phHeavyTripEstimate(row,options) {
+    const totalWdu = Number(row.wingdingunits);
+    if (!Number.isFinite(totalWdu) || Number(row.pull_qty ?? row.trip_qty) !== 1) return null;
+    const route = phEstimateBuggyLoad([{...row,wingdingunits:PH_PULL_CAP}],options);
+    if (!route) return null;
+    const extra = totalWdu-PH_PULL_CAP;
+    const handLoadMin = route.handLoadMin+extra*0.028*route.crewFactor;
+    const unloadMin = Number(((2.35+0.020*totalWdu)*route.crewFactor).toFixed(1));
+    const getLoadMin = Number((route.d_out_m/230+route.d_ret_m/195+0.35+handLoadMin).toFixed(1));
+    const fuelGal = Number((route.d_out_m/1609.344*0.085+route.d_ret_m/1609.344*0.130
+        +0.004+0.0042*(handLoadMin+unloadMin)).toFixed(3));
+    return {...route,rows:[row],totalWdu,handLoadMin,unloadMin,getLoadMin,fuelGal,
+        totalCycleMin:Number((getLoadMin+unloadMin).toFixed(1))};
+}
+
+/**
+ * @param {object[]} rows Physical UUID rows on the current dispatched trip.
+ * @param {object} [options] Crew and departure dock for this trip.
+ * @returns {object|null} Route and handling estimate for one actual round trip.
+ */
+function phEstimateShippingTrips(rows,options = {}) {
+    if (rows.length === 1 && phPullTagWdu(rows[0]) > PH_PULL_CAP*1e12) {
+        return phHeavyTripEstimate(rows[0],options);
+    }
+    if (!options.origin) return phEstimateBuggyLoad(rows,options);
+    const originals = new Map(rows.map(row=>[{...row,load_origin:options.origin},row]));
+    const route = phEstimateBuggyLoad([...originals.keys()],options);
+    return route && {...route,rows:route.rows.map(row=>originals.get(row))};
+}
+
 function phCandidateTags(rows) {
     const candidates = new Map();
     for (const row of rows) {
