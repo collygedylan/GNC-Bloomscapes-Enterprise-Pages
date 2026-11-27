@@ -1,5 +1,6 @@
 let bloomscapesFarmDialog = null;
 
+/** @param {string} previous @param {string} next @param {boolean} initial @returns {Promise<boolean|string>} The confirmed selection for the same session. */
 function confirmBloomscapesFarmSwitch(previous,next,initial=false) {
     if (!initial && previous===next) return Promise.resolve(true);
     if (bloomscapesFarmDialog) return bloomscapesFarmDialog.promise;
@@ -91,6 +92,7 @@ function appendBloomscapesFarmPills(dialog,choose) {
     }
 }
 
+/** @returns {Promise<void>} Reconciles the effective farm options and initiates any required session hydration. */
 async function syncBloomscapesFarmSelector() {
     const select = document.getElementById('bloomscapes-farm-selector');
     if (!select) return;
@@ -103,11 +105,9 @@ async function syncBloomscapesFarmSelector() {
     }
     select.value = getBloomscapesFarm();
     select.parentElement.hidden = false;
-    if (bloomscapesFarmState.busy) return;
-    select.disabled = allowed.length <= 1;
     const initial = bloomscapesFarmNeedsConfirmation();
-    if (bloomscapesFarmDialog || !initial && !bloomscapesFarmNeedsHydration()) return;
-    if (initial) select.disabled = true;
+    select.disabled = allowed.length <= 1 || initial;
+    if (bloomscapesFarmState.busy || bloomscapesFarmDialog || !initial && !bloomscapesFarmNeedsHydration()) return;
     if (initial) {
         const state = bloomscapesFarmState;
         const chosen = await confirmBloomscapesFarmSwitch(getBloomscapesFarm(),getBloomscapesFarm(),true);
