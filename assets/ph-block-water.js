@@ -2,6 +2,7 @@
 const PH_WATER_READ = 'gnc_10_ph_read_block_water';
 const PH_WATER_REQUEST = 'gnc_10_ph_log_prober_water_request';
 const PH_WATER_TOGGLE = 'gnc_10_ph_toggle_block_water';
+const PH_WATER_BATCH = 'gnc_10_ph_toggle_water_batch';
 const phWaterEvents = new EventTarget();
 let phWaterState;
 let phWaterTimer;
@@ -15,8 +16,8 @@ function currentPhWaterState() {
         return null;
     }
     if (phWaterState?.owner !== owner) {
-        phWaterState = {owner,warehouse:'10-PH',blockWaterStatus:{},today:'',canEdit:false,version:0,
-            pending:null,reading:null,failures:0,retryAt:0,fetchedAt:0,revision:0,targetRevision:0,error:''};
+        phWaterState = {owner,warehouse:'10-PH',blockWaterStatus:{},hiddenCounts:{},today:'',canEdit:false,version:0,
+            pending:new Set(),reading:null,failures:0,retryAt:0,fetchedAt:0,revision:0,targetRevision:0,error:''};
     }
     return phWaterState;
 }
@@ -35,14 +36,16 @@ function phWaterMayOpen() {
     return Boolean(visiblePhWaterStatus() && canAccessView('production'));
 }
 
-function publishPhWaterChange(state, membership = false) {
+function publishPhWaterChange(state, membership = false, dispatch = false) {
     if (currentPhWaterState() !== state) return;
     if (membership) state.version++;
     phWaterEvents.dispatchEvent(new Event('change'));
-    if (!membership) return;
     const view = getCurrentVisibleViewId();
-    if (view === 'shipping') redrawPhShippingView();
-    if (view === 'request' && activeReqTab === 'suspend-tag') renderRequest();
+    if (view === 'shipping' && (membership || dispatch)) {
+        redrawPhShippingView();
+        if (dispatch && !state.pending.size) void refreshPhShippingAfterWater(state.revision);
+    }
+    if (membership && view === 'request' && activeReqTab === 'suspend-tag') renderRequest();
 }
 
 function observePhWaterUpdates(callback) {
@@ -54,31 +57,41 @@ function phWaterActiveKeys(rows) {
     return Object.values(rows).filter(row => row.is_water_on).map(row => row.block_code).sort().join('|');
 }
 
+function phWaterRevision(receipt) {
+    const revision = Number(receipt.revision);
+    if (!Number.isSafeInteger(revision) || revision < 0) throw Error('Water revision was incomplete.');
+    return revision;
+}
+
 function applyPhWaterReceipt(state,receipt) {
     if (!Array.isArray(receipt.rows) || !/^\d{4}-\d{2}-\d{2}$/.test(receipt.today)) {
-        throw new Error('Water schedule response was incomplete.');
+        throw Error('Water schedule response was incomplete.');
     }
+    const revision = phWaterRevision(receipt);
+    if (revision < state.revision) return;
     const rows = Object.fromEntries(receipt.rows.map(row => [row.block_code,row]));
     const membership = phWaterActiveKeys(state.blockWaterStatus) !== phWaterActiveKeys(rows);
+    const dispatch = revision > state.revision || membership;
     state.blockWaterStatus = rows;
     state.today = receipt.today;
     state.canEdit = receipt.can_edit === true;
-    state.revision = Number(receipt.revision) || 0;
+    state.hiddenCounts = receipt.wet_hidden || {};
+    state.revision = revision;
     state.fetchedAt = Date.now();
     state.error = '';
-    publishPhWaterChange(state,membership);
+    publishPhWaterChange(state,membership,dispatch);
 }
 
 function refreshPhWaterStatus(state = currentPhWaterState(),force = false) {
-    if (!state || state.pending || document.hidden || navigator.onLine === false) return Promise.resolve();
+    if (!state || state.pending.size || document.hidden || navigator.onLine === false) return Promise.resolve();
     if (state.reading) return state.reading;
     if (!force && (Date.now()-state.fetchedAt < 15000 || Date.now() < state.retryAt)) return Promise.resolve();
-    const version = state.version;
+    const revision = state.revision;
     state.reading = requestPhPlaceReceipt(PH_WATER_READ).then(receipt => {
-        if (currentPhWaterState() !== state || version !== state.version || state.pending) return;
+        if (currentPhWaterState() !== state || revision !== state.revision || state.pending.size) return;
+        applyPhWaterReceipt(state,receipt);
         state.failures = 0;
         state.retryAt = 0;
-        applyPhWaterReceipt(state,receipt);
     }).catch(error => {
         state.error = error.message || 'Water status could not load.';
         state.failures = Math.min(3,state.failures+1);
@@ -124,7 +137,7 @@ function syncPhWaterRefresh() {
         phWaterRealtimeRegistered = true;
         subscribeBatteryRealtime('ph-water',receivePhWaterRevisions);
     }
-    const inFlight = state.reading || state.pending;
+    const inFlight = state.reading || state.pending.size;
     const backoff = Date.now() < state.retryAt;
     if (!inFlight && !backoff) void refreshPhWaterStatus(state,state.targetRevision>state.revision);
     phWaterTimer = window.setTimeout(syncPhWaterRefresh,15000);
@@ -142,45 +155,72 @@ function optimisticPhWaterRow(row,command) {
         active_requested_minutes:command.on ? slot?.requested_minutes : null};
 }
 
-function phWaterReceiptMatches(receipt,block,command) {
-    const row = receipt.rows?.find(entry => entry.block_code === block);
-    if (!row || receipt.block_code !== block) return false;
-    return Object.hasOwn(command,'on') ? row.is_water_on === command.on
-        : row.probed_at === receipt.probed_at && row.schedule_date === command.date && row.requested_minutes === command.minutes;
+function phWaterCommandRows(receipt,prior,command) {
+    if (prior.size===1 && receipt.block_code!==prior.keys().next().value) throw Error('Water receipt did not match this block.');
+    const matched = new Map();
+    for (const row of receipt.rows || []) {
+        if (!prior.has(row.block_code)) continue;
+        const valid = Object.hasOwn(command,'on') ? row.is_water_on===command.on
+            : row.probed_at===receipt.probed_at && row.schedule_date===command.date && row.requested_minutes===command.minutes;
+        if (!valid || matched.has(row.block_code)) throw Error('Water receipt did not match the requested state.');
+        matched.set(row.block_code,row);
+    }
+    if (matched.size!==prior.size) throw Error('Water receipt was incomplete.');
+    return matched;
 }
 
-async function submitPhWaterCommand(command) {
-    const state = currentPhWaterState();
-    const block = parseCanonicalBlockKey(command.location)?.block_code;
-    const row = state?.blockWaterStatus[block];
-    if (!state?.canEdit || state.pending || !row) return false;
-    const toggle = Object.hasOwn(command,'on');
-    const input = {p_locationcode:command.location};
-    Object.assign(input,toggle ? {p_water_on:command.on,p_expected_at:row.updated_at}
-        : {p_schedule_date:command.date,p_requested_minutes:command.minutes,p_note:command.note});
-    state.pending = block;
+function settlePhWaterRows(state,rows) {
+    let membership = false;
+    for (const [block,row] of rows) {
+        membership ||= state.blockWaterStatus[block].is_water_on !== row.is_water_on;
+        state.blockWaterStatus[block] = row;
+        state.pending.delete(block);
+    }
+    return membership;
+}
+
+async function sendPhWaterCommand(state,prior,command,rpc,input) {
     state.error = '';
-    state.blockWaterStatus[block] = optimisticPhWaterRow(row,{...command,today:state.today});
-    publishPhWaterChange(state,toggle);
+    for (const [block,row] of prior) {
+        state.pending.add(block);
+        state.blockWaterStatus[block] = optimisticPhWaterRow(row,{...command,today:state.today});
+    }
+    publishPhWaterChange(state,Object.hasOwn(command,'on'));
     try {
-        const receipt = await requestPhPlaceReceipt(toggle ? PH_WATER_TOGGLE : PH_WATER_REQUEST,input);
+        const receipt = await requestPhPlaceReceipt(rpc,input);
         if (currentPhWaterState() !== state) return false;
-        if (!phWaterReceiptMatches(receipt,block,command)) throw new Error('The Water receipt did not match this block.');
-        state.pending = null;
-        applyPhWaterReceipt(state,receipt);
+        const rows = phWaterCommandRows(receipt,prior,command);
+        const revision = phWaterRevision(receipt);
+        if (revision >= state.revision) state.hiddenCounts = receipt.wet_hidden || {};
+        state.revision = Math.max(state.revision,revision);
+        publishPhWaterChange(state,settlePhWaterRows(state,rows),Object.hasOwn(command,'on'));
         return true;
     } catch (error) {
-        clearPhWaterCommand(state,block,row,error);
+        if (currentPhWaterState() !== state) return false;
+        state.error = error.message || 'Water change was not confirmed.';
+        state.fetchedAt = 0;
+        publishPhWaterChange(state,settlePhWaterRows(state,prior),true);
         return false;
     }
 }
 
-function clearPhWaterCommand(state,block,row,error) {
-    if (currentPhWaterState() !== state) return;
-    const membership = state.blockWaterStatus[block].is_water_on !== row.is_water_on;
-    state.pending = null;
-    state.blockWaterStatus[block] = row;
-    state.error = error.message || 'Water change was not confirmed.';
-    publishPhWaterChange(state,membership);
-    state.fetchedAt = 0;
+function submitPhWaterCommand(command) {
+    const state = currentPhWaterState();
+    const block = parseCanonicalBlockKey(command.location)?.block_code;
+    const row = state?.blockWaterStatus[block];
+    if (!state?.canEdit || state.pending.has(block) || !row) return Promise.resolve(false);
+    const toggle = Object.hasOwn(command,'on');
+    const input = toggle ? {p_water_on:command.on,p_expected_at:row.updated_at}
+        : {p_schedule_date:command.date,p_requested_minutes:command.minutes,p_note:command.note};
+    return sendPhWaterCommand(state,new Map([[block,row]]),command,toggle ? PH_WATER_TOGGLE : PH_WATER_REQUEST,
+        {...input,p_locationcode:block});
+}
+
+function submitPhWaterBatch(blocks,on) {
+    const state = currentPhWaterState();
+    if (!state?.canEdit || !blocks.length || blocks.some(block=>state.pending.has(block))) return Promise.resolve(false);
+    if (blocks.length===1) return submitPhWaterCommand({location:blocks[0],on});
+    const prior = new Map(blocks.map(block=>[block,state.blockWaterStatus[block]]));
+    const changes = [...prior].map(([block,row])=>({block_code:block,is_water_on:on,expected_at:row.updated_at}));
+    return sendPhWaterCommand(state,prior,{on},PH_WATER_BATCH,{p_changes:changes});
 }

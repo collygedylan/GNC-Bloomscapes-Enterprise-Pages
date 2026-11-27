@@ -14,7 +14,7 @@ function phWaterMarkup() {
         +'</div><label>Minutes<input name="minutes" type="number" inputmode="numeric" min="1" max="1440" required></label>'
         +'<label>Soil note<input name="note" maxlength="500"></label>'
         +'<button type="submit">💾 Save Water Request</button></form>'
-        +'<div data-ph-water-cards></div><p role="status" data-ph-water-status></p></section>';
+        +'<div class="ph-water-card-area"><button type="button" data-ph-water-batch hidden></button><div data-ph-water-cards></div></div><p role="status" data-ph-water-status></p></section>';
 }
 
 function phWaterLabel(row) {
@@ -22,17 +22,50 @@ function phWaterLabel(row) {
     return 'Block '+row.block_code;
 }
 
-function phWaterCard(row,state) {
-    const active = row.is_water_on;
-    const requests = row.requests || [];
-    const control = state.canEdit ? '<button type="button" data-ph-water-toggle="'+escapeHtml(row.block_code)+'"'
-        +(state.pending ? ' disabled' : '')+'>'+(active ? '⏹ Turn Water OFF' : '💧 Turn Water ON')+'</button>' : '';
-    const badge = active ? '<strong data-ph-water-clock="'+escapeHtml(row.block_code)+'"></strong>' : '';
-    return '<article data-ph-water-card="'+escapeHtml(row.block_code)+'"><h4>'+phWaterLabel(row)+'</h4>'
-        +badge+requests.map(request => '<p>'+escapeHtml(request.schedule_date)+' · Requested: '+request.requested_minutes
-            +' min · Probed by '+escapeHtml(request.probed_by || '')+'</p>'
-            +(request.prober_note ? '<p>'+escapeHtml(request.prober_note)+'</p>' : '')).join('')
-        +control+'</article>';
+function phWaterRequestMarkup(row) {
+    return (row.requests || []).map(request => '<p>'+escapeHtml(request.schedule_date)+' · Requested: '+request.requested_minutes
+        +' min · Probed by '+escapeHtml(request.probed_by || '')+'</p>'
+        +(request.prober_note ? '<p>'+escapeHtml(request.prober_note)+'</p>' : '')).join('');
+}
+
+function newPhWaterCard(row) {
+    const node = document.createElement('article');
+    node.dataset.phWaterCard = row.block_code;
+    node.innerHTML = '<h4>'+escapeHtml(phWaterLabel(row))+'</h4><strong data-ph-water-clock="'+escapeHtml(row.block_code)
+        +'" hidden></strong><div data-ph-water-requests></div><button type="button" data-ph-water-toggle="'
+        +escapeHtml(row.block_code)+'"></button>';
+    return {node,row:null};
+}
+
+function updatePhWaterCard(card,row,state) {
+    const busy = state.pending.has(row.block_code);
+    if (card.row===row && card.busy===busy && card.edit===state.canEdit) return;
+    card.busy = busy;
+    card.edit = state.canEdit;
+    const button = card.node.querySelector('button');
+    button.hidden = !state.canEdit;
+    button.disabled = busy;
+    if (card.row === row) return;
+    button.textContent = row.is_water_on ? '\u23f9 Turn Water OFF' : '💧 Turn Water ON';
+    card.node.querySelector('[data-ph-water-clock]').hidden = !row.is_water_on;
+    if (card.row?.requests !== row.requests) card.node.querySelector('[data-ph-water-requests]').innerHTML = phWaterRequestMarkup(row);
+    card.row = row;
+}
+
+function paintPhWaterCards(panel,matches,state) {
+    const host = panel.root.querySelector('[data-ph-water-cards]');
+    const keep = new Set(matches.map(row=>row.block_code));
+    for (const [code,{node}] of panel.cards) {
+        if (keep.has(code)) continue;
+        node.remove();
+        panel.cards.delete(code);
+    }
+    for (const [i,row] of matches.entries()) {
+        const card = panel.cards.get(row.block_code) || newPhWaterCard(row);
+        panel.cards.set(row.block_code,card);
+        updatePhWaterCard(card,row,state);
+        if (host.children[i] !== card.node) host.insertBefore(card.node,host.children[i] || null);
+    }
 }
 
 function paintPhWaterClocks(root,state) {
@@ -47,13 +80,13 @@ function paintPhWaterClocks(root,state) {
     }
 }
 
-function phWaterViewRows(rows,view,query) {
+function phWaterViewRows(rows,view,query,panel,state) {
     const key = parseCanonicalBlockKey(query)?.block_code;
     const term = String(query || '').trim().toUpperCase();
     return rows.filter(row => (
         view === 'all' || row.is_water_on || view === 'schedule' && row.requests?.length
-    ) && (!term || (key ? row.block_code === key : row.block_code.includes(term) || phWaterLabel(row).toUpperCase().includes(term))))
-        .sort((a,b) => Number(b.is_water_on)-Number(a.is_water_on));
+        || panel.cards.has(row.block_code) && state.pending.has(row.block_code)
+    ) && (!term || (key ? row.block_code === key : row.block_code.includes(term) || phWaterLabel(row).toUpperCase().includes(term))));
 }
 
 function paintPhWaterPanel(panel) {
@@ -71,13 +104,29 @@ function paintPhWaterPanel(panel) {
         button.setAttribute('aria-pressed',String(panel.view === key));
     }
     form.hidden = panel.view !== 'request';
-    form.querySelector('[type="submit"]').disabled = !state.canEdit || Boolean(state.pending);
-    root.querySelector('datalist').innerHTML = rows.map(row => '<option value="'+escapeHtml(row.block_code)+'"></option>').join('');
-    const matches = form.hidden ? phWaterViewRows(rows,panel.view,search.value) : [];
-    root.querySelector('[data-ph-water-cards]').innerHTML = matches.map(row => phWaterCard(row,state)).join('');
+    form.querySelector('[type="submit"]').disabled = !state.canEdit || state.pending.size > 0;
+    if (panel.catalogSize !== rows.length) {
+        root.querySelector('datalist').innerHTML = rows.map(row=>'<option value="'+escapeHtml(row.block_code)+'"></option>').join('');
+        panel.catalogSize = rows.length;
+    }
+    const matches = form.hidden ? phWaterViewRows(rows,panel.view,search.value,panel,state) : [];
+    paintPhWaterCards(panel,matches,state);
+    paintPhWaterBatch(panel,rows,state,matches.length);
     root.querySelector('[data-ph-water-status]').textContent = state.error || (!state.today ? 'Loading Park Hill Water…'
-        : state.pending ? 'Saving…' : form.hidden && !matches.length ? 'No matching blocks.' : panel.message || '');
+        : state.pending.size ? 'Saving…' : form.hidden && !matches.length ? 'No matching blocks.' : panel.message || '');
     paintPhWaterClocks(root,state);
+}
+
+function paintPhWaterBatch(panel,rows,state,count) {
+    const button = panel.root.querySelector('[data-ph-water-batch]');
+    const on = panel.view === 'schedule';
+    const activeTab = panel.view === 'active';
+    panel.batch = rows.filter(row=>on ? !row.is_water_on && row.requests?.length : row.is_water_on)
+        .map(row=>row.block_code);
+    button.hidden = !state.canEdit || (!on && !activeTab) || !panel.batch.length;
+    button.disabled = panel.batch.some(block=>state.pending.has(block));
+    button.classList.toggle('ph-water-batch-floating',count>0);
+    button.textContent = on ? '💧 Turn All Scheduled ON' : '\u23f9 Turn All Active OFF';
 }
 
 function startPhWaterClock(panel) {
@@ -129,6 +178,7 @@ function clickPhWater(panel,event) {
         panel.message = '';
         paintPhWaterPanel(panel);
     }
+    if (Object.hasOwn(target.dataset,'phWaterBatch')) void submitPhWaterBatch(panel.batch,panel.view==='schedule');
     if (phWaterToggle) {
         const state = currentPhWaterState();
         if (state?.owner !== panel.owner) return;
@@ -144,7 +194,7 @@ function mountPhProductionWater(host) {
     const root = host.firstElementChild;
     const form = root.querySelector('form');
     const search = root.querySelector('[data-ph-water-search]');
-    const panel = {root,form,search,owner:state.owner,view:'request',message:'',clock:null};
+    const panel = {root,form,search,owner:state.owner,view:'request',message:'',clock:null,cards:new Map()};
     root.onclick = event => clickPhWater(panel,event);
     form.onsubmit = event => void savePhProberRequest(panel,event);
     form.elements.location.oninput = () => phWaterFormKey(form);
@@ -167,33 +217,5 @@ function mountPhProductionWater(host) {
     paintPhWaterPanel(panel);
     if (typeof syncGlobalHeaderChrome === 'function') syncGlobalHeaderChrome({reason:'park-hill-water',force:true});
     startClock();
-    syncPhWaterRefresh();
-}
-
-let stopPhWorkWater;
-function phWorkDryRows(state) {
-    const water = currentPhWaterState();
-    const rows = state.snapshot.rows.filter(row => !isTagHiddenByActiveWater(row,water));
-    const paused = state.root.querySelector('[data-ph-wet-paused]');
-    const count = state.snapshot.rows.length-rows.length;
-    if (paused) {
-        paused.hidden = !count;
-        paused.textContent = '💧 Wet-Block Paused: '+count;
-    }
-    return rows;
-}
-
-function watchPhWorkWater(state) {
-    stopPhWorkWater?.();
-    const mounted = new WeakRef(state);
-    stopPhWorkWater = observePhWaterUpdates(() => {
-        const current = mounted.deref();
-        if (!current?.root.isConnected) return stopPhWorkWater();
-        if (!phWorkScopeIsCurrent(current)) return;
-        const allowed = new Set(phWorkDryRows(current).map(row => row.pull_tag_id));
-        current.selected = new Set([...current.selected].filter(tag => allowed.has(tag)));
-        paintPhWorkRows(current,phWorkVisibleRows(current));
-        paintPhWorkSelection(current);
-    });
     syncPhWaterRefresh();
 }

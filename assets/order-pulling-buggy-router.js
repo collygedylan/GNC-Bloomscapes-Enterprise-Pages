@@ -161,7 +161,7 @@ function orderPullRows(receipt, mode, query, honorWater = true) {
     const terms = String(query || '').trim().toLowerCase().split(/\s+/);
     const water = honorWater && typeof visiblePhWaterStatus === 'function' && visiblePhWaterStatus();
     return (receipt?.rows || []).filter(row => {
-        if (water && isTagHiddenByActiveWater(row,water)) return false;
+        if (water && phShippingTagPaused(row,water)) return false;
         if (mode === 'buggy' && (!receipt.buggy || row.buggy_id !== receipt.buggy.buggy_id)) return false;
         const search = [row.common_name,row.itemcode,row.container_size,row.locationcode,row.lotcode,row.dock,
             row.stopnumber,row.tripnumber,row.dock_status,row.consignee].join(' ').toLowerCase();

@@ -167,6 +167,9 @@ function redrawPhShippingView() {
     if (state.tab !== 'loads') return;
     const selected = state.teamOnly ? loads[0] : loads.find(load=>load.id === state.selected);
     const header = root.querySelector('[data-shipping-header]');
+    const wet = root.querySelector('[data-ph-shipping-wet]');
+    const water = state.manager && typeof visiblePhWaterStatus === 'function' && visiblePhWaterStatus();
+    wet.textContent = water ? phShippingWetSummary(state.receipt?.rows || [],water) : '';
     header.replaceChildren();
     const hasRows = selected ? paintPhShippingStops(root,state,selected) : paintPhShippingBoard(root,state,loads);
     root.querySelector('[data-shipping-status]').textContent = phShippingStatus(state,hasRows);
@@ -190,6 +193,14 @@ async function runPhShippingCommand(state,action,input = {}) {
         state.pending = null;
         if (phShippingIsCurrent(state)) redrawPhShippingView();
     }
+}
+
+async function refreshPhShippingAfterWater(revision) {
+    const state = currentPhShippingState();
+    if (!state || !phShippingIsCurrent(state) || state.tab !== 'loads' || (state.waterRevision ?? -1) >= revision) return;
+    state.waterRevision = revision;
+    if (state.pending) await state.pending.catch(()=>{});
+    if (phShippingIsCurrent(state) && state.waterRevision===revision) await runPhShippingCommand(state,'list');
 }
 
 function changePhShippingTab(root,state,tab) {
@@ -233,7 +244,7 @@ function mountPhShippingShell(root,state) {
     root.innerHTML = '<nav data-shipping-tools aria-label="Shipping views"></nav><div data-shipping-filters hidden>'
         +'<label>Filter loads and stops <input type="search" data-shipping-filter placeholder="Unit, crew, plant, location or dock"></label></div>'
         +'<div data-shipping-scroll><section data-shipping-board><div data-shipping-header></div><div data-suspend-pull-preview hidden></div>'
-        +'<p data-shipping-status role="status"></p><div data-shipping-list></div></section><section data-shipping-panel></section></div>';
+        +'<output data-ph-shipping-wet></output><p data-shipping-status role="status"></p><div data-shipping-list></div></section><section data-shipping-panel></section></div>';
     root.onclick = event=>handlePhShippingClick(root,state,event);
     root.querySelector('[data-shipping-filter]').oninput = event=>{
         if (!phShippingIsCurrent(state)) return;

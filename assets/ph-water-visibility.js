@@ -6,7 +6,9 @@ function parseCanonicalBlockKey(locationcode) {
     if (!forward && !reverse) return null;
     const alpha = forward?.[1] ?? reverse[2];
     const number = Number(forward?.[2] ?? reverse[1]);
-    return {block_alpha:alpha,block_number:number,block_code:alpha === 'PROP' && number === 0 ? 'PROP' : alpha+'.'+number};
+    if (number > 34) return null;
+    const block = String(number).padStart(2,'0');
+    return {block_alpha:alpha,block_number:number,block_code:alpha === 'PROP' && number === 0 ? 'PROP' : alpha+'.'+block};
 }
 
 function phWaterTagDisposition(tag, state) {
@@ -37,4 +39,23 @@ function phWaterElapsed(row, now) {
 
 function phWetTagBadgeHtml() {
     return '<strong class="ph-water-override">💧 WATER ON · 🚨 LIVE DRIVER OVERRIDE</strong>';
+}
+
+function phShippingTagPaused(row,water) {
+    return row.pull_status !== 'on_buggy' && isTagHiddenByActiveWater(row,water);
+}
+
+function phShippingWetSummary(rows,water) {
+    const counts = new Map(Object.entries(water.hiddenCounts || {}).filter(([block,n])=>
+        water.blockWaterStatus[block]?.is_water_on && Number.isInteger(n) && n>0));
+    const visible = new Map();
+    for (const row of rows) {
+        if (!phShippingTagPaused(row,water)) continue;
+        const block = parseCanonicalBlockKey(row.locationcode ?? row.LOCATIONCODE).block_code;
+        visible.set(block,(visible.get(block) || 0)+1);
+    }
+    for (const [block,n] of visible) counts.set(block,Math.max(counts.get(block) || 0,n));
+    if (!counts.size) return '';
+    const total = [...counts.values()].reduce((sum,n)=>sum+n,0);
+    return '💧 Wet-Block Hidden: '+total+' ('+[...counts.keys()].sort().join(', ')+')';
 }

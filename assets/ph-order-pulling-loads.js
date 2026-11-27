@@ -27,12 +27,15 @@ function phShippingGroupEntries(rows) {
 function phShippingLoad(receipt,id,rows,unloads) {
     const route = receipt.load_routes?.[id] || {};
     const manifest = route.load_manifest || receipt.rows.filter(row=>row.buggy_id === id);
-    const estimate = phEstimateBuggyLoad(manifest,{origin:route.load_origin,hasPartner:route.has_partner ?? Boolean(receipt.partner)});
-    const stops = estimate?.rows || phSortPullStops(manifest);
+    const water = typeof visiblePhWaterStatus === 'function' && visiblePhWaterStatus();
+    const hidden = new Set(receipt.rows.filter(row=>row.buggy_id===id && water && phShippingTagPaused(row,water)).map(row=>row.pull_tag_id));
+    const visibleManifest = hidden.size ? manifest.filter(row=>!hidden.has(row.pull_tag_id)) : manifest;
+    const estimate = phEstimateBuggyLoad(visibleManifest,{origin:route.load_origin,hasPartner:route.has_partner ?? Boolean(receipt.partner)});
+    const stops = estimate?.rows || phSortPullStops(visibleManifest);
     const positions = new Map(stops.map((r,i)=>[r.pull_tag_id,i+1]));
     const dropRank = r => unloads.get(JSON.stringify([r.dock,r.stopnumber])) ?? Number.MAX_SAFE_INTEGER;
     const sorted = [...rows].sort((a,b)=>dropRank(a)-dropRank(b) || positions.get(a.pull_tag_id)-positions.get(b.pull_tag_id));
-    return {id,route,manifest,estimate,positions,rows:sorted};
+    return {id,route,manifest:visibleManifest,estimate,positions,rows:sorted};
 }
 
 function phShippingLoads(receipt,rows) {
@@ -65,4 +68,32 @@ function phPullLoadWindow(load,rows,mount,state) {
         const cards = section.querySelectorAll('[data-order-pull-tag]');
         items.forEach((entry,index)=>decoratePhShippingStop(cards[index],entry,state,activeScan));
     }};
+}
+
+let stopPhWorkWater;
+function phWorkDryRows(state) {
+    const water = currentPhWaterState();
+    const rows = state.snapshot.rows.filter(row => !isTagHiddenByActiveWater(row,water));
+    const paused = state.root.querySelector('[data-ph-wet-paused]');
+    const count = state.snapshot.rows.length-rows.length;
+    if (paused) {
+        paused.hidden = !count;
+        paused.textContent = '💧 Wet-Block Paused: '+count;
+    }
+    return rows;
+}
+
+function watchPhWorkWater(state) {
+    stopPhWorkWater?.();
+    const mounted = new WeakRef(state);
+    stopPhWorkWater = observePhWaterUpdates(() => {
+        const current = mounted.deref();
+        if (!current?.root.isConnected) return stopPhWorkWater();
+        if (!phWorkScopeIsCurrent(current)) return;
+        const allowed = new Set(phWorkDryRows(current).map(row => row.pull_tag_id));
+        current.selected = new Set([...current.selected].filter(tag => allowed.has(tag)));
+        paintPhWorkRows(current,phWorkVisibleRows(current));
+        paintPhWorkSelection(current);
+    });
+    syncPhWaterRefresh();
 }

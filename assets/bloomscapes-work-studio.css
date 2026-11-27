@@ -247,6 +247,17 @@ html body.current-view-production #app-wrapper #view-wrapper:has(> #view-product
 @keyframes ph-water-reminder { to { color: #fff6d3; background: #74501d; } }
 @media (prefers-reduced-motion: reduce) { .ph-water-time-up { animation: none; } }
 
+.ph-water-card-area { position: relative; }
+[data-ph-water-batch].ph-water-batch-floating {
+    position: absolute;
+    top: .2rem;
+    right: .3rem;
+    padding: .1rem .3rem;
+    font-size: .7rem;
+}
+.ph-water-card-area:has(.ph-water-batch-floating:not([hidden])) article:first-child h4 { padding-right: 9rem; }
+[data-ph-water-requests]:empty { display: none; }
+
 html body #app-wrapper #main-scroll-area:has(#view-shipping:not(.hidden)) {
     flex:1 1 auto; min-height:0; overflow-y:auto!important; -webkit-overflow-scrolling:touch;
     padding-bottom:calc(88px + env(safe-area-inset-bottom, 0px))!important;
@@ -312,3 +323,11 @@ html body #app-wrapper #view-shipping:not(.hidden) {
     #view-shipping [data-shipping-tools] button {flex:0 0 auto;padding-inline:16px}
     #view-shipping [data-shipping-list]:has(> [data-shipping-load]) {grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
 }
+
+#view-shipping [data-ph-shipping-wet]:not(:empty) {
+    display: block;
+    color: #b5ebd1;
+    font-size: .72rem;
+    line-height: 17px;
+}
+#view-shipping [data-ph-shipping-wet]:empty { display: none; }
