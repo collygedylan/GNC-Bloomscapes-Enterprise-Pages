@@ -411,8 +411,6 @@ export async function renderBunchNoteReportsPdf(reports, preparedBy, preparedAt 
   return result;
 }
 
-export { chicagoTimestamp, isPresent };
-
 /** Shared browser/Edge renderer for reviewed nursery location sheets. */
 export async function buildBunchNotesBlockPdfDocument(locationCode, cards, blockMetrics = {}, approvedBy = 'dylan_collyge', preparedAt = new Date()) {
   if (!/^[A-L]\.\d{2}\.\d{3}$/.test(locationCode) || !Array.isArray(cards) || !cards.length || cards.length > 1500) throw new Error('BUNCH_BLOCK_PDF_INVALID');
