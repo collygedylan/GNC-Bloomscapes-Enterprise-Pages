@@ -76,7 +76,8 @@ function mountBloomscapesDockShell(doc) {
 <div id="docks-crumb" class="bloomscapes-dock-crumb">Select a Dock</div>
 </div>
 <div id="docks-content"></div>`;
-    root.insertAdjacentHTML('beforebegin',`<div id="view-pull-tags" class="hidden" aria-label="Pull Tags"></div>
+    root.insertAdjacentHTML('beforebegin',`<div id="view-shipping" class="hidden" aria-label="Shipping"></div>
+<div id="view-pull-tags" class="hidden" aria-label="Pull Tags"></div>
 <div id="view-borrowed-work" class="hidden" aria-label="Borrowed Work"></div>
 <div id="view-mistake-fix" class="hidden" aria-label="Mistake Fix"></div>
 <div id="view-traffic-office" class="hidden" aria-label="Traffic Office"></div>`);
@@ -85,6 +86,8 @@ function mountBloomscapesDockShell(doc) {
 function mountBloomscapesDockDrawerLinks(drawer) {
     const menu=drawer?.querySelector('#drawer-docks-btn');
     if (!menu || drawer.querySelector('[data-drawer-view="time-cards"]')) return;
+    const areas = drawer.querySelector('[data-drawer-business-areas]');
+    if (areas) areas.insertAdjacentHTML('beforebegin',`<button id="drawer-shipping-btn" type="button" class="drawer-item" data-drawer-view="shipping" hidden onclick="return openDrawerView('shipping')"><i class="ph-duotone ph-truck-trailer" aria-hidden="true"></i> Shipping</button>`);
     menu.insertAdjacentHTML('beforebegin',`<button type="button" class="drawer-item hidden" hidden data-drawer-view="pull-tags" onclick="return openDrawerView('pull-tags')">Pull Tags</button>
 <button type="button" class="drawer-item hidden" hidden data-drawer-view="time-cards" onclick="return openDrawerView('time-cards')">Time Cards</button>
 <button type="button" class="drawer-item hidden" hidden data-drawer-view="borrowed-work" onclick="return openDrawerView('borrowed-work')">Borrowed Work</button>

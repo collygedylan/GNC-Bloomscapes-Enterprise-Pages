@@ -39,11 +39,10 @@ function publishPhWaterChange(state, membership = false) {
     if (currentPhWaterState() !== state) return;
     if (membership) state.version++;
     phWaterEvents.dispatchEvent(new Event('change'));
-    if (!membership || getCurrentVisibleViewId() !== 'request') return;
-    if (isOrderPullQueueActive()) {
-        redrawOrderPullQueue(orderPullState());
-        syncQueActiveCategory();
-    } else if (activeReqTab === 'suspend-tag') renderRequest();
+    if (!membership) return;
+    const view = getCurrentVisibleViewId();
+    if (view === 'shipping') redrawPhShippingView();
+    if (view === 'request' && activeReqTab === 'suspend-tag') renderRequest();
 }
 
 function observePhWaterUpdates(callback) {
@@ -91,7 +90,8 @@ function refreshPhWaterStatus(state = currentPhWaterState(),force = false) {
 
 function phWaterSurfaceOpen() {
     const view = getCurrentVisibleViewId();
-    if (view === 'request') return activeReqTab === 'suspend-tag' || isOrderPullQueueActive();
+    if (view === 'shipping') return canOpenPhShipping();
+    if (view === 'request') return activeReqTab === 'suspend-tag';
     return view === 'production' && Boolean(document.querySelector('[data-ph-water],[data-ph-pull-work]'));
 }
 

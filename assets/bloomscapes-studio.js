@@ -66,7 +66,7 @@ function phWorkTeamCard(team) {
     const id = esc(team.team_id);
     return '<article class="rounded-lg border border-emerald-700 p-3 space-y-2">'
         +'<strong>Unit '+esc(team.unit_number)+' · '+esc(team.puller_primary)
-        +(team.puller_helper ? ' + '+esc(team.puller_helper) : '')+'</strong>'
+        +(team.puller_helper ? ' + '+esc(team.puller_helper) : '')+'</strong><p>'+(team.batch_open ? 'Active load' : 'Standby / Ready')+'</p>'
         +'<div class="flex flex-wrap gap-2">'
         +'<button type="button" class="'+phWorkButtonClass+'" data-ph-action="edit" data-team-id="'+id+'">Change Unit / Partner</button>'
         +'<button type="button" class="'+phWorkButtonClass+'" data-ph-action="release" data-team-id="'+id+'">Release</button>'
@@ -171,8 +171,6 @@ function renderBloomscapesWorkStudio() {
             +(description ? '<span>'+esc(description)+'</span>' : '')+'</button>').join('')
         +(typeof canCreateBloomscapesTreeGrading==='function' && canCreateBloomscapesTreeGrading()
             ? '<button type="button" data-open-module="tree-grading"><strong>Tree Grading</strong></button>' : '')
-        +(typeof canBuildPhOrderPullWork==='function' && canBuildPhOrderPullWork()
-            ? '<button type="button" data-open-module="ph-pull-work"><strong>Build Work Que</strong></button>' : '')
         +(typeof phWaterMayOpen==='function' && phWaterMayOpen()
             ? '<button type="button" data-open-module="water"><strong>💧 Water</strong></button>' : '')
         +'</nav><div data-studio-module></div></section>';
@@ -198,27 +196,17 @@ function mountBloomscapesWorkStudio(host) {
     if (entry) menu.querySelector('[data-open-module="'+entry+'"]')?.click();
 }
 
-function syncPhBuildWorkVisibility(root = document) {
-    const available = canBuildPhOrderPullWork();
-    const button = root.querySelector('[data-open-module="ph-pull-work"]');
-    if (button) button.hidden = !available;
-    const opened = root.querySelector('[data-studio-phase="ph-pull-work"]');
-    if (opened && !available) opened.querySelector('[data-module-back]')?.click();
-}
-
 async function openBloomscapesStudioModule(menu,panel,key) {
     if (!canUseBloomscapesWorkStudio()) return;
-    if (key==='ph-pull-work' && !canBuildPhOrderPullWork()) return;
     if (key==='water' && !phWaterMayOpen()) return;
     panel.dataset.studioPhase=key;
     menu.hidden=true;
-    const titles = {'tree-grading':'Tree Grading','ph-pull-work':'Build Work Que',water:'Water'};
+    const titles = {'tree-grading':'Tree Grading',water:'Water'};
     const title = titles[key] || BLOOMSCAPES_STUDIO_PHASES.find(([id])=>id===key)[1];
     panel.innerHTML='<header class="studio-breadcrumb"><button type="button" data-module-back>← Work Types</button><h3>'+title+'</h3><span data-module-summary></span></header><div data-module-body></div>';
     const body=panel.querySelector('[data-module-body]');
     panel.querySelector('[data-module-back]').addEventListener('click',()=>{panel.replaceChildren();delete panel.dataset.studioPhase;menu.hidden=false;syncGlobalHeaderChrome({reason:'studio-modules',force:true});});
     if (key==='tree-grading') return mountBloomscapesTreeGrading(body);
-    if (key==='ph-pull-work') return mountPhBuildWorkOrderPulling(body);
     if (key==='water') return mountPhProductionWater(body);
     body.appendChild(document.createElement('div')).dataset.studioExcel='true';
     const browser=body.appendChild(document.createElement('section'));
@@ -311,11 +299,6 @@ const bloomscapesProductionHub=`<div class="freeze-panel">
         <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-[#007a4d]"><i class="ph-bold ph-potted-plant text-2xl"></i></div>
         <div class="text-lg font-black text-slate-900">Planting</div>
         <div class="mt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">Planting workflow</div>
-    </button>
-    <button type="button" id="production-open-order-pulling" class="rounded-2xl border border-emerald-100 bg-white p-4 text-left shadow-sm active:scale-[0.99]" onclick="return openProductionWorkflow('order-pulling')">
-        <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-[#007a4d]"><i class="ph-bold ph-package text-2xl"></i></div>
-        <div class="text-lg font-black text-slate-900">Order Pulling</div>
-        <div class="mt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">Pulling queues</div>
     </button>
     <button type="button" id="production-open-weather-hold" class="rounded-2xl border border-sky-100 bg-white p-4 text-left shadow-sm active:scale-[0.99]" onclick="return switchView('weather-hold')">
         <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-50 text-sky-700"><i class="ph-bold ph-cloud-sun text-2xl"></i></div>

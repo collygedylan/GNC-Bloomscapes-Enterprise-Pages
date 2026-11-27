@@ -94,7 +94,7 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.76';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.77';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
         const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
@@ -23233,7 +23233,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.76';
+        const APP_VERSION = '3.1.77';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -55251,7 +55251,7 @@ function toggleDriveQuickRequestItem(domId) {
             if (canAccessView(target)) switchView(target);
         }
 
-        const TRACKED_VIEW_IDS = ['messages','push-to-talk','time-cards','borrowed-work','pull-tags','mistake-fix','traffic-office','bunch-note','drive','tasks','review','move-up','advertisement','grower','pest-management','communication','department-calendar','sales','smart-moves','request-sales-impact','historical-requests','request-history','sales-credit','credit-request','managers','qc','production','production-workflow','weather-hold','shear-list','sales-inventory','inventory-suggestion','inv-consolidation','disease-pest','office','po-management','sales-office','moves','reports','low-stock','docks','hl-order','take-back','request','chat','reserves','av','hours'];
+        const TRACKED_VIEW_IDS = ['shipping','messages','push-to-talk','time-cards','borrowed-work','pull-tags','mistake-fix','traffic-office','bunch-note','drive','tasks','review','move-up','advertisement','grower','pest-management','communication','department-calendar','sales','smart-moves','request-sales-impact','historical-requests','request-history','sales-credit','credit-request','managers','qc','production','production-workflow','weather-hold','shear-list','sales-inventory','inventory-suggestion','inv-consolidation','disease-pest','office','po-management','sales-office','moves','reports','low-stock','docks','hl-order','take-back','request','chat','reserves','av','hours'];
 
         function getAffectedViewsForDatasets(changedKeys = []) {
             const changedSet = new Set((changedKeys || []).filter(Boolean));
@@ -61225,12 +61225,6 @@ function toggleDriveQuickRequestItem(domId) {
                 eyebrow: 'Can fill runs',
                 icon: 'ph-cylinder',
                 empty: 'No active can filling rows yet.'
-            },
-            'order-pulling': {
-                title: 'Order Pulling',
-                eyebrow: 'Pulling queues',
-                icon: 'ph-package',
-                empty: 'No active order pulling rows yet.'
             }
         };
 
@@ -62726,7 +62720,6 @@ function toggleDriveQuickRequestItem(domId) {
                 setHubButtonVisibility('production-open-propagation', canAccessView('production')),
                 setHubButtonVisibility('production-open-planting', canAccessView('production')),
                 setHubButtonVisibility('production-open-can-filling', canAccessView('production')),
-                setHubButtonVisibility('production-open-order-pulling', canAccessView('production')),
                 setHubButtonVisibility('production-open-shear-list', canAccessView('shear-list')),
                 setHubButtonVisibility('production-open-weather-hold', canAccessView('weather-hold'))
             ].filter(Boolean).length;
@@ -112702,7 +112695,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
 /* @runtime-fragment assets/bloomscapes-load-maximizer-transport.js */
 /* @runtime-fragment assets/bloomscapes-load-maximizer.js */
 /* @runtime-fragment assets/bloomscapes-docks-compact.js */
-/* @runtime-fragment assets/ph-nursery-routing-data.js */ /* @runtime-fragment assets/order-pulling-buggy-router.js */ /* @runtime-fragment assets/ph-buggy-load-optimizer.js */ /* @runtime-fragment assets/bloomscapes-order-pull-transport.js */ /* @runtime-fragment assets/ph-order-pulling-loads.js */ /* @runtime-fragment assets/que-order-pulling-view.js */ /* @runtime-fragment assets/ph-build-work-order-pulling-loads.js */ /* @runtime-fragment assets/ph-build-work-order-pulling.js */ /* @runtime-fragment assets/dock-pipeline-model.js */ /* @runtime-fragment assets/bloomscapes-docks-pipeline-transport.js */ /* @runtime-fragment assets/bloomscapes-docks-pipeline-render.js */ /* @runtime-fragment assets/bloomscapes-docks-pipeline.js */ /* @runtime-fragment assets/bloomscapes-docks-browse.js */
+/* @runtime-fragment assets/ph-nursery-routing-data.js */ /* @runtime-fragment assets/order-pulling-buggy-router.js */ /* @runtime-fragment assets/ph-buggy-load-optimizer.js */ /* @runtime-fragment assets/bloomscapes-order-pull-transport.js */ /* @runtime-fragment assets/ph-order-pulling-loads.js */ /* @runtime-fragment assets/ph-shipping-view.js */ /* @runtime-fragment assets/ph-build-work-order-pulling-loads.js */ /* @runtime-fragment assets/ph-build-work-order-pulling.js */ /* @runtime-fragment assets/dock-pipeline-model.js */ /* @runtime-fragment assets/bloomscapes-docks-pipeline-transport.js */ /* @runtime-fragment assets/bloomscapes-docks-pipeline-render.js */ /* @runtime-fragment assets/bloomscapes-docks-pipeline.js */ /* @runtime-fragment assets/bloomscapes-docks-browse.js */
 /* @runtime-fragment assets/bloomscapes-dock-controls.js */ /* @runtime-fragment assets/bloomscapes-workflows.js */ /* @runtime-fragment assets/bloomscapes-vault-filter.js */
         /* @runtime-fragment assets/bloomscapes-farm-dialog.js */
         /* @runtime-fragment assets/bloomscapes-owner-command.js */

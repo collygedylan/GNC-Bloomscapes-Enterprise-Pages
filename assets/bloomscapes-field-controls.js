@@ -5,8 +5,7 @@ function renderBloomscapesFieldExtras(item,tab,row) {
 
 function resetBloomscapesFarmNavigation() {
     if (typeof restoreBloomscapesStaticBodiesForScopeReset === 'function') restoreBloomscapesStaticBodiesForScopeReset();
-    if (typeof syncOrderPullFarmScope === 'function') syncOrderPullFarmScope();
-    if (typeof syncPhBuildWorkVisibility === 'function') syncPhBuildWorkVisibility();
+    if (typeof resetPhShippingView === 'function') resetPhShippingView();
     globalThis.dispatchEvent?.(new CustomEvent('bloomscapes-farm-changing'));
     cancelDriveSearchRenderWork();
     resetDriveDrillSelectionState();
@@ -20,6 +19,7 @@ function resetBloomscapesFarmNavigation() {
 
 function renderBloomscapesFarmNavigation() {
     const view = getCurrentVisibleViewId();
+    if (view === 'shipping' && !canOpenPhShipping()) return switchView('home');
     activateBloomscapesDocksWorkspace(view);
     activateBloomscapesBorrowedField(view);
     if (view==='home' && document.getElementById('home-dashboard-grid')?.dataset.bloomscapesHome==='true') {

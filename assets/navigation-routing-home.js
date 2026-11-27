@@ -9,6 +9,7 @@ const BLOOMSCAPES_HOME_MODULES = Object.freeze([
     {view:'production-schedule', label:'Production Schedule', icon:'ph-calendar-check', action:"openBloomscapesAreaManagerView('production-schedule')"},
     {view:'disease-pest', label:'QC', icon:'ph-shield-check', action:"switchView('disease-pest')"},
     {view:'inventory-office', label:'Inventory Office', icon:'ph-buildings', action:'openInventoryOfficeView()'},
+    {view:'shipping', label:'Shipping', icon:'ph-truck-trailer', action:"switchView('shipping')"},
     {view:'docks', label:'Docks', icon:'ph-truck', action:"switchView('docks')"},
     {view:'hl-order', label:'PO Management', icon:'ph-package', action:"openBloomscapesDepartmentModule('hl-order','bloomscapes-replenishment')"},
     {view:'sales', label:'Sales & Marketing Studio', icon:'ph-handshake', action:"switchView('sales')"},

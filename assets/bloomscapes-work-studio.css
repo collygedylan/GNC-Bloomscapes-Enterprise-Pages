@@ -119,8 +119,6 @@ html body [data-bloomscapes-studio] [data-work-source-cards].inventory-block-til
 [data-bloomscapes-studio] [data-open-module] { min-width: 0; text-wrap: pretty; }
 [data-bloomscapes-studio] [data-open-module] span { font-weight: 400; }
 
-ph-order-pulling-loads { display: block; }
-.ph-pull-load-heading { margin-block: .65rem .25rem; color: #edfff4; }
 .ph-load-metrics { display: flex; flex-wrap: wrap; gap: .35rem; margin-block: .35rem; }
 .ph-load-metrics span, .ph-pull-stop, .ph-live-driver {
     display: inline-block; padding: .2rem .55rem; border: 1px solid #65a987;
@@ -128,11 +126,6 @@ ph-order-pulling-loads { display: block; }
 }
 .ph-live-driver { background: #832e32; border-color: #ea8e82; }
 .ph-pull-stop[hidden] { display: none; }
-#view-production:has([data-ph-pull-work]) [data-module-subview-rail] { margin-block-end: .5rem; }
-#view-production:has([data-ph-pull-work]) [data-ph-pull-work] { scroll-margin-block-start: 3rem; }
-html body.current-view-production #app-wrapper #view-wrapper:has(#view-production [data-ph-pull-work]) {
-    overflow: visible !important;
-}
 
 .ph-qr-scan-button, .ph-qr-scan-dialog button {
     padding: .45rem .8rem;
@@ -146,7 +139,7 @@ html body.current-view-production #app-wrapper #view-wrapper:has(#view-productio
 .ph-qr-activity-light { display: inline-block; animation: ph-qr-active-second 1s step-end infinite; }
 @keyframes ph-qr-active-second { 50% { opacity: .68; } }
 @media (prefers-reduced-motion: reduce) {
-    #request-order-pulling .ph-qr-activity-light {
+    #view-shipping .ph-qr-activity-light {
         opacity: 1 !important;
         animation-duration: 1s !important;
         animation-iteration-count: infinite !important;
@@ -246,3 +239,69 @@ html body.current-view-production #app-wrapper #view-wrapper:has(> #view-product
 .ph-water-time-up { animation: ph-water-reminder 1s ease-in-out infinite alternate; }
 @keyframes ph-water-reminder { to { color: #fff6d3; background: #74501d; } }
 @media (prefers-reduced-motion: reduce) { .ph-water-time-up { animation: none; } }
+
+html body #app-wrapper #main-scroll-area:has(#view-shipping:not(.hidden)) {
+    flex:1 1 auto; min-height:0; overflow-y:auto!important; -webkit-overflow-scrolling:touch;
+    padding-bottom:calc(88px + env(safe-area-inset-bottom, 0px))!important;
+}
+html body #app-wrapper #view-wrapper:has(> #view-shipping:not(.hidden)),
+html body #app-wrapper #view-shipping:not(.hidden) {
+    display:block!important; min-height:0!important; height:auto!important; max-height:none!important;
+    overflow:visible!important; padding:0!important; margin:0!important;
+}
+#view-shipping {color:#edf8ee}
+#view-shipping [hidden] {display:none!important}
+#view-shipping [data-shipping-tools] {
+    position:sticky; top:0; z-index:2; display:flex; align-items:center; gap:3px;
+    box-sizing:border-box; width:100%; height:38px; min-height:38px; padding:1px 3px;
+    background:#081c12; overflow-x:auto; scrollbar-width:none;
+}
+#view-shipping [data-shipping-tools] button, #view-shipping [data-shipping-header] button,
+#view-shipping .ph-shipping-stop button {
+    color:#effff3; border:1px solid #46785d; background:#103220; border-radius:.65rem;
+    white-space:nowrap; font-weight:650;
+}
+#view-shipping [data-shipping-tools] button {
+    flex:1 0 auto; padding:0 3px; height:34px; min-height:0; font-size:clamp(10px,2.9vw,13px);
+}
+#view-shipping [data-shipping-tools] [aria-pressed=true] {color:#081c12;background:#b4edc4}
+#view-shipping [data-shipping-list] {display:grid; gap:5px; align-items:start}
+#view-shipping [data-shipping-board] {padding:0 4px}
+#view-shipping [data-shipping-status]:empty {display:none}
+#view-shipping [data-shipping-panel]:empty, #view-shipping [data-shipping-header]:empty {display:none}
+#view-shipping .ph-shipping-summary, #view-shipping .ph-shipping-stop {
+    box-sizing:border-box; text-align:left; width:100%; min-width:0; color:#eefbf2;
+    background:linear-gradient(120deg,#103220,#081c12); border:1px solid #396e4e; border-radius:.65rem;
+}
+#view-shipping .ph-shipping-summary {
+    display:grid; position:relative; grid-template-columns:minmax(0,1fr) auto; gap:2px 5px;
+    align-items:center; padding:6px 22px 6px 8px;
+}
+#view-shipping .ph-shipping-summary b {font-size:15px}
+#view-shipping .ph-shipping-summary span {font-size:12px;overflow-wrap:anywhere}
+#view-shipping .ph-shipping-summary small {grid-column:1/-1;font-size:12px;color:#cee5d7}
+#view-shipping .ph-shipping-summary i {position:absolute;right:6px;top:50%;transform:translateY(-50%);font-size:23px}
+#view-shipping .ph-shipping-wdu {font-weight:800;font-size:14px;color:#d4f6bc}
+#view-shipping .ph-shipping-stop {padding:7px 8px;margin-block:4px}
+#view-shipping .ph-shipping-stop header {display:flex;justify-content:space-between;align-items:start;gap:6px}
+#view-shipping .ph-shipping-stop header > div, #view-shipping [data-ph-stop-qr] {display:grid;gap:1px}
+#view-shipping .ph-shipping-stop header b {font-size:16px;line-height:1.12}
+#view-shipping .ph-shipping-stop header small, #view-shipping .ph-shipping-stop p {font-size:12px}
+#view-shipping .ph-pull-stop {font-size:11px;letter-spacing:.04em;color:#a9e5bd}
+#view-shipping .ph-shipping-tiles {display:grid;grid-template-columns:1fr .87fr 1.16fr;gap:3px;margin-top:5px}
+#view-shipping .ph-shipping-tile {
+    display:flex;flex-flow:column;gap:1px;align-items:start;min-width:0;background:#173e29;
+    border-radius:.42rem;padding:4px 5px;overflow-wrap:anywhere;
+}
+#view-shipping .ph-shipping-tile small {font-size:9px;text-transform:uppercase;font-weight:750;letter-spacing:.025em}
+#view-shipping .ph-shipping-tile strong {color:white;font-size:clamp(16px,4.25vw,20px);font-weight:800;line-height:1.15}
+#view-shipping .ph-shipping-tile span {font-size:11px;line-height:1.2;color:#c4e6c9}
+#view-shipping .ph-shipping-stop button, #view-shipping [data-shipping-header] button {padding:3px 6px;font-size:12px}
+#view-shipping [data-shipping-filters] label {display:flex;align-items:center;gap:6px;padding:5px}
+#view-shipping [data-shipping-filters] input {min-width:0;flex:1;background:#103220;color:white;border:1px solid #46785d}
+#view-shipping [data-ph-stop-qr] {justify-items:end}
+#view-shipping [data-shipping-panel] {padding:4px}
+@media(min-width:840px) {
+    #view-shipping [data-shipping-tools] button {flex:0 0 auto;padding-inline:16px}
+    #view-shipping [data-shipping-list]:has(> [data-shipping-load]) {grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
+}

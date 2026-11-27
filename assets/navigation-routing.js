@@ -54,6 +54,7 @@ function mountPrimaryNavigation(context) {
     const targetView = getViewElementById(nextViewId);
     if (targetView) {
         showOnlyPrimaryView(nextViewId);
+        if (nextViewId === 'shipping' && currentViewId !== nextViewId) renderPhShipping(true);
         if (nextViewId === 'request') {
             if (currentViewId === 'home') mountHomeQueueCategoryControl();
             else mountQueCategoryControl();
@@ -130,6 +131,7 @@ function reusePrimaryNavigation(context) {
         if (scheduleRoot) window.GncProductionSchedule?.mount(scheduleRoot, (payload, signal) => postAppFunctionJson(APP_API_FUNCTION_URL, payload, { timeoutMs: 30000, label: 'Production Schedule', signal }), getSupabaseReadIdentityScope());
     }
     if (nextViewId === 'managers' && activeHomeTab === MANAGER_HR_COMMAND_VIEW) void mountAlphaCommandCenter('hr', document.getElementById('manager-hr-command-root'));
+    if (nextViewId === 'shipping') renderPhShipping();
     if (nextViewId === 'communication') renderCommunicationHub();
     if (nextViewId === 'request') {
         scheduleRequestNavigationLiveWake('request-warm-reuse');

@@ -158,9 +158,9 @@ function mountDockPipelineAccess(host,type,subject) {
         if (!current()) return;
         status.textContent = '';
         for (const field of dockPipelineViews) appendDockPipelineAccessField(root,field,receipt,status,current);
-        if (type === 'USER' && receipt.que_order_pulling) {
+        if (type === 'USER' && receipt.view_shipping) {
             const capability = root.appendChild(document.createElement('output'));
-            capability.textContent = 'Que · Order Pulling · '+receipt.que_order_pulling;
+            capability.textContent = 'Shipping · '+receipt.view_shipping;
         }
     }).catch(error=>{if (current()) status.textContent = error.message;});
 }

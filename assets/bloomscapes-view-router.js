@@ -12,7 +12,6 @@ function renderViewContent(viewId, forceReset = false, forceRender = false, sync
     if (forceReset || changedView) abortBloomscapesCardThumbnails(document);
     bloomscapesThumbnailView=viewId;
     const state = ensureViewRenderState(viewId);
-    const orderPulling = viewId === 'request' && renderOrderPullQueueShell();
     if (typeof syncPhWaterRefresh === 'function') syncPhWaterRefresh();
     if (!forceReset && !forceRender && state.initialized && !state.dirty) {
         if (changedView && ['messages','push-to-talk'].includes(viewId)) renderBloomscapesMessagesView(viewId);
@@ -28,7 +27,7 @@ function renderViewContent(viewId, forceReset = false, forceRender = false, sync
     }
     const renderStartedAt = beginInternalPerfMeasure();
 
-    if (!orderPulling && !renderBloomscapesPhotoAiWorkspace(viewId) && !renderBloomscapesDispatchWorkspaces(viewId) && !renderBloomscapesNativeSalesOffice(viewId) && !renderBloomscapesMessagesView(viewId) && !renderBloomscapesDepartmentWorkspace(viewId) && !renderCoreAppView(viewId, state, forceReset) && !renderRequestAndWorkspaceView(viewId, state, forceReset) && !renderHubAppView(viewId)) {
+    if (!renderBloomscapesPhotoAiWorkspace(viewId) && !renderBloomscapesDispatchWorkspaces(viewId) && !renderBloomscapesNativeSalesOffice(viewId) && !renderBloomscapesMessagesView(viewId) && !renderBloomscapesDepartmentWorkspace(viewId) && !renderCoreAppView(viewId, state, forceReset) && !renderRequestAndWorkspaceView(viewId, state, forceReset) && !renderHubAppView(viewId)) {
         renderAuxiliaryAppView(viewId, state, forceReset);
     }
 
@@ -47,6 +46,7 @@ function renderViewContent(viewId, forceReset = false, forceRender = false, sync
 let bloomscapesThumbnailView='';
 
 function renderBloomscapesDispatchWorkspaces(viewId) {
+    if (viewId==='shipping') { renderPhShipping(); return true; }
     if (viewId==='time-cards') {renderBloomscapesTimeCards();return true;}
     return renderBloomscapesBorrowedField(viewId) || renderBloomscapesDocksWorkspace(viewId);
 }

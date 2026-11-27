@@ -119,7 +119,7 @@ function openBloomscapesAreaView(area, key) {
     if (key === 'po') return openBloomscapesDepartmentModule('hl-order','bloomscapes-replenishment');
     if (key === 'suspend' || key === 'requests') {
         switchView('request');
-        if (getCurrentVisibleViewId() === 'request') selectQueueOrderPullCategory(key === 'suspend' ? 'suspend-tag' : 'pending');
+        if (getCurrentVisibleViewId() === 'request') setReqTab(key === 'suspend' ? 'suspend-tag' : 'pending');
         return false;
     }
     return switchView(view);
@@ -220,6 +220,8 @@ function mountBloomscapesAreaHubs(grid) {
 function syncBloomscapesDrawerAreaHubs() {
     const drawer = queryBloomscapesStaticBody('side-drawer','[data-drawer-business-areas]');
     if (drawer) paintBloomscapesAreaHubs(drawer);
+    const shipping = queryBloomscapesStaticBody('side-drawer','#drawer-shipping-btn');
+    if (shipping) shipping.hidden = !canShowBloomscapesHomeTile('shipping');
 }
 
 function paintBloomscapesAreaHubs(host) {

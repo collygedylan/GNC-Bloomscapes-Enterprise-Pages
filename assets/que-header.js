@@ -1,7 +1,7 @@
 function renderPendingSuspendPullAllocations() {
     const host = document.querySelector('[data-suspend-pull-preview]');
     if (!host) return;
-    const rows = getBloomscapesFarm()==='10-PH' && canOpenOrderPullQueue()
+    const rows = getCurrentVisibleViewId() === 'shipping' && currentPhShippingState()?.manager
         ? projectPendingDockFulfillments([],getSupabaseReadIdentityScope()) : [];
     host.replaceChildren(...rows.map(row=>{
         const line = document.createElement('p');
@@ -13,19 +13,16 @@ function renderPendingSuspendPullAllocations() {
 }
 
 function refreshMountedSuspendPullQueue(owner) {
-    if (getCurrentVisibleViewId()!=='request' || !isOrderPullQueueActive()) return;
-    const state = orderPullState();
+    const state = currentPhShippingState();
+    if (!state || !phShippingIsCurrent(state)) return;
     const refresh = ()=>{
-        if (owner===getSupabaseReadIdentityScope() && state===orderPullState() && isOrderPullQueueActive()) {
-            void runOrderPullCommand(state,'list');
-        }
+        if (owner===getSupabaseReadIdentityScope() && phShippingIsCurrent(state)) void runPhShippingCommand(state,'list');
     };
     if (state.pending) void state.pending.then(refresh,refresh);
     else refresh();
 }
 
 function getRequestHeaderSearchMode() {
-    if (typeof isOrderPullQueueActive === 'function' && isOrderPullQueueActive()) return 'order-pulling';
     if (activeReqTab === 'suspend-tag') return 'suspend-tag';
     if (activeReqTab !== 'reps') return 'queue';
     if (requestViewLevel === 0) return 'reps';
@@ -37,7 +34,6 @@ function getRequestHeaderSearchMode() {
 
 function getRequestHeaderSearchValue(mode) {
     switch (mode) {
-        case 'order-pulling': return queueOrderPullSearch();
         case 'queue': return getQueHeaderSearchTerm();
         case 'suspend-tag': return requestSuspendTagCommonNameSearchTerm;
         case 'folders': return requestFolderSearchTerm;
@@ -85,7 +81,6 @@ function setRequestLegacySearchValue(mode, value) {
 function handleRequestHeaderSearch() {
     const mode = getRequestHeaderSearchMode();
     const value = document.getElementById('request-search')?.value || '';
-    if (mode === 'order-pulling') return queueOrderPullSearch(value);
     if (mode === 'queue') return setQueHeaderSearch(value);
     if (mode === 'suspend-tag') return setRequestSuspendTagCommonNameSearch(value);
     if (!setRequestLegacySearchValue(mode, value)) return false;
@@ -169,13 +164,13 @@ function syncQueHeaderLayout() {
     if (getCurrentVisibleViewId() !== 'request' || !row || !toolbar) return;
     if (toolbar.parentElement !== row) row.prepend(toolbar);
     row.dataset.jobBoardHeader = 'true';
-    if (!canOpenOrderPullQueue() && !bloomscapesJobBoardCategories().length && typeof showLoanOnlyQueControl === 'function') showLoanOnlyQueControl(toolbar);
-    if (!isOrderPullQueueActive() && typeof mountBorrowedHelpQueue === 'function') mountBorrowedHelpQueue();
+    if (!bloomscapesJobBoardCategories().length && typeof showLoanOnlyQueControl === 'function') showLoanOnlyQueControl(toolbar);
+    if (typeof mountBorrowedHelpQueue === 'function') mountBorrowedHelpQueue();
 }
 
 function syncQueCategoryControl(toolbar, counts) {
-    const permitted = bloomscapesJobBoardCategories();
-    if (!permitted.length && !canOpenOrderPullQueue() && typeof showLoanOnlyQueControl === 'function' && showLoanOnlyQueControl(toolbar)) return;
+    const permitted = bloomscapesJobBoardCategories().filter(([tab]) => ['pending','suspend-tag'].includes(tab));
+    if (!permitted.length && typeof showLoanOnlyQueControl === 'function' && showLoanOnlyQueControl(toolbar)) return;
     const categories = permitted.filter(([category]) =>
         typeof allowsBloomscapesAreaSubview !== 'function' || allowsBloomscapesAreaSubview(
             category === 'suspend-tag' ? 'suspend' : category === 'pending' ? 'requests' : 'studio')).map(([category,label]) => ({
@@ -212,14 +207,12 @@ function syncQueCategoryCounts(counts, allCounts) {
 
 function syncQueCategoryButtons(group, categories) {
     if (!group) return;
-    const choices = withOrderPullCategory(categories.map(({key,label,count}) => [key, label + ' (' + formatRequestTabCount(count) + ')']));
-    const value = isOrderPullQueueActive() ? ORDER_PULL_TAB : activeReqTab;
-    const trigger = mountModuleSubviewDropdown(group, { choices, value, select:selectQueueOrderPullCategory });
+    const choices = categories.map(({key,label,count}) => [key, label + ' (' + formatRequestTabCount(count) + ')']);
+    const trigger = mountModuleSubviewDropdown(group, { choices, value:activeReqTab, select:setReqTab });
     trigger.classList.add('request-category-chip');
     group.hidden = choices.length === 0;
 }
 
 function syncQueActiveCategory(toolbar = document.getElementById('request-filter-toolbar')) {
-    renderPendingSuspendPullAllocations();
     if (toolbar) syncQueCategoryControl(toolbar, getRequestTabQueueCounts());
 }

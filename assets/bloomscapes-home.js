@@ -182,8 +182,8 @@ function openAppShellAfterLogin() {
     blurActiveField();
     revealBloomscapesLoginShell();
     const puller = typeof isParkHillOrderPuller === 'function' && isParkHillOrderPuller();
-    runLoginInitializationStep('Initial view',()=>showOnlyPrimaryView(puller ? 'request' : 'home'));
-    if (puller) runLoginInitializationStep('Order Pulling',()=>renderViewContent('request',true,true,true));
+    runLoginInitializationStep('Initial view',()=>showOnlyPrimaryView(puller && canOpenPhShipping() ? 'shipping' : 'home'));
+    if (puller && canOpenPhShipping()) runLoginInitializationStep('Shipping',()=>renderViewContent('shipping',true,true,true));
     else runLoginInitializationStep('Home render',()=>renderHome(true));
     runLoginInitializationStep('Role controls',()=>synchronizeLoginRoleControls(getRoleAccessState(),!puller));
     document.body.classList.add('role-access-ready');

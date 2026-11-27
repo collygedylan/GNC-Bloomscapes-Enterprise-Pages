@@ -45,18 +45,16 @@ function phEstimateBuggyLoad(tags,{hasPartner = false,origin} = {}) {
 
 function phCandidateTags(rows) {
     const candidates = new Map();
-    let rank = Infinity;
     for (const row of rows) {
         if (row.warehouse && row.warehouse !== '10-PH') continue;
         const urgency = phPullQueueRank(row);
-        rank = Math.min(rank,urgency);
+        if (urgency >= 5 || row.manual_hold || row.buggy_id) continue;
         const node = phRouteNode(row.locationcode);
         const wdu = phPullTagWdu(row);
         if (!node || !row.pull_tag_id || !(wdu > 0 && wdu <= PH_PULL_CAP*1e12)) continue;
         candidates.set(row.pull_tag_id,{row,node,wdu,zone:phDockZone(row.dock),rank:urgency});
     }
-    const items = [...candidates.values()];
-    return items.filter(item => item.rank === rank);
+    return [...candidates.values()];
 }
 
 function phSharedBlockPair(a,b) {
@@ -78,8 +76,10 @@ function phSeedLoad(seed,candidates) {
         item,cost:phMarginalPickCost(seed,item),sameBlock:item.node === seed.node,
         paired:phSharedBlockPair(seed.node,item.node),sameSpine:item.node.spine_group === seed.node.spine_group
     }));
-    choices.sort((a,b) => Number(b.sameBlock)-Number(a.sameBlock) || a.cost-b.cost
-        || Number(b.paired)-Number(a.paired) || Number(b.sameSpine)-Number(a.sameSpine) || b.item.wdu-a.item.wdu);
+    choices.sort((a,b) => a.item.rank-b.item.rank || Number(b.sameBlock)-Number(a.sameBlock)
+        || Number(b.paired)-Number(a.paired) || Number(b.item.zone === seed.zone)-Number(a.item.zone === seed.zone)
+        || a.cost-b.cost || Number(b.sameSpine)-Number(a.sameSpine) || b.item.wdu-a.item.wdu
+        || String(a.item.row.pull_tag_id).localeCompare(String(b.item.row.pull_tag_id)));
     const ordered = [seed.row,...choices.map(choice => choice.item.row)];
     const selected = phPullGroupBatch(ordered);
     const batch = ordered.filter(row => selected.has(row.pull_tag_id));
@@ -94,10 +94,12 @@ function phPreferLoad(load,best) {
 
 function phPackBuggyLoad(rows,options = {}) {
     const candidates = phCandidateTags(rows);
+    const priority = candidates.reduce((minimum,item) => Math.min(minimum,item.rank),Infinity);
     const seenSeeds = new Set();
     const seenBatches = new Set();
     let best = null;
     for (const seed of candidates) {
+        if (seed.rank !== priority) continue;
         const seedKey = [seed.node.code,seed.zone,seed.row.dock,seed.row.stopnumber,seed.wdu].join('|');
         if (seenSeeds.has(seedKey)) continue;
         seenSeeds.add(seedKey);

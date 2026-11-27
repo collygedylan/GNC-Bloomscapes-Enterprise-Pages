@@ -81,7 +81,8 @@ const PH_PULL_SUPERVISORS = new Set(['super-admin','admin','shipping-supervisor'
 function phPullSupervisorAllowed(profile, farm, preview) {
     if (!profile || preview || farm !== '10-PH' || profile.disabled_at || profile.must_change_password) return false;
     const farms = profile.allowed_warehouses ?? profile.allowed_farms ?? profile.farm_scopes;
-    return (!Array.isArray(farms) || farms.includes(farm)) && PH_PULL_SUPERVISORS.has(profile.role);
+    return (!Array.isArray(farms) || farms.includes(farm))
+        && (profile.username === 'dylan_collyge' || PH_PULL_SUPERVISORS.has(profile.role));
 }
 
 function phPullTeamChoices(snapshot, editingId, primary = '') {
@@ -127,11 +128,10 @@ function phPullQueueRank(row) {
 }
 
 function phPullGroupBatch(rows) {
-    const tier = rows.reduce((rank,row) => Math.min(rank,phPullQueueRank(row)),Infinity);
     const chosen = new Set();
     let available = PH_PULL_CAP*1e12;
-    for (const row of rows) {
-        if (phPullQueueRank(row) !== tier) continue;
+    for (const row of [...rows].sort((a,b) => phPullQueueRank(a)-phPullQueueRank(b))) {
+        if (phPullQueueRank(row) >= 5 || chosen.has(row.pull_tag_id)) continue;
         const wdu = phPullTagWdu(row);
         if (!(wdu>0) || wdu>available) continue;
         chosen.add(row.pull_tag_id);
@@ -141,16 +141,15 @@ function phPullGroupBatch(rows) {
     return chosen;
 }
 
-const ORDER_PULL_TAB = 'order-pulling';
-
 function isParkHillOrderPuller(profile = typeof nativeAuthProfile === 'undefined' ? null : nativeAuthProfile) {
     return profile?.role === 'order_puller' && !profile.disabled_at && !profile.must_change_password;
 }
 
 function orderPullEligible(profile, access, farm, preview) {
-    if (!profile || preview || farm !== '10-PH' || profile.disabled_at) return false;
+    if (!profile || preview || farm !== '10-PH' || profile.disabled_at || profile.must_change_password) return false;
     const farms = profile.allowed_warehouses ?? profile.allowed_farms ?? profile.farm_scopes;
     if (Array.isArray(farms) && !farms.includes(farm)) return false;
+    if (access?.view_shipping != null) return ['FULL_EDIT','VIEW_ONLY'].includes(access.view_shipping);
     if (profile.role === 'order_puller') return isParkHillOrderPuller(profile);
     const role = String(profile.role || '').toLowerCase().replace(/[-_\s]/g,'');
     if (['rep','salesrep'].includes(role)) return false;

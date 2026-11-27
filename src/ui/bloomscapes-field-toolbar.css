@@ -65,26 +65,6 @@ html body #app-wrapper #view-request #request-filter-toolbar[data-toolbar-single
 html body #app-wrapper #request-filter-toolbar [hidden]{display:none!important;}
 html body #app-wrapper #global-header-search-row #bloomscapes-farm-selector{border-radius:999px!important;}
 
-#view-request[data-order-pulling="true"] :is(#request-content,#request-crumb,#request-dylan-filter-panel,[data-queue-borrowed-help],#request-pending-owner-filter,[data-job-board-tools],[data-inventory-excel-scope]){display:none!important}
-html body:has(#view-request[data-order-pulling="true"]:not(.hidden)) #app-wrapper #request-filter-toolbar[data-toolbar-single-row] {
-  display:flex!important; flex-flow:row nowrap!important; align-items:center!important; gap:4px!important;
-  height:38px!important; min-height:38px!important; max-height:38px!important; overflow:visible!important;
-}
-html body:has(#view-request[data-order-pulling="true"]:not(.hidden)) #app-wrapper #request-filter-toolbar .request-category-options:not([hidden]) {
-  display:block!important; flex:0 1 auto; min-width:0; width:auto!important; overflow:visible!important;
-}
-html body:has(#view-request[data-order-pulling="true"]:not(.hidden)) #app-wrapper #request-filter-toolbar .request-category-chip {
-  position:static; min-width:0; white-space:nowrap; height:34px!important; min-height:34px!important; font-size:10px!important;
-}
-#request-order-pulling-tools:not([hidden]) {
-  display:flex; flex:none; align-items:center; gap:3px; white-space:nowrap; min-width:0; box-sizing:border-box;
-}
-#request-order-pulling-tools > * {
-  white-space:nowrap; margin:0; padding-inline:5px!important; font:600 10px/1.15 system-ui!important;
-  height:34px!important; min-height:34px!important; min-width:0!important; box-sizing:border-box;
-}
-#request-order-pulling-tools [aria-pressed="true"] {background:var(--bloom-pill);color:var(--bloom-ink)}
-
 html body #app-wrapper #main-scroll-area:has(:is(#view-docks,#view-request):not(.hidden)),
 html body #app-wrapper #main-scroll-area:has(#view-wrapper > :not(.hidden) [data-ph-pull-work]) {
   flex:1 1 auto; min-height:0; overflow-y:auto!important; -webkit-overflow-scrolling:touch;
@@ -95,11 +75,9 @@ html body #app-wrapper #main-scroll-area #view-wrapper > :is(#view-docks,#view-r
   flex:1 0 auto!important; height:auto!important; min-height:0!important; max-height:none!important;
   overflow-x:clip!important; overflow-y:visible!important;
 }
-html body #app-wrapper :is(#docks-content,#request-content,#request-order-pulling,[data-order-pull-list]) {
+html body #app-wrapper :is(#docks-content,#request-content) {
   min-height:0; max-height:none; overflow-x:clip; overflow-y:visible;
 }
-#request-order-pulling [data-order-pull-list] {display:block}
-#request-order-pulling [data-order-pull-list] article {margin-block:6px}
 
 html body #app-wrapper #view-docks > .freeze-panel {
   display:block; background:transparent; padding:0;
@@ -141,10 +119,4 @@ html body #app-wrapper .bloomscapes-order-card {
 .bloomscapes-order-card .app-drive-card-main {min-width:0}
 .bloomscapes-order-card [data-compact-order-strip], .bloomscapes-order-card-note {
   padding:3px 0; font-size:11px; overflow-wrap:anywhere; color:#d5efdf;
-}
-.bloomscapes-order-card .ph-pull-stop {display:block;width:max-content;max-width:100%}
-@media (max-width:600px) {
-  html body:has(#view-request[data-order-pulling="true"]:not(.hidden)) #app-wrapper #request-filter-toolbar .request-category-chip {
-    max-width:130px; overflow:hidden; text-overflow:ellipsis;
-  }
 }

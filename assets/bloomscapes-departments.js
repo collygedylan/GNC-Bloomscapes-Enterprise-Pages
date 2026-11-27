@@ -105,7 +105,6 @@ function renderBloomscapesDepartmentWorkspace(view) {
 
 function syncBloomscapesStudioFrame(frame) {
     renderFieldWorkConsolidationEntry(frame);
-    if (typeof syncPhBuildWorkVisibility === 'function') syncPhBuildWorkVisibility(frame);
 }
 
 function restoreBloomscapesDepartmentChildren(root) {
