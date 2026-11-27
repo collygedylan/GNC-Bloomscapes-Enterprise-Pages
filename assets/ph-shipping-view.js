@@ -28,7 +28,7 @@ function phShippingTile(label,value,detail = '') {
 function phShippingStopCard(row,state) {
     const bay = phQrBayNumber(row.locationcode,row.bay_number);
     const drop = phQrPullDrop(row);
-    const dock = formatDockViewDockLabel(row.dock);
+    const destination = drop || formatDockViewDockLabel(row.dock)+' · Drop '+row.stopnumber;
     const name = String(row.common_name || row.itemcode || '').replace(/\\+'/g,"'");
     const urgent = phPullDockLabel(row.dock_status) === 'Live Driver';
     const note = [row.spec && 'Spec · '+row.spec,row.pick_note && 'Pick note · '+row.pick_note].filter(Boolean);
@@ -38,7 +38,7 @@ function phShippingStopCard(row,state) {
         +'<small>'+esc([row.itemcode,row.lotcode].filter(Boolean).join(' · '))+'</small></div><aside data-ph-stop-qr></aside></header>'
         +'<div class="ph-shipping-tiles">'+phShippingTile('Location','📍 '+(row.locationcode || '—'),Number(bay)>0 ? 'Bay '+bay : '')
         +phShippingTile('Ordered Qty (Pull)',phShippingOrderedQty(row) ?? '—',String(row.wingdingunits)+' WDU')
-        +phShippingTile('Dock / Drop',dock+' · Drop '+row.stopnumber,[drop,row.consignee].filter(Boolean).join(' · '))+'</div>'
+        +phShippingTile('Dock / Drop','🚚 '+destination,row.consignee)+'</div>'
         +(urgent ? '<b class="ph-live-driver">🚨 LIVE DRIVER</b>' : '')
         +note.map(line=>'<p>'+esc(line)+'</p>').join('')
         +(manual ? '<button type="button" data-pull-action="pull" data-pull-key="'+esc(row.pull_tag_id)+'">✓ Pulled onto Buggy</button>' : '')
@@ -70,7 +70,7 @@ function phShippingUnloadMarkup(state) {
     if (!state.teamOnly || !state.edit || !groups.length) return '';
     const active = activePhQrSession(receipt,receipt.buggy.buggy_id);
     return '<section class="ph-shipping-unload"><b>📦 Ready for dock drop-off</b>'
-        +groups.map((group,i)=>'<div>'+esc(formatDockViewDockLabel(group.dock))+' · Stop '+esc(group.stopnumber)
+        +groups.map((group,i)=>'<div>'+esc(phQrPullDrop(group) || formatDockViewDockLabel(group.dock)+' · Drop '+group.stopnumber)
             +' <button type="button" data-pull-action="drop_off" data-pull-key="'+i+'"'
             +(active || groups[i-1]?.dock === group.dock ? ' disabled' : '')+'>Drop Off</button></div>').join('')+'</section>';
 }

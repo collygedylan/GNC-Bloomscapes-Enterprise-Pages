@@ -175,11 +175,11 @@ html body [data-bloomscapes-studio] [data-work-source-cards].inventory-block-til
 
 .ph-sign-dialog {
     color: #edf8ee;
-    background: #103220;
+    background: linear-gradient(#103220, #081c12);
     border: 1px solid #608675;
     border-radius: .75rem;
     padding: 1rem;
-    width: min(36rem, 94vw);
+    width: min(40rem, 94vw);
     max-height: 90dvh;
     margin: auto;
     overflow: auto;
@@ -187,14 +187,21 @@ html body [data-bloomscapes-studio] [data-work-source-cards].inventory-block-til
 .ph-sign-dialog::backdrop { background: rgb(4 19 11 / 70%); }
 .ph-sign-dialog header, .ph-sign-dialog nav { display: flex; justify-content: space-between; gap: .5rem; align-items: center; margin-bottom: .75rem; }
 .ph-sign-dialog h2 { font-size: 1.2rem; font-weight: 700; }
-.ph-sign-dialog form { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; }
-.ph-sign-dialog label, .ph-sign-dialog select, .ph-sign-dialog input { display: block; width: 100%; }
-.ph-sign-dialog input, .ph-sign-dialog select, ph-location-bay input { color: #14271c; background: white; border-radius: .25rem; padding: .25rem; }
+.ph-sign-dialog form, .ph-sign-range { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: .55rem; }
+.ph-sign-dialog [hidden] { display: none; }
+.ph-sign-dialog label, .ph-sign-dialog select, .ph-sign-dialog input[type=number] { display: block; width: 100%; }
+.ph-sign-dialog input[type=number], .ph-sign-dialog select, ph-location-bay input { color: #14271c; background: white; border-radius: .25rem; padding: .25rem; }
 .ph-sign-dialog button { border: 1px solid #70977c; border-radius: .35rem; padding: .35rem .65rem; }
 .ph-sign-dialog button[aria-pressed=true] { background: #27674b; }
-.ph-sign-dialog figure { background: white; color: #111; text-align: center; width: fit-content; margin: .8rem auto; padding: .6rem; font-weight: 700; }
-.ph-sign-dialog figure:empty { display: none; }
-.ph-sign-dialog figure svg { width: 9rem; height: 9rem; }
+.ph-sign-dialog fieldset { grid-column: 1/-1; min-width: 0; }
+.ph-sign-dialog fieldset:not(.ph-sign-range):not([hidden]) { display: flex; gap: .35rem; flex-wrap: wrap; }
+.ph-sign-dialog .ph-sign-chip { display: inline-flex; align-items: center; gap: .25rem; width: auto; min-height: 36px; padding: .2rem .45rem; border: 1px solid #70977c; border-radius: 1rem; }
+.ph-sign-dialog .ph-sign-chip:has(:checked) { background: #27674b; }
+.ph-sign-dialog output { display: block; margin-top: .55rem; }
+.ph-sign-preview { display: grid; grid-template-columns: repeat(auto-fit,minmax(8.5rem,1fr)); gap: .45rem; max-height: min(42dvh,25rem); overflow: auto; margin: .4rem 0 .6rem; }
+.ph-sign-preview:empty { display: none; }
+.ph-sign-preview article { display: grid; justify-items: center; align-content: start; padding: .35rem; border-radius: .35rem; background: white; color: #111; text-align: center; }
+.ph-sign-preview [data-ph-sign-payload], .ph-sign-preview svg { display: block; width: 6rem; height: 6rem; }
 .ph-sign-print-frame { position: fixed; width: 1px; height: 1px; border: 0; opacity: 0; }
 ph-location-bay { font-size: .75rem; font-weight: 700; align-self: center; }
 ph-location-bay form { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; }

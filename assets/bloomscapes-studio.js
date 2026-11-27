@@ -91,7 +91,7 @@ function paintPhWorkTeams(state) {
 function phWorkTagCard(row, selected) {
     const id = esc(row.pull_tag_id);
     const side = phPullSideLabel(row);
-    const drop = phQrPullDrop(row);
+    const drop = phQrPullDrop(row) || 'Dock '+row.dock+' · Drop '+row.stopnumber;
     return bloomscapesListNode('<article class="rounded-lg border border-emerald-700 p-3">'
         +'<label class="flex gap-2 items-start"><input type="checkbox" data-ph-tag="'+id+'"'
         +(selected.has(row.pull_tag_id) ? ' checked' : '')+'>'
@@ -100,7 +100,7 @@ function phWorkTagCard(row, selected) {
         +'<br>'+esc(row.itemcode)+' · '+esc(phQrPullLocation(row))+' · Lot '+esc(row.lotcode)
         +(side ? ' · Pull Side: '+esc(side) : '')
         +'<br>On Hand '+esc(String(row.onhand ?? '—'))+' · Quantity Ordered '+esc(String(row.quantityordered ?? '—'))
-        +'<br>Dock '+esc(row.dock)+' · Stop '+esc(row.stopnumber)+(drop ? ' · '+esc(drop) : '')
+        +'<br>'+esc(drop)
         +' · '+esc(String(row.wingdingunits))+' WDU'
         +(row.trip_total>1 ? '<br>Trip '+row.trip_index+'/'+row.trip_total+' · Pull '+row.pull_qty : '')
         +'</span></label></article>');
