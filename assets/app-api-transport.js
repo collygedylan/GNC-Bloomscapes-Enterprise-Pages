@@ -173,7 +173,6 @@ async function decodeAppFunctionResponse(response, signal) {
     if (payload?.force_reload && payload.latest_version) void window.forceAgDataVersionUpgrade?.(payload.latest_version, APP_SHELL_VERSION, {reason:'app-api-cutover'});
     return payload;
 }
-
 function fetchPublicRequestPhotoShare(requestId) {
     const request = {
         method: 'POST',
@@ -183,7 +182,6 @@ function fetchPublicRequestPhotoShare(requestId) {
     return fetchWithTimeout(APP_API_FUNCTION_URL, request, 8000, 'Public request share',
         async response => ({response, result: await response.json()}));
 }
-
 function reportAppFunctionFailure(action, body, response, responseCode) {
     if (body.mode==='create' && response.status===409 && responseCode==='AURA_LOCAL_CONVERSATION_ONLY') return;
     const preLogin = response.status === 401 && (isLoginScreenVisible() || !getCurrentAppSessionToken());
@@ -193,7 +191,6 @@ function reportAppFunctionFailure(action, body, response, responseCode) {
     if (!action.startsWith('watchdog_') && !preLogin && !reconciling) window.GncRuntimeWatchdog?.observeError?.(action,responseCode + ' HTTP ' + response.status,false,'RPC_FAILURE');
     if (!action.startsWith('watchdog_') && !preLogin && !policy && !reconciling) window.GncRuntimeWatchdog?.record('APP_API_FAILURE', {severity:response.status >= 500 ? 'high' : 'medium',error_message:'action=' + action + ' HTTP=' + response.status,suspected_functions:[action]});
 }
-
 function createAppFunctionError(message, response, payload, responseCode, options) {
     const error = new Error(message);
     error.status = response.status;
@@ -204,7 +201,6 @@ function createAppFunctionError(message, response, payload, responseCode, option
     error.details = payload && typeof payload === 'object' ? String(payload.details || '').trim() : '';
     return error;
 }
-
 function applyAppApiSessionHeaders(headers, nativeHeaders, includeSession = true) {
             if (nativeHeaders?.Authorization) {
                 headers.Authorization = nativeHeaders.Authorization;
@@ -238,7 +234,6 @@ async function waitForReclassRecovery(body, options, scope) {
     }
     return reply.body;
 }
-
 async function postReclassCommand(body, options = {}) {
     if (nativeAuthSessionActive && body.action === 'drive_reclass_inquiry'
         && ['season_priority_list','season_priority_state'].includes(body.operation)) {
@@ -255,7 +250,6 @@ async function postReclassCommand(body, options = {}) {
         return await waitForReclassRecovery(body, request, scope);
     }
 }
-
 function getNativeSessionBridgeRequestOwner() {
     const id = String(nativeAuthSessionUserId || '').trim();
     if (!nativeAuthSessionActive || !id || id !== String(nativeAuthProfile?.id || '').trim()
@@ -279,6 +273,18 @@ async function handleFailedAppFunctionAttempt(url, body, safeOptions, response, 
 
     throw createAppFunctionError(message,response,payload,responseCode,safeOptions);
 }
+function buildAppFunctionFetchRequest(body, options, headers, detached) {
+    return {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body || {}),
+        cache: 'no-store',
+        signal: detached ? undefined : options.signal,
+        keepalive: options.keepalive === true,
+        recoverableRpcAttempt:options.preferenceAttempt === true
+    };
+}
+
 async function postAppFunctionAttempt(url, body, options = {}) {
     if (!isAllowedAppHostname()) throw Object.assign(new Error('Origin not allowed'), { code: 'APP_ORIGIN_DENIED' });
     const safeOptions = (options && typeof options === 'object' && !Array.isArray(options)) ? options : {};
@@ -311,15 +317,9 @@ async function postAppFunctionAttempt(url, body, options = {}) {
     if (safeOptions.requestId) headers['x-request-id'] = String(safeOptions.requestId).slice(0, 80);
     applyAppApiSessionHeaders(headers, nativeHeaders, safeOptions.includeSession !== false);
     const detached = action === 'inventory_reclass_move' && safeOptions.detachedReclass;
-    const {response, payload} = await fetchAppFunctionPayload(url, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(body || {}),
-        cache: 'no-store',
-        signal: detached ? undefined : safeOptions.signal,
-        keepalive: safeOptions.keepalive === true,
-        recoverableRpcAttempt:safeOptions.preferenceAttempt === true
-    }, Number(safeOptions.timeoutMs || 18000), String(safeOptions.label || 'App Function'), detached);
+    const request = buildAppFunctionFetchRequest(body, safeOptions, headers, detached);
+    const timeout = Number(safeOptions.timeoutMs || 18000);
+    const {response, payload} = await fetchAppFunctionPayload(url, request, timeout, String(safeOptions.label || 'App Function'), detached);
     if (!current()) throw staleSupabaseReadScopeError();
     if (!response.ok) {
         return handleFailedAppFunctionAttempt(url, body, safeOptions, response, payload,
@@ -334,7 +334,6 @@ function assertCurrentPhotoUpload(currentOwner, options) {
         throw Object.assign(new Error('Photo session changed.'), { code:'REQUEST_ABORTED' });
     }
 }
-
 async function getNativeDrivePhotoObject(formData, prefix, masterUid) {
     const file = formData.get('file');
     const hex = bytes => Array.from(new Uint8Array(bytes), byte => byte.toString(16).padStart(2,'0')).join('');
@@ -349,12 +348,10 @@ async function getNativeDrivePhotoObject(formData, prefix, masterUid) {
     ];
     return { file, filePath, parts, bucketName:PHOTO_BUCKETS[prefix] || PHOTO_BUCKETS.default };
 }
-
 function isTransientPhotoUploadFailure(error) {
     return [408,429,500,502,503,504,546].includes(Number(error?.status)) || error instanceof TypeError
         || /timeout|timed out|network|failed to fetch|connection/i.test(String(error?.message || ''));
 }
-
 async function uploadNativeDrivePhotoPart(path, blob, headers, currentOwner, options) {
     if (!(blob instanceof Blob) || blob.size > 2500000) throw new Error('Optimized photo is invalid.');
     const write = async () => {

@@ -1,7 +1,6 @@
 
 let selectedDriveCommonNames = new Set();
 let driveCommonNameSearchTerm = '';
-let driveCommonNameFilterOpen = false;
 
 const driveIndexOrder = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' }).compare;
 const driveIndexLocation = row => LocationCode.base(getDrivePlantLocationCode(row)) || DRIVE_NO_BLOCK_NUMBER;
@@ -42,12 +41,17 @@ function getDriveBlockNumberGroups(block, entry, reportSort = false) {
         return groups;
     });
 }
-
+/** Build the cache key for the currently visible Drive projection. @returns {string} */
 function getDriveVisibleProjectionKey() {
     return [driveBaseFilterCacheKey, getDrivePlantFilterScopeKey(driveBaseFilterCacheItems),
         getDriveQuickFilterStateKey('visible'), activeDriveTab === 'hold' ? driveReportEvalUserFilter : ''].join('::');
 }
-
+/** Resolve the visible Drive rows using the active search and plant filters.
+ * @param {Array} baseSearchFilteredItems
+ * @param {object} drivePlantFilterState
+ * @param {string} resolvedStateKey
+ * @returns {object}
+ */
 function readDriveVisibleProjection(baseSearchFilteredItems, drivePlantFilterState, resolvedStateKey) {
     const base = getCanonicalDriveProjection(baseSearchFilteredItems,resolvedStateKey,()=>{
         const columnRows = applyDriveColumnFiltersToItems(drivePlantFilterState.filteredItems);
@@ -60,7 +64,12 @@ function readDriveVisibleProjection(baseSearchFilteredItems, drivePlantFilterSta
 }
 
 let driveListIdentity = 0;
-
+/** Identify a rendered Drive list by mode, breadcrumb and inventory revision.
+ * @param {Array} entries
+ * @param {string} mode
+ * @param {string} crumbText
+ * @returns {string}
+ */
 function getDriveListSignature(entries, mode, crumbText) {
     const id = getCanonicalDriveProjection(entries, 'list-signature', () => ++driveListIdentity);
     return [mode, crumbText, getCanonicalInventoryRevision(), id, entries.length].join('::');
@@ -81,7 +90,7 @@ function scheduleDriveIndexSlice(job) {
     if (typeof requestIdleCallback === 'function') requestIdleCallback(run, { timeout: 600 });
     else setTimeout(run, 16);
 }
-
+/** Schedule canonical inventory preparation outside the current render. @returns {void} */
 function scheduleCanonicalInventoryPrewarm() {
     if (!canWarmCanonicalInventory()) return;
     const revision = getCanonicalInventoryRevision();
@@ -127,7 +136,28 @@ function finishDriveIndexWarmup(job) {
     job.indexed = true;
     job.offset = 0;
 }
+function renderSelectedDriveLocationCards(container, crumb, blockEntry, reportCards, resolvedDriveModeLabel, selectedBlockLabel) {
+    const selectedBlockNumberItems = blockEntry.locations.get(selectedDriveLoc) || [];
+    const finalItems = sortDriveLocationCards(reportCards ? selectedBlockNumberItems : sortDriveCardItems(selectedBlockNumberItems));
+    const selectedBlockNumberLabel = getDriveBlockNumberLabel(selectedDriveLoc);
+    const crumbText = `${resolvedDriveModeLabel} > ${selectedBlockLabel} > ${selectedBlockNumberLabel} (${finalItems.length} physical rows)`;
+    const renderKey = buildDriveRenderKey('drive:loc:cards', crumbText, finalItems);
+    if (!finalItems.length) {
+        applyDriveRenderMarkup(container, crumb, crumbText, `<div class="p-8 text-center text-gray-400">No physical rows match the selected Block Alpha and Block Number.</div>`, 'drive:loc:cards-empty');
+        return;
+    }
+    renderDriveRecordResults('drive-loc-card', container, crumb, finalItems, crumbText, renderKey, {
+        approxCardHeight: 310, reportCards
+    });
+}
 
+/** Render the selected Drive location drill and its breadcrumb.
+ * @param {Element} container
+ * @param {Element} crumb
+ * @param {string} driveModeLabel
+ * @param {object|null} viewStateOverride
+ * @returns {void}
+ */
 function renderDriveLocationDrill(container, crumb, driveModeLabel = '', viewStateOverride = null) {
     ensureDriveToolbarControls();
     const resolvedDriveModeLabel = String(driveModeLabel || DRIVE_MODE_LABELS[activeDriveMode] || 'Drive Mode');
@@ -163,16 +193,5 @@ function renderDriveLocationDrill(container, crumb, driveModeLabel = '', viewSta
         });
         return;
     }
-    const selectedBlockNumberItems = blockEntry.locations.get(selectedDriveLoc) || [];
-    const finalItems = sortDriveLocationCards(reportCards ? selectedBlockNumberItems : sortDriveCardItems(selectedBlockNumberItems));
-    const selectedBlockNumberLabel = getDriveBlockNumberLabel(selectedDriveLoc);
-    const crumbText = `${resolvedDriveModeLabel} > ${selectedBlockLabel} > ${selectedBlockNumberLabel} (${finalItems.length} physical rows)`;
-    const renderKey = buildDriveRenderKey('drive:loc:cards', crumbText, finalItems);
-    if (!finalItems.length) {
-        applyDriveRenderMarkup(container, crumb, crumbText, `<div class="p-8 text-center text-gray-400">No physical rows match the selected Block Alpha and Block Number.</div>`, 'drive:loc:cards-empty');
-        return;
-    }
-    renderDriveRecordResults('drive-loc-card', container, crumb, finalItems, crumbText, renderKey, {
-        approxCardHeight: 310, reportCards
-    });
+    renderSelectedDriveLocationCards(container, crumb, blockEntry, reportCards, resolvedDriveModeLabel, selectedBlockLabel);
 }

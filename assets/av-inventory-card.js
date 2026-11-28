@@ -1,3 +1,4 @@
+
 /** @param {object} context @returns {string} */
 function renderInventoryCardAvHero(context) {
     const { hasValidAvPhotos, validAvPhotoUrls, resolvedAvPhotoLink, item, photoCaption } = context;
@@ -135,11 +136,16 @@ function getAvRawTabItems(tab = activeAVTab, options = {}) {
     if (mode === 'valid_photos') return filterBloomscapesPreviewInventoryRows(getCanonicalValidPhotoRows());
     let items = Array.isArray(options?.salesRows) ? options.salesRows : getAvSalesRowsForBucket(activeAvSalesBucket);
     const prepared = avPreparedRawTabRows.get(items);
-    items = prepared?.epoch === avDerivationMutationEpoch && prepared.all ? prepared.all.rows : items.filter(item => ['valid_photos','photos'].includes(getAvPhotoMode()) || !isShiftDesigItemRow(item));
+    if (prepared?.epoch === avDerivationMutationEpoch && prepared.all) items = prepared.all.rows;
+    else if (!['valid_photos','photos'].includes(getAvPhotoMode())) items=projectAvUnshiftedRows(items);
     items = filterBloomscapesPreviewInventoryRows(items);
     if (tab === 'open') items = globalThis.collapseCanonicalAvLotRows(items);
     if (mode === 'photos') return items.filter(avItemHasPhotos);
     if (mode === 'valid_photos') return items.filter(hasValidRowPhoto);
     if (mode === 'no_photos') return items.filter(item => !hasValidRowPhoto(item));
     return items;
+}
+
+function projectAvUnshiftedRows(source) {
+    return getCanonicalDriveProjection(source,'av-unshifted-membership',()=>source.filter(item=>!isShiftDesigItemRow(item)));
 }

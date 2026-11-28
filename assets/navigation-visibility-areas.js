@@ -35,12 +35,6 @@ function rowsInBloomscapesPersonalScope(rows,scope=bloomscapesPersonalScope(),fa
     });
 }
 
-/** @returns {string} The effective identity and permitted inventory scope. */
-function bloomscapesPersonalInventoryScopeKey() {
-    const scope=bloomscapesPersonalScope();
-    return scope ? JSON.stringify([scope.username,scope.allowed_warehouses,scope.allowed_plantgroupcodes]) : '';
-}
-
 /** @param {string[]} farms @returns {string[]} Farms visible to the effective profile. */
 function bloomscapesVisibleFarmChoices(farms) {
     const limited=bloomscapesPersonalScope()?.allowed_warehouses;

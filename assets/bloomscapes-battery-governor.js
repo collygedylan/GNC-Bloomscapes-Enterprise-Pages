@@ -1,5 +1,6 @@
 const bloomscapesBatteryResources=new Map();
 let bloomscapesBatteryPaused=false;
+/** @param {string} name Inventory resource key. @param {object} resource Resource pause and resume callbacks. @returns {Function} Releases this registration. */
 function registerBloomscapesBatteryResource(name,resource) {
     if (name==='radio' || name==='push') throw Error('Radio and push remain independent of inventory suspension.');
     bloomscapesBatteryResources.set(name,resource);
@@ -40,6 +41,7 @@ function resumeBloomscapesInventoryUi() {
     updateDocksWriteControlGate();
     scheduleDeferredCardPhotoHydration();
 }
+/** @returns {void} Clears derived inventory caches after canonical farm publication. */
 function pruneBloomscapesFarmInventoryCaches() {
     const caches=[taskScopedQueueItemsCache,taskHotStateCache,taskFilteredItemsCache,taskGenusOptionsCache,
         taskContSizeOptionsCache,taskLocationDetailStateCache,ncrApprovalTaskQueueCacheByView];

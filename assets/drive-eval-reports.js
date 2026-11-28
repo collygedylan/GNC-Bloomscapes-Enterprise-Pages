@@ -163,6 +163,8 @@ function scopeDriveSavedReportRows(rows,key) {
     return getDriveReport2PhysicalRows(saved);
 }
 
+let driveBaseContextCacheKey = '';
+let driveBaseContextCacheItems = [];
 /** @param {string} [term] @returns {object} */
 function buildDriveUniversalSearchState(term = '') {
     const safeTerm = String(term || '').trim();
@@ -254,9 +256,6 @@ function getDriveBaseFilteredItems() {
     const result = term ? filterDriveIndexedRows(base,term,profile) : base;
     driveBaseContextCacheKey = contextKey;
     driveBaseContextCacheItems = base;
-    driveBaseSearchContextKey = [contextKey,profile].join('::');
-    driveBaseLastSearchTerm = term;
-    driveBaseLastSearchItems = result;
     driveBaseFilterCacheKey = cacheKey;
     driveBaseFilterCacheItems = result;
     return result;

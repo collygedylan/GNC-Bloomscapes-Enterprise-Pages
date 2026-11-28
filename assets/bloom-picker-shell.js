@@ -1,3 +1,4 @@
+/** @param {string} [view] Active view. @returns {void} */
 function syncHeaderBloomPlacement(view = getCurrentVisibleViewId()) {
     const bloom = document.getElementById('footer-cart-btn');
     const host = document.getElementById('global-header-search-row');
@@ -8,10 +9,12 @@ function syncHeaderBloomPlacement(view = getCurrentVisibleViewId()) {
     else if (bloom.parentElement !== host) host.appendChild(bloom);
 }
 
+/** @returns {boolean} Click-handler result. */
 function openBloomPicker() {
     return toggleCartPanel(true);
 }
 
+/** @param {boolean|null} [forceOpen] Requested visibility. @returns {boolean} Click-handler result. */
 function toggleCartPanel(forceOpen = null) {
     if (forceOpen !== false && !canAccessView('bloom')) {
         showToast('Access unavailable', 'You do not have permission to open Bloom Picker.', true);
@@ -74,6 +77,60 @@ function resolveBloomscapesPickerActions(items) {
     return {...visibility,showReclass:canReclassBloomSelection(items)};
 }
 
+/** @param {boolean} canTakeBack Whether every selected row permits Foreman Take Back. @returns {object} Foreman action visibility. */
+function getForemanBloomPickerActionVisibility(canTakeBack) {
+    return {
+        showCopy: false,
+        showEmail: false,
+        showText: false,
+        showAssign: false,
+        showEvalTask: false,
+        showNcr: false,
+        showRequest: false,
+        showMove: false,
+        showFlyer: false,
+        showTakeBack: canTakeBack,
+        showEndCap: false,
+        showShear: false,
+        showBloomOrder: false,
+        canUseInventoryActions: canTakeBack,
+        canUseBloomOrders: false
+    };
+}
+
+/** Resolve the sales-role action projection for an already classified cart selection.
+ * @param {object} access Current role capabilities.
+ * @param {object} selection Current selection capabilities and action gates.
+ * @returns {object} Sales-role action visibility.
+ */
+function getRepBloomPickerActionVisibility(access, selection) {
+    const { canUseFullDriveActions, hasRepBloomOnlySelection, canUseFlyerFromBloom,
+        showProject, canUseInventoryActions, canUseBloomOrders } = selection;
+    const allowsSelectionActions = canUseFullDriveActions || !hasRepBloomOnlySelection;
+    const flyerProfileDenied = access.isRep
+        && (typeof resolveUserAccessMatrix !== 'function' || resolveUserAccessMatrix()?.flyer_folder_access !== 'Y');
+    const showStockActions = access.isRep ? false : canUseFullDriveActions && canUseInventoryActions;
+    return {
+        showCopy: true,
+        showEmail: true,
+        showText: true,
+        showAssign: false,
+        showEvalTask: false,
+        showNcr: false,
+        showRequest: allowsSelectionActions && canUseInventoryActions,
+        showMove: false,
+        showFlyer: !flyerProfileDenied && allowsSelectionActions && canUseFlyerFromBloom,
+        showTakeBack: showStockActions,
+        showEndCap: showStockActions,
+        showShear: false,
+        showBloomOrder: access.isRep ? false : canUseBloomOrders,
+        showProject,
+        canUseInventoryActions,
+        canUseBloomOrders
+    };
+}
+
+/** @returns {void} Synchronizes the tray, header, and available actions. */
 function updateGlobalActionBar() {
     const items = getCartSelectedItems();
     const hasItems = selectedItems.size > 0;
@@ -108,6 +165,7 @@ function updateGlobalActionBar() {
     syncGlobalHeaderChrome({reason: 'selection'});
 }
 
+/** @returns {boolean} Click-handler result. */
 function toggleBloomPickerActionDropdown() {
     if (!cartPanelOpen) return false;
     if (selectedItems.size) return toggleBloomPickerActions();

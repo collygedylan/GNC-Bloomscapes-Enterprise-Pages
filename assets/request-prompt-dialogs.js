@@ -1,34 +1,3 @@
-function closeNcrRepOutreachModal(choice = 'no') {
-    const modal = document.getElementById('ncr-rep-outreach-modal');
-    if (modal) modal.classList.add('hidden');
-    const resolver = ncrRepOutreachPromptResolver;
-    ncrRepOutreachPromptResolver = null;
-    if (typeof detachBloomscapesStaticBody === 'function') detachBloomscapesStaticBody('ncr-rep-outreach-modal');
-    if (resolver) resolver(String(choice || 'no').trim().toLowerCase() || 'no');
-}
-
-function openNcrRepOutreachModal(item = null, type = 'new-crop', approvedQty = '') {
-    const modal = mountBloomscapesStaticBody('ncr-rep-outreach-modal');
-    if (!modal) return Promise.resolve('no');
-    const labelText = getNcrRepOutreachModalRowLabel(item, type, approvedQty);
-    const title = document.getElementById('ncr-rep-outreach-title');
-    const label = document.getElementById('ncr-rep-outreach-label');
-    if (title) title.textContent = `Send ${getNcrApprovalTypeLabel(type)} to reps?`;
-    if (label) label.textContent = labelText;
-    if (ncrRepOutreachPromptResolver) {
-        const previousResolver = ncrRepOutreachPromptResolver;
-        ncrRepOutreachPromptResolver = null;
-        previousResolver('no');
-    }
-    modal.classList.remove('hidden');
-    const response = new Promise((resolve) => { ncrRepOutreachPromptResolver = resolve; });
-    const yesBtn = modal.querySelector('#ncr-rep-outreach-yes-btn');
-    if (yesBtn) setTimeout(() => {
-        if (yesBtn.isConnected && !modal.classList.contains('hidden')) yesBtn.focus();
-    }, 0);
-    return response;
-}
-
 function mountSalesOfficeAvNoteModal() {
     const saved = mountBloomscapesStaticBody('sales-office-av-modal');
     if (saved) return saved;
@@ -58,6 +27,10 @@ function mountSalesOfficeAvNoteModal() {
     return modal;
 }
 
+/** Open the AV note editor for a permitted Sales Office row.
+ * @param {string} uniqueId Physical inventory row ID.
+ * @returns {void}
+ */
 function openSalesOfficeAvNoteModal(uniqueId) {
     const uid = String(uniqueId || '').trim();
     if (!uid) return;
@@ -89,6 +62,7 @@ function openSalesOfficeAvNoteModal(uniqueId) {
     }, 60);
 }
 
+/** @returns {void} Clears the AV note editor and parks its hidden body. */
 function closeSalesOfficeAvNoteModal() {
     const modal = document.getElementById('sales-office-av-modal');
     const uidField = document.getElementById('sales-office-av-uid');

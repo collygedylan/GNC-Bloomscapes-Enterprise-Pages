@@ -1,3 +1,4 @@
+/** @returns {void} Closes the Dock information editor and schedules the owning view refresh. */
 function closeDockInfoModal() {
     hideDockInfoModal();
     // Capture the post-close dependency context, after the editor and
@@ -16,6 +17,7 @@ function hideDockInfoModal() {
     if (typeof detachBloomscapesStaticBody === 'function') detachBloomscapesStaticBody('dock-info-modal');
 }
 
+/** @param {string|number} dockNum Dock number. @param {string|number} tripNumber Exact trip number. @returns {void} Opens the editor when authorized. */
 function openDockInfoModal(dockNum, tripNumber) {
     if (!canEditDockWorkflow()) {
         showToast('Restricted', 'Only Admin or QC Supervisor can update dock team and status.', true);
@@ -48,6 +50,7 @@ function openDockInfoModal(dockNum, tripNumber) {
     }).catch(() => {});
 }
 
+/** @param {HTMLButtonElement|null} button Optional save control. @returns {Promise<false|void>} Saves the authorized trip or exits on a missing write proof. */
 async function saveDockInfoModal(button = null) {
     if (!requireCurrentDocksWriteProof()) return false;
     if (!canEditDockWorkflow()) {
@@ -149,6 +152,7 @@ function openDockItemMistakeModal(uid) {
     prepareIosNativeDetailMeasurementInputs(modal);
 }
 
+/** @returns {void} Closes the Dock issue editor and releases its owned interaction state. */
 function closeDockMistakeModal() {
     const modal = document.getElementById('dock-mistake-modal');
     if (detailMeasurementKeyboardTarget && detailMeasurementKeyboardTarget.closest && detailMeasurementKeyboardTarget.closest('#dock-mistake-modal')) {

@@ -23,7 +23,7 @@ if (!(typeof window !== 'undefined' ? window : globalThis).GncLiveAppUpdate) {
     const runtimeReady = () => typeof root.saveWorkStateBeforeAppUpdate === 'function' && typeof root.getAppUpdateBusyState === 'function' && typeof root.isAppUpdateSnapshotCurrent === 'function' && typeof root.commitAppUpdateSnapshotForReload === 'function';
     const busy = () => {
         if (!restoreReady || !runtimeReady() || doc.activeElement?.matches?.('input,textarea')) return true;
-        try { return root.GncCameraState?.cameraCaptureInFlight === true || root.isCameraCaptureProtected?.() === true || Number(root.GncLiveUpdateNetwork?.pendingWrites || 0)>0 || root.getAppUpdateBusyState()?.busy !== false; }
+        try { return root.isAgDataAuthTransitionActive?.() === true || root.isAgDataEditorActive?.() === true || root.GncCameraState?.cameraCaptureInFlight === true || root.isCameraCaptureProtected?.() === true || Number(root.GncLiveUpdateNetwork?.pendingWrites || 0)>0 || root.getAppUpdateBusyState()?.busy !== false; }
         catch (error) { reportUnexpected(error,'UPDATE_BUSY_CHECK_FAILED'); return true; }
     };
     function rememberTarget(value) {
@@ -105,31 +105,45 @@ if (!(typeof window !== 'undefined' ? window : globalThis).GncLiveAppUpdate) {
         let receipt;try { receipt=await root.saveWorkStateBeforeAppUpdate({targetVersion:target,deadlineMs:1500}); } catch (error) { reportUnexpected(error,'UPDATE_CHECKPOINT_FAILED'); return null; }
         return snapshotIsCurrent(receipt,target,sameRelease) ? receipt : null;
     }
-    function navigate(target,receipt) {
-        if(!snapshotIsCurrent(receipt,target))return false;
-        const key='agdata_live_update_reload_v1';
+    const reloadMarkerKey='agdata_live_update_reload_v1';
+    function commitNavigation(target,receipt,href,previousMarker) {
+        if (!snapshotIsCurrent(receipt,target)) return false;
+        let marked = false;
         try {
-            const prior=JSON.parse(root.sessionStorage.getItem(key)||'null');
-            if(prior?.target===target && prior?.from===currentVersion())return false;
-        } catch (error) { reportUnexpected(error,'UPDATE_RELOAD_MARKER_FAILED'); return false; }
-        const next=new URL(root.location.href);next.search='';next.hash='';
-        // No await follows this final snapshot/account/input check and commit marker.
-        if(!snapshotIsCurrent(receipt,target))return false;
-        try {
-            if(root.commitAppUpdateSnapshotForReload(receipt)!==true)return false;
-            if(!snapshotIsCurrent(receipt,target)){root.cancelAppUpdateSnapshotReload?.(receipt);return false;}
-            root.sessionStorage.setItem(key,JSON.stringify({target,from:currentVersion(),at:Date.now(),snapshotId:receipt.snapshotId,owner:receipt.owner,tabNonce:receipt.tabNonce}));
-            reloading=true;root.__agdataVersionReloadPending=true;root.__agdataMarkBootComplete?.();
-            root.suspendShellMaintenanceForNavigation?.();root.location.replace(next.href);return true;
+            if (root.commitAppUpdateSnapshotForReload(receipt)!==true || !snapshotIsCurrent(receipt,target)) {
+                root.cancelAppUpdateSnapshotReload?.(receipt);return false;
+            }
+            root.sessionStorage.setItem(reloadMarkerKey,JSON.stringify({target,from:currentVersion(),at:Date.now(),snapshotId:receipt.snapshotId,owner:receipt.owner,tabNonce:receipt.tabNonce}));
+            marked=true;reloading=true;root.__agdataVersionReloadPending=true;root.__agdataMarkBootComplete?.();
+            root.suspendShellMaintenanceForNavigation?.();root.location.replace(href);return true;
         } catch(error) {
             reloading=false;root.__agdataVersionReloadPending=false;root.cancelAppUpdateSnapshotReload?.(receipt);
-            try{root.sessionStorage.removeItem(key);}catch{}reportUnexpected(error,'UPDATE_NAVIGATION_FAILED');return false;
+            if (marked) restorePreviousReloadMarker(previousMarker);
+            reportUnexpected(error,'UPDATE_NAVIGATION_FAILED');return false;
         }
+    }
+    function restorePreviousReloadMarker(previous) {
+        try {
+            if (previous===null) root.sessionStorage.removeItem(reloadMarkerKey);
+            else root.sessionStorage.setItem(reloadMarkerKey,previous);
+        } catch {}
+    }
+    function navigate(target,receipt) {
+        if (!snapshotIsCurrent(receipt,target)) return false;
+        let previousMarker;
+        try {
+            previousMarker=root.sessionStorage.getItem(reloadMarkerKey);
+            const prior=JSON.parse(previousMarker || 'null');
+            if (prior?.target===target && prior?.from===currentVersion()) return false;
+        } catch (error) { reportUnexpected(error,'UPDATE_RELOAD_MARKER_FAILED'); return false; }
+        const next=new URL(root.location.href);next.search='';next.hash='';
+        // Claim only after shell proof, and release the claim if the exact snapshot cannot commit.
+        return root.claimShellReloadOnce?.(target,()=>commitNavigation(target,receipt,next.href,previousMarker)) === true;
     }
     function readReloadHandoff() {
         try {
             if (root.sessionStorage.getItem('agdata_update_restore_commit_v1')) return null;
-            const marker=JSON.parse(root.sessionStorage.getItem('agdata_live_update_reload_v1') || 'null');
+            const marker=JSON.parse(root.sessionStorage.getItem(reloadMarkerKey) || 'null');
             const age=Date.now()-Number(marker?.at);
             return marker?.target===currentVersion() && newer(currentVersion(),marker.from) && age>=0 && age<120000
                 && typeof marker.snapshotId==='string' && marker.snapshotId && typeof marker.tabNonce==='string' && marker.tabNonce
@@ -160,7 +174,7 @@ if (!(typeof window !== 'undefined' ? window : globalThis).GncLiveAppUpdate) {
     }
     function finishReloadHandoff(worker,version) {
         if (!readReloadHandoff() || worker!==serviceWorker?.controller || version!==currentVersion()) return;
-        try { root.sessionStorage.removeItem('agdata_live_update_reload_v1'); }
+        try { root.sessionStorage.removeItem(reloadMarkerKey); }
         catch (error) { reportUnexpected(error,'UPDATE_HANDOFF_MARKER_FAILED'); }
     }
     function finishActivation(tap, result) {

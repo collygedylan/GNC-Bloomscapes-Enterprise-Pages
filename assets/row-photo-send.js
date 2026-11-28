@@ -44,12 +44,14 @@ async function uploadNativeRequestPhoto(formData, options) {
     const prepared = await getNativeDrivePhotoObject(formData,'lsn-',masterUid);
     const identity = Object.fromEntries(['masterUid','itemCode','locationCode','lotCode','requestId']
         .map(name=>[name,String(formData.get(name) || '')]));
+    assertCurrentPhotoUpload(current,options);
     const receipt = await supabaseRpc('prepare_request_photo_upload_v3100',{
         p_identity:identity,p_photo_id:String(formData.get('queuedPhotoId') || ''),p_object_path:prepared.filePath
     },{timeoutMs:25000,signal:options.signal});
-    if (receipt?.ok!==true || receipt.requestId!==identity.requestId) {
+    if (receipt?.ok!==true || receipt.requestId!==identity.requestId || receipt.masterUid!==identity.masterUid) {
         throw new Error('The request photo row was not confirmed.');
     }
+    assertCurrentPhotoUpload(current,options);
     const send = ([path,blob])=>uploadNativeDrivePhotoPart(prepared.bucketName+'/'+path,blob,headers,current,options);
     await send(prepared.parts.at(-1));
     assertCurrentPhotoUpload(current,options);

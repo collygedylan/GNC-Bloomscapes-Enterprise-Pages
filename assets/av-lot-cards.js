@@ -1,6 +1,6 @@
-
 let avValidPhotosOnly = false;
 
+/** @returns {boolean} Suppresses the default action after toggling current valid-photo membership. */
 function toggleAvValidPhotos() {
     avValidPhotosOnly = !avValidPhotosOnly;
     invalidateResolvedViewStateCaches();
@@ -9,6 +9,7 @@ function toggleAvValidPhotos() {
     return false;
 }
 
+/** @param {Element} container Mounted AV filter surface. @returns {void} Synchronizes the valid-photo control with the active filter. */
 function syncAvValidPhotosButton(container) {
     const button = container.querySelector('#av-valid-photos');
     if (!button) return;
@@ -48,13 +49,15 @@ function indexCanonicalAvLotRows(rows) {
     return Array.from(groups.values());
 }
 
+/** @param {Array<object>} rows Authorized physical inventory rows. @param {Function} [resolve] Exact canonical row resolver. @returns {Array<object>} Display cards keyed by canonical physical lot. */
 function collapseCanonicalAvLotRows(rows, resolve = resolveCanonicalInventoryRow) {
-    const groups = getCanonicalDriveProjection(rows, 'av-physical-lots', () => indexCanonicalAvLotRows(rows));
-    return groups.map(group => groupAvLotCard(group, resolve));
+    const collapse=()=>indexCanonicalAvLotRows(rows).map(group=>groupAvLotCard(group,resolve));
+    const canonical=typeof resolveCanonicalInventoryRow==='function' && resolve===resolveCanonicalInventoryRow;
+    return canonical ? getCanonicalDriveProjection(rows,'av-physical-lots',collapse) : collapse();
 }
 
 
-function getAvResolvedCardCacheKey({term,safeTab,liveCatalogIncomplete,usePreparedSalesRows,preparedIdentity}) {
+function getAvResolvedCardCacheKey({safeTab,liveCatalogIncomplete,usePreparedSalesRows,preparedIdentity}) {
     return [
         resolvedViewStateEpoch, getCanonicalInventoryRevision(),
         usePreparedSalesRows ? 'prepared-sales-rows' : 'synchronous-sales-rows',
@@ -80,7 +83,6 @@ function getAvResolvedCardCacheKey({term,safeTab,liveCatalogIncomplete,usePrepar
         [...selectedAvContSizes].sort().join('|'),
         buildAvColumnFilterStateKey(),
         getRepU3VisibilityScopeKey(),
-        term,
         getDatasetLoadSignature('master'),
         getDatasetLoadSignature('avOpen'),
         getDatasetLoadSignature('reserves'),
@@ -88,6 +90,7 @@ function getAvResolvedCardCacheKey({term,safeTab,liveCatalogIncomplete,usePrepar
     ].join('::');
 }
 
+/** @param {object} [options] AV projection options including prepared sales rows. @returns {object} Current scoped AV rows, filter metadata and completeness. */
 function buildResolvedAVBaseState(options = {}) {
     const term = getAvSearchTerm();
     const safeTab = String(activeAVTab || 'open').trim();
@@ -98,38 +101,52 @@ function buildResolvedAVBaseState(options = {}) {
     const usePreparedSalesRows = !avValidPhotosOnly && photoMode !== 'valid_photos' && safeTab === 'open' && !exactSearchRows.length
         && !!(options && options.usePreparedSalesRows);
     const preparedIdentity = usePreparedSalesRows ? getAvSalesDerivationIdentity(activeAvSalesBucket) : null;
-    const cacheKey = getAvResolvedCardCacheKey({term,safeTab,liveCatalogIncomplete,usePreparedSalesRows,preparedIdentity});
+    const projectionKey = getAvResolvedCardCacheKey({safeTab,liveCatalogIncomplete,usePreparedSalesRows,preparedIdentity});
+    const cacheKey = JSON.stringify([projectionKey,term]);
     if (avResolvedBaseStateKey === cacheKey && avResolvedBaseStateCache) {
         incrementInternalPerfCounter('viewStateCacheHits');
         return avResolvedBaseStateCache;
     }
-    const preparedSalesRows = usePreparedSalesRows ? getAvSalesRowsForRendering(activeAvSalesBucket, preparedIdentity) : null;
+    const reusable = avResolvedBaseStateKey && !liveCatalogIncomplete && !avValidPhotosOnly && photoMode==='all'
+        && avResolvedBaseStateCache?.projectionKey===projectionKey && !avResolvedBaseStateCache.isPartial;
+    const preparedSalesRows = !reusable && usePreparedSalesRows ? getAvSalesRowsForRendering(activeAvSalesBucket, preparedIdentity) : null;
     const exactSalesRows = exactSearchRows.length ? getAvSalesRowsForBucket(activeAvSalesBucket, exactSearchRows) : null;
-    const filterBaseItems = avValidPhotosOnly ? getAvSalesRowsForBucket(activeAvSalesBucket, getCanonicalValidPhotoRows()) : getAvRawTabItems(safeTab, preparedSalesRows
-        ? { salesRows: preparedSalesRows.rows }
-        : exactSalesRows ? { salesRows: exactSalesRows } : {});
-    const avFilterState = buildAvSharedFilterState(filterBaseItems);
+    const filterBaseItems = reusable ? avResolvedBaseStateCache.filterBaseItems
+        : buildAvRawFilterMembership(safeTab,preparedSalesRows || (exactSalesRows ? {rows:exactSalesRows} : null));
+    const avFilterState = reusable ? avResolvedBaseStateCache.avFilterState : buildAvSharedFilterState(filterBaseItems);
     let items = avValidPhotosOnly ? avFilterState.filteredItems.filter(hasValidRowPhoto) : avFilterState.filteredItems;
     let needsLotCollapse = avValidPhotosOnly || photoMode === 'valid_photos';
     const searchProfile = isAvCustomerSalesBucket(activeAvSalesBucket) ? 'av_reserves' : 'av_open';
     if (term) items = filterBySearch(items, term, searchProfile);
     if (typeof applyInventoryExcelFilters === 'function') items = applyInventoryExcelFilters('av',items);
     if (!avValidPhotosOnly && term && (!items.length || liveCatalogIncomplete) && safeTab === 'open' && photoMode === 'photos') {
-        const extra = getAvNamePhotoSearchRows(term);
-        if (extra.length) {
-            const eligible = getAvSalesRowsForBucket(activeAvSalesBucket,extra);
-            const photos = getAvRawTabItems('open',{salesRows:eligible});
-            const filtered = applyAvColumnFiltersToItems(photos).filter(createAvTopFilterPredicate());
-            const matching = filterBySearch(filtered,term,searchProfile);
+        const matching = findAvPhotoSearchMatches(term, searchProfile);
+        if (matching.length) {
             items = items.concat(matching);
-            needsLotCollapse = matching.length > 0;
+            needsLotCollapse = true;
         }
     }
     // The ordinary raw open tab already resolves each lot before filtering.
     if (safeTab === 'open' && needsLotCollapse) items = collapseCanonicalAvLotRows(items);
     avResolvedBaseStateKey = cacheKey;
-    avResolvedBaseStateCache = { items, term, filterBaseItems, avFilterState, isPartial: liveCatalogIncomplete || !!(preparedSalesRows && preparedSalesRows.partial) };
+    avResolvedBaseStateCache = { items, term, filterBaseItems, avFilterState, projectionKey,
+        isPartial: liveCatalogIncomplete || !!preparedSalesRows?.partial };
     return avResolvedBaseStateCache;
+}
+
+function buildAvRawFilterMembership(tab, prepared) {
+    if (avValidPhotosOnly) return getAvSalesRowsForBucket(activeAvSalesBucket,getCanonicalValidPhotoRows());
+    return getAvRawTabItems(tab,prepared ? {salesRows:prepared.rows} : {});
+}
+
+
+function findAvPhotoSearchMatches(term, searchProfile) {
+    const extra = getAvNamePhotoSearchRows(term);
+    if (!extra.length) return [];
+    const eligible = getAvSalesRowsForBucket(activeAvSalesBucket, extra);
+    const photos = getAvRawTabItems('open', {salesRows: eligible});
+    const filtered = applyAvColumnFiltersToItems(photos).filter(createAvTopFilterPredicate());
+    return filterBySearch(filtered, term, searchProfile);
 }
 
 function getAvDisplayExportContext(items,term) {
@@ -218,6 +235,7 @@ function renderReserveAvInventory(container, crumb, items, term) {
     return;
 }
 
+/** @param {string} farm Warm authorized farm code. @returns {void} Schedules the existing AV derivation for that farm. */
 function prepareBloomscapesFarmAvBrowse(farm) {
     if (!window.AgMetricAvDerivedRows || !window.BloomscapesBatteryGovernor?.canPrewarm()) return;
     const owner=getSupabaseReadIdentityScope();
@@ -237,6 +255,7 @@ function hasPreparedWarmAvRows() {
     return service.peek(identity.key,identity.scope)?.sourceKey===identity.sourceKey;
 }
 
+/** @returns {void} Paints the currently authorized AV view and its active filters. */
 function renderAV() {
     syncAvKioskMode();
     const container = document.getElementById('av-content');
@@ -266,6 +285,7 @@ function renderAV() {
     }
 }
 
+/** @param {object} context Authorized AV result window and continuation marker. @returns {IntersectionObserver} Observer owned by that window. */
 function mountAvScrollPage(context) {
     const {container,marker}=context;
     const edge=document.createElement('div');

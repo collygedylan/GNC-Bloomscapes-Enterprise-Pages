@@ -1,4 +1,4 @@
-import { cleanseAuraInventoryText, parseAuraWholeNumber, readAuraProduct } from "./auraLingo.js?v=AgData%20v3.1.84";
+import { cleanseAuraInventoryText, parseAuraWholeNumber, readAuraProduct } from "./auraLingo.js?v=AgData%20v3.1.85";
 
 function readInventoryScope(input) {
   let text = cleanseAuraInventoryText(input);
@@ -190,12 +190,4 @@ export function parseAuraIntent(input, context = {}) {
   }
 
   return { type: "unknown", raw: text };
-}
-
-export function parseSpokenNumber(input) {
-  return numberValue(input);
-}
-
-export function normalizeAuraSize(input) {
-  return normalizeSize(input);
 }

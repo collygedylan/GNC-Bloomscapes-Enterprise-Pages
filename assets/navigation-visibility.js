@@ -27,12 +27,10 @@ function getNavigationDisplayStorage() {
     try { return window.localStorage; }
     catch (error) { globalThis.GncRuntimeWatchdog?.capture?.(error, 'navigationDisplayStorage'); return null; }
 }
-/** @param {string} value @returns {string} The normalized navigation directory handle. */
 function normalizeNavigationVisibilityUsername(value = '') {
     const username = String(value || '').trim().toLowerCase();
     return ['nally_aguilar', 'nellie_aguilar'].includes(username) ? 'nelly_aguilar' : username;
 }
-/** @param {string} userOverride @returns {object|null} The verified native or retained navigation identity. */
 function getNavigationVisibilityIdentity(userOverride = '') {
     const username = normalizeNavigationVisibilityUsername(currentUser);
     if (!username || normalizeNavigationVisibilityUsername(userOverride || currentUser) !== username) return null;
@@ -49,7 +47,6 @@ function getNavigationVisibilityIdentity(userOverride = '') {
     const profileId = matchingRecord ? String(record.displayProfileId || '').trim() : '';
     return { id: profileId || `legacy:${username}`, username, role: currentRole || safeRole || '' };
 }
-/** @returns {void} Refreshes navigation display grants from the current bound profile. */
 function refreshNavigationDisplayCache() {
     const identity = getNavigationVisibilityIdentity();
     const owner = identity?.id ? `${identity.id}:${identity.username}` : '';
@@ -64,7 +61,6 @@ function refreshNavigationDisplayCache() {
     navigationDisplayCache.row = row;
     persistAccessDisplayCache(storage, identity, NAVIGATION_DISPLAY_CACHE_PREFIX, row);
 }
-/** @param {unknown} result @returns {object[]} Usable navigation display rows. */
 function normalizeNavigationAccessRows(result) {
     if (!Array.isArray(result?.data)) return result;
     return { ...result, data: result.data.map(row => ({ ...row, username: normalizeNavigationVisibilityUsername(row.username) })) };
@@ -72,7 +68,6 @@ function normalizeNavigationAccessRows(result) {
 function isNavigationFlagEnabled(value) {
     return /^(?:y|yes|true|1)$/i.test(String(value ?? '').trim());
 }
-/** @param {string} view @param {object} flags @returns {string} The baseline visibility flag. */
 function resolveNavigationViewFlag(view, flags = {}) {
     if (String(view).startsWith('production:')) return resolveNavigationViewFlag('production', flags);
     if (typeof getManagerTableManagementKey === 'function' && getManagerTableManagementKey(view)) return resolveNavigationNurseryFlag(flags);
@@ -131,16 +126,12 @@ function getNavigationDisplayMatrix(identity) {
     if (navigationDisplayCache.owner !== `${identity.id}:${identity.username}`) refreshNavigationDisplayCache();
     return navigationDisplayCache.owner === `${identity.id}:${identity.username}` ? navigationDisplayCache.row : null;
 }
-
-/** @param {string} userOverride @returns {boolean} Whether the native actor can use full navigation. */
 function hasFullNavigationVisibility(userOverride = '') {
     const identity = getNavigationVisibilityIdentity(userOverride);
     if (!identity || typeof borrowedHelpPreview === 'function' && borrowedHelpPreview()) return false;
     const role = String(identity.role || '').trim().toLowerCase().replace(/[-_\s]/g, '');
     return FULL_NAVIGATION_USERNAMES.has(identity.username) || ['admin', 'administrator', 'superadmin'].includes(role);
 }
-
-/** @param {string} viewId @param {string} userOverride @returns {boolean} Whether the authorized navigation surface is visible. */
 function canDisplayNavigationView(viewId = '', userOverride = '') {
     const view = String(viewId || '').trim();
     if (window.__agdataSessionBoundary === true || hasExplicitLogoutMarker() || hasConfirmedCurrentAccountRevocation()) return false;
@@ -170,14 +161,10 @@ function canDisplayNavigationView(viewId = '', userOverride = '') {
     const nested = QUICK_ACCESS_NESTED_ROUTES[view];
     return defaults.has(nested?.parent || view) && navigationPreferencesAllowed(view, true);
 }
-
-/** @returns {string[]} Applicable view preference choices. */
 function getNavigationDisplayChoices() {
     const choices = [...getHomeModuleRegistry().map(module => module.view), 'tasks', 'take-back', 'weather-hold'];
     return [...new Set(choices)].filter(view => !['borrowed-work','time-cards'].includes(view) && canDisplayNavigationView(view));
 }
-
-/** @param {string} viewId @param {object} access @returns {boolean} Whether the view has a permitted footer shortcut. */
 function canShowFooterViewButton(viewId = '', access = getRoleAccessState()) {
     const targetView = String(viewId || '').trim();
     if (!targetView || ['borrowed-work','time-cards'].includes(targetView)) return false;
@@ -186,7 +173,6 @@ function canShowFooterViewButton(viewId = '', access = getRoleAccessState()) {
     if (targetView === 'sales') return false;
     return canDisplayNavigationView(targetView);
 }
-/** @returns {boolean} Whether the current account can use Field Work Studio. */
 function canUseBloomscapesWorkStudio() {
     if (!nativeAuthSessionActive) return false;
     const personal = typeof bloomscapesPersonalRoute === 'function' ? bloomscapesPersonalRoute('studio') : null;
@@ -293,7 +279,7 @@ const bloomscapesDormantBodyIds = [
     'flyer-assignee-modal', 'pull-clown-tape-side-modal',
     'assign-modal', 'shear-list-modal', 'side-drawer',
     'inventory-edit-request-modal', 'bloom-email-purpose-modal', 'grouped-bloom-ncr-recipient-modal', 'bloom-action-row-form-modal',
-    'dock-info-modal', 'dock-mistake-modal', 'ncr-email-modal', 'ncr-rep-outreach-modal', 'sales-office-av-modal'
+    'dock-info-modal', 'dock-mistake-modal', 'ncr-email-modal', 'sales-office-av-modal'
 ];
 
 const bloomscapesScopedProjectionHosts = [
@@ -311,7 +297,6 @@ function bloomscapesStaticBodyScope() {
     const permission = typeof appAccessSnapshotState === 'undefined' ? '' : appAccessSnapshotState.snapshot?.dataPermissionVersion || '';
     return JSON.stringify([identity,permission]);
 }
-
 function queryBloomscapesStaticBody(id,selector) {
     const root = document.getElementById(id);
     if (!root) return null;
@@ -332,7 +317,6 @@ function resetBloomscapesStaticBodyScope(root) {
     const viewId = root.id.startsWith('view-') ? root.id.slice(5) : '';
     if (viewId && typeof markViewDirty === 'function') markViewDirty(viewId);
 }
-
 function mountBloomscapesStaticBody(id,reset=false) {
     const root = document.getElementById(id);
     const body = root && bloomscapesDormantBodies.get(root);
@@ -344,7 +328,6 @@ function mountBloomscapesStaticBody(id,reset=false) {
     }
     return root;
 }
-
 function detachBloomscapesStaticBody(id,scope=bloomscapesStaticBodyScope()) {
     const root = document.getElementById(id);
     if (!root?.firstChild || bloomscapesDormantBodies.has(root)) return;
@@ -366,17 +349,14 @@ function restoreBloomscapesDormantHeaderSearch(root) {
         .some(placeholder=>placeholder.dataset.headerSearchPlaceholder===container.id);
     if (ownsSearch) restoreGlobalHeaderSearchContainers();
 }
-
 function detachInactiveBloomscapesStaticBodies() {
     const scope = bloomscapesStaticBodyScope();
     for (const id of bloomscapesDormantBodyIds) detachBloomscapesStaticBody(id,scope);
 }
-
 function restoreBloomscapesStaticBodiesForScopeReset() {
     for (const id of bloomscapesDormantBodyIds) mountBloomscapesStaticBody(id,true);
     document.querySelectorAll('#view-detail [id^="det-"][id$="-content"]').forEach(panel=>mountBloomscapesStaticBody(panel.id,true));
 }
-
 function mountBloomscapesDetailTabBody(activeId, panelIds) {
     const target = mountBloomscapesStaticBody(activeId);
     target?.classList.remove('hidden');

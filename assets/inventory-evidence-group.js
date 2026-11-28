@@ -81,6 +81,14 @@ function matchesCanonicalLinkedInventoryRow(row, master) {
 function createCanonicalEvidenceGroupMatcher(target, rows, {source,provisional,pending}) {
     const uid = canonicalInventoryRowUid(target);
     const sourceUid = canonicalInventoryRowUid(source);
+    const sourceTable = String(source?.SOURCE_TABLE || source?.source_table || '').toLowerCase();
+    if (sourceTable === 'ph_requests_pending' && uid && canonicalInventoryLinkedUid(source) === uid) {
+        const same = row => canonicalInventorySameLocation(row,target);
+        return {
+            master:row => same(row) && (canonicalInventoryLinkedUid(row) || canonicalInventoryRowUid(row)) === uid,
+            mirror:row => same(row) && canonicalInventoryRowUid(row) === sourceUid
+        };
+    }
     const lot = canonicalInventoryLot(target);
     const isVerified = row => {
         const rowUid = canonicalInventoryRowUid(row);

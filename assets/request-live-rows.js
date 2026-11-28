@@ -1,4 +1,3 @@
-
 function refreshOptionalRequestQueueData(reason, options) {
     void refreshActiveRequestQueueSideData(reason || 'request-force-refresh', {
         force: options.force === true,
@@ -178,4 +177,108 @@ async function commitRefreshedRequestRows(rows, reason, safeOptions, navigationS
                 persistCurrentCache(false, reason);
                 refreshOptionalRequestQueueData(reason, safeOptions);
                 return true;
+}
+
+/** Append the bounded authenticated item lookup to the current read cohort.
+ * @param {string} itemCode Item identity.
+ * @param {object[]} target Current rows to extend.
+ * @returns {Promise<boolean>} Whether the remote lookup settled successfully.
+ */
+async function appendRequestItemCodeOptionRemoteRows(itemCode, target) {
+    try {
+        const itemRows = await fetchRequestItemCodeOptionRowsFromSupabase(itemCode, { pageSize: 100, maxRows: 2500 });
+        target.push(...itemRows);
+        return true;
+    } catch (lookupError) {
+        if (isSupabaseReadTerminalDenial(lookupError)) throw lookupError;
+        console.warn('Request AV option itemcode lookup failed', lookupError);
+        return false;
+    }
+}
+
+/** Apply canonical options while retaining same-account owner and metric evidence.
+ * @param {object} state Current keyed option state.
+ * @param {object} cohort Source rows, read outcome and exact owner.
+ * @returns {void}
+ */
+function applyScopedRequestItemCodeOptions(state, { rawRows, sharedRows, forceRefresh, primaryLookupSucceeded, owner }) {
+    state.cachedRows = [];
+    state.cachedSignature = '';
+    const retainedRows = forceRefresh ? sharedRows : [...sharedRows, ...(Array.isArray(state.rows) ? state.rows : [])];
+    const formattedRows = formatFetchedRows(forceRefresh ? [...rawRows, ...retainedRows] : [...retainedRows, ...rawRows], 'ph_master_inventory').map((row, index) => {
+        const uid = String(firstNonEmptyValue(row && row.UNIQUE_ID, row && row.unique_id, '') || '').trim();
+        row.DOM_ID = row.DOM_ID || `reqopt_${uid || index}`;
+        return buildSearchIndex(normalizeRowPhotoFields(row));
+    });
+    const mergedRows = new Map();
+    const currentPermission = String(appAccessSnapshotState.snapshot?.dataPermissionVersion || '');
+    const acceptedMetricRevision = (row) => {
+        const scope = String(firstNonEmptyValue(row?.LOC_ON_HAND_RECEIPT_SCOPE, row?.loc_on_hand_receipt_scope, '') || '');
+        const permission = String(firstNonEmptyValue(row?.LOC_ON_HAND_RECEIPT_PERMISSION, row?.loc_on_hand_receipt_permission, '') || '');
+        const revision = String(firstNonEmptyValue(row?.LOC_ON_HAND_RECEIPT_REVISION, row?.loc_on_hand_receipt_revision, '') || '').trim();
+        const aggregateRevision = String(firstNonEmptyValue(row?.LOC_ON_HAND_REVISION, row?.loc_on_hand_revision, '') || '').trim();
+        if (scope !== owner || permission !== currentPermission || !/^\d+$/.test(revision) || revision !== aggregateRevision) return null;
+        return BigInt(revision);
+    };
+    formattedRows.forEach((row) => {
+        const identity = getRequestItemCodeOptionMasterId(row) || getRequestItemCodeOptionExactKey(row);
+        if (!identity) return;
+        const existing = mergedRows.get(identity);
+        if (!existing) { mergedRows.set(identity, row); return; }
+        const incomingRevision = acceptedMetricRevision(row);
+        const existingRevision = acceptedMetricRevision(existing);
+        if (incomingRevision !== null && (existingRevision === null || incomingRevision > existingRevision)) mergedRows.set(identity, row);
+    });
+    if (mergedRows.size || !retainedRows.length && (!forceRefresh || primaryLookupSucceeded)
+        || forceRefresh && primaryLookupSucceeded) state.rows = Array.from(mergedRows.values());
+    state.rowsRevision = (Number(state.rowsRevision) || 0) + 1;
+    state.loaded = true;
+    state.error = '';
+}
+
+/** Capture a failed options read only for the same item and account.
+ * @param {object} state Current keyed option state.
+ * @param {object} failedRead Exact item, state key, owner and error captured by the read.
+ * @returns {void}
+ */
+function recordScopedRequestItemCodeOptionError(state, { item, safeStateKey, owner, error }) {
+    if (requestItemCodeOptionState.key !== safeStateKey || owner !== getSupabaseReadIdentityScope()) return;
+    state.denied = isSupabaseReadTerminalDenial(error);
+    if (state.denied) {
+        state.rows = [];
+        state.cachedRows = [];
+        state.cachedSignature = '';
+        state.error = 'AV option access is unavailable for this account.';
+    } else {
+        state.error = getRequestItemCodeOptionRows(item).length ? '' : 'AV options are temporarily unavailable. Reopen to retry.';
+    }
+    state.loaded = true;
+}
+
+/** Close the current options read and schedule an authorized queued metric revision.
+ * @param {object} state Current keyed option state.
+ * @param {string} safeStateKey Exact key at read start.
+ * @param {string} owner Read scope at read start.
+ * @param {boolean} forceRefresh Whether the read was forced.
+ * @returns {void}
+ */
+function settleRequestItemCodeOptionLoad(state, safeStateKey, owner, forceRefresh) {
+    if (requestItemCodeOptionState.key === safeStateKey && owner === getSupabaseReadIdentityScope()) {
+        state.loading = false;
+        if (forceRefresh && acceptedLocOnHandAggregateReceipt?.valid === true
+            && acceptedLocOnHandAggregateReceipt.scope === getSupabaseReadIdentityScope()
+            && acceptedLocOnHandAggregateReceipt.permission === String(appAccessSnapshotState.snapshot?.dataPermissionVersion || '')) {
+            state.metricRefreshRevision = String(acceptedLocOnHandAggregateReceipt.revision || state.metricRefreshRevision || '');
+        }
+        const pendingMetricRevision = String(state.metricRefreshPendingRevision || '').trim();
+        state.metricRefreshPendingRevision = '';
+        if (pendingMetricRevision && requestItemCodeOptionState === state) {
+            scheduleStaleRequestOptionMetricRefresh(activeItem, state, pendingMetricRevision);
+        }
+        if (String(activeDetailTab || '').trim().toLowerCase() === 'this-location') {
+            renderRequestThisLocationPanel(activeItem, activeDetailSourceView || lastView || '', { skipLoad: true });
+        } else {
+            renderRequestMatchingInventoryOptions(activeItem, activeDetailSourceView || lastView || '', { skipLoad: true });
+        }
+    }
 }

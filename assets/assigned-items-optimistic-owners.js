@@ -2,6 +2,7 @@ const assignedOwnerMirrorFields = [
     'DEFAULT_ASSIGNEDTO','default_assignedto','DEFAULT_OWNER','default_owner',
     'ASSIGNEDTO','assignedto','effective_worker','EFFECTIVE_WORKER','zone_override_active','assignment_reason'
 ];
+const optimisticAssignedOwnersByRow = new WeakMap();
 
 function applyOptimisticAssignedDefaults(state, codes, assignee) {
     const defaults = state.defaultOwnersByCode ||= state.itemcodeDefaultOwners instanceof Map ? state.itemcodeDefaultOwners : new Map();
@@ -40,11 +41,31 @@ function applyOptimisticAssignedRows(state, codes, assignee) {
         for (const row of rows) {
             const code = buildManagerEvalAssignmentKey(row.ITEMCODE || row.itemcode || row.itemcode_normalized);
             if (snapshots.has(row) || !codes.has(code)) continue;
-            const before = assignedOwnerMirrorFields.map(field=>[field,Object.hasOwn(row,field),row[field]]);
-            snapshots.set(row,before);
-            stampOptimisticAssignedRow(row,assignee);
+            snapshots.set(row, captureOptimisticAssignedRow(row, assignee));
         }
     }
+    return snapshots;
+}
+
+function assignedOwnerField(row, field) {
+    return {exists: Object.hasOwn(row, field), value: row[field]};
+}
+
+function matchesAssignedOwnerField(row, field, expected) {
+    return Object.hasOwn(row, field) === expected.exists && Object.is(row[field], expected.value);
+}
+
+function captureOptimisticAssignedRow(row, assignee) {
+    const previous = optimisticAssignedOwnersByRow.get(row);
+    const snapshots = assignedOwnerMirrorFields.map((field, index) => {
+        const prior = previous?.[index];
+        const before = prior && matchesAssignedOwnerField(row, field, prior.optimistic)
+            ? prior.before : assignedOwnerField(row, field);
+        return {field, before};
+    });
+    stampOptimisticAssignedRow(row, assignee);
+    for (const snapshot of snapshots) snapshot.optimistic = assignedOwnerField(row, snapshot.field);
+    optimisticAssignedOwnersByRow.set(row, snapshots);
     return snapshots;
 }
 
@@ -57,13 +78,19 @@ function restoreOptimisticAssignedDefaults(state, undo) {
     }
 }
 
-function restoreOptimisticAssignedRows(snapshots, assignee) {
-    for (const [row,before] of snapshots) {
-        if (row.default_owner !== assignee) continue;
-        for (const [field,exists,value] of before) {
-            if (exists) row[field] = value;
-            else delete row[field];
-        }
+function releaseOptimisticAssignedRows(snapshots, restore) {
+    for (const [row, fields] of snapshots) {
+        if (optimisticAssignedOwnersByRow.get(row) !== fields) continue;
+        optimisticAssignedOwnersByRow.delete(row);
+        if (restore) restoreAssignedOwnerFields(row, fields);
+    }
+}
+
+function restoreAssignedOwnerFields(row, fields) {
+    for (const {field, before, optimistic} of fields) {
+        if (!matchesAssignedOwnerField(row, field, optimistic)) continue;
+        if (before.exists) row[field] = before.value;
+        else delete row[field];
     }
 }
 
@@ -74,6 +101,7 @@ function refreshOptimisticAssignedOwners(state) {
     if (state === getManagerAssignedColumnState() && typeof refreshSuspendOwnerViews === 'function') refreshSuspendOwnerViews();
 }
 
+/** @param {string[]} codes Exact item codes. @param {string} assignee Projected owner. @returns {Function} Scoped undo with a durable commit hook. */
 function applyOptimisticItemcodeOwners(codes, assignee) {
     const state = getManagerAssignedColumnState(), wanted = new Set(codes);
     const defaults = applyOptimisticAssignedDefaults(state,wanted,assignee);
@@ -86,12 +114,22 @@ function applyOptimisticItemcodeOwners(codes, assignee) {
     }
     invalidateManagerEvalReport2Cache();
     refreshOptimisticAssignedOwners(state);
-    return () => {
+    let settled = false;
+    const undo = ({retired = false} = {}) => {
+        if (settled) return;
+        settled = true;
         restoreOptimisticAssignedDefaults(state,defaults);
-        restoreOptimisticAssignedRows(snapshots,assignee);
+        releaseOptimisticAssignedRows(snapshots,true);
+        if (retired) return;
         state.dataEpoch++;
         clearWarehouseAssignedItemCaches();
         invalidateManagerEvalReport2Cache();
         refreshOptimisticAssignedOwners(state);
     };
+    undo.commit = () => {
+        if (settled) return;
+        settled = true;
+        releaseOptimisticAssignedRows(snapshots,false);
+    };
+    return undo;
 }

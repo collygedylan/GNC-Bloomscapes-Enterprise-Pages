@@ -16,7 +16,6 @@
         const SHEAR_LIST_TABLE = 'ph_shear_list';
         const SHEAR_LIST_SELECT_FIELDS = '*';
         const PRODUCTION_WORKFLOW_ROWS_TABLE = 'ph_production_workflow_rows';
-        const PRODUCTION_WORKFLOW_ROWS_SELECT_FIELDS = '*';
         const SPREAD_COUNT_TABLE = 'ph_spread_counts';
         const BUNCH_COUNT_TABLE = 'ph_bunch_counts';
         const SPREAD_COUNT_SELECT_FIELDS = '*';
@@ -41,16 +40,11 @@
         // Request History, Credit, and Bunch Notes scripts need the public URL.
         window.APP_API_FUNCTION_URL = APP_API_FUNCTION_URL;
         const AURA_QUERY_URL = `${SUPABASE_URL}/functions/v1/aura-query`;
-        const AURA_LLM_ROUTER_URL = `${SUPABASE_URL}/functions/v1/aura-llm-router`;
-        const LEAF_ASSISTANT_FUNCTION_URL = `${SUPABASE_URL}/functions/v1/inventory-assistant`;
         const CODEX_OPS_FUNCTION_URL = `${SUPABASE_URL}/functions/v1/codex-ops-api`;
         const APP_API_DB_WRITE_PROXY_ENABLED = true;
-        const APP_API_DB_WRITE_PROXY_DIRECT_FALLBACK_ENABLED = false;
         const APP_API_DB_WRITE_PROXY_COOLDOWN_MS = 120000;
         const APP_API_DB_WRITE_PROXY_UNAVAILABLE_STORAGE_KEY = 'gnc_app_api_write_proxy_unavailable_until_v1';
         const PUSH_VAPID_PUBLIC_KEY = 'BAnr5wnptNgeqol-aJzw1eW_4CnuHpQNlvJ3vmo4VGVfuRsHNO5bRZdT-8NN8qUL5bTlUxYrx592fbG26EYjEN4';
-        const PUSH_ALERT_NEW_REQUEST_USERS = new Set(['dylan_collyge','jd_jones','megan_kelly']);
-        const PUSH_ALERT_FLYER_USERS = new Set(['morgan_anderson','kayla_knepp','dylan_collyge','jd_jones','megan_kelly','nelly_aguilar']);
         const PUSH_DELIVERY_RETRY_DELAYS_MS = [0, 1500, 6000, 15000];
         const PUSH_MOBILE_REFRESH_STORAGE_KEY = 'gnc_mobile_push_refresh_v1';
         const DEPARTMENT_CALENDAR_READ_STORAGE_KEY = 'gnc_department_calendar_read_v1';
@@ -70,8 +64,6 @@
         ]);
         const MARKETING_MATERIALS_TABLE = 'marketing_materials';
         const MARKETING_MATERIALS_BUCKET = PHOTO_BUCKETS['marketing-'] || 'marketing_materials';
-        const NCR_PHOTO_BUCKET = PHOTO_BUCKETS['req-'] || 'request_photos';
-        const NCR_PHOTO_PATH_PREFIX = 'ncr';
         const NCR_COMPLETION_FALLBACK_STORAGE_KEY = 'gnc_ncr_completed_rows_v1';
         function naturalCompare(a, b) {
             return String(a || '').localeCompare(String(b || ''), undefined, { numeric: true, sensitivity: 'base' });
@@ -94,10 +86,9 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.84';
+        const APP_SHELL_VERSION = String(window.__APP_SHELL_VERSION__ || '').trim() || 'AgData v3.1.85';
         const APP_SHELL_BUILD = String(window.__APP_SHELL_BUILD__ || APP_SHELL_VERSION || '').trim() || APP_SHELL_VERSION;
         const APP_SHELL_BUILD_STORAGE_KEY = 'gnc_app_shell_build_v1';
-        const APP_SHELL_REFRESH_STORAGE_KEY = 'gnc_app_shell_refresh_v1';
         const APP_SHELL_QUERY_PARAM = 'shellv';
         const APP_BOOTED_VERSION_STORAGE_KEY = 'gnc_app_version_booted_v1';
         const APP_FILTER_STATE_STORAGE_KEY = 'gnc_app_filter_state_v1';
@@ -109,7 +100,6 @@
         const APP_SHELL_MANIFEST_CHECK_TTL_MS = 15000;
         const APP_SHELL_VISIBLE_RELOAD_STARTUP_GRACE_MS = 8000;
         const APP_SHELL_RUNTIME_BOOTED_AT = Date.now();
-        const APP_VERSION_ENFORCEMENT_INTERVAL_MS = 60000;
         const checkCurrentAppVersion = (reason, options = {}) => window.checkForLiveAppUpdate?.(reason,options) || Promise.resolve(false);
         window.checkAgDataVersion = checkCurrentAppVersion;
         void checkCurrentAppVersion('runtime-ready');
@@ -119,7 +109,6 @@
         // .07 enables native Supabase Auth after the additive profile migration,
         // password-parity reconciliation, and dual-auth workflow checks passed.
         const NATIVE_AUTH_ENABLED = true;
-        const LEGACY_SESSION_BRIDGE_ENABLED = true;
         const NATIVE_AUTH_ALIAS_DOMAIN = 'greenleafnursery.com';
         const PASSKEY_ENROLLED_STORAGE_KEY = 'gnc_passkey_enrolled_v1';
         const LAST_PASSKEY_USERNAME_STORAGE_KEY = 'gnc_last_passkey_username';
@@ -386,16 +375,6 @@
                 externalSignal?.removeEventListener('abort', abort);
                 auraPendingRequests.delete(controller);
             }
-        }
-        async function bindAuraParty(party, options = {}) {
-            const selected = {
-                customerIdentityId: String(party?.customerIdentityId || ''),
-                consigneeIdentityId: String(party?.consigneeIdentityId || ''),
-                customerName: String(party?.customerName || ''),
-                consigneeName: String(party?.consigneeName || '')
-            };
-            const result = await callAuraLegacyQuery({ mode: 'bind_party', party: selected }, options);
-            return { partyRef: String(result.partyRef || '') };
         }
         async function requestAuraLlm(body, options = {}) {
             const payload = { ...body };
@@ -1517,14 +1496,11 @@
 const QUOTA_SAFE_REALTIME_MODE = true;
 const QUOTA_SAFE_VISIBLE_POLL_STANDALONE_MS = 240000;
 const QUOTA_SAFE_VISIBLE_POLL_BROWSER_MS = 360000;
-const QUOTA_SAFE_HEALTHY_REALTIME_POLL_MS = 600000;
-const QUOTA_SAFE_CHAT_HEALTHY_POLL_MS = 180000;
 const QUOTA_SAFE_DIRECT_REALTIME_VIEW_IDS = new Set(['chat', 'communication', 'department-calendar', 'request']);
 const LIVE_SYNC_POLL_STANDALONE_MS = QUOTA_SAFE_REALTIME_MODE ? QUOTA_SAFE_VISIBLE_POLL_STANDALONE_MS : 60000;
 const LIVE_SYNC_POLL_BROWSER_MS = QUOTA_SAFE_REALTIME_MODE ? QUOTA_SAFE_VISIBLE_POLL_BROWSER_MS : 90000;
 const REQUEST_LIVE_QUEUE_POLL_MS = 8000;
 const REQUEST_VISIBLE_POLL_MS = REQUEST_LIVE_QUEUE_POLL_MS;
-const REQUEST_QUEUE_VISIBLE_POLL_FLOOR_MS = 5000;
         const REQUEST_QUEUE_SIDE_REFRESH_MIN_INTERVAL_MS = 5000;
 const REQUEST_RECOUNT_SOURCE_REFRESH_MS = 2500;
 const REQUEST_SHEAR_LIST_STALE_MS = 1200;
@@ -1539,37 +1515,6 @@ const RETIRED_DATASET_KEYS = new Set(['mlJobs']);
 const RETIRED_MANUAL_SYNC_STAGE_KEYS = new Set(['disease', 'lab', 'lab_reports']);
 const MANUAL_SYNC_STAGE_ORDER_CLIENT_DEFAULT = Object.freeze(['drive','cav','reserves','soc','hl_po_parsed']);
 const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'tasks', 'request', 'managers', 'docks','hl-order', 'sales-office', 'moves', 'review', 'move-up', 'low-stock', 'advertisement', 'reports', 'grower', 'pest-management', 'shear-list', 'sales-inventory', 'production-workflow']);
-        const APP_LIVE_EVENT_VIEW_AREAS = Object.freeze({
-            home: ['request', 'sales-office', 'tasks', 'grower', 'production', 'sales-inventory', 'shear-list', 'take-back', 'customer-rep-map'],
-            drive: ['inventory', 'av', 'reserves', 'request', 'sales-office', 'customer-rep-map'],
-            tasks: ['tasks', 'request', 'sales-office', 'grower', 'customer-rep-map'],
-            request: ['request', 'sales-office', 'shear-list', 'docks', 'inventory', 'customer-rep-map'],
-            reports: ['request', 'sales-office', 'docks', 'customer-rep-map'],
-            'historical-requests': ['request', 'inventory'],
-            'sales-office': ['sales-office'],
-            moves: ['sales-office'],
-            'take-back': ['take-back'],
-            av: ['av', 'inventory', 'reserves'],
-            reserves: ['reserves'],
-            docks: ['docks'],
-            'hl-order': ['docks'],
-            review: ['inventory'],
-            'move-up': ['inventory', 'sales-office'],
-            grower: ['grower'],
-            'pest-management': ['grower'],
-            'shear-list': ['shear-list', 'inventory', 'reserves'],
-            'sales-inventory': ['sales-inventory', 'inventory'],
-            production: ['production', 'inventory'],
-            'production-workflow': ['production', 'inventory'],
-            sales: ['request', 'docks', 'av', 'sales-office', 'inventory', 'reserves', 'customer-rep-map'],
-            managers: ['inventory', 'tasks'],
-            qc: ['docks', 'inventory'],
-            office: ['sales-office'],
-            inventory: ['sales-inventory', 'sales-office', 'production'],
-            'weather-hold': ['inventory', 'reserves'],
-            'low-stock': ['inventory'],
-            communication: ['chat', 'department-calendar']
-        });
         const LIVE_SYNC_VIEW_POLICY = Object.freeze({
             home: { realtimeTables: [], pollMs: 'visible-default' },
             managers: { realtimeTables: [WAREHOUSE_ASSIGNED_ITEMS_TABLE, 'ph_app_settings', 'ph_item_inquiry_coverage'], pollMs: FOREGROUND_INVENTORY_POLL_MS },
@@ -1606,14 +1551,12 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
             'low-stock': { realtimeTables: [], pollMs: FOREGROUND_INVENTORY_POLL_MS },
             hours: { realtimeTables: [], pollMs: 0 }
         });
-        const REALTIME_TABLES = Array.from(new Set(Object.values(LIVE_SYNC_VIEW_POLICY).flatMap((policy) => Array.isArray(policy && policy.realtimeTables) ? policy.realtimeTables : [])));
         let activeRealtimeTables = [];
         let activeRealtimeViewId = '';
         let activeRealtimeContextViewId = 'home';
         let visibleViewPollTimer = null;
         let activeVisibleViewPollViewId = '';
         let activeVisibleViewPollMs = 0;
-        const realtimeFallbackAttemptsByView = new Map();
         const VIEW_ENTER_REFRESH_MIN_INTERVAL_MS = 60000;
         const VIEW_ENTER_REFRESH_REALTIME_HEALTHY_MS = 180000;
         const REQUEST_VIEW_FORCE_REFRESH_MIN_INTERVAL_MS = 5000;
@@ -1627,7 +1570,6 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
         const viewEnterRefreshAt = new Map();
         const REALTIME_STARTUP_GRACE_MS = 12000;
         const REALTIME_RECOVERY_GRACE_MS = 3200;
-        const DISABLE_POLLING_WHEN_REALTIME_SUPPORTED = true;
         const HEAVY_DATASET_KEYS = new Set(['master', 'avOpen', 'reserves', 'soc', 'salesOffice', 'cav', 'cavAvBlankKeys', 'avHotPriceKeys', 'avNotes']);
         const MANUAL_SYNC_STATUS_POLL_MS = 10000;
         const MANUAL_SYNC_STATUS_STALE_MS = 12000;
@@ -1720,7 +1662,6 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
                 sha256: String(optimized.hash || '')
             };
         }
-        const PHOTO_ORIGINAL_UPLOAD_MAX_BYTES = 2 * 1024 * 1024;
         const PHOTO_FIELD_PERSIST_DEBOUNCE_MS = 350;
         const PHOTO_MASTER_PERSIST_DEBOUNCE_MS = 450;
         const INTERACTION_REFRESH_DEFER_MS = 640;
@@ -1732,8 +1673,6 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
         const MAX_SEARCH_FILTER_CACHE_ENTRIES = 16;
         const LONG_SESSION_HOUSEKEEPING_MS = 45 * 1000;
         const LONG_SESSION_CACHE_LIMIT = 64;
-        const EXCEL_FILTER_RENDER_LIMIT_TOUCH = 90;
-        const EXCEL_FILTER_RENDER_LIMIT_DESKTOP = 180;
         const internalPerfStats = window.__gncPerfStats || (window.__gncPerfStats = {
             forcedRerenders: 0,
             skippedRealtimeEchoes: 0,
@@ -1881,7 +1820,6 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
         let lastTaskContSizeRenderSignature = '';
         let lastDriveTopControlsRenderSignature = '';
         let lastAvTopControlsRenderSignature = '';
-        let swipeCloseOnScrollFrame = null;
         let swipeCloseOnScrollTimer = null;
         let lifecycleResumeTimer = null;
         let lifecycleResumeCooldownUntil = 0;
@@ -2821,27 +2759,6 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
             return true;
         }
 
-        function restoreMobileTextEntryScroll(target = mobileTextEntryState && mobileTextEntryState.target) {
-            if (!isMobileTextEntryPositionLocked(target)) return false;
-            const mainScrollArea = document.getElementById('main-scroll-area');
-            const scrollElement = (mobileTextEntryState.scrollElement && mobileTextEntryState.scrollElement.isConnected)
-                ? mobileTextEntryState.scrollElement
-                : getMobileTextEntryScrollContainer(target);
-            if (scrollElement && Math.abs((scrollElement.scrollTop || 0) - mobileTextEntryState.scrollTop) > 18) {
-                settleMobileTextEntryVisibility(target);
-                return true;
-            }
-            if (scrollElement) {
-                if (Math.abs((scrollElement.scrollTop || 0) - mobileTextEntryState.scrollTop) > 1) scrollElement.scrollTop = mobileTextEntryState.scrollTop;
-                if (Math.abs((scrollElement.scrollLeft || 0) - mobileTextEntryState.scrollLeft) > 1) scrollElement.scrollLeft = mobileTextEntryState.scrollLeft;
-            } else if (mainScrollArea) {
-                if (Math.abs((mainScrollArea.scrollTop || 0) - mobileTextEntryState.scrollTop) > 1) mainScrollArea.scrollTop = mobileTextEntryState.scrollTop;
-                if (Math.abs((mainScrollArea.scrollLeft || 0) - mobileTextEntryState.scrollLeft) > 1) mainScrollArea.scrollLeft = mobileTextEntryState.scrollLeft;
-            }
-            if (window.scrollX) window.scrollTo(0, window.scrollY || 0);
-            updateMobileTextEntryBodyState(target);
-            return true;
-        }
 
         function extendMobileTextEntryStability(target = null, options = {}) {
             if (!target || mobileTextEntryState.target !== target) return false;
@@ -3591,27 +3508,7 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
             return next;
         }
 
-        function getAppLiveEventRealtimeAreasForView(viewId = '') {
-            const safeViewId = resolveRealtimeContextViewId(viewId || activeRealtimeContextViewId || activeRealtimeViewId || 'home');
-            return normalizeAppLiveEventAreaList(APP_LIVE_EVENT_VIEW_AREAS[safeViewId] || APP_LIVE_EVENT_VIEW_AREAS.home || []);
-        }
 
-        function setAppLiveEventAreaStatus(area = '', status = '') {
-            const key = String(area || '*').trim() || '*';
-            const nextStatus = String(status || '').trim().toUpperCase();
-            if (nextStatus) appLiveEventAreaStatus[key] = nextStatus;
-            else delete appLiveEventAreaStatus[key];
-            const statuses = Object.values(appLiveEventAreaStatus || {});
-            if (statuses.includes('SUBSCRIBED')) {
-                setRealtimeTableStatus(APP_LIVE_EVENTS_TABLE, 'SUBSCRIBED');
-                return;
-            }
-            if (statuses.length) {
-                setRealtimeTableStatus(APP_LIVE_EVENTS_TABLE, statuses[statuses.length - 1]);
-                return;
-            }
-            setRealtimeTableStatus(APP_LIVE_EVENTS_TABLE, '');
-        }
 
         function buildRealtimeChannelName(tableName = '', area = '') {
             const safeTable = String(tableName || '').trim() || 'table';
@@ -3647,9 +3544,6 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
             return appLiveEventClientId;
         }
 
-        function hasHealthyAppLiveEventsRealtime() {
-            return isRealtimeTableHealthy(APP_LIVE_EVENTS_TABLE);
-        }
 
         function isRealtimeRequiredTableForCurrentView(tableName = '') {
             const safeTable = String(tableName || '').trim();
@@ -5343,24 +5237,6 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
             return typeof getCurrentVisibleViewId !== 'function' || getCurrentVisibleViewId() === viewId;
         }
 
-        function shouldUseMobileFlowFilterChrome_() {
-            const body = document.body;
-            if (isIosPhoneAndroidFlowLayout()) return true;
-            if (isIOSDevice()
-                && !(body && (body.classList.contains('keyboard-open')
-                    || body.classList.contains('detail-field-active')
-                    || body.classList.contains('measurement-keyboard-open')))) {
-                return false;
-            }
-            const compactBody = !!(body && body.classList.contains('viewport-compact'));
-            const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
-            const compactMedia = !!(window.matchMedia && (
-                window.matchMedia('(max-width: 820px)').matches
-                || window.matchMedia('(hover: none)').matches
-                || window.matchMedia('(any-pointer: coarse)').matches
-            ));
-            return compactBody || viewportWidth <= 820 || compactMedia || isCoarsePointerDevice();
-        }
 
         function shouldUseFixedFilterRailForView(viewId = '') {
             const id = String(viewId || '').trim();
@@ -5862,15 +5738,6 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
                 }, { passive: true });
             }
         }
-        function syncShellBuildUrl(build) {
-            if (!build) return;
-            try {
-                const nextUrl = new URL(window.location.href);
-                if (nextUrl.searchParams.get(APP_SHELL_QUERY_PARAM) === build) return;
-                nextUrl.searchParams.set(APP_SHELL_QUERY_PARAM, build);
-                window.history.replaceState(null, '', nextUrl.toString());
-            } catch (e) { globalThis.reportHandledRuntimeIssue?.("syncShellBuildUrl", 'HANDLED_OPERATION_FAILURE'); }
-        }
 
         function extractShellBuildFromUrl(urlValue = '') {
             const safeUrlValue = String(urlValue || '').trim();
@@ -5905,15 +5772,6 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
             } catch (error) { globalThis.safeIgnoreProbeError?.("setStoredTargetShellBuild"); }
         }
 
-        function clearShellForceRefreshMarkerIfCurrent(build = '') {
-            const safeBuild = String(build || '').trim();
-            try {
-                const existing = String(sessionStorage.getItem(APP_SHELL_FORCE_REFRESH_STORAGE_KEY) || '').trim();
-                if (!safeBuild || existing === safeBuild) {
-                    sessionStorage.removeItem(APP_SHELL_FORCE_REFRESH_STORAGE_KEY);
-                }
-            } catch (error) { globalThis.safeIgnoreProbeError?.("clearShellForceRefreshMarkerIfCurrent"); }
-        }
 
         function getShellStaleRecoveryMarker() {
             try {
@@ -5923,26 +5781,7 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
             }
         }
 
-        function setShellStaleRecoveryMarker(build = '') {
-            const safeBuild = String(build || '').trim();
-            try {
-                if (safeBuild) {
-                    sessionStorage.setItem(APP_SHELL_STALE_RECOVERY_STORAGE_KEY, safeBuild);
-                } else {
-                    sessionStorage.removeItem(APP_SHELL_STALE_RECOVERY_STORAGE_KEY);
-                }
-            } catch (error) { globalThis.safeIgnoreProbeError?.("setShellStaleRecoveryMarker"); }
-        }
 
-        function clearShellStaleRecoveryMarkerIfCurrent(build = '') {
-            const safeBuild = String(build || '').trim();
-            try {
-                const existing = String(sessionStorage.getItem(APP_SHELL_STALE_RECOVERY_STORAGE_KEY) || '').trim();
-                if (!safeBuild || existing === safeBuild) {
-                    sessionStorage.removeItem(APP_SHELL_STALE_RECOVERY_STORAGE_KEY);
-                }
-            } catch (error) { globalThis.safeIgnoreProbeError?.("clearShellStaleRecoveryMarkerIfCurrent"); }
-        }
 
         function logShellDiagnostics(context = '', extra = {}) {
             const safeContext = String(context || '').trim() || 'shell';
@@ -5965,22 +5804,6 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
             return payload;
         }
 
-        function getDeferredShellReloadRequest() {
-            try {
-                const raw = String(sessionStorage.getItem(APP_SHELL_DEFERRED_RELOAD_STORAGE_KEY) || '').trim();
-                if (!raw) return null;
-                const parsed = JSON.parse(raw);
-                const build = String(parsed && parsed.build || '').trim();
-                if (!build) return null;
-                return {
-                    build,
-                    reason: String(parsed && parsed.reason || 'deferred-shell-reload').trim(),
-                    at: Number(parsed && parsed.at) || 0
-                };
-            } catch (error) {
-                return null;
-            }
-        }
 
         function rememberDeferredShellReload(targetBuild = '', reason = '') {
             const safeTargetBuild = String(targetBuild || APP_SHELL_BUILD || '').trim();
@@ -6028,7 +5851,6 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
             return false;
         }
 
-        let deferredShellTypingIdleTimer = null;
         function scheduleDeferredShellReloadAfterTyping(delayMs = 1600) { return window.GncLiveAppUpdate?.scheduleApply?.(delayMs) || false; }
         window.addEventListener('input', () => scheduleDeferredShellReloadAfterTyping(1600), { capture: true, passive: true });
         window.addEventListener('focusout', () => scheduleDeferredShellReloadAfterTyping(320), { capture: true, passive: true });
@@ -6163,26 +5985,6 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
             }
         }
 
-        function rememberIosRuntimeRecoveryReload(reason = '') {
-            const currentBuild = String(APP_SHELL_BUILD || APP_SHELL_VERSION || '').trim();
-            const now = Date.now();
-            const previous = getIosRuntimeRecoveryRecord();
-            const sameWindow = previous.build === currentBuild && (now - previous.at) < (10 * 60 * 1000);
-            const count = sameWindow ? previous.count + 1 : 1;
-            if (sameWindow && previous.count >= 2) {
-                logShellDiagnostics('ios-runtime-reload-limited', { reason, count: previous.count });
-                return false;
-            }
-            try {
-                sessionStorage.setItem(IOS_RUNTIME_RECOVERY_STORAGE_KEY, JSON.stringify({
-                    build: currentBuild,
-                    at: now,
-                    count,
-                    reason: String(reason || '').slice(0, 80)
-                }));
-            } catch (error) { globalThis.safeIgnoreProbeError?.("rememberIosRuntimeRecoveryReload"); }
-            return true;
-        }
 
         async function requestIosRuntimeShellVersion(reason = '') {
             if (!('serviceWorker' in navigator)) return null;
@@ -7439,24 +7241,6 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
             return false;
         }
 
-        function chooseDetailMeasurementKeyboardChoice(event = null, token = '') {
-            if (event && typeof event.preventDefault === 'function') event.preventDefault();
-            if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
-            const now = Date.now();
-            const safeToken = String(token || '');
-            const pointerSignature = `choice:${safeToken}`;
-            const eventType = String(event && event.type || '').toLowerCase();
-            if (eventType === 'touchstart' && typeof window !== 'undefined' && window.PointerEvent) return false;
-            const duplicateWindow = eventType === 'click' ? 650 : 450;
-            if (pointerSignature === detailMeasurementKeyboardLastPointerToken && now - detailMeasurementKeyboardLastPointerAt < duplicateWindow) return false;
-            detailMeasurementKeyboardLastPointerToken = pointerSignature;
-            detailMeasurementKeyboardLastPointerAt = now;
-            detailMeasurementKeyboardChoiceOpen = '';
-            const pressed = pressDetailMeasurementKeyboardToken(safeToken);
-            renderDetailMeasurementKeyboard();
-            restoreDetailMeasurementKeyboardTargetAfterChoice();
-            return pressed;
-        }
 
         function renderDetailMeasurementKeyboard() {
             const keyboard = ensureDetailMeasurementKeyboardElement();
@@ -8192,7 +7976,6 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
             const dashboardSticky = document.getElementById('home-dashboard-sticky');
             const dashboardHero = document.getElementById('home-dashboard-hero');
             const dynamicContent = document.getElementById('home-dynamic-content');
-            const modules = document.getElementById('home-dashboard-modules');
             if (!homeView || homeView.classList.contains('hidden') || getCurrentVisibleViewId() !== 'home') return false;
             if (shouldUseRepSalesHomeHub()) {
                 renderHome();
@@ -8318,7 +8101,7 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
         function closeLoginBlockingLayers() {
             try { globalThis.closeAvPhotoViewer?.({ restoreFocus: false }); closePhotoModal(); } catch { globalThis.reportHandledRuntimeIssue?.("closeLoginBlockingLayers", 'HANDLED_OPERATION_FAILURE'); }
             try { toggleMenu(false); } catch { globalThis.reportHandledRuntimeIssue?.("closeLoginBlockingLayers", 'HANDLED_OPERATION_FAILURE'); }
-            ['tab-select-modal', 'assign-modal', 'eval-task-modal', 'pull-clown-tape-side-modal', 'flyer-assignee-modal', 'endcap-modal', 'shear-list-modal', 'sales-office-shear-stage-modal', 'dock-mistake-modal', 'dock-allocation-modal', 'dock-info-modal', 'sales-office-av-modal', 'inventory-edit-request-modal', 'request-publish-modal', 'ncr-email-modal', 'hold-release-modal', 'ncr-rep-outreach-modal', 'request-rep-modal', 'bloom-share-modal', 'bloom-email-purpose-modal', 'bloom-action-row-form-modal', 'paper-ncr-package-modal', 'bloom-crop-update-modal', 'bloom-picker-modal', 'location-move-que-detail-modal', 'take-back-done-confirm-modal', 'mark-done-confirm-modal', 'drawer-overlay', 'side-drawer'].forEach(forceHideUiLayer);
+            ['tab-select-modal', 'assign-modal', 'eval-task-modal', 'pull-clown-tape-side-modal', 'flyer-assignee-modal', 'endcap-modal', 'shear-list-modal', 'sales-office-shear-stage-modal', 'dock-mistake-modal', 'dock-allocation-modal', 'dock-info-modal', 'sales-office-av-modal', 'inventory-edit-request-modal', 'request-publish-modal', 'ncr-email-modal', 'hold-release-modal', 'request-rep-modal', 'bloom-share-modal', 'bloom-email-purpose-modal', 'bloom-action-row-form-modal', 'paper-ncr-package-modal', 'bloom-crop-update-modal', 'bloom-picker-modal', 'location-move-que-detail-modal', 'take-back-done-confirm-modal', 'mark-done-confirm-modal', 'drawer-overlay', 'side-drawer'].forEach(forceHideUiLayer);
         }
 
         window.isAuthenticatedAppSessionActive = () => !!currentUser && !hasExplicitLogoutMarker();
@@ -8888,10 +8671,6 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
             return value.toLowerCase().replace(/\b([a-z])/g, (match) => match.toUpperCase());
         }
 
-        function getInventoryCardFieldTagColorLabel(row = null) {
-            const displayValue = getInventoryCardFieldTagColorDisplayValue(row);
-            return displayValue && displayValue !== '-' ? `Tag Color: ${displayValue}` : 'Tag Color: -';
-        }
 
         function buildInventoryCardTopTagColorHtml(row = null) {
             const displayValue = getInventoryCardFieldTagColorDisplayValue(row);
@@ -8976,18 +8755,6 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
             return getRoleAccessState().isForeman ? rows.filter((row) => hasPriorityColumnData(row)) : rows;
         }
 
-        function getRepRestrictedInventorySeasonValue(row = null) {
-            if (!row || typeof row !== 'object') return '';
-            const explicitSeason = typeof normalizeNcrSeasonCode === 'function'
-                ? normalizeNcrSeasonCode(firstNonEmptyValue(row.SEASON, row.season, row.SEASON_CODE, row.seasoncode, ''))
-                : String(firstNonEmptyValue(row.SEASON, row.season, row.SEASON_CODE, row.seasoncode, '') || '').trim().toUpperCase();
-            if (explicitSeason) return explicitSeason;
-            if (typeof getNcrSeasonCode === 'function') {
-                const lotSeason = normalizeNcrSeasonCode(getNcrSeasonCode(row));
-                if (lotSeason) return lotSeason;
-            }
-            return '';
-        }
 
         function shouldHideU3InventoryRowForRep() {
             return false;
@@ -9113,9 +8880,6 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
             return value;
         }
 
-        function normalizeSpecIdentityValue(value = '') {
-            return normalizeDetailSpecTextForSave(value).replace(/\s+/g, '').toUpperCase();
-        }
 
         function getMeasuredSpecInputValue(item = null) {
             if (!item || !firstNonEmptyValue(item.DATE_COMPLETED, item.date_completed,
@@ -9446,7 +9210,6 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
                 getSharedAppPhotoLinkCsvRaw(item, { includePending: false }),
                 linkedState.photoCsv
             ]);
-            const dockNames = mergePhotoCsvList([item.DOCK_PHOTO_NAME, item.DOCKPHOTO_NAME, getSharedAppPhotoName(item), linkedState.photoNameCsv]);
             const filteredBase = dockBase;
             return includePending ? getDisplayPhotoLinkCsv(filteredBase, item, 'dock', {respectRetention:false}) : filteredBase;
         }
@@ -9459,14 +9222,6 @@ const FORCE_VISIBLE_VIEW_REFRESH_IDS = new Set(['drive', 'av', 'reserves', 'task
             return parsePhotoCsvValues(baseCsv).filter((url) => !invalidSharedLinks.has(url)).join(',');
         }
 
-        function getFlyerOwnedPhotoLinkCsv(item, options = {}) {
-            if (!item) return '';
-            const includePending = options.includePending !== false;
-            const flyerBase = removeInvalidSharedPhotoLinksFromFolderCsv(item, mergePhotoCsvList([item.FLYER_PHOTO_LINK, item.FLYERPHOTO_LINK]));
-            const flyerNames = mergePhotoCsvList([item.FLYER_PHOTO_NAME, item.FLYERPHOTONAME]);
-            const filteredBase = filterPhotoCsvByRetention(flyerBase, item, { namesCsv: flyerNames });
-            return includePending ? getDisplayPhotoLinkCsv(filteredBase, item, 'flyer') : filteredBase;
-        }
 
         function getFlyerVisiblePhotoLinkCsvRaw(item) {
             if (!item) return '';
@@ -10239,7 +9994,6 @@ function formatPhotoDateLabel_(value = '') {
         else initializePhotoTakenDateBadgeObserver();
         const PHOTO_RETENTION_MAX_AGE_DAYS = 10;
         const PHOTO_RETENTION_MAX_AGE_MS = PHOTO_RETENTION_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
-        const AV_RULE_MAX_AGE_DAYS = PHOTO_RETENTION_MAX_AGE_DAYS;
         const AV_RULE_MAX_AGE_MS = PHOTO_RETENTION_MAX_AGE_MS;
 
         function getPhotoRetentionFallbackDateMs(item = null) {
@@ -10645,14 +10399,6 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
             return holdBeginMs > avUpdatedMs;
         }
 
-        function itemOrLinkedMasterHasBlockingHoldStopCodeForAv(item = null) {
-            if (hasBlockingHoldStopCodeForAv(getHoldStopSnapshotFromItem(item))) return true;
-            if (item && typeof findLinkedMasterRow === 'function') {
-                const linkedMaster = findLinkedMasterRow(item);
-                if (linkedMaster && linkedMaster !== item && hasBlockingHoldStopCodeForAv(getHoldStopSnapshotFromItem(linkedMaster))) return true;
-            }
-            return false;
-        }
 
         function isSeasonSalesNoteWinner(item = null) {
             if (!item) return false;
@@ -10824,11 +10570,6 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
             return true;
         }
 
-        function getLocMatchRequiredMessage(value = '', fallback = 'LOC MATCH % is required before completing this row.') {
-            return isInvalidLocMatchPercent(value)
-                ? 'LOC MATCH % must be between 0 and 100.'
-                : fallback;
-        }
 
         function calculateLocMatchQtyValue(item, matchOverride = undefined, options = {}) {
             const opts = options || {};
@@ -10978,10 +10719,6 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
             };
         }
 
-        function hasHoldReleasePromptRelevantUpdate(changeFlags = {}) {
-            const flags = changeFlags || {};
-            return !!(flags.photo || flags.avNote || flags.spec || flags.match || flags.caliper);
-        }
 
         function applyAvRuleTouchState(item, changeFlags = {}, nowIso = new Date().toISOString()) {
             if (!item) return false;
@@ -11058,9 +10795,6 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
             return desigItem.includes('SHFT');
         }
 
-        function shouldIncludeMasterItemInAvOpen(item) {
-            return shouldIncludeMasterItemInAvOpenStock(item) && !getMasterAvInvalidationReasons(item).length;
-        }
 
         const AV_OPEN_ALLOWED_SEASONS = Object.freeze(['F1', 'S1', 'U1', 'U2']);
         const AV_OPEN_MAX_SALES_YEAR = 27;
@@ -11228,11 +10962,6 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
             return preview;
         }
 
-        function shouldPublishCompletionToAvOpen(masterItem = null, syncValues = null) {
-            const previewItem = buildCompletionMasterSyncPreviewItem(masterItem, syncValues);
-            if (!previewItem) return false;
-            return shouldIncludeMasterItemInAvSeasonView(previewItem);
-        }
 
         function buildMasterAvRuleClearPayload(item, reasonText = '', clearedAt = new Date().toISOString()) {
             const payload = {
@@ -11299,15 +11028,6 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
         function getDetailPhotoUrls(item, sourceView='') {
             return resolveCanonicalPhotoUrls(item, sourceView || lastView || '');
         }
-        function handleDetailBagToggle(event) {
-            if (event) {
-                event.preventDefault();
-                event.stopPropagation();
-            }
-            if (!activeItem || !activeItem.DOM_ID) return false;
-            toggleGlobalItem(activeItem.DOM_ID, null, activeDetailSourceView || lastView || currentPrimaryViewId || '');
-            return false;
-        }
 
         function armDetailCameraInputGuard(durationMs = 700) {
             const duration = Math.max(250, Number(durationMs) || 700);
@@ -11331,20 +11051,6 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
             return false;
         }
 
-        function openDetailRequestAction(event) {
-            if (event) {
-                event.preventDefault();
-                event.stopPropagation();
-            }
-            if (!activeItem || !activeItem.DOM_ID) return false;
-            if (!canUseCartInventoryActions([activeItem])) {
-                showToast('Unavailable', 'Requests can only be created from inventory rows.', true);
-                return false;
-            }
-            detailRequestSourceDomIds = [activeItem.DOM_ID];
-            openRequestModal('detail');
-            return false;
-        }
         function syncRowDataAcrossViews(masterItem) {
             if (!masterItem) return;
             normalizeRowPhotoFields(masterItem);
@@ -12576,18 +12282,6 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
             queueVisibleDatasetCatchup(delay);
         }
 
-        function scheduleRealtimeReconnect(delay = REALTIME_RECOVERY_GRACE_MS) {
-            clearRealtimeReconnectTimer();
-            if (!currentUser || navigator.onLine === false || !shouldUseRealtime()) return;
-            liveSyncMode = 'queued';
-            updateSyncDiagnostics('queued');
-            realtimeReconnectTimer = setTimeout(() => {
-                realtimeReconnectTimer = null;
-                if (!currentUser || navigator.onLine === false || !shouldUseRealtime()) return;
-                if (hasHealthyCoreRealtimeSubscriptions()) return;
-                refreshRealtimeSubscriptionsForCurrentView(true);
-            }, Math.max(500, Number(delay) || REALTIME_RECOVERY_GRACE_MS));
-        }
 
         function cleanupRealtime() {
             realtimeSubscriptionGeneration += 1;
@@ -12793,80 +12487,6 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
             activeVisibleViewPollMs = 0;
         }
 
-        async function runVisibleViewPollSync(viewId = '') {
-            const policy = getLiveSyncPolicy(viewId || activeVisibleViewPollViewId || activeRealtimeContextViewId || activeRealtimeViewId || 'home');
-            if (!policy.pollMs || !currentUser || document.hidden) {
-                clearVisibleViewPollSync();
-                return;
-            }
-            const currentContextView = resolveRealtimeContextViewId(typeof getCurrentVisibleViewId === 'function' ? getCurrentVisibleViewId() : (activeRealtimeViewId || policy.viewId));
-            if (currentContextView !== policy.viewId) {
-                clearVisibleViewPollSync();
-                return;
-            }
-            if (navigator.onLine === false) {
-                liveSyncMode = 'offline';
-                updateSyncDiagnostics('offline');
-                clearVisibleViewPollSync();
-                return;
-            }
-            if (hasActiveManualSync() && shouldPauseManualSyncViewRefresh(policy.viewId)) {
-                clearVisibleViewPollSync();
-                updateSyncDiagnostics('manual-sync');
-                return;
-            }
-            if (policy.realtimeTables.length && hasHealthyCoreRealtimeSubscriptions(policy.viewId)) {
-                realtimeFallbackAttemptsByView.delete(policy.viewId);
-                clearVisibleViewPollSync();
-                liveSyncMode = 'realtime';
-                updateSyncDiagnostics('realtime');
-                return;
-            }
-            if (backgroundRefreshInFlight || shouldDeferInteractiveBackgroundWork()) {
-                const deferDelay = policy.viewId === 'chat'
-                    ? Math.min(Math.max(900, Number(policy.pollMs) || 2000), 2000)
-                    : Math.max(800, INTERACTION_REFRESH_DEFER_MS);
-                syncVisibleViewPoll(policy.viewId, { delay: deferDelay });
-                return;
-            }
-            try {
-                if (policy.viewId === 'chat') {
-                    await forceRefreshViewDatasets(policy.viewId, { includeBackground: true });
-                } else if (policy.viewId === 'request') {
-                    const didRefresh = await forceRefreshRequestsForView('request-visible-poll', {
-                        allowWhileInteractive: true,
-                        force: true,
-                        minIntervalMs: 0
-                    });
-                    if (didRefresh === false) {
-                        await runRequestViewLiveSync({
-                            alwaysOn: true,
-                            allowHealthyRealtime: true,
-                            allowWhileInteractive: true,
-                            force: true,
-                            once: true,
-                            minIntervalMs: 0
-                        });
-                    }
-                } else {
-                    const realtimeHealthy = hasHealthyCoreRealtimeSubscriptions(policy.viewId);
-                    if (realtimeHealthy) {
-                        liveSyncMode = 'realtime';
-                        updateSyncDiagnostics('realtime');
-                    }
-                    if (FORCE_VISIBLE_VIEW_REFRESH_IDS.has(policy.viewId)) {
-                        await forceRefreshViewDatasets(policy.viewId, { includeBackground: false, loadedOnly: false });
-                    } else {
-                        await refreshLoadedDatasets(false);
-                    }
-                }
-            } catch (error) { window.GncRuntimeWatchdog?.capture?.(error, 'runVisibleViewPollSync');
-            } finally {
-                const previousAttempt = Number(realtimeFallbackAttemptsByView.get(policy.viewId) || 0);
-                realtimeFallbackAttemptsByView.set(policy.viewId, Math.min(previousAttempt + 1, 8));
-                syncVisibleViewPoll(policy.viewId, { fallback: true });
-            }
-        }
 
         function syncVisibleViewPoll(viewId, options = {}) {
             clearVisibleViewPollSync();
@@ -12948,14 +12568,6 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
             if (canUseProductionLiveSync()) signalProductionLiveSync('view-entry',0);
         }
         /* @runtime-fragment assets/logout-work-state.js */
-
-        function debounce(func,wait) {
-            let timeout;
-            return function(...args){
-                clearTimeout(timeout);
-                timeout=setTimeout(()=>func.apply(this,args),wait);
-            };
-        }
 
         let uiRenderTimers = {};
         let uiRenderFrames = {};
@@ -14478,34 +14090,7 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
             }).length;
         }
 
-        function getCommunicationPhoneValue(user = null) {
-            if (!user) return '';
-            const raw = firstNonEmptyValue(
-                user.phone,
-                user.phone_number,
-                user.mobile,
-                user.mobile_phone,
-                user.cell,
-                user.cell_phone,
-                user.cellphone,
-                user.PHONE,
-                user.PHONE_NUMBER,
-                user.MOBILE,
-                ''
-            );
-            return String(raw || '').trim();
-        }
 
-        function getCommunicationUserDisplay(user = null) {
-            return String(firstNonEmptyValue(
-                user && user.display_name,
-                user && user.displayname,
-                user && user.name,
-                user && user.full_name,
-                user && user.username,
-                ''
-            ) || '').trim() || 'Unknown User';
-        }
 
         function openCommunicationPlaceholder(kind = '') {
             const label = String(kind || '').trim().toLowerCase() === 'email' ? 'Email' : 'Phone';
@@ -15419,10 +15004,6 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
             return Number.isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
         }
 
-        function getDepartmentCalendarSelectedUser(username = '') {
-            const safeUsername = normalizePushUsername(username);
-            return (departmentCalendarState.users || []).find((user) => normalizePushUsername(user && user.username) === safeUsername) || null;
-        }
 
         function getDepartmentCalendarSaveErrorMessage(error = null) {
             return String(error && error.message ? error.message : error || '').trim();
@@ -16384,10 +15965,6 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
             return getSharedAppPhotoLinkCsv(item, { includePending: false });
         }
 
-        function rowHasRequiredCompletionPhoto(item = null, prefix = '') {
-            const csv = getCompletionPhotoCsvForPrefix(item, prefix);
-            return parsePhotoCsvValues(csv).some((url) => /^https?:\/\//i.test(String(url || '').trim()));
-        }
 
         function createPendingPhotoPreview(item, prefix, previewUrl, fileName = '') {
             const bucketKeys = getPhotoBucketKeysForItem(item, prefix);
@@ -16856,23 +16433,7 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
             return unavailableUntil && unavailableUntil > Date.now();
         }
 
-        function shouldRouteSupabaseWriteThroughAppApi(table = '', method = 'GET', requestOptions = {}) {
-            const opts = requestOptions && typeof requestOptions === 'object' ? requestOptions : {};
-            const safeTable = String(table || '').trim();
-            if (!APP_API_DB_WRITE_PROXY_ENABLED || !safeTable || !isSupabaseWriteMethod(method)) return false;
-            if (opts.directSupabase === true || opts.disableAppApiWriteProxy === true) return false;
-            const hasDirectFallback = hasDirectSupabaseWriteFallbackConfigured();
-            if (hasDirectFallback && navigator.onLine === false) return false;
-            if (hasDirectFallback && isAppApiWriteProxyTemporarilyUnavailable()) return false;
-            return true;
-        }
 
-        function shouldUseDirectSupabaseWriteFallback(error = null, requestOptions = {}) {
-            const opts = requestOptions && typeof requestOptions === 'object' ? requestOptions : {};
-            if (opts.noDirectSupabaseFallback === true) return false;
-            if (!APP_API_DB_WRITE_PROXY_DIRECT_FALLBACK_ENABLED) return false;
-            return true;
-        }
 
         async function ensureAppApiWriteProxySession() {
             if (getCurrentAppSessionToken()) return true;
@@ -17641,7 +17202,6 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
             C: Object.freeze(new Set([6, 7])),
             D: Object.freeze(new Set([6, 7, 8, 9, 10]))
         });
-        const EVAL_TASK_SELECT_FIELDS = 'eval_task_type,eval_task_status,eval_task_instructions,eval_task_assigned_by,eval_task_assigned_at,eval_task_completed_by,eval_task_completed_at,eval_task_recount_qty,eval_task_moved_up_qty,eval_task_hold_action,eval_task_hold_code,eval_task_hold_reason,eval_task_result_note';
 
         function maybeWarnEvalTaskSchemaMissing(error = null) {
             evalTaskColumnsReady = false;
@@ -18149,15 +17709,6 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
             return buildEvalTaskAssignmentEntries(items, '').filter((entry) => entry.needsManual).map((entry) => entry.item);
         }
 
-        function groupEvalTaskAssignmentEntriesByAssignee(entries = []) {
-            const groups = new Map();
-            (Array.isArray(entries) ? entries : []).forEach((entry) => {
-                if (!entry || !entry.item || !entry.assignee) return;
-                if (!groups.has(entry.assignee)) groups.set(entry.assignee, []);
-                groups.get(entry.assignee).push(entry.item);
-            });
-            return groups;
-        }
 
         function getEvalTaskWorkflowTypeSetForEntries(entries = [], fallbackTaskType = '') {
             const fallback = normalizeEvalTaskType(fallbackTaskType);
@@ -19623,17 +19174,14 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
         }
 
         function stopLeafVoiceInput(manual = false) {
-            leafVoiceAbortRequested = !!manual;
             leafVoiceSubmitPending = false;
             leafVoiceListening = false;
-            leafVoiceInterimText = '';
             clearLeafVoiceFinalizeTimer();
-            if (leafVoiceRecognition) {
-                try {
-                    if (manual && typeof leafVoiceRecognition.abort === 'function') leafVoiceRecognition.abort();
-                    else if (typeof leafVoiceRecognition.stop === 'function') leafVoiceRecognition.stop();
-                } catch (error) { globalThis.safeIgnoreProbeError?.("stopLeafVoiceInput"); }
-            }
+            if (!leafVoiceRecognition) return;
+            try {
+                if (manual && typeof leafVoiceRecognition.abort === 'function') leafVoiceRecognition.abort();
+                else if (typeof leafVoiceRecognition.stop === 'function') leafVoiceRecognition.stop();
+            } catch { globalThis.safeIgnoreProbeError?.("stopLeafVoiceInput"); }
         }
 
         function stopLeafVoiceActivity(manual = false) {
@@ -19662,174 +19210,9 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
             if (stopBtn) stopBtn.disabled = !(leafVoiceListening || leafVoiceSpeaking);
         }
 
-        function speakLeafAssistantText(text = '') {
-            const safeText = String(text || '').trim();
-            if (!safeText || !leafVoiceOutputSupported() || document.visibilityState === 'hidden') return false;
-            window.GncAuraAudio?.claim('leaf');
-            stopLeafSpeechPlayback();
-            leafLastSpokenAnswer = safeText;
-            const utterance = new window.SpeechSynthesisUtterance(safeText);
-            utterance.rate = 1;
-            utterance.pitch = 1;
-            utterance.onstart = () => {
-                if (leafVoiceUtterance !== utterance) return;
-                leafVoiceSpeaking = true;
-                leafVoiceStatusOverride = '';
-                setLeafAssistantBusyState(leafAssistantBusy, '');
-            };
-            utterance.onend = () => {
-                if (leafVoiceUtterance !== utterance) return;
-                leafVoiceSpeaking = false;
-                leafVoiceUtterance = null;
-                setLeafAssistantBusyState(leafAssistantBusy, '');
-            };
-            utterance.onerror = () => {
-                if (leafVoiceUtterance !== utterance) return;
-                leafVoiceSpeaking = false;
-                leafVoiceUtterance = null;
-                setLeafAssistantBusyState(leafAssistantBusy, '');
-            };
-            leafVoiceUtterance = utterance;
-            try {
-                window.speechSynthesis.speak(utterance);
-                return true;
-            } catch (error) {
-                leafVoiceSpeaking = false;
-                leafVoiceUtterance = null;
-                syncLeafAuraAudioOwnership();
-                return false;
-            }
-        }
 
-        function replayLeafAssistantAnswer() {
-            if (!leafLastSpokenAnswer) {
-                showToast('Leaf', 'No recent Leaf answer to replay yet.', true);
-                return false;
-            }
-            if (!leafVoiceOutputSupported()) {
-                showToast('Leaf', 'Audio playback is unavailable on this device.', true);
-                return false;
-            }
-            return speakLeafAssistantText(leafLastSpokenAnswer);
-        }
 
-        function toggleLeafVoiceInput() {
-            if (leafVoiceListening) {
-                stopLeafVoiceInput(true);
-                leafVoiceStatusOverride = getLeafVoiceIdleStatus();
-                setLeafAssistantBusyState(leafAssistantBusy, '');
-                return false;
-            }
-            if (leafAssistantBusy) return false;
-            const SpeechCtor = getLeafSpeechRecognitionCtor();
-            if (!SpeechCtor) {
-                leafVoiceStatusOverride = 'Voice unavailable';
-                setLeafAssistantBusyState(false, '');
-                showToast('Leaf', 'Voice input is unavailable on this device.', true);
-                return false;
-            }
-            stopLeafSpeechPlayback();
-            const input = document.getElementById('leaf-question-input');
-            leafVoiceAbortRequested = false;
-            leafVoiceSubmitPending = false;
-            leafVoiceInterimText = '';
-            leafVoiceFinalText = '';
-            leafVoiceStatusOverride = '';
-            clearLeafVoiceFinalizeTimer();
-            const recognition = new SpeechCtor();
-            leafVoiceRecognition = recognition;
-            window.GncAuraAudio?.claim('leaf');
-            recognition.lang = 'en-US';
-            recognition.continuous = false;
-            recognition.interimResults = true;
-            recognition.maxAlternatives = 1;
-            recognition.onstart = () => {
-                leafVoiceListening = true;
-                leafVoiceLastSpeechAt = Date.now();
-                setLeafAssistantBusyState(false, '');
-            };
-            recognition.onresult = (event) => {
-                let finalTranscript = '';
-                let interimTranscript = '';
-                const results = event && event.results ? event.results : [];
-                for (let idx = 0; idx < results.length; idx += 1) {
-                    const result = results[idx];
-                    const transcript = String(result && result[0] && result[0].transcript || '').trim();
-                    if (!transcript) continue;
-                    if (result.isFinal) finalTranscript += (finalTranscript ? ' ' : '') + transcript;
-                    else interimTranscript += (interimTranscript ? ' ' : '') + transcript;
-                }
-                leafVoiceLastSpeechAt = Date.now();
-                leafVoiceFinalText = String(finalTranscript || leafVoiceFinalText || '').trim();
-                leafVoiceInterimText = String(interimTranscript || '').trim();
-                if (input) input.value = leafVoiceInterimText || leafVoiceFinalText || '';
-            };
-            recognition.onerror = (event) => {
-                leafVoiceListening = false;
-                clearLeafVoiceFinalizeTimer();
-                const code = String(event && event.error || '').trim().toLowerCase();
-                if (code === 'not-allowed' || code === 'service-not-allowed') {
-                    leafVoiceStatusOverride = 'Voice unavailable';
-                    showToast('Leaf', 'Microphone permission was blocked. You can still type your question.', true);
-                } else if (code === 'no-speech' || code === 'aborted') {
-                    leafVoiceStatusOverride = getLeafVoiceIdleStatus();
-                } else {
-                    leafVoiceStatusOverride = 'Ready';
-                    showToast('Leaf', 'Leaf could not capture your voice. Try again or type your question.', true);
-                }
-                setLeafAssistantBusyState(leafAssistantBusy, '');
-            };
-            recognition.onend = () => {
-                leafVoiceListening = false;
-                if (leafVoiceRecognition === recognition) leafVoiceRecognition = null;
-                if (leafVoiceAbortRequested) {
-                    leafVoiceAbortRequested = false;
-                    leafVoiceInterimText = '';
-                    leafVoiceFinalText = '';
-                    setLeafAssistantBusyState(leafAssistantBusy, '');
-                    return;
-                }
-                const finalText = String(leafVoiceFinalText || leafVoiceInterimText || '').trim();
-                leafVoiceInterimText = '';
-                leafVoiceFinalText = '';
-                if (input) input.value = finalText;
-                if (!finalText) {
-                    leafVoiceStatusOverride = getLeafVoiceIdleStatus();
-                    setLeafAssistantBusyState(leafAssistantBusy, '');
-                    return;
-                }
-                const finalizeDelay = Math.max(340, Math.min(920, 780 - Math.min(420, Math.max(0, Date.now() - leafVoiceLastSpeechAt))));
-                leafVoiceStatusOverride = 'Processing speech...';
-                clearLeafVoiceFinalizeTimer();
-                leafVoiceFinalizeTimer = setTimeout(() => {
-                    leafVoiceFinalizeTimer = null;
-                    leafVoiceSubmitPending = true;
-                    leafVoiceStatusOverride = 'Transcript ready';
-                    setLeafAssistantBusyState(false, '');
-                }, finalizeDelay);
-            };
-            try {
-                recognition.start();
-            } catch (error) {
-                leafVoiceRecognition = null;
-                leafVoiceListening = false;
-                leafVoiceStatusOverride = 'Voice unavailable';
-                setLeafAssistantBusyState(false, '');
-                showToast('Leaf', 'Leaf could not start voice input on this device.', true);
-                return false;
-            }
-            return true;
-        }
 
-        function escapeLeafHtml(value = '') {
-            return String(value || '').replace(/[&<>"']/g, (char) => ({
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                '"': '&quot;',
-                "'": '&#39;'
-            }[char] || char));
-        }
 
         function setLeafAssistantBusyState(isBusy = false, statusText = '') {
             leafAssistantBusy = !!isBusy;
@@ -19841,258 +19224,17 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
             refreshLeafVoiceControls();
         }
 
-        function buildLeafMatchMeta(match = {}) {
-            const parts = [];
-            if (match.dataset) parts.push(`Source: ${match.dataset}`);
-            if (match.location) parts.push(`Loc: ${match.location}`);
-            if (match.lot) parts.push(`Lot: ${match.lot}`);
-            if (match.priority !== undefined && match.priority !== null && String(match.priority).trim() !== '') parts.push(`Priority: ${match.priority}`);
-            if (match.qty !== undefined && match.qty !== null && String(match.qty).trim() !== '') parts.push(`Qty: ${match.qty}`);
-            return parts.join(' â€¢ ');
-        }
 
-        function buildLeafRichMatchMeta(match = {}) {
-            const parts = [buildLeafMatchMeta(match)].filter(Boolean);
-            if (match.dockNum) parts.push(`Dock: ${match.dockNum}`);
-            if (match.salesRep) parts.push(`Rep: ${match.salesRep}`);
-            if (match.customer) parts.push(`Customer: ${match.customer}`);
-            if (match.hold) parts.push(`Hold: ${match.hold}`);
-            return parts.filter(Boolean).join(' â€¢ ');
-        }
 
-        function buildLeafActionSummary(action = {}) {
-            if (!action || typeof action !== 'object') return '';
-            const type = String(action.type || '').trim().toLowerCase();
-            if (type !== 'request-draft') return '';
-            const parts = [];
-            const rep = String(firstNonEmptyValue(action.salesRep, action.requestedBy, '') || '').trim();
-            const customer = String(firstNonEmptyValue(action.customerDisplay, action.customer, '') || '').trim();
-            const source = action.recommendedSource || {};
-            if (rep) parts.push(`<span class="leaf-action-pill">Rep ${escapeLeafHtml(rep)}</span>`);
-            if (customer) parts.push(`<span class="leaf-action-pill">Customer ${escapeLeafHtml(customer)}</span>`);
-            if (source.location) parts.push(`<span class="leaf-action-pill">Loc ${escapeLeafHtml(source.location)}</span>`);
-            if (source.qty !== undefined && source.qty !== null && String(source.qty).trim() !== '') parts.push(`<span class="leaf-action-pill">Open Stock ${escapeLeafHtml(String(source.qty))}</span>`);
-            const fallback = Array.isArray(action.fallbackSources) ? action.fallbackSources : [];
-            const fallbackHtml = fallback.length ? `<div class="leaf-action-copy">Future crop fallback: ${escapeLeafHtml(fallback.slice(0, 3).map((row) => [row.location, row.lot, row.qty ? `Open Stock ${row.qty}` : ''].filter(Boolean).join(' ')).join(' | '))}</div>` : '';
-            return `<div class="leaf-action-card"><div class="leaf-action-eyebrow">Draft Request Ready</div><div class="leaf-action-title">${escapeLeafHtml(action.itemLabel || 'Request Draft')}</div><div class="leaf-action-meta">${parts.join('')}</div><div class="leaf-action-copy">${escapeLeafHtml(String(action.summary || 'Leaf found a source row and can open the normal request flow for confirmation.').trim())}</div>${fallbackHtml}<button type="button" class="leaf-action-btn" onclick="startLeafDraftRequest(${Number(action.messageIndex || 0)})"><i class="ph-bold ph-arrow-square-out"></i><span>Open Request Draft</span></button></div>`;
-        }
 
-        function getLeafMessageAction(messageIndex = -1) {
-            const safeIndex = Number(messageIndex);
-            if (!Number.isFinite(safeIndex) || safeIndex < 0) return null;
-            const message = Array.isArray(leafAssistantMessages) ? leafAssistantMessages[safeIndex] : null;
-            return message && typeof message === 'object' ? (message.action || null) : null;
-        }
 
-        function startLeafDraftRequest(messageIndex = -1) {
-            const action = getLeafMessageAction(messageIndex);
-            if (!action || String(action.type || '').trim().toLowerCase() !== 'request-draft') {
-                showToast('Leaf', 'That draft request is no longer available.', true);
-                return false;
-            }
-            const source = action.recommendedSource || {};
-            const sourceUid = String(firstNonEmptyValue(source.uniqueId, source.masterId, '') || '').trim();
-            let sourceItem = sourceUid ? findItemByUniqueId(sourceUid) : null;
-            if (!sourceItem && source.itemCode) {
-                sourceItem = (Array.isArray(fullInventory) ? fullInventory : []).find((row) => {
-                    if (!row) return false;
-                    const itemCodeMatch = String(firstNonEmptyValue(row.ITEMCODE, row.itemcode, '') || '').trim().toUpperCase() === String(source.itemCode || '').trim().toUpperCase();
-                    if (!itemCodeMatch) return false;
-                    const sizeMatch = !source.contSize || String(firstNonEmptyValue(row.CONTSIZE, row.contsize, '') || '').trim().toUpperCase() === String(source.contSize || '').trim().toUpperCase();
-                    return sizeMatch;
-                }) || null;
-            }
-            if (!sourceItem || !sourceItem.DOM_ID) {
-                showToast('Leaf', 'Leaf could not reopen that source row in the current app data.', true);
-                return false;
-            }
-            closeLeafAssistant();
-            detailRequestSourceDomIds = [String(sourceItem.DOM_ID || '').trim()];
-            tempReqFolder = null;
-            tempReqAppendToExistingFolder = false;
-            previousReqStep = 'step-2-cust';
-            driveQuickRequestFlow = false;
-            if (showRequestModalBase() === false) return false;
-            tempSelectedReqRep = resolveCanonicalRequestRepName(firstNonEmptyValue(action.salesRep, action.requestedBy, ''));
-            tempReqCust = buildRequestCustomerValue(firstNonEmptyValue(action.customer, action.customerName, action.customerDisplay, ''), firstNonEmptyValue(action.consignee, action.consigneeName, ''));
-            if (!tempSelectedReqRep || !tempReqCust) {
-                showToast('Leaf', 'Leaf needs both the sales rep and customer before it can open the draft request.', true);
-                return false;
-            }
-            goToQtyStep(null, tempReqCust, 'step-2-cust', false);
-            showToast('Leaf', 'Request draft is ready. Review qty and submit when you are ready.');
-            return true;
-        }
 
-        function renderLeafAssistantMessages() {
-            const historyEl = document.getElementById('leaf-assistant-history');
-            if (!historyEl) return;
-            if (!Array.isArray(leafAssistantMessages) || !leafAssistantMessages.length) {
-                historyEl.innerHTML = `<div class="leaf-assistant-empty">Try something like: "Hey Leaf, where is priority 1 on Incrediball Hydrangea 3DP and how many are there?"</div>`;
-                return;
-            }
-            historyEl.innerHTML = leafAssistantMessages.map((message, messageIndex) => {
-                const role = String(message.role || 'assistant').trim() === 'user' ? 'user' : 'assistant';
-                const matches = Array.isArray(message.matches) ? message.matches : [];
-                const sourceLabel = String(message.sourceLabel || '').trim();
-                const clarification = !!message.needsClarification;
-                const actionHtml = role === 'assistant' ? buildLeafActionSummary({ ...(message.action || {}), messageIndex }) : '';
-                const matchHtml = matches.length ? `<div class="leaf-match-list">${matches.map((match) => `<div class="leaf-match-card"><div class="leaf-match-title">${escapeLeafHtml(firstNonEmptyValue(match.commonName, match.itemCode, match.location, 'Match'))}</div><div class="leaf-match-meta">${escapeLeafHtml(buildLeafRichMatchMeta(match))}</div></div>`).join('')}</div>` : '';
-                const footerHtml = sourceLabel ? `<div class="leaf-match-meta">${escapeLeafHtml(sourceLabel)}${clarification ? ' â€¢ Clarification needed' : ''}</div>` : (clarification ? `<div class="leaf-match-meta">Clarification needed</div>` : '');
-                return `<div class="leaf-msg ${role}"><div class="leaf-msg-role">${role === 'user' ? 'You' : 'Leaf'}</div><div class="leaf-msg-bubble">${escapeLeafHtml(message.text || '')}</div>${actionHtml}${matchHtml}${footerHtml}</div>`;
-            }).join('');
-            requestAnimationFrame(() => {
-                historyEl.scrollTop = historyEl.scrollHeight;
-            });
-        }
 
-        function openLeafAssistant(prefill = '') {
-            const modal = document.getElementById('leaf-assistant-modal');
-            const input = document.getElementById('leaf-question-input');
-            if (!modal) return;
-            modal.classList.remove('hidden');
-            leafVoiceStatusOverride = '';
-            renderLeafAssistantMessages();
-            setLeafAssistantBusyState(leafAssistantBusy, '');
-            if (input) {
-                if (prefill) input.value = String(prefill || '').trim();
-                setTimeout(() => {
-                    try { input.focus(); } catch (error) { globalThis.safeIgnoreProbeError?.("openLeafAssistant"); }
-                }, 40);
-            }
-        }
 
-        function closeLeafAssistant() {
-            const modal = document.getElementById('leaf-assistant-modal');
-            stopLeafVoiceActivity(true);
-            if (modal) modal.classList.add('hidden');
-            leafVoiceStatusOverride = getLeafVoiceIdleStatus();
-            setLeafAssistantBusyState(false, '');
-        }
 
-        function handleLeafInputKeydown(event) {
-            if (!event) return true;
-            if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault();
-                submitLeafQuestion();
-                return false;
-            }
-            return true;
-        }
 
-        async function askLeafAssistantQuestion(question = '') {
-            const trimmedQuestion = String(question || '').trim();
-            if (!trimmedQuestion) throw new Error('Enter a question for Leaf.');
-            let sessionState = await ensureLeafAssistantSession(false);
-            let token = sessionState && sessionState.ok ? String(sessionState.token || '').trim() : '';
-            if (!token) throw new Error(String(sessionState && sessionState.message || (navigator.onLine === false ? 'Leaf is unavailable offline right now.' : 'Leaf could not verify your session. Please sign in again.')).trim());
-            const payload = {
-                question: trimmedQuestion,
-                user: currentUserDisplay || currentUser || '',
-                role: currentRole || '',
-                viewContext: getCurrentVisibleViewId()
-            };
-            try {
-                return await postAppFunctionJson(LEAF_ASSISTANT_FUNCTION_URL, payload, {
-                    includeSession: true,
-                    timeoutMs: 22000,
-                    label: 'Leaf assistant'
-                });
-            } catch (error) {
-                if (Number(error && error.status || 0) === 401) {
-                    sessionState = await ensureLeafAssistantSession(true);
-                    token = sessionState && sessionState.ok ? String(sessionState.token || '').trim() : '';
-                    if (!token) {
-                        const retryMessage = String(sessionState && sessionState.message || '').trim();
-                        if (retryMessage) throw new Error(retryMessage);
-                        throw error;
-                    }
-                    return await postAppFunctionJson(LEAF_ASSISTANT_FUNCTION_URL, payload, {
-                        includeSession: true,
-                        timeoutMs: 22000,
-                        label: 'Leaf assistant'
-                    });
-                }
-                throw error;
-            }
-        }
 
-        async function submitLeafQuestion(fromVoice = false) {
-            if (leafAssistantBusy) return;
-            const input = document.getElementById('leaf-question-input');
-            const question = String(input && input.value || '').trim();
-            if (!question) {
-                showToast('Leaf', 'Enter a question for Leaf.', true);
-                return;
-            }
-            stopLeafSpeechPlayback();
-            clearLeafVoiceFinalizeTimer();
-            leafVoiceSubmitPending = false;
-            leafVoiceStatusOverride = '';
-            leafLastRequestId += 1;
-            const requestId = leafLastRequestId;
-            leafAssistantMessages.push({ role: 'user', text: question });
-            renderLeafAssistantMessages();
-            if (input) input.value = '';
-            setLeafAssistantBusyState(true, 'Searching inventory...');
-            try {
-                const result = await askLeafAssistantQuestion(question);
-                if (requestId !== leafLastRequestId) return;
-                const answerText = String(firstNonEmptyValue(result && result.answer, result && result.clarificationPrompt, 'I could not find an answer for that question.') || '').trim() || 'I could not find an answer for that question.';
-                leafAssistantMessages.push({
-                    role: 'assistant',
-                    text: answerText,
-                    matches: Array.isArray(result && result.matches) ? result.matches.slice(0, 8) : [],
-                    needsClarification: !!(result && result.needsClarification),
-                    sourceLabel: String(result && result.sourceLabel || '').trim(),
-                    action: result && result.action ? result.action : null
-                });
-                renderLeafAssistantMessages();
-                if (!fromVoice || leafVoiceOutputSupported()) {
-                    leafLastSpokenAnswer = answerText;
-                    speakLeafAssistantText(answerText);
-                }
-            } catch (error) {
-                leafAssistantMessages.push({
-                    role: 'assistant',
-                    text: String(error && error.message || 'Leaf ran into a problem while checking inventory.').trim() || 'Leaf ran into a problem while checking inventory.'
-                });
-                renderLeafAssistantMessages();
-            } finally {
-                leafVoiceStatusOverride = '';
-                setLeafAssistantBusyState(false, '');
-            }
-        }
 
-        function recoverRestoredSessionAfterBootFailure(sessionRecord = null, bootError = null) {
-            try {
-                console.warn('Saved session restore hit a non-auth boot error. Reopening the shell with the stored session.', bootError);
-            } catch (error) { window.GncRuntimeWatchdog?.capture?.(error, 'recoverRestoredSessionAfterBootFailure');}
-            try {
-                primeOpsPilotAppearanceForVerifiedUser(currentUser);
-                openAppShellAfterLogin(hasWarmAppData());
-                refreshManualSyncStatus(true).catch(() => {});
-                scheduleUiRender('saved-session-recovery', () => {
-                    syncGlobalHeaderChrome({ reason: 'saved-session-recovery', force: true });
-                    updateFooterNavState();
-                    updateSyncDiagnostics();
-                    initializeCartUi();
-                    updateGlobalActionBar();
-                    setRepPermutations(currentUser);
-                }, 0);
-                queueVisibleTrackedViewRefresh('saved-session-recovery', 40, 180);
-                queueVisibleDatasetCatchup(isTouchConstrainedDevice() ? 260 : 140);
-                if (sessionRecord && sessionRecord.username && sessionRecord.password) {
-                    scheduleBackgroundLoginValidation(sessionRecord.username, sessionRecord.password);
-                }
-                return true;
-            } catch (recoveryError) {
-                try {
-                    console.warn('Saved session recovery fallback failed.', recoveryError);
-                } catch (error) { window.GncRuntimeWatchdog?.capture?.(error, 'recoverRestoredSessionAfterBootFailure');}
-                return false;
-            }
-        }
 
         const HARD_REQUIRED_PASSWORD_CHANGE_VALUES = Object.freeze(['GREENLEAF 25', 'GREENLEAF25']);
 
@@ -20312,7 +19454,6 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
         }
 
         function setSavedLoginPromptState(sessionRecord = null) {
-            const loginButton = document.getElementById('login-button');
             const hint = document.getElementById('saved-login-hint');
             const account = document.getElementById('saved-login-account');
             const accountName = document.getElementById('saved-login-display-name');
@@ -20506,25 +19647,6 @@ function getPhotoEntryDateMs(url = '', item = null, options = {}) {
             };
         }
 
-        async function fetchLoginRowsWithRetry(url, label = 'Login') {
-            let lastError = null;
-            for (let attempt = 0; attempt <= LOGIN_FETCH_RETRY_COUNT; attempt += 1) {
-                try {
-                    const response = await fetchWithTimeout(url, {
-                        method: 'GET',
-                        headers: getLoginReadHeaders()
-                    }, LOGIN_READ_TIMEOUT_MS, label);
-                    if (!response.ok) throw new Error(await getResponseError(response, `Supabase read failed (${response.status})`));
-                    const text = await response.text();
-                    return text ? JSON.parse(text) : [];
-                } catch (error) {
-                    lastError = error;
-                    if (attempt >= LOGIN_FETCH_RETRY_COUNT || !isRetryableLoginReadError(error)) throw error;
-                    await delayMs(LOGIN_FETCH_RETRY_DELAY_MS * (attempt + 1));
-                }
-            }
-            throw lastError;
-        }
 
         async function fetchRemoteLoginUser(normalizedUsername, normalizedPassword) {
             const nativeResult = await tryNativeAuthPasswordLogin(normalizedUsername, normalizedPassword);
@@ -21439,7 +20561,6 @@ const ncrFilterStateByView = {
         let ncrCompletionSchemaReady=null; let ncrCompletionSchemaPromise=null; let ncrCompletionSchemaWarningShown=false; let ncrCompletionLoadPromise=null; let ncrCompletionsLoaded=false;
         let ncrEmailPromptResolver=null;
         let holdReleasePromptResolver=null; let holdReleasePromptItem=null; let holdReleasePromptActiveKeys=new Set(); let holdReleasePromptRecentByKey=new Map();
-        let ncrRepOutreachPromptResolver=null;
         let loginPrefetchPromise=null;
         let loginPrefetchMode='';
         let datasetLoadState=createDatasetLoadState();
@@ -21449,7 +20570,7 @@ const ncrFilterStateByView = {
         let cacheWarmPromise=null;
         let cacheWarmOwner='';
         let cachePersistTimer=null; let cachePersistIdleHandle=null; let lastCachePersistAt=0; let pendingCachePersist=false;
-let currentUser=""; let currentUserDisplay=""; let currentRole=""; let currentUserDivision="10"; let currentUserLanguage="English"; let safeRole=""; let repPermutations=[]; let activeItem=null; let lastView=""; let currentPrimaryViewId="home"; let navTransitionSeq=0; let appBootViewState={owner:"",initialViewMounted:false,userHasNavigated:false}; let activeDetailTab="overview"; let activeDetailSourceView=""; let detailOverviewFieldSearchTerm=""; let selectedItems=new Set(); let cartPanelOpen=false; let bloomPickerActionsOpen=false; let cartUiObserver=null; let cartUiRefreshQueued=false; let lastCartToggleAt=0; let lastCartToggleDomId=""; let isMultiSelectMode=false; let pressTimer=null; let isLongPress=false; let touchStartX=0; let touchStartY=0; let pendingAction=null; let pendingActionOptions=null; let pendingTabType=null; let bloomShareMenuOpen=false; let bloomCropUpdateModalOpen=false; let bloomCropUpdatePendingItems=[]; let bloomCropUpdateEmailContext=null; let hasAppliedInitialHomeView=false; let detailHydrationToken=0; let detailHydrationTimer=null; let pendingDetailHydrationToken=0; let detailTransitionActiveUntil=0; let currentAppSessionToken=""; let currentAppSessionExpiresAt=0; let leafAssistantMessages=[]; let leafAssistantBusy=false; let leafLastRequestId=0; let leafVoiceRecognition=null; let leafVoiceListening=false; let leafVoiceSpeaking=false; let leafVoiceAbortRequested=false; let leafVoiceSubmitPending=false; let leafVoiceInterimText=''; let leafVoiceFinalText=''; let leafVoiceStatusOverride=''; let leafLastSpokenAnswer=''; let leafVoiceUtterance=null; let leafVoiceFinalizeTimer=null; let leafVoiceLastSpeechAt=0;
+let currentUser=""; let currentUserDisplay=""; let currentRole=""; let currentUserDivision="10"; let currentUserLanguage="English"; let safeRole=""; let repPermutations=[]; let activeItem=null; let lastView=""; let currentPrimaryViewId="home"; let navTransitionSeq=0; let appBootViewState={owner:"",initialViewMounted:false,userHasNavigated:false}; let activeDetailTab="overview"; let activeDetailSourceView=""; let detailOverviewFieldSearchTerm=""; let selectedItems=new Set(); let cartPanelOpen=false; let bloomPickerActionsOpen=false; let cartUiObserver=null; let cartUiRefreshQueued=false; let isMultiSelectMode=false; let pressTimer=null; let pendingAction=null; let pendingActionOptions=null; let pendingTabType=null; let bloomShareMenuOpen=false; let bloomCropUpdateModalOpen=false; let bloomCropUpdatePendingItems=[]; let bloomCropUpdateEmailContext=null; let hasAppliedInitialHomeView=false; let detailHydrationToken=0; let detailHydrationTimer=null; let pendingDetailHydrationToken=0; let detailTransitionActiveUntil=0; let currentAppSessionToken=""; let currentAppSessionExpiresAt=0; let leafAssistantBusy=false; let leafVoiceRecognition=null; let leafVoiceListening=false; let leafVoiceSpeaking=false; let leafVoiceSubmitPending=false; let leafVoiceStatusOverride=''; let leafLastSpokenAnswer=''; let leafVoiceUtterance=null; let leafVoiceFinalizeTimer=null;
         const REQUEST_CAPABILITY_CONTRACT_VERSION = 2;
         const REQUEST_CAPABILITY_CACHE_PREFIX = 'gnc_request_capabilities_v2:';
         let requestCapabilityState = { status: 'idle', capabilities: null, stale: false, errorCode: '', loadedAt: 0, username: '' };
@@ -21470,9 +20591,9 @@ let emailRecipientOpenGroupByContext={ bloom: '', av: '', drive: '', advertiseme
         let dockIssueStatusByUid=new Map(); let dockIssueAllocationsBySourceUid=new Map(); let dockIssueAllocationsById=new Map(); let dockIssueDataPromise=null; let dockIssueDataLoaded=false; let dockIssueStatusSchemaReady=null; let dockIssueStatusSchemaPromise=null; let dockIssueAllocationSchemaReady=null; let dockIssueAllocationSchemaPromise=null; let dockIssuePhotoSchemaReady=null; let dockIssuePhotoSchemaPromise=null; let dockIssueMeasurementSchemaReady=null; let dockIssueMeasurementSchemaPromise=null; let dockIssueSchemaWarningShown=false; let dockIssuePhotoSchemaWarningShown=false; let dockIssueMeasurementSchemaWarningShown=false; let dockViewMode='docks'; let selectedDockIssueUid=null; let selectedDockIssueAllocationId=''; let dockResolvedStateCacheKey=''; let dockResolvedStateCache=null; let dockDisplayInventory=[]; let dockDisplayInventoryById=new Map(); let dockDisplayInventoryBySourceUid=new Map(); let dockIssueSourceRowsCacheKey=''; let dockIssueSourceRowsById=new Map(); let dockIssueSourceRowsByCurrentUid=new Map(); let dockIssueSourceRowsByMatchKey=new Map(); let dockMistakeSelectionUids=new Set(); let dockMistakeCandidateRows=[]; let dockMistakeModalSourceUid=''; let dockMistakeModalStep='details'; let dockMistakeIssuePhotoLink=''; let dockMistakeIssuePhotoName=''; let dockMistakeIssuePhotoPreviewUrl=''; let dockMistakeIssuePhotoPromise=null; let dockMistakeIssuePhotoUploading=false; let dockMistakeDetailPhotoIssueUid='';
         let takeBackRows=[]; let takeBackRowsById=new Map(); let takeBackSchemaReady=null; let takeBackSchemaPromise=null; let takeBackSchemaWarningShown=false; let takeBackDataLoaded=false; let takeBackDataPromise=null; let takeBackOptimisticDoneIds=new Set(); let takeBackDoneConfirmResolve=null; let markDoneConfirmResolve=null;
         let detailRequestSourceDomIds=[];
-        let avRuleColumnsReady=null; let avRuleColumnsProbePromise=null; let avRuleSchemaWarningShown=false; let avRuleCleanupInFlight=new Set(); let flyerShadowColumnsReady=null; let flyerShadowColumnsProbePromise=null; let flyerShadowSchemaWarningShown=false; let flyerFolderRowsSchemaReady=null; let flyerFolderRowsSchemaPromise=null; let flyerFolderRowsSchemaWarningShown=false; let requestHistorySchemaReady=null; let requestHistorySchemaWarningShown=false; let flyerFolderHistorySchemaReady=null; let flyerFolderHistorySchemaWarningShown=false; let requestCompletionUserColumnsReady=null; let requestCompletionUserColumnsProbePromise=null; let requestCompletionUserSchemaWarningShown=false; let evalTaskColumnsReady=null; let evalTaskColumnsProbePromise=null; let evalTaskSchemaWarningShown=false; let ncrApprovalRequesterColumnsReady=null; let ncrApprovalRequesterColumnsProbePromise=null; let ncrApprovalRequesterSchemaWarningShown=false;
+        let avRuleColumnsReady=null; let avRuleColumnsProbePromise=null; let avRuleSchemaWarningShown=false; let flyerShadowColumnsReady=null; let flyerShadowColumnsProbePromise=null; let flyerShadowSchemaWarningShown=false; let requestHistorySchemaReady=null; let requestHistorySchemaWarningShown=false; let flyerFolderHistorySchemaReady=null; let flyerFolderHistorySchemaWarningShown=false; let requestCompletionUserColumnsReady=null; let requestCompletionUserColumnsProbePromise=null; let requestCompletionUserSchemaWarningShown=false; let evalTaskColumnsReady=null; let evalTaskColumnsProbePromise=null; let evalTaskSchemaWarningShown=false; let ncrApprovalRequesterColumnsReady=null; let ncrApprovalRequesterColumnsProbePromise=null; let ncrApprovalRequesterSchemaWarningShown=false;
         let activeSalesOfficeTab='season'; let salesOfficeOrderDrillLevel='rep'; let salesOfficeOrderSelectedRepKey=''; let salesOfficeOrderSelectedCustomerKey=''; let salesOfficeOrderSelectedRepTab='orders'; let salesOfficeOrderColumnsReady=null; let salesOfficeOrderSchemaPromise=null; let salesOfficeOrderSchemaWarningShown=false;
-let activeHomeTab='dashboard'; let managersSearchTerm=''; let activeShearApprovalDetailId=''; let activeProductivityTeamTab='inventory'; let selectedProductivityUser=''; let productivityDateStart=''; let productivityDateEnd=''; let productivityViewMode='cards'; let productivityHistoryByUser=new Map(); let productivityHistoryLoadState=new Map(); let productivityHistorySchemaReady=null; let productivityHistorySchemaPromise=null; let productivityHistorySchemaWarningShown=false; let productivityHistoryBackfillPromise=null; let productivityUserDirectoryState={ rows: [], loading: false, loaded: false, error: '', promise: null }; let inventoryTransactionHistoryState={ rows: [], loading: false, loaded: false, error: '', promise: null, action: 'all', search: '', dateStart: '', dateEnd: '' }; let managerAssignedItemsAssignedToFilter='all'; let managerEvalAssignmentSelection=new Set();
+let activeHomeTab='dashboard'; let managersSearchTerm=''; let activeShearApprovalDetailId=''; let activeProductivityTeamTab='inventory'; let selectedProductivityUser=''; let productivityDateStart=''; let productivityDateEnd=''; let productivityViewMode='cards'; let productivityHistoryByUser=new Map(); let productivityHistoryLoadState=new Map(); let productivityHistorySchemaReady=null; let productivityHistorySchemaWarningShown=false; let productivityHistoryBackfillPromise=null; let productivityUserDirectoryState={ rows: [], loading: false, loaded: false, error: '', promise: null }; let inventoryTransactionHistoryState={ rows: [], loading: false, loaded: false, error: '', promise: null, action: 'all', search: '', dateStart: '', dateEnd: '' }; let managerAssignedItemsAssignedToFilter='all'; let managerEvalAssignmentSelection=new Set();
 let activeManagerEvalReport='s1-with-pri'; let activeManagerEvalReportView='name'; let managerEvalReportSelectedCommonName=''; let managerEvalReportSelectedBlock=''; let managerEvalReportSelectedLocation=''; let managerEvalReportSeasonFilter='all'; let managerEvalReportContSizeFilter='all'; let managerEvalReportAssignedToFilter='all'; let managerEvalReportPriorityFilter='all'; let managerEvalReportSettings={lowStockMaxSLts:150,holdAgeDays:5,locationNoteAgeDays:10,updatedBy:'',updatedAt:''}; let managerEvalReportSettingsState={loaded:false,loading:false,fallback:false,error:'',promise:null,saving:false}; let managerEvalReportCacheKey=''; let managerEvalReportCache=null;
 let managerHistoricalReportState={level:'names',commonNames:[],containerSizes:[],rows:[],selectedCommonName:'',selectedContSize:'',selectedColumns:['report_date','itemcode','locationcode','lotcode','ptravailable','holdstopcode','holdstopreason'],loadedColumns:[],dateStart:'',dateEnd:'',displayMode:'cards',loading:false,loadingMore:false,error:'',hasMore:false,nextCursor:null,dirty:false,requestToken:0,lastSearch:''};
 let managerHistoricalReportMode='inventory-history';
@@ -21806,10 +20927,10 @@ let managerEvalReportAssignedToFilters=new Set(); let managerEvalReport2Assigned
             }, delayMs);
         }
         const DRIVE_MODE_LABELS = { ok: 'Drive Mode' };
-        let activeDriveMode='ok'; let activeDriveTab='name'; let activeDriveHoldStopReport='hold-stop'; let driveReportEvalUserFilter='all'; let driveOpenStockReportSeason='S1'; let driveOpenStockReportSalesYear='26'; let driveOpenStockReportMaxSLts='0'; let selectedDriveBlock=null; let selectedDriveLoc=null; let driveQuickRequestCardMode=false; let driveQuickFilterName=''; let driveQuickFilterLocation=''; let driveQuickFilterLot=''; let driveQuickFilterSize=''; let driveQuickFilterPriority=''; let driveQuickFilterLtsMode=''; let driveQuickFilterLtsValue=''; let driveQuickHoldStopOnly=false; let driveQuickFilterOptionsCacheKey=''; let driveQuickFilterOptionsCache=null; let driveBaseFilterCacheKey=''; let driveBaseFilterCacheItems=[]; let driveBaseContextCacheKey=''; let driveBaseContextCacheItems=[]; let driveBaseSearchContextKey=''; let driveBaseLastSearchTerm=''; let driveBaseLastSearchItems=[]; let driveQuickFilterCacheKey=''; let driveQuickFilterCacheItems=[]; let driveQuickFiltersModalOpen=false;
+        let activeDriveMode='ok'; let activeDriveTab='name'; let activeDriveHoldStopReport='hold-stop'; let driveReportEvalUserFilter='all'; let driveOpenStockReportSeason='S1'; let driveOpenStockReportSalesYear='26'; let driveOpenStockReportMaxSLts='0'; let selectedDriveBlock=null; let selectedDriveLoc=null; let driveQuickFilterName=''; let driveQuickFilterLocation=''; let driveQuickFilterLot=''; let driveQuickFilterSize=''; let driveQuickFilterPriority=''; let driveQuickFilterLtsMode=''; let driveQuickFilterLtsValue=''; let driveQuickHoldStopOnly=false; let driveBaseFilterCacheKey=''; let driveBaseFilterCacheItems=[]; let driveQuickFilterCacheKey=''; let driveQuickFilterCacheItems=[]; let driveQuickFiltersModalOpen=false;
         let activeMovesTab='main'; let activeInventoryOfficeApprovalType='move-up'; let movesRecordsCacheKey=''; let movesRecordsCache=[]; let movesViewLevel=0; let selectedMovesBlock=null; let selectedMovesLocation=null;
-        let managerMovePlannerLevel=0; let managerMoveSelectedBlock=null; let managerMoveSelectedLocation=null; let managerMoveDestinationStage='select'; let managerMoveSelectedSourceIds=new Set(); let managerMoveDestinationBySourceId=new Map(); let managerMoveItemDestinationByItemKey=new Map(); let managerMoveReviewerUsers=new Set(); let managerMoveReviewerSearchTerm=''; let managerMoveManualLocationBySourceId=new Map(); let managerMoveDestinationExpandedBySourceId=new Set(); let managerMoveInstructionText=''; let managerMoveSubmitting=false; let managerMovePlannerCacheKey=''; let managerMovePlannerCache=null; let managerMoveCardSearchTerm=''; let managerMoveCardSelectedCommonName=''; let managerMoveCardSelectedContSize=''; let managerMoveCardSelectedSalesYear='';
-        let managerBlockClearingLevel=0; let managerBlockClearingSelectedBlock=null; let managerBlockClearingSelectedLocation=null; let managerBlockClearingSelectionMode=false; let managerBlockClearingInstructionMode=false; let managerBlockClearingSelectedIds=new Set(); let managerBlockClearingInstructionsByItemcode=new Map(); let managerBlockClearingReportTitle=''; let managerBlockClearingLongPressTimer=null; let managerBlockClearingLongPressUid=''; let managerBlockClearingSuppressClickUid=''; let managerBlockClearingEmailSending=false; let managerBlockClearingCacheKey=''; let managerBlockClearingCache=null;
+        let managerMovePlannerLevel=0; let managerMoveSelectedBlock=null; let managerMoveSelectedLocation=null; let managerMoveDestinationStage='select'; let managerMoveSelectedSourceIds=new Set(); let managerMoveDestinationBySourceId=new Map(); let managerMoveItemDestinationByItemKey=new Map(); let managerMoveManualLocationBySourceId=new Map(); let managerMoveDestinationExpandedBySourceId=new Set(); let managerMoveInstructionText=''; let managerMoveSubmitting=false; let managerMovePlannerCacheKey=''; let managerMovePlannerCache=null; let managerMoveCardSearchTerm=''; let managerMoveCardSelectedCommonName=''; let managerMoveCardSelectedContSize=''; let managerMoveCardSelectedSalesYear='';
+        let managerBlockClearingLevel=0; let managerBlockClearingSelectedBlock=null; let managerBlockClearingSelectedLocation=null; let managerBlockClearingInstructionMode=false; let managerBlockClearingSelectedIds=new Set(); let managerBlockClearingReportTitle=''; let managerBlockClearingEmailSending=false; let managerBlockClearingCacheKey=''; let managerBlockClearingCache=null;
         let selectedLocationMoveItems=[]; let selectedLocationMoveDestinationBySourceId=new Map();
         let locationWorkLineDrafts=new Map(); let locationWorkRecipientOptions=[]; let locationWorkSelectedRecipientIds=new Set(); let locationWorkCreateToken='';
         let locationWorkRows=[]; let locationWorkLoaded=false; let locationWorkLoading=false; let locationWorkError=''; let activeLocationWorkJobId='';
@@ -21817,10 +20938,8 @@ let managerEvalReportAssignedToFilters=new Set(); let managerEvalReport2Assigned
         let inventoryConsolidationRows=[]; let inventoryConsolidationLoaded=false; let inventoryConsolidationLoading=false; let inventoryConsolidationError=''; let inventoryConsolidationCurrentSalesYear=null;
         let inventoryConsolidationFilters={block:'',containerSize:'',cropTier:'',query:''}; let inventoryConsolidationDestinationByKey=new Map();
         let reclassRecountJobs=[]; let reclassRecountLoaded=false; let reclassRecountLoading=false; let reclassRecountError=''; let reclassRecountOwner='';
-        const MOVES_COMPLETED_STORAGE_PREFIX = 'gnc_moves_completed_v1';
         const MOVES_ACTUAL_MOVED_STORAGE_PREFIX = 'gnc_moves_actual_moved_v1';
         const MOVES_TA_STORAGE_PREFIX = 'gnc_moves_ta_v1';
-        const MOVES_COMPLETER_STORAGE_PREFIX = 'gnc_moves_completer_v1';
         const MOVES_INVENTORY_OFFICE_STATUS = 'Inventory Office';
         const MOVES_INVENTORY_OFFICE_DONE_STATUS = 'Inventory Office Done';
         const MOVE_REQUEST_ASSIGNMENT = 'moves';
@@ -21843,8 +20962,8 @@ let driveViewLevel=0; let selectedDriveName=null; let selectedDriveSize=null; le
 
 const DEFAULT_TASK_VIEW="av-blanks"; const DEFAULT_TASK_FILTER="all";
 let activeTaskView=DEFAULT_TASK_VIEW; let activeTaskFilter=DEFAULT_TASK_FILTER; let activeTaskCustomerFilter="all"; let activeTaskReserveRepFilter="all"; let activeTaskReserveCustomerFilter="all"; let activeTaskReserveCustomerFilters=new Set(); let activeTaskReserveRowStatusMode="all"; let activeTaskReservePhotoMode="all"; let activeTaskSeasonReviewMode="winner"; let activeTaskTab=activeTaskView; let activeTaskSubview=activeTaskFilter; let taskViewTargetUser=null; let taskViewLevel=0; let selectedTaskBlock=null; let selectedTaskLoc=null; let selectedEndCapFolder=null; let selectedFlyerFolder=null; let activeFlyerFolderTab="active"; let selectedColorWalkSearchTerm=""; let selectedTaskGenusNames=new Set(); let taskGenusSearchTerm=""; let taskGenusFilterOpen=false; let taskGenusFilterItemsCache=[]; let selectedTaskContSizes=new Set(); let taskContSizeSearchTerm=""; let taskContSizeDropdownOpen=false; let taskContSizeFilterItemsCache=[]; let taskLocationDetailSearchTerm=""; let selectedTaskLocationDetailGenus=""; let selectedTaskLocationDetailLotCode=""; let taskTabDropdownOpen=false; let taskEvalUserDropdownOpen=false; let taskSubviewDropdownOpen=false; let taskModeSearchTerm=""; let taskEvalUserSearchTerm=""; let taskSubviewSearchTerm=""; let pendingFlyerFolderTarget=null; let pendingFlyerFolderAssignees=""; let taskReserveCustomerSearchTerm=''; let taskReserveCustomerDropdownOpen=false; let taskReserveCustomerDraftFilters=new Set(); let lastTaskReserveCustomerRenderSignature=''; let taskRenderedRowsByDomId=new Map(); let taskRenderedRowsByUid=new Map();
-let iosTaskFilterSheetState={ open:false, kind:'', search:'' }; let iosTaskFilterSheetTriggersInitialized=false; let iosTaskFilterLastTriggerKey=''; let iosTaskFilterLastTriggerAt=0; let iosTaskFilterBodyOverflow=''; let iosTaskFilterSheetSearchTimer=null;
-let dockMobileFilterSheetState={ open:false, kind:'', search:'' }; let dockMobileFilterBodyOverflow='';
+let iosTaskFilterSheetState={ open:false, kind:'', search:'' }; let iosTaskFilterSheetTriggersInitialized=false; let iosTaskFilterLastTriggerKey=''; let iosTaskFilterLastTriggerAt=0; let iosTaskFilterSheetSearchTimer=null;
+let dockMobileFilterSheetState={ open:false, kind:'', search:'' };
 let evalAssignableUsers=[]; let evalAssignableUserLabels=new Map(); let evalAssignableUsersPromise=null; let evalAssignableUsersDirectoryResolved=false; let evalAssignableUsersLastAttemptAt=0; let evalTaskModalSeeded=false; let evalTaskRuleAssigneeCacheKey=''; let evalTaskRuleAssigneeCache=new WeakMap();
 let lastNonApprovalTaskView=DEFAULT_TASK_VIEW;
 let detailReturnState = { viewId: '', scrollTop: 0 };
@@ -21861,12 +20980,6 @@ const FIELD_SAVE_GRACE_MS = 1400;
         const VIEW_SWITCH_GRACE_MS = 480;
         const VIEW_SWITCH_DUPLICATE_GUARD_MS = 320;
 
-const AV_VIEW_OPTIONS = Object.freeze([
-    { value: 'open-all', label: 'All Open Stock', icon: 'ph-bold ph-plant', tab: 'open', photo: false },
-    { value: 'open-photos', label: 'Open Stock Photos', icon: 'ph-bold ph-image', tab: 'open', photo: true },
-    { value: 'reserves-all', label: 'My Reserves', icon: 'ph-bold ph-bookmark-simple', tab: 'reserves', photo: false },
-    { value: 'reserves-photos', label: 'Reserves Photos', icon: 'ph-bold ph-images', tab: 'reserves', photo: true }
-]);
 const AV_SALES_BUCKET_OPTIONS = Object.freeze([
     { value: 'current', label: 'Current Season', emptyLabel: 'current season rows', icon: 'ph-bold ph-calendar-blank' },
     { value: 'next-up', label: 'Next Season', emptyLabel: 'next season rows', icon: 'ph-bold ph-arrow-circle-up' },
@@ -21888,20 +21001,18 @@ let driveCustomerOutreachOpen=false; let driveCustomerOutreachSelectedCustomerKe
 let taskCustomerOutreachOpen=false; let taskCustomerOutreachSelectedRowIds=new Set(); let taskCustomerOutreachStateKey=''; let taskCustomerOutreachSendBusy=false;
         let taskTeamSelectorCacheKey=''; let taskTeamSelectorCacheHtml=''; let taskTeamSelectorEmptyHtml='';
 
-        let lowStockViewLevel=0; let selectedLowStockName=null; let selectedLowStockSize=null; let reviewViewLevel=0; let selectedReviewItemCode=null; let selectedReviewCommonName=null; let selectedReviewContSize=null; let moveUpViewLevel=0; let selectedMoveUpItemCode=null; let selectedMoveUpCommonName=null; let selectedMoveUpContSize=null;
+        let reviewViewLevel=0; let selectedReviewItemCode=null; let selectedReviewCommonName=null; let selectedReviewContSize=null; let moveUpViewLevel=0; let selectedMoveUpItemCode=null; let selectedMoveUpCommonName=null; let selectedMoveUpContSize=null;
         let requestMappingRpcCache = new Map(); let requestMappingReadGeneration = 0; let tempSelectedReqSalesrepId = '';
-        let requestViewLevel=0; let reservesViewLevel=0; let reportViewLevel=0; let activeReqTab="pending"; let activeLocationMoveQueDetailUid=''; let activeShearQueDetailId=''; let activeAvOptionEvalDetailId=''; let activeEvalWorkDetailId=''; let selectedReqRep=null; let selectedReqRepStatus=null; let selectedReqFolder=null; let tempSelectedReqRep=""; let tempReqFolder=null; let tempReqCust=null; let tempReqAppendToExistingFolder=false; let tempExistingReqCustomerSearch=""; let tempExistingReqSelectedCustomer=""; let tempExistingReqConsigneeSearch=""; let tempExistingReqSelectedConsignee=""; let tempExistingReqFolderSearch=""; let tempRequestEmailChainSelectedEmails=new Set(); let tempRequestEmailChainRecipientByEmail=new Map(); let previousReqStep=""; let pendingRequestOverQtyResolution=null; let requestQtyStepDomIds=[]; let requestQtyStepIndex=0; let requestQtyStepItemsData={}; let requestQtyEmailStepActive=false; let requestSubmitInFlight=false; let requestModalAsyncGeneration=0; let requestModalVisibleOptionLimits=new Map(); let requestModalCustomerGroupCacheKey=''; let requestModalCustomerGroupCache=[]; let requestItemCodeOptionState={ key:'', rows:[], loading:false, loaded:false, error:'' }; let requestAvOptionsDropdownOpen=false; let avOptionEvalRequests=[]; let avOptionEvalRequestsLoaded=false; let avOptionEvalRequestsLoading=false; let avOptionEvalRequestsError=''; let avOptionEvalStatusFilter='open'; let avOptionEvalUserFilter='all'; let avOptionEvalModalState={ open:false, optionUid:'', sourceUid:'', assignedto:'', instructions:'', reviewers:[] }; let evalWorkRows=[]; let evalWorkLoaded=false; let evalWorkLoading=false; let evalWorkError=''; let evalWorkManager=false; let evalWorkSetupState={ assigneeUsernames:[], instructions:'', completionRecipients:[] }; let driveQuickRequestItems=new Set(); let driveReturnedSelectionToolbarQueued=false; let driveQuickRequestFlow=false; let driveQuickAssignFlow=false;
+        let requestViewLevel=0; let activeReqTab="pending"; let activeLocationMoveQueDetailUid=''; let activeShearQueDetailId=''; let activeAvOptionEvalDetailId=''; let activeEvalWorkDetailId=''; let selectedReqFolder=null; let tempSelectedReqRep=""; let tempReqFolder=null; let tempReqCust=null; let tempReqAppendToExistingFolder=false; let tempExistingReqCustomerSearch=""; let tempExistingReqSelectedCustomer=""; let tempExistingReqConsigneeSearch=""; let tempExistingReqSelectedConsignee=""; let tempExistingReqFolderSearch=""; let tempRequestEmailChainSelectedEmails=new Set(); let tempRequestEmailChainRecipientByEmail=new Map(); let previousReqStep=""; let pendingRequestOverQtyResolution=null; let requestQtyStepDomIds=[]; let requestQtyStepIndex=0; let requestQtyStepItemsData={}; let requestQtyEmailStepActive=false; let requestSubmitInFlight=false; let requestModalAsyncGeneration=0; let requestModalVisibleOptionLimits=new Map(); let requestModalCustomerGroupCacheKey=''; let requestModalCustomerGroupCache=[]; let requestItemCodeOptionState={ key:'', rows:[], loading:false, loaded:false, error:'' }; let requestAvOptionsDropdownOpen=false; let avOptionEvalRequests=[]; let avOptionEvalRequestsLoaded=false; let avOptionEvalRequestsLoading=false; let avOptionEvalRequestsError=''; let avOptionEvalStatusFilter='open'; let avOptionEvalUserFilter='all'; let evalWorkRows=[]; let evalWorkLoaded=false; let evalWorkLoading=false; let evalWorkError=''; let evalWorkManager=false; let evalWorkSetupState={ assigneeUsernames:[], instructions:'', completionRecipients:[] }; let driveQuickRequestItems=new Set(); let driveReturnedSelectionToolbarQueued=false; let driveQuickRequestFlow=false; let driveQuickAssignFlow=false;
         const requestOptionAppendBatchIds = new Map();
         const requestOptionAppendInFlight = new Set();
-let selectedReqRepView=null; let selectedReqCustView=null; let selectedReqConsigneeView=null; let selectedReqFolderView=null; let selectedReqStatus='Pending'; let requestFolderSearchTerm=''; let requestRepSearchTerm=''; let requestCustomerSearchTerm=''; let requestConsigneeSearchTerm=''; let requestFolderDateFilter=''; let requestConsigneeDrillMode='request'; let salesCreditSelectedRequestUid=''; let salesCreditSelectedFiles=[]; let salesCreditSubmitting=false; let requestDylanFilterMode='all'; let requestDylanFilterValue=''; let requestDylanSalesRepValue=''; let requestDylanLocationValue=''; let requestDylanFilterMenuOpen=''; let requestSuspendTagDockFilter='all'; let requestSuspendTagContSizeFilter='all'; let requestSuspendTagCommonNameSearchTerm=''; let hiddenCompletedDockSuspendDcRequestMirrorIds=new Set(); let requestDylanPendingEntriesCacheKey=''; let requestDylanPendingEntriesCache=[]; let lastRequestHeaderSearchMode='';
+let selectedReqRepView=null; let selectedReqCustView=null; let selectedReqConsigneeView=null; let selectedReqFolderView=null; let selectedReqStatus='Pending'; let requestFolderSearchTerm=''; let requestRepSearchTerm=''; let requestCustomerSearchTerm=''; let requestConsigneeSearchTerm=''; let requestFolderDateFilter=''; let requestConsigneeDrillMode='request'; let salesCreditSelectedRequestUid=''; let salesCreditSelectedFiles=[]; let salesCreditSubmitting=false; let requestDylanFilterMode='all'; let requestDylanFilterValue=''; let requestDylanSalesRepValue=''; let requestDylanLocationValue=''; let requestSuspendTagDockFilter='all'; let requestSuspendTagContSizeFilter='all'; let requestSuspendTagCommonNameSearchTerm='';  let lastRequestHeaderSearchMode='';
         let requestSalesRepsManagerMode=false;
         let evalWorkDetailView='pictures-specs';
 
         function invalidateRequestViewResolvedCaches() {
             requestScopedItemsCacheKey = '';
             requestScopedItemsCache = null;
-            requestDylanPendingEntriesCacheKey = '';
-            requestDylanPendingEntriesCache = [];
             lastRequestHeaderSearchMode = '';
         }
 let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pendingDockNum=null; let pendingDockTrip=null; let selectedDockName=null; let selectedDockSize=null; let selectedDockItemCode=null; let selectedDockCustomer=""; let selectedDockTrip=""; let selectedDockRep=""; let selectedDockGenusNames=new Set(); let dockGenusSearchTerm=""; let dockGenusFilterOpen=false; let selectedDockContSizes=new Set(); let dockContSizeSearchTerm=""; let dockContSizeFilterOpen=false; let selectedDockLocationCodes=new Set(); let dockLocationSearchTerm=""; let dockLocationFilterOpen=false; let selectedDockReps=new Set(); let dockRepSearchTerm=""; let dockRepFilterOpen=false; let selectedDockCustomers=new Set(); let dockCustomerSearchTerm=""; let dockCustomerFilterOpen=false; let dockColumnFilters={}; let dockColumnFilterDrafts={}; let dockColumnFilterSelectedHeaders=new Set(); let dockColumnFilterDropdownOpen=false; let dockColumnFilterStep='select'; let dockColumnFilterFieldKey=''; let dockColumnFilterMode='values'; let dockColumnFilterValueSearchTerm=''; let dockColumnFilterFieldSearchTerm=''; let dockColumnFilterHeaderFieldsCache=[]; let dockFilterItemsCache=[]; let dockFilterStateCacheKey=""; let dockFilterStateCache=null; let lastDockFilterRenderSignature=""; let docksSearchRestoreState=null; let lastSyncTime=new Date().toISOString();
@@ -21941,9 +21052,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         const REQUEST_NA_CUSTOMER_NAME = 'N/A';
         const REQUEST_NA_CONSIGNEE_NAME = 'N/A';
         const JD_EXECUTIVE_SALESREP_ID = 'AGDATA_EXECUTIVE_ALL';
-        const REQUEST_REP_CUSTOMER_OVERRIDES = Object.freeze([
-            { repNames: ['Kayla Knepp', 'kayla_knepp'], customerName: 'Earl May', consigneeName: '' }
-        ]);
         const REQUEST_MODAL_REP_OPTIONS = Object.freeze(
             [...new Set(salesRepList.map((rep) => String(rep || '').trim()).filter(Boolean))]
                 .sort((a, b) => a.localeCompare(b))
@@ -22038,7 +21146,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             abbeyburka: ['molly_dixon@greenleafnursery.com'],
             abbey_burka: ['molly_dixon@greenleafnursery.com']
         });
-        const HOLD_RELEASE_EMAIL_RECIPIENTS = Object.freeze(REQUEST_EMAIL_INTERNAL_RECIPIENTS.slice());
         const NCR_APPROVAL_DYLAN_USER = 'dylan_collyge';
         const NCR_APPROVAL_MEGAN_USER = 'megan_kelly';
         const NCR_APPROVAL_JD_USER = 'jd_jones';
@@ -22086,7 +21193,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         const MANAGER_COMPANY_DIRECTORY_VIEW = 'company-directory';
         const MANAGER_RUNTIME_WATCHDOG_VIEW = 'runtime-watchdog';
         let managerSeasonPriorityState = null;
-        const MANAGER_BLOCK_CLEARING_LONG_PRESS_MS = 360;
         const MANAGER_EVAL_REPORT2_EDITABLE_FIELDS = Object.freeze([
             { key: 'HOLDSTOPCODE', label: 'HOLDSTOPCODE', type: 'hold' },
             { key: 'HOLDSTOPREASON', label: 'HOLDSTOPREASON', multiline: true },
@@ -22098,7 +21204,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             { key: 'SPECIALPULLER', label: 'SPECIALPULLER', multiline: true }
         ]);
         const MANAGER_EVAL_REPORT2_SYSTEM_EDIT_FIELDS = Object.freeze(['LOCATIONNOTEDATE']);
-        const INVENTORY_TRANSACTION_AUDIT_TABLE = 'ph_inventory_transactions';
         const NCR_APPROVAL_ASSIGNMENTS = Object.freeze({
             'new-crop:dylan': 'ncr_approval_new_crop_dylan',
             'new-crop:jd': 'ncr_approval_new_crop_jd',
@@ -22210,75 +21315,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             }
             return changed;
         }
-        const NCR_APPROVAL_REQUESTER_SELECT_FIELDS = [
-            'ncr_approval_type',
-            'ncr_requested_by_username',
-            'ncr_requested_by_display',
-            'ncr_requested_by_email',
-            'ncr_requested_at',
-            'ncr_approval_message'
-        ].join(',');
-        const NCR_APPROVAL_TASK_BASE_SELECT_FIELDS = [
-            'unique_id',
-            'warehouseid',
-            'plantgroupcode',
-            'itemcode',
-            'qualitycode',
-            'contsize',
-            'commonname',
-            'lotcode',
-            'locationcode',
-            'source',
-            'desigitem',
-            'desigcust',
-            'desigloc',
-            'priority',
-            'ptravailable',
-            's_lts',
-            'saleyear',
-            'itemspec',
-            'locationnote',
-            'locationnotedate',
-            'fieldtagcolor',
-            'holdstopcode',
-            'holdstopreason',
-            'holdstopbegindate',
-            'season',
-            'blockalpha',
-            'blocknumber',
-            'app_tab_assignment',
-            'assignedto',
-            'date_completed',
-            'av_note',
-            'sales_note',
-            'salesnote',
-            'match',
-            'loc_match_qty',
-            'initial_ptr',
-            'spec',
-            'caliper',
-            'pic_note',
-            'picknote',
-            'photo_link',
-            'photo_name',
-            'dock_photo_link',
-            'dock_photo_name',
-            'flyer_photo_link',
-            'flyer_photo_name',
-            'last_updated'
-        ].join(',');
-        function getNcrApprovalTaskSelectFields(includeRequesterFields = true) {
-            const fields = new Set(String(NCR_APPROVAL_TASK_BASE_SELECT_FIELDS || '').split(',').map((field) => String(field || '').trim()).filter(Boolean));
-            String(NCR_APPROVAL_REQUESTER_SELECT_FIELDS || '').split(',').map((field) => String(field || '').trim()).filter(Boolean).forEach((field) => fields.add(field));
-            if (holdReleaseOverrideColumnsReady === true) {
-                ['hold_release_approved_at','hold_release_approved_by','hold_release_approved_by_display','hold_release_approved_holdstopbegindate'].forEach((field) => fields.add(field));
-            }
-            if (!includeRequesterFields) {
-                String(NCR_APPROVAL_REQUESTER_SELECT_FIELDS || '').split(',').map((field) => String(field || '').trim()).filter(Boolean).forEach((field) => fields.delete(field));
-            }
-            return Array.from(fields).join(',');
-        }
-        const EVAL_ADMIN_OVERRIDE_USERS = Object.freeze(new Set(PRIVILEGED_MANAGER_USER_KEYS));
         const EVAL_TASK_ASSIGNER_USERS = Object.freeze(new Set(['dylan_collyge', 'jd_jones', 'megan_kelly']));
         const INVENTORY_EDIT_MOCK_STORAGE_KEY = 'gnc_inventory_edit_mock_requests_v1';
         const INVENTORY_EDIT_PHOTO_DONE_STORAGE_KEY = 'gnc_inventory_edit_photo_done_v1';
@@ -22287,13 +21323,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         const INVENTORY_EDIT_MOCK_SUPERVISOR_USERS = Object.freeze(new Set(['dylan_collyge', 'jd_jones', 'megan_kelly']));
         const AV_OPTION_EVAL_REQUESTS_TABLE = 'ph_av_option_eval_requests';
         const AV_OPTION_EVAL_MANAGER_USERS = Object.freeze(new Set(['dylan_collyge', 'jd_jones', 'megan_kelly', 'mitch_kaiser']));
-        const AV_OPTION_EVAL_REVIEWER_USERS = Object.freeze([
-            { user: 'dylan_collyge', role: 'manager' },
-            { user: 'megan_kelly', role: 'manager' },
-            { user: 'mitch_kaiser', role: 'manager' },
-            { user: 'jd_jones', role: 'manager' },
-            { user: 'matt_stubblefield', role: 'grower' }
-        ]);
         const AV_OPTION_EVAL_REQUEST_SELECT_FIELDS = 'id,unique_id,status,assignedto,instructions,selected_row_snapshot,original_row_snapshot,itemcode,commonname,contsize,locationcode,lotcode,priority,ptronhand,ptravailable,s_lts,source,selected_photo_link,selected_photo_name,selected_spec,selected_caliper,selected_av_note,original_itemcode,original_commonname,original_contsize,original_locationcode,original_lotcode,original_priority,original_ptronhand,original_ptravailable,original_s_lts,original_source,original_photo_link,original_photo_name,original_spec,original_caliper,original_av_note,result_photo_link,result_photo_name,result_spec,result_caliper,result_loc_match_percent,result_pick_note,result_comments,result_av_note,created_by,created_by_display,completed_by,completed_by_display,completed_at,updated_by,updated_by_display,created_at,updated_at';
         const SHEAR_MOVE_TEST_STORAGE_KEY = 'gnc_shear_u1_move_test_v1';
         const SHEAR_MOVE_TEST_SUPERVISOR_USERS = Object.freeze(new Set(['sam_eden', 'sam_edon', 'sam_edan', 'dylan_collyge', 'jd_jones', 'megan_kelly']));
@@ -22387,9 +21416,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             return candidates.some((key) => AV_OPTION_EVAL_MANAGER_USERS.has(key)) || isPrivilegedManagerUser(userOverride);
         }
 
-        function canCreateAvOptionEvalRequest() {
-            return !!currentUser;
-        }
 
         function normalizeAvOptionEvalStatus(value = 'open') {
             const status = String(value || 'open').trim().toLowerCase().replace(/\s+/g, '_');
@@ -22431,67 +21457,11 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             return option ? option.label : normalized;
         }
 
-        function getDefaultAvOptionEvalAssignee() {
-            const actor = getAvOptionEvalActorKey();
-            const options = getAvOptionEvalUserOptions();
-            if (options.some((option) => option.value === actor)) return actor;
-            return options[0] ? options[0].value : actor;
-        }
 
-        function getAvOptionEvalReviewerOptions() {
-            const seen = new Set();
-            return AV_OPTION_EVAL_REVIEWER_USERS.map((entry) => {
-                const user = normalizeAvOptionEvalUser(entry && entry.user);
-                const role = String(entry && entry.role || 'manager').trim().toLowerCase() || 'manager';
-                if (!user || seen.has(user)) return null;
-                seen.add(user);
-                return { user, role, label: getAvOptionEvalUserLabel(user) || user };
-            }).filter(Boolean);
-        }
 
-        function getDefaultAvOptionEvalReviewerUsers(primaryAssignee = '') {
-            const primary = normalizeAvOptionEvalUser(primaryAssignee);
-            return getAvOptionEvalReviewerOptions()
-                .map((entry) => entry.user)
-                .filter((user) => user && user !== primary);
-        }
 
-        function getSelectedAvOptionEvalReviewerOptions(primaryAssignee = '') {
-            const primary = normalizeAvOptionEvalUser(primaryAssignee);
-            const checked = Array.from(document.querySelectorAll('[data-av-option-eval-reviewer]:checked'))
-                .map((el) => normalizeAvOptionEvalUser(el && el.value))
-                .filter((user, index, list) => user && user !== primary && list.indexOf(user) === index);
-            const optionByUser = new Map(getAvOptionEvalReviewerOptions().map((entry) => [entry.user, entry]));
-            return checked.map((user) => optionByUser.get(user)).filter(Boolean);
-        }
 
-        function buildAvOptionEvalReviewerInstructions(baseInstructions = '', reviewer = '', role = '', primaryAssignee = '') {
-            const reviewerLabel = getAvOptionEvalUserLabel(reviewer) || reviewer;
-            const primaryLabel = getAvOptionEvalUserLabel(primaryAssignee) || primaryAssignee;
-            const roleLabel = String(role || 'manager').trim().toLowerCase() === 'grower' ? 'Grower' : 'Manager';
-            return [
-                `${roleLabel} itemcode review for ${reviewerLabel}.`,
-                primaryLabel ? `Primary evaluator: ${primaryLabel}.` : '',
-                String(baseInstructions || '').trim()
-            ].filter(Boolean).join('\n\n');
-        }
 
-        function buildAvOptionEvalReviewerPayload(basePayload = {}, reviewerOption = null, primaryAssignee = '') {
-            const reviewer = normalizeAvOptionEvalUser(reviewerOption && reviewerOption.user);
-            const role = String(reviewerOption && reviewerOption.role || 'manager').trim().toLowerCase() || 'manager';
-            const reviewMeta = {
-                role,
-                reviewer,
-                primary_assignee: normalizeAvOptionEvalUser(primaryAssignee),
-                review_type: 'itemcode_review'
-            };
-            return Object.assign({}, basePayload, {
-                assignedto: reviewer,
-                instructions: buildAvOptionEvalReviewerInstructions(basePayload.instructions, reviewer, role, primaryAssignee),
-                selected_row_snapshot: Object.assign({}, coerceAvOptionEvalObject(basePayload.selected_row_snapshot), { av_option_eval_review: reviewMeta }),
-                original_row_snapshot: Object.assign({}, coerceAvOptionEvalObject(basePayload.original_row_snapshot), { av_option_eval_review: reviewMeta })
-            });
-        }
 
         function toAvOptionEvalNumber(value = null) {
             const raw = String(value == null ? '' : value).replace(/,/g, '').trim();
@@ -22511,43 +21481,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             return {};
         }
 
-        function buildAvOptionEvalSnapshot(row = null) {
-            const source = row && typeof row === 'object' ? Object.assign({}, row) : {};
-            try { normalizeRowPhotoFields(source); } catch (error) { globalThis.reportHandledRuntimeIssue?.("buildAvOptionEvalSnapshot", 'HANDLED_OPERATION_FAILURE'); }
-            const photoLink = String(firstNonEmptyValue(
-                getSharedAppPhotoLinkCsv(source, { respectRetention: false }),
-                source.PHOTO_LINK,
-                source.photo_link,
-                source.ROW_PHOTO_LINK,
-                source.row_photo_link,
-                ''
-            ) || '').trim();
-            const photoName = String(firstNonEmptyValue(
-                getSharedAppPhotoName(source),
-                source.PHOTO_NAME,
-                source.photo_name,
-                source.ROW_PHOTO_NAME,
-                source.row_photo_name,
-                ''
-            ) || '').trim();
-            return {
-                itemcode: String(firstNonEmptyValue(source.ITEMCODE, source.itemcode, source.ITEM_CODE, source.item_code, '') || '').trim(),
-                commonname: String(firstNonEmptyValue(source.COMMONNAME, source.commonname, source.COMMON_NAME, source.common_name, '') || '').trim(),
-                contsize: String(firstNonEmptyValue(source.CONTSIZE, source.contsize, source.CONT_SIZE, source.cont_size, '') || '').trim(),
-                locationcode: String(firstNonEmptyValue(source.LOCATIONCODE, source.locationcode, source.LOCATION_CODE, source.location_code, '') || '').trim(),
-                lotcode: String(firstNonEmptyValue(source.LOTCODE, source.lotcode, source.LOT_CODE, source.lot_code, '') || '').trim(),
-                priority: String(firstNonEmptyValue(source.PRIORITY, source.priority, '') || '').trim(),
-                ptronhand: toAvOptionEvalNumber(firstNonEmptyValue(source.PTRONHAND, source.ptronhand, source.ONHAND, source.onhand, '')),
-                ptravailable: toAvOptionEvalNumber(firstNonEmptyValue(source.PTRAVAILABLE, source.ptravailable, source.AVAILABLE, source.available, '')),
-                s_lts: toAvOptionEvalNumber(firstNonEmptyValue(source.S_LTS, source.s_lts, source.OPEN_STOCK, source.open_stock, '')),
-                source: String(firstNonEmptyValue(source.SOURCE, source.source, '') || '').trim(),
-                photo_link: photoLink,
-                photo_name: photoName,
-                spec: String(firstNonEmptyValue(source.SPEC, source.spec, source.AV_SPEC, source.av_spec, '') || '').trim(),
-                caliper: String(firstNonEmptyValue(source.CALIPER, source.caliper, source.AV_CALIPER, source.av_caliper, '') || '').trim(),
-                av_note: String(firstNonEmptyValue(source.AV_NOTE, source.av_note, source.SALESNOTE, source.salesnote, source.SALES_NOTE, source.sales_note, '') || '').trim()
-            };
-        }
 
         function getAvOptionEvalRequestId(row = null) {
             return String(firstNonEmptyValue(row && row.id, row && row.ID, row && row.unique_id, row && row.UNIQUE_ID, '') || '').trim();
@@ -22571,18 +21504,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             return row;
         }
 
-        function getAvOptionEvalOptionUid(row = null, index = 0) {
-            const directId = String(getRequestItemCodeOptionMasterId(row) || '').trim();
-            if (directId) return directId;
-            if (row && typeof row === 'object' && row.DOM_ID) return String(row.DOM_ID || '').trim();
-            return `reqopt_${Math.max(0, Number(index) || 0)}`;
-        }
 
-        function findRequestItemCodeOptionRowByUid(uid = '', item = activeItem) {
-            const safeUid = String(uid || '').trim();
-            if (!safeUid) return null;
-            return getRequestItemCodeOptionRows(item).find((row, index) => getAvOptionEvalOptionUid(row, index) === safeUid) || null;
-        }
 
         function shouldUseProductionLiveSyncSideLoad() {
             return typeof canUseProductionLiveSync === 'function' && canUseProductionLiveSync();
@@ -22942,184 +21864,9 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             return false;
         }
 
-        function ensureAvOptionEvalModalRoot() {
-            let root = document.getElementById('av-option-eval-modal-root');
-            if (!root) {
-                root = document.createElement('div');
-                root.id = 'av-option-eval-modal-root';
-                document.body.appendChild(root);
-            }
-            return root;
-        }
 
-        function closeAvOptionEvalRequestModal() {
-            avOptionEvalModalState = { open:false, optionUid:'', sourceUid:'', assignedto:'', instructions:'', reviewers:[] };
-            const root = document.getElementById('av-option-eval-modal-root');
-            if (root) root.innerHTML = '';
-            return false;
-        }
 
-        function openAvOptionEvalRequestModal(uid = '') {
-            if (!canCreateAvOptionEvalRequest()) {
-                showToast('Restricted', 'You must be logged in to send an AV Check.', true);
-                return false;
-            }
-            const optionRow = findRequestItemCodeOptionRowByUid(uid, activeItem);
-            if (!optionRow || !activeItem) {
-                showToast('Not Found', 'That AV option is no longer loaded.', true);
-                return false;
-            }
-            const selected = buildAvOptionEvalSnapshot(optionRow);
-            const assignee = avOptionEvalModalState.assignedto || getDefaultAvOptionEvalAssignee();
-            const selectedReviewers = new Set((Array.isArray(avOptionEvalModalState.reviewers) && avOptionEvalModalState.reviewers.length
-                ? avOptionEvalModalState.reviewers
-                : getDefaultAvOptionEvalReviewerUsers(assignee)
-            ).map(normalizeAvOptionEvalUser).filter((user) => user && user !== assignee));
-            avOptionEvalModalState = {
-                open: true,
-                optionUid: String(uid || '').trim(),
-                sourceUid: String(firstNonEmptyValue(activeItem && activeItem.UNIQUE_ID, activeItem && activeItem.unique_id, '') || '').trim(),
-                assignedto: assignee,
-                instructions: avOptionEvalModalState.instructions || '',
-                reviewers: Array.from(selectedReviewers)
-            };
-            const optionHtml = getAvOptionEvalUserOptions().map((option) => `<option value="${esc(option.value)}"${option.value === assignee ? ' selected' : ''}>${escapeShareHtml(option.label)}</option>`).join('');
-            const reviewerHtml = getAvOptionEvalReviewerOptions().map((option) => {
-                const disabled = option.user === assignee;
-                const checked = selectedReviewers.has(option.user) && !disabled;
-                const roleLabel = option.role === 'grower' ? 'Grower' : 'Manager';
-                return `<label class="flex items-center gap-3 rounded-xl border border-emerald-100 bg-white px-3 py-2 text-left shadow-sm ${disabled ? 'opacity-50' : ''}">
-                    <input type="checkbox" data-av-option-eval-reviewer value="${esc(option.user)}" class="h-4 w-4 accent-[#007a4d]"${checked ? ' checked' : ''}${disabled ? ' disabled' : ''}>
-                    <span class="min-w-0 flex-1">
-                        <span class="block truncate text-[11px] font-black uppercase tracking-[0.1em] text-slate-900">${escapeShareHtml(option.label)}</span>
-                        <span class="mt-0.5 block text-[9px] font-black uppercase tracking-[0.14em] text-[#007a4d]">${escapeShareHtml(roleLabel)}</span>
-                    </span>
-                </label>`;
-            }).join('');
-            const root = ensureAvOptionEvalModalRoot();
-            root.innerHTML = `<div class="fixed inset-0 z-[2200] flex items-end justify-center bg-slate-950/45 p-3 sm:items-center" onclick="if(event.target===this) closeAvOptionEvalRequestModal()">
-                <div class="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-3xl border border-emerald-100 bg-white p-5 shadow-2xl">
-                    <div class="flex items-start justify-between gap-3">
-                        <div class="min-w-0">
-                            <div class="inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-[#007a4d]"><i class="ph-bold ph-clipboard-text text-sm"></i><span>Send To Eval</span></div>
-                            <div class="mt-3 text-2xl font-black text-slate-900">Create AV Check</div>
-                            <div class="mt-1 text-sm font-bold text-slate-500">This sends the selected location to an evaluator. It will not update inventory.</div>
-                        </div>
-                        <button type="button" class="grid h-12 w-12 shrink-0 place-items-center rounded-full border border-slate-200 bg-white text-2xl text-slate-500 shadow-sm" onclick="return closeAvOptionEvalRequestModal()"><i class="ph-bold ph-x"></i></button>
-                    </div>
-                    <div class="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-3">
-                        <div class="text-[10px] font-black uppercase tracking-[0.14em] text-[#007a4d]">Selected Option</div>
-                        <div class="mt-1 text-xl font-black text-slate-900">${escapeShareHtml(selected.commonname || 'AV Option')}</div>
-                        <div class="mt-1 text-[11px] font-black uppercase tracking-[0.12em] text-slate-600">${escapeShareHtml([selected.itemcode, selected.contsize, selected.locationcode ? `Loc ${selected.locationcode}` : '', selected.lotcode ? `Lot ${selected.lotcode}` : ''].filter(Boolean).join(' | '))}</div>
-                        <div class="mt-3 grid grid-cols-3 gap-2">${renderAvOptionEvalMetric('Available', selected.ptravailable == null ? '-' : selected.ptravailable)}${renderAvOptionEvalMetric('On Hand', selected.ptronhand == null ? '-' : selected.ptronhand)}${renderAvOptionEvalMetric('Open Stock', selected.s_lts == null ? '-' : selected.s_lts)}</div>
-                    </div>
-                    <label class="mt-4 block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Evaluator
-                        <select id="av-option-eval-assignedto" class="input-field !mb-0 mt-1">${optionHtml}</select>
-                    </label>
-                    <div class="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-3">
-                        <div class="text-[10px] font-black uppercase tracking-[0.14em] text-[#007a4d]">Additional Itemcode Reviewers</div>
-                        <div class="mt-1 text-xs font-bold text-slate-500">The evaluator stays the primary assignee. Checked users get their own review task.</div>
-                        <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">${reviewerHtml}</div>
-                    </div>
-                    <label class="mt-3 block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Instructions
-                        <textarea id="av-option-eval-instructions" class="input-field !mb-0 mt-1 min-h-[120px]" placeholder="Tell the evaluator what to check.">${esc(avOptionEvalModalState.instructions || '')}</textarea>
-                    </label>
-                    <div class="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                        <button type="button" class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-[11px] font-black uppercase tracking-[0.14em] text-slate-700 active:scale-95" onclick="return closeAvOptionEvalRequestModal()">Cancel</button>
-                        <button type="button" class="rounded-xl bg-[#007a4d] px-4 py-3 text-[11px] font-black uppercase tracking-[0.14em] text-white shadow-sm active:scale-95" onclick="return submitAvOptionEvalRequest()">Submit AV Check</button>
-                    </div>
-                </div>
-            </div>`;
-            return false;
-        }
 
-        async function submitAvOptionEvalRequest() {
-            const optionRow = findRequestItemCodeOptionRowByUid(avOptionEvalModalState.optionUid, activeItem);
-            if (!optionRow || !activeItem) {
-                showToast('Not Found', 'That AV option is no longer loaded.', true);
-                return false;
-            }
-            const assignedEl = document.getElementById('av-option-eval-assignedto');
-            const instructionsEl = document.getElementById('av-option-eval-instructions');
-            const assignedto = normalizeAvOptionEvalUser(assignedEl ? assignedEl.value : '');
-            const instructions = String(instructionsEl ? instructionsEl.value : '').trim();
-            if (!assignedto) {
-                showToast('Choose Evaluator', 'Select who should check this row.', true);
-                return false;
-            }
-            if (!instructions) {
-                showToast('Instructions Needed', 'Enter instructions for the evaluator.', true);
-                return false;
-            }
-            const selected = buildAvOptionEvalSnapshot(optionRow);
-            const original = buildAvOptionEvalSnapshot(activeItem);
-            const reviewerOptions = getSelectedAvOptionEvalReviewerOptions(assignedto);
-            const reviewerSummary = reviewerOptions
-                .map((option) => `${getAvOptionEvalUserLabel(option.user) || option.user} (${option.role === 'grower' ? 'grower' : 'manager'})`)
-                .join(', ');
-            const payload = {
-                status: 'open',
-                assignedto,
-                instructions: reviewerSummary ? `${instructions}\n\nAdditional itemcode reviewers: ${reviewerSummary}.` : instructions,
-                selected_row_snapshot: selected,
-                original_row_snapshot: original,
-                itemcode: selected.itemcode,
-                commonname: selected.commonname,
-                contsize: selected.contsize,
-                locationcode: selected.locationcode,
-                lotcode: selected.lotcode,
-                priority: selected.priority,
-                ptronhand: selected.ptronhand,
-                ptravailable: selected.ptravailable,
-                s_lts: selected.s_lts,
-                source: selected.source,
-                selected_photo_link: selected.photo_link,
-                selected_photo_name: selected.photo_name,
-                selected_spec: selected.spec,
-                selected_caliper: selected.caliper,
-                selected_av_note: selected.av_note,
-                original_itemcode: original.itemcode,
-                original_commonname: original.commonname,
-                original_contsize: original.contsize,
-                original_locationcode: original.locationcode,
-                original_lotcode: original.lotcode,
-                original_priority: original.priority,
-                original_ptronhand: original.ptronhand,
-                original_ptravailable: original.ptravailable,
-                original_s_lts: original.s_lts,
-                original_source: original.source,
-                original_photo_link: original.photo_link,
-                original_photo_name: original.photo_name,
-                original_spec: original.spec,
-                original_caliper: original.caliper,
-                original_av_note: original.av_note
-            };
-            const reviewerPayloads = reviewerOptions
-                .filter((option) => option && option.user && option.user !== assignedto)
-                .map((option) => buildAvOptionEvalReviewerPayload(payload, option, assignedto));
-            const payloads = [payload].concat(reviewerPayloads);
-            try {
-                const reviewerCount = reviewerPayloads.length;
-                showToast('Sending AV Check', `Sending to ${getAvOptionEvalUserLabel(assignedto) || assignedto}${reviewerCount ? ` plus ${reviewerCount} reviewer${reviewerCount === 1 ? '' : 's'}` : ''}.`, false);
-                for (const nextPayload of payloads) {
-                    await runDetailWriteWithRetry(AV_OPTION_EVAL_REQUESTS_TABLE, 'POST', nextPayload, '', {
-                        timeoutMs: Math.max(30000, SUPABASE_WRITE_TIMEOUT_MS),
-                        retries: 0,
-                        noDirectSupabaseFallback: true
-                    });
-                    queueAppLiveEventForWrite(AV_OPTION_EVAL_REQUESTS_TABLE, 'POST', nextPayload, '');
-                }
-                closeAvOptionEvalRequestModal();
-                await loadAvOptionEvalRequests(true).catch(() => {});
-                markViewDirty('request');
-                updateFooterRequestBadge();
-                showToast('AV Check Sent', `Assigned to ${getAvOptionEvalUserLabel(assignedto) || assignedto}${reviewerPayloads.length ? `; ${reviewerPayloads.length} review task${reviewerPayloads.length === 1 ? '' : 's'} added.` : '.'}`);
-            } catch (error) {
-                console.error('AV Check submit failed', error);
-                showToast('Could Not Send', String(error && error.message ? error.message : error || 'AV Check was not sent.'), true);
-            }
-            return false;
-        }
 
         function canUseGroupedBloomNcr(userOverride = '') {
             const candidates = [userOverride, currentUser, currentUserDisplay]
@@ -23128,31 +21875,9 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             return candidates.some((key) => BLOOM_GROUPED_NCR_ALLOWED_USER_KEYS.includes(key));
         }
 
-        function canBypassGroupedBloomNcrPhotoDataRequirement(userOverride = '') {
-            const candidates = [userOverride, currentUser, currentUserDisplay]
-                .map((value) => normalizeEvalAccessUserKey(value))
-                .filter(Boolean);
-            return candidates.some((key) => key === NCR_APPROVAL_DYLAN_USER || key === NCR_APPROVAL_JD_USER);
-        }
 
-        function isEvalAdminOverrideUser(userOverride = '') {
-            if (isEvalSensitiveDataRestricted()) return false;
-            const candidates = [userOverride, currentUser, currentUserDisplay]
-                .map((value) => normalizeEvalAccessUserKey(value))
-                .filter(Boolean);
-            return candidates.some((key) => EVAL_ADMIN_OVERRIDE_USERS.has(key));
-        }
 
-        function getEvalAssignedToQueryValue(assignedToOverride = '') {
-            return String(firstNonEmptyValue(assignedToOverride, currentUser, currentUserDisplay, '') || '').trim();
-        }
 
-        function buildEvalAssignedToQueryParam(roleOverride = '', assignedToOverride = '') {
-            if (!isCurrentEvalRole(roleOverride)) return '';
-            if (isEvalAdminOverrideUser(assignedToOverride)) return '';
-            const assignedTo = getEvalAssignedToQueryValue(assignedToOverride);
-            return `assignedto=eq.${encodeURIComponent(assignedTo || '__no_eval_user__')}`;
-        }
 
         function appendEvalMasterScopeToQuery(query = 'select=*', roleOverride = '', assignedToOverride = '') {
             return query;
@@ -23185,15 +21910,8 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             }, limit, offset, { label: 'Inventory rows' });
             return page.rows;
         }
-        const NCR_EMAIL_RECIPIENTS = Object.freeze([
-            'jd_jones@greenleafnursery.com',
-            'dylan_collyge@greenleafnursery.com',
-            'megan_kelly@greenleafnursery.com'
-        ]);
         const REQUEST_EMAIL_SCRIPT_TIMEOUT_MS = 30000;
         const MANUAL_SYNC_SCRIPT_TIMEOUT_MS = 600000;
-        const REQUEST_AUTO_COMPLETE_REPLY_DELAY_MS = 30000;
-        const SPEC_OPTIONAL_PLANTGROUP_CODE_TOKENS = Object.freeze(['150', '151', '155', '160', '245', '240']);
         const CALIPER_MEASUREMENT_NOTE = '** Caliper is measured 12 inches above soil level.';
         const PICK_NOTE_CURRENT_SEASON_CODE = 'F1';
         const PICK_NOTE_CURRENT_SALESYEAR_CODE = 27;
@@ -23218,7 +21936,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         let avBlanksPhotoBypassRemoteLoading = false;
         let avBlanksPhotoBypassDraftUsers = null;
         let avBlanksPhotoBypassAccessCache = null;
-        const APP_VERSION = '3.1.84';
+        const APP_VERSION = '3.1.85';
         const OUTDOOR_MODE_STORAGE_KEY = 'gnc_outdoor_mode_v1';
         let outdoorModeEnabled = false;
 
@@ -23372,13 +22090,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             return index === -1 ? order.length : index;
         }
 
-        function compareSeasonCodesCurrentFirst(left = '', right = '', baseOrder = APP_SEASON_DISPLAY_ORDER, options = {}) {
-            const leftKey = normalizeSeasonSortValue(left);
-            const rightKey = normalizeSeasonSortValue(right);
-            const rankCompare = getCurrentSeasonSortRank(leftKey, baseOrder, options) - getCurrentSeasonSortRank(rightKey, baseOrder, options);
-            if (rankCompare) return rankCompare;
-            return leftKey.localeCompare(rightKey, undefined, { numeric: true, sensitivity: 'base' });
-        }
 
         function getConfiguredNextSalesYearCode() {
             return getConfiguredCurrentSalesYearCode() + 1;
@@ -23642,27 +22353,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             return normalizeAvBlanksPhotoBypassSettingsPayload(avBlanksPhotoBypassSettingsCache);
         }
 
-        function parseRemoteAvBlanksPhotoBypassSettingsRow(row = null) {
-            if (!row || typeof row !== 'object') return null;
-            const rawValue = firstNonEmptyValue(row.value, row.setting_value, row.settings, row.payload, row.config, null);
-            if (rawValue && typeof rawValue === 'object' && !Array.isArray(rawValue)) {
-                return normalizeAvBlanksPhotoBypassSettingsPayload({
-                    ...rawValue,
-                    updatedAt: firstNonEmptyValue(rawValue.updatedAt, rawValue.updated_at, row.updated_at, ''),
-                    updatedBy: firstNonEmptyValue(rawValue.updatedBy, rawValue.updated_by, row.updated_by, '')
-                });
-            }
-            if (typeof rawValue === 'string') {
-                try {
-                    return normalizeAvBlanksPhotoBypassSettingsPayload({
-                        ...JSON.parse(rawValue),
-                        updatedAt: firstNonEmptyValue(row.updated_at, ''),
-                        updatedBy: firstNonEmptyValue(row.updated_by, '')
-                    });
-                } catch (error) { globalThis.reportHandledRuntimeIssue?.("parseRemoteAvBlanksPhotoBypassSettingsRow", 'HANDLED_OPERATION_FAILURE'); }
-            }
-            return null;
-        }
 
         async function refreshAvBlanksPhotoBypassSettingsFromRemote(options = {}) {
             if (avBlanksPhotoBypassRemoteLoading) return getAvBlanksPhotoBypassSettings();
@@ -23993,23 +22683,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
                 <button type="button" class="min-h-[56px] w-full rounded-xl ${away ? 'bg-[#007a4d]' : 'bg-amber-500'} px-5 py-3 text-[12px] font-black uppercase tracking-[0.14em] text-white shadow-sm active:scale-[0.99] disabled:opacity-50" ${state.saving || (!away && !state.backupReady) ? 'disabled' : ''} onclick="return setItemInquiryCoverageAway(${away ? 'false' : 'true'})"><i class="ph-bold ${away ? 'ph-user-check' : 'ph-user-minus'} mr-2"></i>${state.saving ? 'Saving...' : away ? 'Mark Sharon Here' : 'Mark Sharon Gone'}</button>
                 <div class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">${lastChanged} · This stays set until a manager changes it.</div>
             </section>`;
-        }
-        function getPlantGroupCodeForSpecRules(item = null, fallbackPlantGroup = '') {
-            return String(firstNonEmptyValue(
-                item && item.PLANTGROUPCODE,
-                item && item.plantgroupcode,
-                item && item.PLANTGROUP,
-                item && item.plantGroupCode,
-                fallbackPlantGroup,
-                ''
-            ) || '').trim();
-        }
-        function isSpecOptionalPlantGroupCode(value = '') {
-            const text = String(value || '').trim();
-            return !!text && SPEC_OPTIONAL_PLANTGROUP_CODE_TOKENS.some(token => text.includes(token));
-        }
-        function isSpecRequiredForItem(item = null, fallbackPlantGroup = '') {
-            return !isSpecOptionalPlantGroupCode(getPlantGroupCodeForSpecRules(item, fallbackPlantGroup));
         }
         function isCaliperEmailField(label = '') {
             return String(label || '').trim().toLowerCase() === 'caliper';
@@ -25204,23 +23877,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             return message === 'This screen has no live data.' ? 'This screen does not require a data check.' : 'Current data has been verified.';
         }
 
-        function retryProductionDataStatus() {
-            const visibleView = getCurrentVisibleViewId();
-            if (visibleView === 'drive' || visibleView === 'av') {
-                retryVerifiedViewData(visibleView, true, true);
-                return false;
-            }
-            const coordinator = getProductionLiveSyncCoordinator();
-            if (!coordinator) return false;
-            clearSupabaseReadFailuresForVisibleContext();
-            productionLiveSyncViewLoad = null;
-            if (getCurrentVisibleViewId() === 'hl-order') {
-                if (hlOrderStateError) void loadHlOrderState(true).catch(() => {});
-                if (hlOrderTab === 'restocking' && hlRestockStateError) void loadHlRestockState(true).catch(() => {});
-            }
-            void coordinator.check('status-tap');
-            return false;
-        }
 
         function renderProductionDataFreshness(status) {
             const indicator = document.getElementById('live-data-freshness');
@@ -25742,9 +24398,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             getProductionLiveSyncCoordinator()?.signal(reason, delay);
         }
 
-        function suspendProductionLiveSyncForNavigation() {
-            window.AgMetricLifecycle.suspendNavigation(false);
-        }
 
         function resumeProductionLiveSyncAfterNavigation(reason) {
             if (document.hidden || productionLiveSyncNavigation.signal.aborted) return;
@@ -26684,21 +25337,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             return item;
         }
 
-        function cacheSalesCreditRequestRow(rawRow = null) {
-            const row = normalizeSalesCreditRequestRow(rawRow);
-            if (!row) return null;
-            const id = String(row.UNIQUE_ID || '').trim();
-            salesCreditRequestsInventory = (Array.isArray(salesCreditRequestsInventory) ? salesCreditRequestsInventory : [])
-                .filter((entry) => String(entry && entry.UNIQUE_ID || '').trim() !== id);
-            salesCreditRequestsInventory.push(row);
-            salesCreditRequestsInventory.sort((a, b) => {
-                const aMs = Date.parse(firstNonEmptyValue(a.UPDATED_AT, a.SUBMITTED_AT, '')) || 0;
-                const bMs = Date.parse(firstNonEmptyValue(b.UPDATED_AT, b.SUBMITTED_AT, '')) || 0;
-                return bMs - aMs;
-            });
-            salesCreditRequestsById.set(id, row);
-            return row;
-        }
 
         function getSalesCreditRequestRep(row = null) {
             return String(firstNonEmptyValue(row && row.REQUESTED_BY, row && row.requested_by, row && row.SALESREPNAME, row && row.salesrepname, '') || '').trim() || 'Unknown Rep';
@@ -26748,11 +25386,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
                 || String(firstNonEmptyValue(a && a.COMMONNAME, '')).localeCompare(String(firstNonEmptyValue(b && b.COMMONNAME, '')), undefined, { numeric: true, sensitivity: 'base' }));
         }
 
-        function getSalesCreditSourceRequestRow(uid = '') {
-            const safeUid = String(uid || '').trim();
-            if (!safeUid) return null;
-            return (Array.isArray(requestsInventory) ? requestsInventory : []).find((row) => getItemUniqueId(row) === safeUid) || null;
-        }
 
         function setRequestConsigneeDrillMode(mode = 'request') {
             requestConsigneeDrillMode = String(mode || '').trim().toLowerCase() === 'credit' ? 'credit' : 'request';
@@ -26849,186 +25482,14 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             return false;
         }
 
-        function buildSalesCreditPhotoFileName(file = null, creditId = '', index = 0) {
-            const idPart = sanitizeInventoryPhotoFileSegment(creditId || 'credit', 'credit').slice(0, 80);
-            const token = sanitizeInventoryPhotoFileSegment(createPendingPhotoToken(), String(Date.now()));
-            const ext = sanitizeInventoryPhotoFileSegment(getInventoryPhotoFileExtension(file, 'jpg'), 'jpg').toLowerCase();
-            return `${idPart}-${String(index + 1).padStart(2, '0')}-${token}.${ext}`;
-        }
 
-        async function uploadSalesCreditPhotoFile(file = null, creditId = '', index = 0) {
-            if (!file) throw new Error('Missing credit photo.');
-            const fileName = buildSalesCreditPhotoFileName(file, creditId, index);
-            const contentType = getPhotoUploadContentType(file, 'image/jpeg');
-            let bucketName = PHOTO_BUCKETS['credit-'] || 'credit_photos';
-            let filePath = `${new Date().toISOString().split('T')[0]}/${fileName}`;
-            let publicUrl = '';
-            try {
-                const apiUpload = await uploadPhotoViaAppApi('credit-', file, fileName, contentType, { timeoutMs: SUPABASE_UPLOAD_TIMEOUT_MS });
-                bucketName = String(apiUpload.bucketName || bucketName).trim() || bucketName;
-                filePath = String(apiUpload.filePath || filePath).trim() || filePath;
-                publicUrl = String(apiUpload.publicUrl || '').trim();
-            } catch (secureUploadError) {
-                const fallbackStorageClient = getSupabaseBrowserClient();
-                if (!fallbackStorageClient || !fallbackStorageClient.storage) {
-                    throw (secureUploadError instanceof Error ? secureUploadError : new Error('Secure credit photo upload proxy unavailable.'));
-                }
-                if (!appApiPhotoUploadFallbackWarningShown) {
-                    appApiPhotoUploadFallbackWarningShown = true;
-                    console.warn('Secure credit photo upload proxy unavailable; using direct Storage fallback.', secureUploadError);
-                }
-                const directUpload = await uploadOptimizedBlobToStorage(bucketName, filePath, file, { contentType, label: 'Credit photo upload' });
-                filePath = directUpload.filePath;
-                publicUrl = directUpload.publicUrl;
-            }
-            if (!publicUrl) throw new Error('Credit photo upload did not return a public URL.');
-            return { publicUrl, fileName, bucketName, filePath };
-        }
 
-        async function submitSalesCreditRequest(event = null) {
+        async function submitSalesCreditRequest() {
             switchView('sales-credit'); return false; // Older credit forms use the protected workspace.
-
-            if (event) {
-                event.preventDefault();
-                event.stopPropagation();
-            }
-            if (salesCreditSubmitting) return false;
-            const selectEl = document.getElementById('sales-credit-request-select');
-            const sourceUid = String((selectEl && selectEl.value) || salesCreditSelectedRequestUid || '').trim();
-            const sourceRow = getSalesCreditSourceRequestRow(sourceUid);
-            if (!sourceRow) {
-                showToast('Request Missing', 'Choose the request row this credit belongs to.', true);
-                return false;
-            }
-            const files = (Array.isArray(salesCreditSelectedFiles) ? salesCreditSelectedFiles : []).filter((file) => file && String(file.type || '').startsWith('image/'));
-            if (!files.length) {
-                showToast('Photos Required', 'Upload the customer credit photos before submitting.', true);
-                return false;
-            }
-            const qty = String((document.getElementById('sales-credit-qty') || {}).value || '').trim();
-            const reason = String((document.getElementById('sales-credit-reason') || {}).value || '').trim() || 'Other';
-            const note = String((document.getElementById('sales-credit-note') || {}).value || '').trim();
-            const creditId = `credit_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-            const submitBtn = document.getElementById('sales-credit-submit-btn');
-
-            if (submitBtn) {
-                submitBtn.disabled = true;
-                submitBtn.textContent = 'Saving...';
-            }
-            try {
-                showToast('Uploading', `Uploading ${files.length} credit photo${files.length === 1 ? '' : 's'}...`, false);
-                const uploaded = [];
-                for (let i = 0; i < files.length; i += 1) {
-                    uploaded.push(await uploadSalesCreditPhotoFile(files[i], creditId, i));
-                }
-                const requestSnapshot = buildRequestHistorySnapshot(sourceRow);
-                const submittedBy = normalizePushUsername(firstNonEmptyValue(currentUser, currentUserDisplay, '') || '');
-                const submittedDisplay = String(firstNonEmptyValue(currentUserDisplay, currentUser, submittedBy, '') || '').trim();
-                const submittedEmail = String(typeof resolveRequestRecipientEmail === 'function' ? resolveRequestRecipientEmail(firstNonEmptyValue(currentUser, currentUserDisplay, '') || '') : '').trim();
-                const submittedAt = new Date().toISOString();
-                const payload = {
-                    unique_id: creditId,
-                    request_unique_id: sourceUid,
-                    request_folder: getRequestFolderName(sourceRow),
-                    requested_by: String(firstNonEmptyValue(selectedReqRepView, getRequestAssignedRep(sourceRow), requestSnapshot.REQUESTED_BY, '') || '').trim(),
-                    salesrepname: String(firstNonEmptyValue(selectedReqRepView, getRequestAssignedRep(sourceRow), requestSnapshot.REQUESTED_BY, '') || '').trim(),
-                    customername: String(firstNonEmptyValue(selectedReqCustView, getRequestCustomerFolderName(sourceRow), requestSnapshot.REQ_CUSTOMER, '') || '').trim(),
-                    consigneename: String(firstNonEmptyValue(selectedReqConsigneeView, getRequestConsigneeFolderName(sourceRow), requestSnapshot.REQ_CUSTOMER, '') || '').trim() || 'No Consignee',
-                    req_customer: String(firstNonEmptyValue(sourceRow.REQ_CUSTOMER, sourceRow.req_customer, selectedReqConsigneeView, selectedReqCustView, '') || '').trim(),
-                    master_id: requestSnapshot.MASTER_ID || null,
-                    master_unique_id: requestSnapshot.MASTER_UNIQUE_ID || requestSnapshot.MASTER_ID || null,
-                    itemcode: requestSnapshot.ITEMCODE || null,
-                    commonname: requestSnapshot.COMMONNAME || null,
-                    contsize: requestSnapshot.CONTSIZE || null,
-                    locationcode: requestSnapshot.LOCATIONCODE || null,
-                    lotcode: requestSnapshot.LOTCODE || null,
-                    priority: requestSnapshot.PRIORITY || null,
-                    req_qty: requestSnapshot.REQ_QTY || null,
-                    credit_qty: qty || null,
-                    credit_reason: reason,
-                    credit_note: note || null,
-                    credit_status: 'pending',
-                    credit_photo_link: uploaded.map((entry) => entry.publicUrl).join(','),
-                    credit_photo_name: uploaded.map((entry) => entry.fileName).join(','),
-                    request_photo_link: requestSnapshot.REQ_PHOTO_LINK || getRequestHistoryPhotoLink(sourceRow) || null,
-                    request_photo_name: requestSnapshot.REQ_PHOTO_NAME || getRequestHistoryPhotoName(sourceRow) || null,
-                    submitted_by_username: submittedBy || null,
-                    submitted_by_display: submittedDisplay || null,
-                    submitted_by_email: submittedEmail || null,
-                    submitted_at: submittedAt,
-                    snapshot: {
-                        request: requestSnapshot,
-                        credit: {
-                            qty,
-                            reason,
-                            note,
-                            submitted_by_username: submittedBy,
-                            submitted_by_display: submittedDisplay,
-                            submitted_at: submittedAt,
-                            photo_count: uploaded.length
-                        }
-                    }
-                };
-                await supabaseFetch(SALES_CREDIT_REQUESTS_TABLE, 'POST', payload, 'on_conflict=unique_id');
-                cacheSalesCreditRequestRow(payload);
-                salesCreditSelectedFiles = [];
-                const fileLabel = document.getElementById('sales-credit-file-count');
-                if (fileLabel) fileLabel.textContent = 'Choose Customer Photos';
-                showToast('Credit Submitted', 'Saved in this customer/consignee Credit view for Dylan and JD review.');
-                triggerRequestRealtimeUiRefresh(0);
-            } catch (error) {
-                showToast('Credit Failed', error && error.message ? error.message : 'Could not save the credit request.', true);
-            } finally {
-                salesCreditSubmitting = false;
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Submit Credit';
-                }
-            }
-            return false;
         }
 
-        async function reviewSalesCreditRequest(uniqueId = '', status = 'pending') {
+        async function reviewSalesCreditRequest() {
             switchView('sales-credit'); return false; // Older credit forms use the protected workspace.
-
-            const safeId = String(uniqueId || '').trim();
-            const nextStatus = normalizeSalesCreditStatus(status);
-            if (!safeId || nextStatus === 'pending') return false;
-            if (!canReviewSalesCreditRequests()) {
-                showToast('Restricted', 'Only Dylan and JD can approve or deny credits.', true);
-                return false;
-            }
-            const row = salesCreditRequestsById.get(safeId) || (Array.isArray(salesCreditRequestsInventory) ? salesCreditRequestsInventory.find((entry) => String(entry && entry.UNIQUE_ID || '').trim() === safeId) : null);
-            if (!row) {
-                showToast('Not Found', 'That credit request is no longer loaded.', true);
-                return false;
-            }
-            const label = nextStatus === 'approved' ? 'Approve' : 'Deny';
-            const note = await showAppPrompt(`${label} credit for ${row.COMMONNAME || 'this row'}?\n\nOptional review note:`, row.REVIEW_NOTE || '', {
-                title: `${label} Credit`,
-                confirmLabel: label,
-                tone: nextStatus === 'denied' ? 'danger' : '',
-                multiline: true
-            });
-            if (note === null) return false;
-            const reviewedAt = new Date().toISOString();
-            const payload = {
-                credit_status: nextStatus,
-                review_note: String(note || '').trim() || null,
-                reviewed_by_username: normalizePushUsername(firstNonEmptyValue(currentUser, currentUserDisplay, '') || '') || null,
-                reviewed_by_display: String(firstNonEmptyValue(currentUserDisplay, currentUser, '') || '').trim() || null,
-                reviewed_at: reviewedAt
-            };
-            try {
-                await supabaseFetch(SALES_CREDIT_REQUESTS_TABLE, 'PATCH', payload, `unique_id=eq.${encodeURIComponent(safeId)}`);
-                Object.assign(row, normalizeSalesCreditRequestRow(Object.assign({}, row, payload, { unique_id: safeId, updated_at: reviewedAt })) || {});
-                cacheSalesCreditRequestRow(row);
-                showToast('Credit Reviewed', `Credit ${nextStatus}.`);
-                triggerRequestRealtimeUiRefresh(0);
-            } catch (error) {
-                showToast('Review Failed', error && error.message ? error.message : 'Could not update the credit request.', true);
-            }
-            return false;
         }
 
         async function upsertRequestHistoryRows(items = [], eventName = 'snapshot') {
@@ -27143,7 +25604,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             return merged;
         }
 
-        const EVAL_WORK_CONTRACT_VERSION = 'eval-work-v1';
         const EVAL_WORK_DRAFT_STORAGE_PREFIX = 'gnc_eval_work_draft_v1:';
         let evalWorkRealtimeChannel = null;
         let evalWorkRealtimeScope = '';
@@ -27691,18 +26151,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             }).filter((entry) => entry[0]));
         }
 
-        function selectEvalWorkOrigin(originUid = '') {
-            const work = getEvalWorkById(activeEvalWorkDetailId);
-            let uid = String(originUid || '').trim();
-            try { uid = decodeURIComponent(uid); } catch (error) { globalThis.reportHandledRuntimeIssue?.("selectEvalWorkOrigin", 'HANDLED_OPERATION_FAILURE'); }
-            if (!work || !uid || uid === evalWorkActiveOriginUid) return false;
-            syncEvalWorkActiveOriginEvidence(work);
-            try { persistEvalWorkLocalDraft(work.id, buildEvalWorkLocalInquirySnapshot(work), collectEvalWorkEvidenceByOrigin(work), work.version); } catch (error) { globalThis.reportHandledRuntimeIssue?.("selectEvalWorkOrigin", 'HANDLED_OPERATION_FAILURE'); }
-            evalWorkActiveOriginUid = uid;
-            evalWorkDetailView = 'pictures-specs';
-            scheduleRequestRender(0, 0, true);
-            return false;
-        }
 
         function setEvalWorkDetailView(view = 'pictures-specs', workOverride = null) {
             const nextView = ['pictures-specs', 'item-inquiry'].includes(String(view || '').trim().toLowerCase())
@@ -27741,19 +26189,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             };
         }
 
-        function getEvalWorkAvNoteOptionsHtml() {
-            const contextItem = getEvalWorkAvNoteContextItem();
-            void ensureItemcodeAvNoteOptions(contextItem, () => {
-                if (document.body.classList.contains('eval-work-av-note-open')) renderEvalWorkAvNoteChoices(document.getElementById('eval-work-av-note-search')?.value || '');
-            });
-            return getIndexedAvNotes(contextItem).map((value) => `<option value="${escapeHtml(value)}"></option>`).join('');
-        }
 
-        function getEvalWorkAvNoteValues() {
-            const host = document.createElement('select');
-            host.innerHTML = getEvalWorkAvNoteOptionsHtml();
-            return Array.from(host.querySelectorAll('option')).map((option) => option.value).filter(Boolean);
-        }
 
         function ensureEvalWorkAvNoteSheet() {
             let sheet = document.getElementById('eval-work-av-note-sheet');
@@ -27864,7 +26300,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             return false;
         }
 
-        function selectEvalWorkInlineAvNote(value = '', event = null) { return selectEvalWorkAvNote(value,event); }
 
         function appendEvalWorkSpecCaliperToAvNote(event = null) {
             if (event && typeof event.preventDefault === 'function') event.preventDefault();
@@ -28048,12 +26483,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             };
         }
 
-        function setEvalWorkBlockFilter(encodedAlpha = '', encodedNumber = '') {
-            try { evalWorkBlockAlphaFilter = decodeURIComponent(String(encodedAlpha || '')); } catch (error) { evalWorkBlockAlphaFilter = ''; }
-            try { evalWorkBlockNumberFilter = decodeURIComponent(String(encodedNumber || '')); } catch (error) { evalWorkBlockNumberFilter = ''; }
-            scheduleRequestRender(0, 0, true);
-            return false;
-        }
 
         function renderEvalWorkQueue(renderOptions = null) {
             const safeRenderOptions = renderOptions && typeof renderOptions === 'object' && !Array.isArray(renderOptions) ? renderOptions : {};
@@ -28564,10 +26993,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             return !(access && access.isDivision && !access.isAdmin);
         }
 
-        function canSeeShearMoveTestRequestTab(access = getRoleAccessState()) {
-            if (getInventoryEditMockRequestRecordsForCurrentUser().length > 0) return true;
-            return false;
-        }
 
         function canSeeShearListRequestTab(access = getRoleAccessState()) {
             try {
@@ -28588,9 +27013,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             return canReadSuspendQueue();
         }
 
-        function canSeeAvOptionEvalRequestTab(access = getRoleAccessState()) {
-            return !!currentUser && canAccessView('request');
-        }
 
         function canUseInvBunchNotes() { return !!currentUser && typeof nativeAuthProfile !== 'undefined' && !!nativeAuthProfile?.id && !nativeAuthProfile.disabled_at && nativeAuthProfile.must_change_password === false && (!nativeAuthProfile.locked_until || Date.parse(nativeAuthProfile.locked_until) <= Date.now()); }
 
@@ -28812,13 +27234,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             return !requestDeliveryRecoveryError;
         }
 
-        function toggleRequestDeliveryRecoveryPanel() {
-            if (!canManageRequestDeliveryRecovery()) return false;
-            requestDeliveryRecoveryOpen = !requestDeliveryRecoveryOpen;
-            renderRequestCategoryToolbar();
-            if (requestDeliveryRecoveryOpen) loadRequestDeliveryRecoveryQueue(false).catch(() => {});
-            return false;
-        }
 
         async function requeueRequestDelivery(eventId = '', button = null) {
             const safeEventId = String(eventId || '').trim();
@@ -28904,7 +27319,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             requestDylanFilterValue = '';
             requestDylanSalesRepValue = '';
             requestDylanLocationValue = '';
-            requestDylanFilterMenuOpen = '';
             const toolbar = document.getElementById('request-filter-toolbar');
             if (toolbar) toolbar.scrollLeft = 0;
             // Opening a newly created Request must not reset Suspend's filters.
@@ -28971,7 +27385,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
                 requestDylanSalesRepValue = '';
                 requestDylanLocationValue = '';
             }
-            requestDylanFilterMenuOpen = '';
             syncRequestTabButtons();
             return true;
         }
@@ -29587,8 +28000,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         }
 
         function handleMissingOptionalFlyerRowsTable(error = null) {
-            flyerFolderRowsSchemaReady = false;
-            flyerFolderRowsSchemaWarningShown = true;
             console.warn('Optional flyer folder rows table is unavailable; using master inventory flyer rows.', error);
             return [];
         }
@@ -31210,14 +29621,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             return isNcrFutureReleaseSalesYear(item, now);
         }
 
-        function isNcrReleaseSendActionCandidateRow(item = null, now = new Date()) {
-            if (!item) return false;
-            if (isNcrApprovalAssignmentValue(firstNonEmptyValue(item.APP_TAB_ASSIGNMENT, item.app_tab_assignment, ''))) return false;
-            if (!getNcrItemCode(item)) return false;
-            if (!hasNcrPositivePtrAvailable(item)) return false;
-            if (!hasNcrNewCropReleaseSeasonIntent(item)) return false;
-            return isNcrFutureReleaseSalesYear(item, now);
-        }
 
         function isNcrMoveUpCandidateRow(item = null, now = new Date()) {
             if (!isNcrOpenReleaseCandidateBaseRow(item, now)) return false;
@@ -31225,29 +29628,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             return isNcrSalesYearAtOrBelowReleaseCutoff(getNcrSalesYear(item), now);
         }
 
-        function isNcrMoveUpSendActionCandidateRow(item = null, now = new Date()) {
-            if (!item) return false;
-            if (isNcrApprovalAssignmentValue(firstNonEmptyValue(item.APP_TAB_ASSIGNMENT, item.app_tab_assignment, ''))) return false;
-            if (!getNcrItemCode(item)) return false;
-            if (!hasNcrPositivePtrAvailable(item)) return false;
-            if (!isNcrMoveUpSeasonCode(getNcrSeasonCode(item))) return false;
-            return isNcrSalesYearAtOrBelowReleaseCutoff(getNcrSalesYear(item), now);
-        }
 
-        function isNcrSameTypeResendCandidateRow(item = null, type = 'new-crop', now = new Date()) {
-            if (!item) return false;
-            const safeType = normalizeNcrApprovalType(type);
-            const assignmentType = getNcrApprovalTypeFromAssignment(getNcrApprovalAssignmentValue(item));
-            if (assignmentType !== safeType) return false;
-            if (!getNcrItemCode(item)) return false;
-            if (!hasNcrPositivePtrAvailable(item)) return false;
-            if (safeType === 'move-up') {
-                if (!isNcrMoveUpSeasonCode(getNcrSeasonCode(item))) return false;
-                return isNcrSalesYearAtOrBelowReleaseCutoff(getNcrSalesYear(item), now);
-            }
-            if (!hasNcrNewCropReleaseSeasonIntent(item)) return false;
-            return isNcrFutureReleaseSalesYear(item, now);
-        }
 
         function parseNcrLotCode(lotCode = '') {
             const raw = String(lotCode || '').trim().toUpperCase();
@@ -31277,13 +29658,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             return parseNcrLotCode(firstNonEmptyValue(item && item.LOTCODE, item && item.lotcode, ''));
         }
 
-        function getNcrNextUpLotSuffixes() {
-            return NCR_NEXT_UP_LOT_SUFFIXES.slice();
-        }
 
-        function isNcrNextUpLotSuffix(suffix = '') {
-            return Object.prototype.hasOwnProperty.call(NCR_NEXT_UP_LOT_SUFFIX_ORDER, String(suffix || '').trim().toUpperCase());
-        }
 
         function compareNcrLotCodes(a = '', b = '') {
             const lotA = parseNcrLotCode(a);
@@ -32329,12 +30704,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             return isNcrApprovalFirstStageUser(normalizedUser) || isNcrApprovalJdStageUser(normalizedUser);
         }
 
-        function getNotOnInventoryApprovalStageForCurrentUser() {
-            const normalizedUser = normalizePushUsername(currentUser || currentUserDisplay || '');
-            if (isNcrApprovalFirstStageUser(normalizedUser)) return 'dylan';
-            if (isNcrApprovalJdStageUser(normalizedUser)) return 'jd';
-            return '';
-        }
 
         function getNcrApprovalAssignedUser(item = null) {
             return normalizePushUsername(firstNonEmptyValue(item && item.ASSIGNEDTO, item && item.assignedto, ''));
@@ -32370,10 +30739,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             };
         }
 
-        function getNcrApprovalQueueTypeForItem(item = null) {
-            return getNcrApprovalTypeFromAssignment(getNcrApprovalAssignmentValue(item))
-                || getExplicitNcrApprovalTypeFromItem(item);
-        }
 
         function isNcrApprovalQueueItem(item = null) {
             return !!getActiveNcrApprovalQueueMeta(item);
@@ -33026,9 +31391,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             return cache.itemGroups;
         }
 
-        function getReviewActionableItemCodeSet() {
-            return new Set(ensureManagerReviewInventoryBuilt().map((item) => String(firstNonEmptyValue(item && item.ITEMCODE, item && item.ITEM, '') || '').trim()).filter(Boolean));
-        }
 
         function getReviewBlockDrilldownItems(filteredItems = null) {
             return getReviewSortedBlockRows(filteredItems);
@@ -33142,13 +31504,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
             ) || '').trim();
         }
 
-        function resolveSeasonSalesNoteCardAssignment(item = null) {
-            if (!item) return '';
-            const directAssignment = String(firstNonEmptyValue(item.APP_TAB_ASSIGNMENT, item.app_tab_assignment, '') || '').trim().toLowerCase();
-            if (directAssignment) return directAssignment;
-            const masterRow = findLinkedMasterRow(item);
-            return String(firstNonEmptyValue(masterRow && masterRow.APP_TAB_ASSIGNMENT, masterRow && masterRow.app_tab_assignment, '') || '').trim().toLowerCase();
-        }
 
         function findSeasonSalesNoteMasterCandidateForCard(item = null) {
             if (!item) return null;
@@ -33462,10 +31817,7 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
         }
 
         function getDeferredCardPhotoRootMargin() {
-            const avPhotoFeedVisible = typeof getCurrentVisibleViewId === 'function'
-                && getCurrentVisibleViewId() === 'av'
-                && typeof getIsAvPhotoSubview === 'function'
-                && getIsAvPhotoSubview();
+            if (typeof getCurrentVisibleViewId === 'function') getCurrentVisibleViewId();
             return isTouchConstrainedDevice() ? DEFERRED_CARD_PHOTO_ROOT_MARGIN_MOBILE : DEFERRED_CARD_PHOTO_ROOT_MARGIN_DESKTOP;
         }
 
@@ -33997,9 +32349,6 @@ let dockViewLevel=0; let selectedDockNum=null; let selectedDockStop=null; let pe
                 canTakePhoto: false, canEdit: false, canComplete: false, canArchive: false };
         }
 
-        function isRequestCapabilityDataUsable() {
-            return !!getRequestCapabilities();
-        }
 
         function getRequestCapabilityStatusMarkup() {
             const state = requestCapabilityState || {};
@@ -34159,9 +32508,6 @@ let searchRenderTimer = {};
 let searchRenderLastTerm = {};
 let searchMonitoringStartedAt = {};
 let searchRenderToken = {};
-let avTopControlsRenderTimer = null;
-let avTopControlsRenderFrame = null;
-let avTopControlsRenderToken = 0;
         let avRenderChunkToken = 0;
         let bloomPickerFolderManuallyEdited = false;
         let bloomPickerReservePartyOptions = [];
@@ -34999,9 +33345,6 @@ let avTopControlsRenderToken = 0;
             return String(value || '').trim().toLowerCase();
         }
 
-        function getInventoryEditMockCurrentUserKey() {
-            return normalizeEvalAccessUserKey(firstNonEmptyValue(currentUser, currentUserDisplay, ''));
-        }
 
         function isInventoryEditMockDylanMeganUser(userOverride = '') {
             const key = normalizeEvalAccessUserKey(firstNonEmptyValue(userOverride, currentUser, currentUserDisplay, ''));
@@ -35240,18 +33583,6 @@ let avTopControlsRenderToken = 0;
             };
         }
 
-        function queueInventoryEditMockShearListRow(record = null, options = {}) {
-            if (!inventoryEditMockRecordRequestsShear(record)) return false;
-            const opts = options && typeof options === 'object' ? options : {};
-            Promise.resolve(createShearListRowFromInventoryEditMockRecord(record, opts)).then((result) => {
-                if (result && result.ok && opts.silent !== true) showToast('Shear List Added', 'Drive Mode row added to the Shear List.');
-                else if (result && !result.ok && !result.skipped && opts.silent !== true) showToast('Shear List Not Added', result.message || 'Could not add this row to the Shear List.', true);
-            }).catch((error) => {
-                console.error('Inventory edit shear-list add failed', error);
-                if (opts.silent !== true) showToast('Shear List Not Added', error && error.message ? error.message : 'Could not add this row to the Shear List.', true);
-            });
-            return true;
-        }
 
         let inventoryEditMockShearListReconcilePromise = null;
         let inventoryEditMockShearListReconcileLastAt = 0;
@@ -35471,34 +33802,6 @@ let avTopControlsRenderToken = 0;
             return updated;
         }
 
-        function openInventoryEditChecksAfterPhotoDataDone(item = null, prefix = '', options = {}) {
-            const opts = options && typeof options === 'object' ? options : {};
-            if (!isPhotoGuardedCompletionPrefix(prefix) || !item || typeof item !== 'object') return false;
-            if (opts.suppressInventoryChecksAfterPhotoDone === true || opts.skipInventoryChecksAfterPhotoDone === true) return false;
-            if (!canUseInventoryEditMock(item)) return false;
-            const existingRecord = findInventoryEditMockRecordForItem(item, { ignoreAccess: true });
-            const existingStage = normalizeInventoryEditMockStage(existingRecord && (existingRecord.workflow_stage || existingRecord.stage || existingRecord.status));
-            if (existingRecord && existingStage !== 'eval' && existingStage !== 'needs-info' && !canCurrentUserEditInventoryEditMockRecord(existingRecord)) return false;
-            const uid = String(firstNonEmptyValue(
-                item.UNIQUE_ID,
-                item.unique_id,
-                item.DOM_ID,
-                item.MASTER_ID,
-                item.MASTER_UNIQUE_ID,
-                item.master_id,
-                item.master_unique_id,
-                existingRecord && existingRecord.snapshot && existingRecord.snapshot.sourceUniqueId,
-                existingRecord && existingRecord.snapshot && existingRecord.snapshot.masterUniqueId,
-                ''
-            ) || '').trim();
-            if (!uid && !existingRecord) return false;
-            const modalOptions = {
-                requestType: normalizeInventoryEditMockRequestType(firstNonEmptyValue(opts.requestType, existingRecord && existingRecord.request_type, 'inventory-edit')),
-                focusField: normalizeInventoryEditMockFocusField(opts.focusField || '') || 'priority'
-            };
-            if (existingRecord) modalOptions.existingRecordId = existingRecord.id;
-            return openInventoryEditRequestModal(uid, modalOptions);
-        }
 
         function getInventoryEditMockChangeByKey(record = {}, key = '') {
             const safeKey = String(key || '').trim().toLowerCase();
@@ -35606,36 +33909,9 @@ let avTopControlsRenderToken = 0;
             });
         }
 
-        function buildInventoryEditMockActionHtml(item = null, options = {}) {
-            if (!canUseInventoryEditMock(item)) return '';
-            return '';
-        }
 
-        function canUseCustomerConsigneeAllEditAction(item = null, sourceView = '') {
-            if (!item || !canUseCustomerConsigneeOutreach()) return false;
-            const safeSource = normalizeCustomerConsigneeOutreachSourceView(sourceView || activeDetailSourceView || lastView || '');
-            if (safeSource !== 'av') return false;
-            return !!(hasDriveCustomerOutreachPhotoSpec(item) && getDriveCustomerOutreachRowId(item));
-        }
 
-        function canShowInventoryAllEditActionSheet(item = null, sourceView = '') {
-            if (!item) return false;
-            if (canUseInventoryEditMock(item)) return true;
-            if (canUseCustomerConsigneeAllEditAction(item, sourceView)) return true;
-            const safeSource = String(sourceView || activeDetailSourceView || lastView || '').trim().toLowerCase();
-            if (safeSource === 'av') return false;
-            if (firstNonEmptyValue(item.UNIQUE_ID, item.unique_id, item.DOM_ID, '')) return true;
-            if (canEditNcrWorkflow(item)) return true;
-            return !!(typeof canSendDriveRowToNcrApproval === 'function' && (canSendDriveRowToNcrApproval(item, 'new-crop', sourceView) || canSendDriveRowToNcrApproval(item, 'move-up', sourceView)));
-        }
 
-        function getInventoryNcrApprovalRailType(item = null, sourceView = '') {
-            const safeSource = String(sourceView || activeDetailSourceView || lastView || '').trim().toLowerCase();
-            if (!item || safeSource === 'av') return '';
-            if (typeof canSendDriveRowToNcrApproval === 'function' && canSendDriveRowToNcrApproval(item, 'new-crop', safeSource)) return 'new-crop';
-            if (typeof canSendDriveRowToNcrApproval === 'function' && canSendDriveRowToNcrApproval(item, 'move-up', safeSource)) return 'move-up';
-            return '';
-        }
 
         function getReversibleNcrApprovalQueueMeta(item = null) {
             if (!item || typeof item !== 'object') return null;
@@ -35698,22 +33974,9 @@ let avTopControlsRenderToken = 0;
             return `<button type="button" class="app-card-bottom-btn app-card-bottom-btn--reverse" aria-label="Reverse pending request and clear row data" onclick="event.stopPropagation(); return reverseNcrApprovalRequest('${safeUid}', this)"><i class="ph-bold ph-arrow-u-up-left text-base"></i><span>Undo Request</span></button>`;
         }
 
-        function buildNcrApprovalReverseActionSheetHtml(item = null) {
-            if (!canCurrentUserReverseNcrApprovalRequest(item)) return '';
-            const safeUid = escJsAttrValue(firstNonEmptyValue(item && item.UNIQUE_ID, item && item.unique_id, item && item.DOM_ID, ''));
-            if (!safeUid) return '';
-            const meta = getReversibleNcrApprovalQueueMeta(item);
-            const typeLabel = meta ? getNcrApprovalTypeLabel(meta.type) : 'Approval';
-            return `<button type="button" class="min-h-[52px] rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-left text-rose-800 shadow-sm active:scale-95" onclick="closeInventoryAllEditActionSheet(); return reverseNcrApprovalRequest('${safeUid}', this)"><div class="flex items-center gap-3"><i class="ph-bold ph-arrow-u-up-left text-xl"></i><div><div class="text-[11px] font-black uppercase tracking-[0.14em]">Undo Pending ${esc(typeLabel)}</div><div class="mt-0.5 text-[11px] font-semibold text-rose-700">Clear this row's request photos/spec/data so it can be redone on the correct row.</div></div></div></button>`;
-        }
 
-        function buildInventoryAllEditRailButtonHtml(item = null, sourceView = '') {
+        function buildInventoryAllEditRailButtonHtml() {
             return '';
-            if (!canShowInventoryAllEditActionSheet(item, sourceView)) return '';
-            const safeUid = escJsAttrValue(firstNonEmptyValue(item.UNIQUE_ID, item.unique_id, item.DOM_ID, ''));
-            if (!safeUid) return '';
-            const safeSource = escJsAttrValue(sourceView || activeDetailSourceView || lastView || '');
-            return `<button type="button" class="app-card-bottom-btn app-card-bottom-btn--inv-edit" aria-label="Open inventory edit actions" onclick="event.stopPropagation(); return openInventoryAllEditActionSheet('${safeUid}', '${safeSource}')"><i class="ph-bold ph-pencil-simple-line text-base"></i><span>INV EDIT</span></button>`;
         }
 
         let argosInventoryTransactionState = null;
@@ -35788,16 +34051,9 @@ let avTopControlsRenderToken = 0;
         function getArgosInventoryTransactionActionLabel(action = '') {
             const rawAction = String(action || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
             if (rawAction === 'priority_change' || rawAction === 'priority' || rawAction === 'prioritychange') return 'Priority Change';
-            const safeAction = normalizeArgosInventoryTransactionAction(action);
             return 'Reclass';
         }
 
-        function getArgosInventoryTransactionActionShortLabel(action = '') {
-            const rawAction = String(action || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
-            if (rawAction === 'priority_change' || rawAction === 'priority' || rawAction === 'prioritychange') return 'PRIORITY';
-            const safeAction = normalizeArgosInventoryTransactionAction(action);
-            return 'RECLASS';
-        }
 
         function normalizeArgosInventoryNumber(value = null) {
             const parsed = parseAppNumber(value);
@@ -36975,7 +35231,6 @@ let avTopControlsRenderToken = 0;
 
         function renderArgosReclassInquiryEditor(model = null, originatingUid = '') {
             const safeModel = model && typeof model === 'object' ? model : { identity: {}, seasons: [], locationRows: [] };
-            const mobileEditor = isArgosReclassMobileEditorViewport();
             argosReclassRowEditorEntries = new Map();
             const candidates = Array.isArray(safeModel.locationRows) ? safeModel.locationRows : [];
             if (typeof applyInventoryExcelFilters === 'function') { applyInventoryExcelFilters('reclass',candidates); setTimeout(paintReclassInventoryExcel,0); }
@@ -36998,8 +35253,9 @@ let avTopControlsRenderToken = 0;
                 const scopeActions = getArgosReclassV3ScopeActionsForEntry(entry);
                 const actionCount = getArgosReclassV3ActionCountForEntry(entry);
                 const resolution = getEvalWorkInquiryRowResolution(uid);
+                const resolutionLabel = resolution === 'done' ? 'Done' : resolution === 'no_action' ? 'No Action' : 'Needs Review';
                 const resolutionBadge = argosInventoryTransactionState && argosInventoryTransactionState.sourceView === 'eval-work'
-                    ? `<em class="eval-work-row-resolution-badge" data-eval-row-resolution-badge data-resolution="${escapeHtml(resolution)}">${resolution === 'done' ? 'Done' : (resolution === 'no_action' ? 'No Action' : 'Needs Review')}</em>` : '';
+                    ? `<em class="eval-work-row-resolution-badge" data-eval-row-resolution-badge data-resolution="${escapeHtml(resolution)}">${resolutionLabel}</em>` : '';
                 const optimisticCommand = String(entry && entry.sourceRow && entry.sourceRow.__optimisticReclassMove || '');
                 const proposalSignature = getArgosReclassProposalRenderSignature(uid, resolution);
                 const renderSignature = getArgosReclassRowRenderSignature(entry, {
@@ -37462,24 +35718,13 @@ let avTopControlsRenderToken = 0;
             return false;
         }
 
-        function selectArgosInventoryTransactionHoldAction(action = 'none') {
-            setArgosInventoryTransactionHoldAction(action);
-            toggleArgosInventoryTransactionHoldActionPicker(false);
-            return false;
-        }
 
-        function isArgosInventoryTransactionPriorityChangeMode() {
-            return getArgosInventoryTransactionRequestAction() === 'priority_change';
-        }
 
         function isArgosInventoryTransactionRequestOnlyMode() {
             const requestAction = getArgosInventoryTransactionRequestAction();
             return !!requestAction;
         }
 
-        function isArgosInventoryTransactionOffHoldRequestMode() {
-            return getArgosInventoryTransactionRequestAction() === 'take_off_hold';
-        }
 
         function syncArgosInventoryTransactionRequestOnlyMode() {
             if (argosInventoryTransactionState) {
@@ -37645,15 +35890,6 @@ let avTopControlsRenderToken = 0;
             return el ? String(el.value || '').trim() : '';
         }
 
-        function isArgosInventoryTransactionDylanActor() {
-            const userKey = typeof normalizePushUsername === 'function'
-                ? normalizePushUsername(currentUser || currentUserDisplay || '')
-                : String(currentUser || currentUserDisplay || '').trim().toLowerCase();
-            const displayKey = typeof normalizePushUsername === 'function'
-                ? normalizePushUsername(currentUserDisplay || currentUser || '')
-                : String(currentUserDisplay || currentUser || '').trim().toLowerCase();
-            return DYLAN_EQUIVALENT_USER_KEYS.has(userKey) || DYLAN_EQUIVALENT_USER_KEYS.has(displayKey);
-        }
 
         function getArgosInventoryTransactionActorEmail() {
             if (typeof resolveRequestRecipientEmail === 'function') {
@@ -37665,10 +35901,6 @@ let avTopControlsRenderToken = 0;
             return '';
         }
 
-        function parseArgosInventoryTransactionRecipientText(value = '') {
-            const parts = String(value || '').split(/[;,\s]+/).map((part) => part.trim()).filter(Boolean);
-            return dedupeRequestEmailRecipients(parts);
-        }
 
         function getInventoryTransactionRequiredRecipientEmails() {
             return dedupeRequestEmailRecipients(
@@ -37750,467 +35982,29 @@ let avTopControlsRenderToken = 0;
             return `${prefix}_${randomPart}`;
         }
 
-        function getArgosInventoryTransactionWriteTable(snapshot = null, item = null) {
-            return String(firstNonEmptyValue(
-                snapshot && snapshot.sourceTable,
-                item && item.SOURCE_TABLE,
-                item && item.source_table,
-                'ph_master_inventory'
-            ) || 'ph_master_inventory').trim() || 'ph_master_inventory';
-        }
 
-        function buildArgosInventoryTransactionAuditSnapshot(item = null, snapshot = null, priorityOverride) {
-            const safeItem = item && typeof item === 'object' ? item : {};
-            const safeSnapshot = snapshot && typeof snapshot === 'object' ? snapshot : {};
-            const hasPriorityOverride = arguments.length > 2;
-            const priorityValue = hasPriorityOverride
-                ? String(priorityOverride == null ? '' : priorityOverride).trim()
-                : String(firstNonEmptyValue(safeItem.PRIORITY, safeItem.priority, safeSnapshot.priority, '') || '').trim();
-            const row = {
-                unique_id: String(firstNonEmptyValue(safeItem.UNIQUE_ID, safeItem.unique_id, safeSnapshot.uniqueId, '') || '').trim(),
-                itemcode: String(firstNonEmptyValue(safeItem.ITEMCODE, safeItem.itemcode, safeSnapshot.itemCode, '') || '').trim(),
-                lotcode: String(firstNonEmptyValue(safeItem.LOTCODE, safeItem.lotcode, safeSnapshot.lotCode, '') || '').trim(),
-                locationcode: String(firstNonEmptyValue(safeItem.LOCATIONCODE, safeItem.locationcode, safeSnapshot.locationCode, '') || '').trim(),
-                source: String(firstNonEmptyValue(safeItem.SOURCE, safeItem.source, safeSnapshot.source, '') || '').trim(),
-                priority: priorityValue,
-                PRIORITY: priorityValue,
-                ptronhand: String(firstNonEmptyValue(safeItem.PTRONHAND, safeItem.ptronhand, safeSnapshot.ptrOnHand, '') || '').trim(),
-                ptrreviewed: String(firstNonEmptyValue(safeItem.PTRREVIEWED, safeItem.ptrreviewed, safeSnapshot.ptrReviewed, '') || '').trim(),
-                ptravailable: String(firstNonEmptyValue(safeItem.PTRAVAILABLE, safeItem.ptravailable, safeSnapshot.ptrAvailable, '') || '').trim()
-            };
-            row.UNIQUE_ID = row.unique_id;
-            row.ITEMCODE = row.itemcode;
-            row.LOTCODE = row.lotcode;
-            row.LOCATIONCODE = row.locationcode;
-            row.SOURCE = row.source;
-            row.PTRONHAND = row.ptronhand;
-            row.PTRREVIEWED = row.ptrreviewed;
-            row.PTRAVAILABLE = row.ptravailable;
-            return row;
-        }
 
-        function buildArgosInventoryPriorityChangeReportRow(payload = null) {
-            const state = argosInventoryTransactionState || {};
-            const safePayload = payload && typeof payload === 'object' ? payload : {};
-            const item = safePayload.item || safePayload.row || state.item || null;
-            const snapshot = state.snapshot || {};
-            const source = safePayload.source && typeof safePayload.source === 'object' ? safePayload.source : {};
-            const row = Object.assign({}, item || {});
-            const assignPair = (upperKey, lowerKey, value) => {
-                const raw = String(value == null ? '' : value).trim();
-                if (!raw) return;
-                if (!String(row[upperKey] == null ? '' : row[upperKey]).trim()) row[upperKey] = raw;
-                if (!String(row[lowerKey] == null ? '' : row[lowerKey]).trim()) row[lowerKey] = raw;
-            };
-            assignPair('UNIQUE_ID', 'unique_id', firstNonEmptyValue(source.unique_id, snapshot.uniqueId, item && item.UNIQUE_ID, ''));
-            assignPair('ITEMCODE', 'itemcode', firstNonEmptyValue(source.itemcode, snapshot.itemCode, item && item.ITEMCODE, ''));
-            assignPair('COMMONNAME', 'commonname', firstNonEmptyValue(snapshot.commonName, item && item.COMMONNAME, item && item.commonname, ''));
-            assignPair('CONTSIZE', 'contsize', firstNonEmptyValue(snapshot.contSize, item && item.CONTSIZE, item && item.contsize, ''));
-            assignPair('LOTCODE', 'lotcode', firstNonEmptyValue(source.lotcode, snapshot.lotCode, item && item.LOTCODE, ''));
-            assignPair('LOCATIONCODE', 'locationcode', firstNonEmptyValue(source.locationcode, snapshot.locationCode, item && item.LOCATIONCODE, ''));
-            assignPair('SOURCE', 'source', firstNonEmptyValue(source.source, snapshot.source, item && item.SOURCE, ''));
-            assignPair('PTRONHAND', 'ptronhand', firstNonEmptyValue(source.ptronhand, snapshot.ptrOnHand, item && item.PTRONHAND, ''));
-            assignPair('PTRREVIEWED', 'ptrreviewed', firstNonEmptyValue(source.ptrreviewed, snapshot.ptrReviewed, item && item.PTRREVIEWED, ''));
-            assignPair('PTRAVAILABLE', 'ptravailable', firstNonEmptyValue(source.ptravailable, snapshot.ptrAvailable, item && item.PTRAVAILABLE, ''));
-            const currentPriority = normalizeArgosInventoryTransactionPriorityValue(firstNonEmptyValue(source.priority, snapshot.priority, item && item.PRIORITY, item && item.priority, ''));
-            row.PRIORITY = currentPriority || '';
-            row.priority = currentPriority || '';
-            return row;
-        }
 
-        function buildArgosInventoryPriorityChangeReportRowFromForm(item = null, rowOptions = null, index = 0) {
-            const reportRow = buildArgosInventoryPriorityChangeReportRow({ item });
-            const safeOptions = rowOptions && typeof rowOptions === 'object' ? rowOptions : {};
-            const screenValues = safeOptions.screenValues && typeof safeOptions.screenValues === 'object' ? safeOptions.screenValues : {};
-            const setPair = (upperKey, lowerKey, value) => {
-                const raw = String(value == null ? '' : value).trim();
-                if (raw === '') return;
-                reportRow[upperKey] = raw;
-                reportRow[lowerKey] = raw;
-            };
-            const setRequestedPair = (upperKey, lowerKey, value) => {
-                const raw = String(value == null ? '' : value).trim();
-                if (raw === '') return;
-                reportRow[upperKey] = raw;
-                reportRow[lowerKey] = raw;
-            };
-            const setOriginalPair = (upperKey, lowerKey, value) => {
-                const raw = String(value == null ? '' : value).trim();
-                reportRow[upperKey] = raw;
-                reportRow[lowerKey] = raw;
-            };
-            setPair('LOTCODE', 'lotcode', screenValues.lotcode);
-            setPair('LOCATIONCODE', 'locationcode', screenValues.locationcode);
-            setPair('SOURCE', 'source', firstNonEmptyValue(screenValues.source, screenValues.sourcecode, ''));
-            setPair('PTRAVAILABLE', 'ptravailable', screenValues.ptravailable);
-            setPair('PTRONHAND', 'ptronhand', screenValues.ptronhand);
-            setPair('PTRREVIEWED', 'ptrreviewed', screenValues.ptrreviewed);
-            setPair('HOLDSTOPCODE', 'holdstopcode', screenValues.holdstopcode);
-            setPair('HOLDSTOPREASON', 'holdstopreason', screenValues.holdstopreason);
-            setPair('EVALDATE', 'evaldate', screenValues.evaldate);
-            setPair('PRISETBY', 'prisetby', firstNonEmptyValue(screenValues.priBy, screenValues.priby, screenValues.prisetby, ''));
-            setPair('PRIBY', 'priby', firstNonEmptyValue(screenValues.priBy, screenValues.priby, screenValues.prisetby, ''));
-            setPair('PRIUPDATED', 'priupdated', firstNonEmptyValue(screenValues.priorityUpdate, screenValues.priupdated, ''));
-            setPair('LOCATIONNOTEDATE', 'locationnotedate', firstNonEmptyValue(screenValues.locationnoteDate, screenValues.locationnotedate, ''));
-            setPair('LOCATIONNOTE', 'locationnote', screenValues.locationnote);
-            setPair('LOCATIONPTN1', 'locationptn1', screenValues.locationptn1);
-            setOriginalPair('ORIGINAL_PRIORITY', 'originalPriority', firstNonEmptyValue(item && item.PRIORITY, item && item.priority, reportRow.PRIORITY, reportRow.priority, ''));
-            setOriginalPair('ORIGINAL_HOLDSTOPCODE', 'originalHoldStopCode', firstNonEmptyValue(item && item.HOLDSTOPCODE, item && item.holdstopcode, item && item.HOLSTOPCODE, item && item.holstopcode, ''));
-            setOriginalPair('ORIGINAL_HOLDSTOPREASON', 'originalHoldStopReason', firstNonEmptyValue(item && item.HOLDSTOPREASON, item && item.holdstopreason, item && item.HOLSTOPREASON, item && item.holstopreason, ''));
-            setOriginalPair('ORIGINAL_LOTCODE', 'originalLotCode', firstNonEmptyValue(item && item.LOTCODE, item && item.lotcode, ''));
-            setOriginalPair('ORIGINAL_LOCATIONCODE', 'originalLocationCode', firstNonEmptyValue(item && item.LOCATIONCODE, item && item.locationcode, ''));
-            setOriginalPair('ORIGINAL_SOURCE', 'originalSource', firstNonEmptyValue(item && item.SOURCE, item && item.source, item && item.SOURCECODE, item && item.sourcecode, ''));
-            setOriginalPair('ORIGINAL_PTRONHAND', 'originalPtrOnHand', firstNonEmptyValue(item && item.PTRONHAND, item && item.ptronhand, ''));
-            setOriginalPair('ORIGINAL_PTRREVIEWED', 'originalPtrReviewed', firstNonEmptyValue(item && item.PTRREVIEWED, item && item.ptrreviewed, ''));
-            setOriginalPair('ORIGINAL_PTRAVAILABLE', 'originalPtrAvailable', firstNonEmptyValue(item && item.PTRAVAILABLE, item && item.ptravailable, ''));
-            setOriginalPair('ORIGINAL_EVALDATE', 'originalEvalDate', firstNonEmptyValue(item && item.EVALDATE, item && item.evaldate, ''));
-            setOriginalPair('ORIGINAL_PRISETBY', 'originalPriSetBy', firstNonEmptyValue(item && item.PRISETBY, item && item.prisetby, item && item.PRIBY, item && item.priby, ''));
-            setOriginalPair('ORIGINAL_PRIBY', 'originalPriBy', firstNonEmptyValue(item && item.PRIBY, item && item.priby, item && item.PRISETBY, item && item.prisetby, ''));
-            setOriginalPair('ORIGINAL_PRIUPDATED', 'originalPriUpdated', firstNonEmptyValue(item && item.PRIUPDATED, item && item.priupdated, ''));
-            setOriginalPair('ORIGINAL_LOCATIONNOTEDATE', 'originalLocationNoteDate', firstNonEmptyValue(item && item.LOCATIONNOTEDATE, item && item.locationnotedate, ''));
-            setOriginalPair('ORIGINAL_LOCATIONNOTE', 'originalLocationNote', firstNonEmptyValue(item && item.LOCATIONNOTE, item && item.locationnote, ''));
-            setOriginalPair('ORIGINAL_LOCATIONPTN1', 'originalLocationPtn1', firstNonEmptyValue(item && item.LOCATIONPTN1, item && item.locationptn1, item && item.LOC_PTN1, item && item.loc_ptn1, ''));
-            const currentPriority = normalizeArgosInventoryTransactionPriorityValue(firstNonEmptyValue(item && item.PRIORITY, item && item.priority, reportRow.PRIORITY, reportRow.priority, ''));
-            reportRow.PRIORITY = currentPriority || '';
-            reportRow.priority = currentPriority || '';
-            setRequestedPair('REQUESTED_PRIORITY', 'requestedPriority', firstNonEmptyValue(screenValues.priority, safeOptions.priority, ''));
-            setRequestedPair('REQUESTED_HOLDSTOPCODE', 'requestedHoldStopCode', screenValues.holdstopcode);
-            setRequestedPair('REQUESTED_HOLDSTOPREASON', 'requestedHoldStopReason', screenValues.holdstopreason);
-            setRequestedPair('REQUESTED_LOTCODE', 'requestedLotCode', screenValues.lotcode);
-            setRequestedPair('REQUESTED_LOCATIONCODE', 'requestedLocationCode', screenValues.locationcode);
-            setRequestedPair('REQUESTED_SOURCE', 'requestedSource', firstNonEmptyValue(screenValues.source, screenValues.sourcecode, ''));
-            setRequestedPair('REQUESTED_PTRONHAND', 'requestedPtrOnHand', screenValues.ptronhand);
-            setRequestedPair('REQUESTED_PTRREVIEWED', 'requestedPtrReviewed', screenValues.ptrreviewed);
-            setRequestedPair('REQUESTED_PTRAVAILABLE', 'requestedPtrAvailable', screenValues.ptravailable);
-            setRequestedPair('REQUESTED_EVALDATE', 'requestedEvalDate', screenValues.evaldate);
-            setRequestedPair('REQUESTED_PRISETBY', 'requestedPriSetBy', firstNonEmptyValue(screenValues.priBy, screenValues.priby, screenValues.prisetby, ''));
-            setRequestedPair('REQUESTED_PRIBY', 'requestedPriBy', firstNonEmptyValue(screenValues.priBy, screenValues.priby, screenValues.prisetby, ''));
-            setRequestedPair('REQUESTED_PRIUPDATED', 'requestedPriUpdated', firstNonEmptyValue(screenValues.priorityUpdate, screenValues.priupdated, ''));
-            setRequestedPair('REQUESTED_LOCATIONNOTEDATE', 'requestedLocationNoteDate', firstNonEmptyValue(screenValues.locationnoteDate, screenValues.locationnotedate, ''));
-            setRequestedPair('REQUESTED_LOCATIONNOTE', 'requestedLocationNote', screenValues.locationnote);
-            setRequestedPair('REQUESTED_LOCATIONPTN1', 'requestedLocationPtn1', screenValues.locationptn1);
-            reportRow.ROW = index + 1;
-            reportRow.row = index + 1;
-            return reportRow;
-        }
 
-        async function collectArgosInventoryPriorityChangeReportOptions(payload = null) {
-            const reportRow = buildArgosInventoryPriorityChangeReportRow(payload);
-            const defaultRecipientEmails = dedupeRequestEmailRecipients([
-                ...getInventoryTransactionRequiredRecipientEmails(),
-                resolveRequestRecipientEmail(currentUser || currentUserDisplay || '')
-            ]);
-            const selectedEmails = await openGroupedBloomNcrRecipientModal([reportRow], defaultRecipientEmails, {
-                brandLabel: 'GNC PH Priority Change',
-                title: 'Select Priority Change Recipients'
-            });
-            const recipientEmails = dedupeRequestEmailRecipients([
-                ...(selectedEmails || []),
-                ...defaultRecipientEmails
-            ]);
-            if (!recipientEmails.length) return null;
-            return { reportRow, recipientEmails };
-        }
 
-        async function sendArgosInventoryPriorityChangeReportEmail(payload = null, result = null, options = {}) {
-            const safeOptions = options && typeof options === 'object' ? options : {};
-            const recipientEmails = dedupeRequestEmailRecipients(safeOptions.recipientEmails || []);
-            if (!recipientEmails.length) throw new Error('Select at least one recipient for the Priority Change report.');
-            const safePayload = payload && typeof payload === 'object' ? payload : {};
-            const tx = safePayload.transaction && typeof safePayload.transaction === 'object' ? safePayload.transaction : {};
-            const requestedPriority = normalizeArgosInventoryTransactionPriorityValue(firstNonEmptyValue(tx.newPriority, tx.priority, ''));
-            if (requestedPriority === null || !requestedPriority) throw new Error('Choose the requested priority for the report.');
-            const reportRow = safeOptions.reportRow || buildArgosInventoryPriorityChangeReportRow(safePayload);
-            const selections = {
-                actions: ['priority'],
-                ncr: false,
-                takeOffHold: false,
-                priority: true,
-                requestedPriority: requestedPriority || '',
-                message: String(firstNonEmptyValue(tx.reason, safePayload.reason, '') || '').trim(),
-                reportTitle: 'GNC PH Priority Change'
-            };
-            const submittedBy = String(firstNonEmptyValue(currentUserDisplay, currentUser, 'Unknown') || 'Unknown').trim();
-            const payloadItem = buildInventoryMultiActionPayloadItem(reportRow, selections);
-            const emailPayload = {
-                type: 'email',
-                emailType: 'bloom_purpose_report',
-                emailSubType: 'inventory_priority_change_report',
-                email_sub_type: 'inventory_priority_change_report',
-                subject: buildInventoryMultiActionEmailSubject(reportRow, selections),
-                brandLabel: 'GNC PH Priority Change',
-                fromName: 'GNC PH Priority Change',
-                emailDisplayName: 'GNC PH Priority Change',
-                sourceLabel: 'GNC PH Priority Change',
-                actionLabel: 'Priority Change',
-                reasonLabel: 'Message',
-                reason: selections.message,
-                message: selections.message,
-                userMessage: selections.message,
-                customer: 'Inventory',
-                itemsCount: 1,
-                requestItems: [payloadItem],
-                requestRows: [payloadItem],
-                sourceRows: [payloadItem],
-                items: [payloadItem],
-                formattedItemsText: buildInventoryMultiActionEmailText(reportRow, selections),
-                formattedItemsHtml: buildInventoryMultiActionEmailHtml(reportRow, selections),
-                recipientEmails,
-                emailRecipients: recipientEmails,
-                internalRecipients: recipientEmails,
-                recipients: recipientEmails,
-                requestedBy: String(currentUser || '').trim(),
-                requestedByDisplay: submittedBy,
-                submittedBy,
-                inventoryTransactionId: result && result.transactionId || '',
-                emailOnlyReport: true,
-                email_only_report: true,
-                forceImmediate: true
-            };
-            const responseData = await postGoogleScriptEmailPayload(emailPayload, REQUEST_EMAIL_SCRIPT_TIMEOUT_MS, 'Priority Change Report Email');
-            if (!responseData || responseData.ok !== true) {
-                throw new Error(getGoogleScriptEmailFailureMessage(responseData, 'Priority Change report email did not send.'));
-            }
-            return responseData;
-        }
 
-        async function sendArgosInventoryPriorityChangeReportFromRowForm(rows = [], options = {}) {
-            const safeRows = (Array.isArray(rows) ? rows : []).filter(Boolean);
-            if (!safeRows.length) throw new Error('No row is selected for the Priority Change report.');
-            const safeOptions = options && typeof options === 'object' ? options : {};
-            const sourceRow = safeRows[0];
-            const rowOptions = getGroupedBloomNcrRowOption(safeOptions.rowOptionsByUid || null, sourceRow, 0);
-            const screenValues = rowOptions && rowOptions.screenValues && typeof rowOptions.screenValues === 'object' ? rowOptions.screenValues : {};
-            const requestedPriority = normalizeArgosInventoryTransactionPriorityValue(firstNonEmptyValue(screenValues.priority, rowOptions && rowOptions.priority, ''));
-            if (requestedPriority === null || !requestedPriority) throw new Error('Enter the requested priority before sending the report.');
-            const reportRow = buildArgosInventoryPriorityChangeReportRowFromForm(sourceRow, rowOptions, 0);
-            const defaultRecipientEmails = dedupeRequestEmailRecipients([
-                ...getInventoryTransactionRequiredRecipientEmails(),
-                resolveRequestRecipientEmail(currentUser || currentUserDisplay || '')
-            ]);
-            const recipientEmails = await openGroupedBloomNcrRecipientModal([reportRow], defaultRecipientEmails, {
-                brandLabel: 'GNC PH Priority Change',
-                title: 'Select Priority Change Recipients'
-            });
-            const safeRecipients = dedupeRequestEmailRecipients([
-                ...(recipientEmails || []),
-                ...defaultRecipientEmails
-            ]);
-            if (!safeRecipients.length) return false;
-            const reportPayload = {
-                type: 'inventory_priority_change_report',
-                item: sourceRow,
-                source: {
-                    unique_id: firstNonEmptyValue(sourceRow && sourceRow.UNIQUE_ID, sourceRow && sourceRow.unique_id, ''),
-                    itemcode: firstNonEmptyValue(sourceRow && sourceRow.ITEMCODE, sourceRow && sourceRow.itemcode, ''),
-                    lotcode: firstNonEmptyValue(reportRow.LOTCODE, reportRow.lotcode, ''),
-                    locationcode: firstNonEmptyValue(reportRow.LOCATIONCODE, reportRow.locationcode, ''),
-                    source: firstNonEmptyValue(reportRow.SOURCE, reportRow.source, ''),
-                    priority: firstNonEmptyValue(reportRow.PRIORITY, reportRow.priority, ''),
-                    ptronhand: firstNonEmptyValue(reportRow.PTRONHAND, reportRow.ptronhand, ''),
-                    ptrreviewed: firstNonEmptyValue(reportRow.PTRREVIEWED, reportRow.ptrreviewed, ''),
-                    ptravailable: firstNonEmptyValue(reportRow.PTRAVAILABLE, reportRow.ptravailable, '')
-                },
-                transaction: {
-                    newPriority: requestedPriority,
-                    priority: requestedPriority,
-                    reason: String(firstNonEmptyValue(screenValues.locationnote, screenValues.note, safeOptions.reason, '') || '').trim()
-                }
-            };
-            const responseData = await sendArgosInventoryPriorityChangeReportEmail(reportPayload, null, {
-                reportRow,
-                recipientEmails: safeRecipients
-            });
-            showToast('Email Sent', 'Priority Change report sent. No inventory data was changed.');
-            if (safeOptions.clearSelection === true) clearSelection();
-            return responseData;
-        }
 
         function buildArgosInventoryTransactionPayload() {
-            {
-                const state = argosInventoryTransactionState || {};
-                const snapshot = state.snapshot || {};
-                const quantityRaw = getArgosInventoryTransactionInputValue('argos-inventory-transaction-qty');
-                const quantityText = String(quantityRaw == null ? '' : quantityRaw).trim();
-                const quantity = quantityText ? parseAppNumber(quantityText) : null;
-                const newItemCode = getArgosInventoryTransactionInputValue('argos-inventory-transaction-new-item');
-                const newLotCode = getArgosInventoryTransactionInputValue('argos-inventory-transaction-new-lot');
-                const newLocationCode = getArgosInventoryTransactionInputValue('argos-inventory-transaction-new-location');
-                const requestAction = normalizeArgosInventoryTransactionRequestAction(getArgosInventoryTransactionInputValue('argos-inventory-transaction-hold-action')) || 'none';
-                if (RECLASS_ACTION_WORKFLOW_V3_ENABLED) {
-                    const draft = collectArgosReclassV3Draft();
-                    const reclassExplanations = collectReclassExplanations(draft);
-                    return {
-                        reclassExplanations,
-                        type: 'reclass_inquiry_email',
-                        action: 'reclass',
-                        workflowPolicyVersion: getArgosReclassActionWorkflowPolicyVersionV3(draft),
-                        idempotencyToken: String(state.idempotencyToken || generateArgosInventoryTransactionId('reclass_inquiry')).trim(),
-                        actor: {
-                            username: String(currentUser || '').trim(),
-                            display: String(currentUserDisplay || currentUser || '').trim(),
-                            email: getArgosInventoryTransactionActorEmail(),
-                            role: typeof getCurrentRoleAccessValue === 'function' ? getCurrentRoleAccessValue() : ''
-                        },
-                        source: {
-                            unique_id: snapshot.uniqueId,
-                            source_table: snapshot.sourceTable,
-                            itemcode: snapshot.itemCode,
-                            lotcode: snapshot.lotCode,
-                            locationcode: snapshot.locationCode,
-                            season: snapshot.season,
-                            saleyear: snapshot.salesYear
-                        },
-                        transaction: {
-                            requestActions: draft.requestActions,
-                            holdStopProposals: draft.holdStopProposals,
-                            scope: draft.scope
-                        },
-                        rowOverlays: draft.rowOverlays,
-                        clientVersion: String(APP_SHELL_VERSION || APP_SHELL_BUILD || '').trim()
-                    };
-                }
-                if (RECLASS_ACTION_WORKFLOW_V2_ENABLED) {
-                    if (!getReclassActionWorkflowV2Config(requestAction)) throw new Error('Choose a Reclass request action before sending.');
-                    const rowOverlays = collectArgosReclassInquiryOverlays();
-                    return {
-                        type: 'reclass_inquiry_email',
-                        action: 'reclass',
-                        workflowPolicyVersion: RECLASS_ACTION_WORKFLOW_V2_POLICY_VERSION,
-                        idempotencyToken: String(state.idempotencyToken || generateArgosInventoryTransactionId('reclass_inquiry')).trim(),
-                        actor: {
-                            username: String(currentUser || '').trim(),
-                            display: String(currentUserDisplay || currentUser || '').trim(),
-                            email: getArgosInventoryTransactionActorEmail(),
-                            role: typeof getCurrentRoleAccessValue === 'function' ? getCurrentRoleAccessValue() : ''
-                        },
-                        source: {
-                            unique_id: snapshot.uniqueId,
-                            source_table: snapshot.sourceTable,
-                            itemcode: snapshot.itemCode,
-                            lotcode: snapshot.lotCode,
-                            locationcode: snapshot.locationCode,
-                            season: snapshot.season,
-                            saleyear: snapshot.salesYear
-                        },
-                        transaction: {
-                            requestAction,
-                            sourceSeason: snapshot.season,
-                            sourceSalesYear: snapshot.salesYear
-                        },
-                        rowOverlays,
-                        clientVersion: String(APP_SHELL_VERSION || APP_SHELL_BUILD || '').trim()
-                    };
-                }
-                const requestOnly = requestAction !== 'none';
-                const moveSeasonRequest = isArgosInventoryTransactionMoveSeasonRequestAction(requestAction);
-                const normalizeComparable = (value) => String(value || '').trim().toUpperCase();
-                const destinationChanged = [
-                    [newItemCode, snapshot.itemCode],
-                    [newLotCode, snapshot.lotCode],
-                    [newLocationCode, snapshot.locationCode]
-                ].some(([proposed, current]) => normalizeComparable(proposed) && normalizeComparable(proposed) !== normalizeComparable(current));
-                const movementRequested = !requestOnly && ((Number.isFinite(quantity) && quantity > 0) || destinationChanged);
-                if (quantityText && !Number.isFinite(quantity)) throw new Error('Enter a valid quantity to move or leave it blank for a report-only inquiry.');
-                if (movementRequested && (!Number.isFinite(quantity) || quantity <= 0)) throw new Error('Quantity to move must be greater than 0 when proposing a move.');
-                if (movementRequested && !newItemCode) throw new Error('Enter the proposed destination item.');
-                if ((movementRequested || moveSeasonRequest) && !newLotCode) throw new Error('Enter the proposed destination lot or season.');
-                if (movementRequested && !newLocationCode) throw new Error('Enter the proposed destination location.');
-                const holdStopReason = getArgosInventoryTransactionInputValue('argos-inventory-transaction-hold-reason');
-                if ((requestAction === 'hold' || requestAction === 'stop_ship') && !holdStopReason) throw new Error('Enter the hold/stop reason.');
-                const rowOverlays = collectArgosReclassInquiryOverlays();
-                return {
-                    type: 'reclass_inquiry_email',
-                    action: 'reclass',
-                    idempotencyToken: String(state.idempotencyToken || generateArgosInventoryTransactionId('reclass_inquiry')).trim(),
-                    actor: {
-                        username: String(currentUser || '').trim(),
-                        display: String(currentUserDisplay || currentUser || '').trim(),
-                        email: getArgosInventoryTransactionActorEmail(),
-                        role: typeof getCurrentRoleAccessValue === 'function' ? getCurrentRoleAccessValue() : ''
-                    },
-                    source: {
-                        unique_id: snapshot.uniqueId,
-                        source_table: snapshot.sourceTable,
-                        itemcode: snapshot.itemCode,
-                        lotcode: snapshot.lotCode,
-                        locationcode: snapshot.locationCode,
-                        season: snapshot.season,
-                        saleyear: snapshot.salesYear
-                    },
-                    transaction: {
-                        quantity: movementRequested ? quantity : null,
-                        newItemCode,
-                        newLotCode,
-                        newLocationCode,
-                        source: getArgosInventoryTransactionInputValue('argos-inventory-transaction-source-code'),
-                        reason: getArgosInventoryTransactionInputValue('argos-inventory-transaction-reason'),
-                        desigCust: getArgosInventoryTransactionInputValue('argos-inventory-transaction-desigcust'),
-                        desigItem: getArgosInventoryTransactionInputValue('argos-inventory-transaction-desigitem'),
-                        desigLoc: getArgosInventoryTransactionInputValue('argos-inventory-transaction-desigloc'),
-                        lastPltgDate: getArgosInventoryTransactionInputValue('argos-inventory-transaction-last-pltg-date'),
-                        requestAction,
-                        holdStopReason,
-                        sourceSeason: snapshot.season,
-                        sourceSalesYear: snapshot.salesYear
-                    },
-                    rowOverlays,
-                    clientVersion: String(APP_SHELL_VERSION || APP_SHELL_BUILD || '').trim()
-                };
-            }
             const state = argosInventoryTransactionState || {};
             const snapshot = state.snapshot || {};
-            const transactionAction = 'reclass';
-            const requestedHoldAction = normalizeArgosInventoryTransactionRequestAction(getArgosInventoryTransactionInputValue('argos-inventory-transaction-hold-action'));
-            const isPriorityChange = requestedHoldAction === 'priority_change';
-            const action = isPriorityChange ? 'priority_change' : transactionAction;
-            const actorEmail = getArgosInventoryTransactionActorEmail();
-            const qtyValue = getArgosInventoryTransactionInputValue('argos-inventory-transaction-qty');
-            const priorityValue = normalizeArgosInventoryTransactionPriorityValue(getArgosInventoryTransactionInputValue('argos-inventory-transaction-priority'));
-            let qty = null;
-            if (!isPriorityChange) {
-                qty = parseAppNumber(qtyValue);
-                if (!Number.isFinite(qty)) throw new Error('Enter a valid quantity.');
-                if (qty <= 0) throw new Error('Quantity to move must be greater than 0.');
-            } else {
-                if (priorityValue === null || !priorityValue) throw new Error('Choose the requested priority for the report.');
-            }
-            const holdAction = requestedHoldAction === 'hold' ? 'hold' : (requestedHoldAction === 'take_off_hold' ? 'release' : 'none');
-            const holdStopReason = getArgosInventoryTransactionInputValue('argos-inventory-transaction-hold-reason');
-            if (holdAction === 'hold' && !holdStopReason) throw new Error('Enter the hold/stop reason.');
-            const tx = {
-                quantity: qty,
-                newQuantity: '',
-                newPriority: isPriorityChange ? priorityValue : '',
-                priority: isPriorityChange ? priorityValue : snapshot.priority,
-                newItemCode: !isPriorityChange ? getArgosInventoryTransactionInputValue('argos-inventory-transaction-new-item') : snapshot.itemCode,
-                newLotCode: isPriorityChange ? '' : getArgosInventoryTransactionInputValue('argos-inventory-transaction-new-lot'),
-                newLocationCode: isPriorityChange ? '' : getArgosInventoryTransactionInputValue('argos-inventory-transaction-new-location'),
-                source: getArgosInventoryTransactionInputValue('argos-inventory-transaction-source-code'),
-                reason: getArgosInventoryTransactionInputValue('argos-inventory-transaction-reason'),
-                desigCust: getArgosInventoryTransactionInputValue('argos-inventory-transaction-desigcust'),
-                desigItem: getArgosInventoryTransactionInputValue('argos-inventory-transaction-desigitem'),
-                desigLoc: getArgosInventoryTransactionInputValue('argos-inventory-transaction-desigloc'),
-                lastPltgDate: getArgosInventoryTransactionInputValue('argos-inventory-transaction-last-pltg-date'),
-                holdAction,
-                holdStopCode: holdAction === 'hold' ? 'H' : '',
-                holdStopReason: holdAction === 'hold' ? holdStopReason : '',
-                requestAction: requestedHoldAction || 'none',
-                sourceSeason: snapshot.season,
-                sourceSalesYear: snapshot.salesYear
-            };
-            if (!isPriorityChange) {
-                if (!String(tx.newLotCode || '').trim()) throw new Error('Enter the destination lot.');
-                if (!String(tx.newLocationCode || '').trim()) throw new Error('Enter the destination location.');
-            }
-            if (!isPriorityChange && !String(tx.newItemCode || '').trim()) throw new Error('Enter the destination item.');
+            const draft = collectArgosReclassV3Draft();
+            const reclassExplanations = collectReclassExplanations(draft);
             return {
-                type: 'inventory_transaction',
-                action,
+                reclassExplanations,
+                type: 'reclass_inquiry_email',
+                action: 'reclass',
+                workflowPolicyVersion: getArgosReclassActionWorkflowPolicyVersionV3(draft),
+                idempotencyToken: String(state.idempotencyToken || generateArgosInventoryTransactionId('reclass_inquiry')).trim(),
                 actor: {
                     username: String(currentUser || '').trim(),
                     display: String(currentUserDisplay || currentUser || '').trim(),
-                    email: actorEmail
+                    email: getArgosInventoryTransactionActorEmail(),
+                    role: typeof getCurrentRoleAccessValue === 'function' ? getCurrentRoleAccessValue() : ''
                 },
                 source: {
                     unique_id: snapshot.uniqueId,
@@ -38218,16 +36012,15 @@ let avTopControlsRenderToken = 0;
                     itemcode: snapshot.itemCode,
                     lotcode: snapshot.lotCode,
                     locationcode: snapshot.locationCode,
-                    priority: snapshot.priority,
-                    ptronhand: snapshot.ptrOnHand,
-                    ptrreviewed: snapshot.ptrReviewed,
-                    ptravailable: snapshot.ptrAvailable,
                     season: snapshot.season,
-                    saleyear: snapshot.salesYear,
-                    holdstopcode: snapshot.holdStopCode,
-                    holdstopreason: snapshot.holdStopReason
+                    saleyear: snapshot.salesYear
                 },
-                transaction: tx,
+                transaction: {
+                    requestActions: draft.requestActions,
+                    holdStopProposals: draft.holdStopProposals,
+                    scope: draft.scope
+                },
+                rowOverlays: draft.rowOverlays,
                 clientVersion: String(APP_SHELL_VERSION || APP_SHELL_BUILD || '').trim()
             };
         }
@@ -39176,77 +36969,7 @@ let avTopControlsRenderToken = 0;
             return { applied, stale };
         }
 
-        function openArgosInventoryRequestFromTransactionModal() {
-            const state = argosInventoryTransactionState || {};
-            const item = state.item || null;
-            const requestAction = getArgosInventoryTransactionRequestAction();
-            if (!item) {
-                showToast('Missing Row', 'That inventory row is no longer loaded.', true);
-                return false;
-            }
-            if (!requestAction) return false;
-            const stateAction = normalizeArgosInventoryTransactionAction(state.action || 'reclass');
-            const requiresDestinationSeasonLot = stateAction === 'reclass' && isArgosInventoryTransactionMoveSeasonRequestAction(requestAction);
-            const requestLabel = getArgosInventoryTransactionRequestLabel(requestAction);
-            let requestInitialValues = null;
-            if (requiresDestinationSeasonLot) {
-                const destinationLotCode = getArgosInventoryTransactionInputValue('argos-inventory-transaction-new-lot').toUpperCase();
-                const destinationSeason = getArgosInventoryTransactionLotSeason(destinationLotCode);
-                if (!destinationLotCode || !destinationSeason) {
-                    showToast('Choose Season', `Choose a destination season for ${requestLabel}.`, true);
-                    return false;
-                }
-                requestInitialValues = {
-                    lotcode: destinationLotCode,
-                    destinationSeason,
-                    moveUpSeason: requestAction === 'move_up' ? destinationSeason : '',
-                    moveDownSeason: requestAction === 'move_down' ? destinationSeason : ''
-                };
-            }
-            const rowFormOptions = requestInitialValues ? { initialValuesByIndex: [requestInitialValues] } : {};
-            closeArgosInventoryTransactionModal();
-            if (requestAction === 'priority_change') {
-                return openBloomActionRowFormModal([item], {
-                    ...rowFormOptions,
-                    action: requestAction,
-                    selectionKind: 'inventory',
-                    emailOnly: true,
-                    afterPersist: async (persisted) => {
-                        const rows = persisted && Array.isArray(persisted.rows) ? persisted.rows.filter(Boolean) : [item].filter(Boolean);
-                        return await sendArgosInventoryPriorityChangeReportFromRowForm(rows, {
-                            rowOptionsByUid: persisted && persisted.rowOptionsByUid ? persisted.rowOptionsByUid : null,
-                            clearSelection: false
-                        });
-                    }
-                });
-            }
-            if (requestAction === 'ncr' || requestAction === 'move_up' || requestAction === 'move_down') {
-                return openBloomActionRowFormModal([item], {
-                    ...rowFormOptions,
-                    action: requestAction,
-                    selectionKind: 'inventory',
-                    emailOnly: true,
-                    afterPersist: async (persisted) => {
-                        const rows = persisted && Array.isArray(persisted.rows) ? persisted.rows.filter(Boolean) : [item].filter(Boolean);
-                        return await sendPaperInquiryActionReportEmailOnly(rows, {
-                            action: requestAction,
-                            rowOptionsByUid: persisted && persisted.rowOptionsByUid ? persisted.rowOptionsByUid : null,
-                            clearSelection: false
-                        });
-                    }
-                });
-            }
-            return openBloomActionRowFormModal([item], {
-                ...rowFormOptions,
-                action: requestAction,
-                selectionKind: 'inventory',
-                emailOnly: true
-            });
-        }
 
-        function openArgosInventoryOffHoldRequestFromTransactionModal() {
-            return openArgosInventoryRequestFromTransactionModal();
-        }
 
         /* @runtime-fragment assets/reclass-move-outbox.js */
 
@@ -39518,54 +37241,8 @@ let avTopControlsRenderToken = 0;
             return '';
         }
 
-        function ensureInventoryAllEditActionSheetModal() {
-            let modal = document.getElementById('inventory-all-edit-action-sheet-modal');
-            if (modal) return modal;
-            modal = document.createElement('div');
-            modal.id = 'inventory-all-edit-action-sheet-modal';
-            modal.className = 'hidden fixed inset-0 z-[10020] bg-slate-950/55 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-[calc(9.25rem+env(safe-area-inset-top))] backdrop-blur-sm overflow-y-auto overscroll-contain flex items-start justify-center sm:p-4 sm:items-center';
-            modal.setAttribute('onclick', 'if(event.target===this) return closeInventoryAllEditActionSheet()');
-            modal.innerHTML = `<div class="w-full max-w-lg max-h-[calc(100dvh-10.75rem)] overflow-y-auto overscroll-contain rounded-[1.5rem] bg-white p-4 shadow-2xl sm:max-h-[calc(100dvh-2rem)]">
-                <div class="flex items-start justify-between gap-3 border-b border-emerald-100 pb-3">
-                    <div class="min-w-0">
-                        <div class="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-700"><i class="ph-bold ph-cloud-check"></i><span>Live Tracking</span></div>
-                        <div id="inventory-all-edit-action-sheet-title" class="mt-2 text-lg font-black leading-tight text-slate-900">All Edit</div>
-                        <div id="inventory-all-edit-action-sheet-meta" class="mt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400"></div>
-                    </div>
-                    <button type="button" class="rounded-full border border-slate-200 bg-white p-2 text-slate-500 shadow-sm active:scale-95" onclick="return closeInventoryAllEditActionSheet()" aria-label="Close all edit actions"><i class="ph-bold ph-x"></i></button>
-                </div>
-                <div id="inventory-all-edit-action-sheet-actions" class="mt-4 grid gap-2"></div>
-                <div class="mt-4 border-t border-slate-100 pt-3">
-                    <button type="button" class="min-h-[52px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center text-[12px] font-black uppercase tracking-[0.14em] text-slate-600 shadow-sm active:scale-95" onclick="return closeInventoryAllEditActionSheet()" aria-label="Cancel inventory edit and return to row"><i class="ph-bold ph-arrow-left mr-2"></i>Cancel / Back To Row</button>
-                </div>
-            </div>`;
-            document.body.appendChild(modal);
-            return modal;
-        }
 
-        function closeInventoryAllEditActionSheet() {
-            const modal = document.getElementById('inventory-all-edit-action-sheet-modal');
-            if (modal) modal.classList.add('hidden');
-            return false;
-        }
 
-        function addInventoryAllEditItemToBloomPicker(uid = '') {
-            const item = findInventoryEditMockItemByUid(uid) || findItemByUniqueId(uid);
-            const domId = String(firstNonEmptyValue(item && item.DOM_ID, item && item.dom_id, '') || '').trim();
-            const sourceView = String(firstNonEmptyValue(activeDetailSourceView, lastView, currentPrimaryViewId, '') || '').trim().toLowerCase();
-            closeInventoryAllEditActionSheet();
-            if (domId && typeof handleInventoryCardBottomCartAction === 'function') {
-                return handleInventoryCardBottomCartAction(null, domId, sourceView);
-            }
-            if (domId && typeof toggleGlobalItem === 'function') {
-                toggleGlobalItem(domId, true, sourceView);
-                if (typeof updateGlobalActionBar === 'function') updateGlobalActionBar();
-                showToast('Added', 'Row added to Bloom Picker.');
-                return false;
-            }
-            showToast('Cannot Add', 'This row cannot be added to Bloom Picker from this view.', true);
-            return false;
-        }
 
         function canUseInventoryEditDirectEmailActions(userOverride = '') {
             const normalizedUser = normalizePushUsername(userOverride || currentUser || currentUserDisplay || '');
@@ -39580,641 +37257,26 @@ let avTopControlsRenderToken = 0;
             return normalizePushUsername(userOverride || currentUser || currentUserDisplay || '') === 'dylan_collyge';
         }
 
-        let inventoryMultiActionEmailContext = null;
-        let inventoryMultiActionEmailSending = false;
 
-        function normalizeInventoryMultiActionPriorityValue(value = '') {
-            return String(value == null ? '' : value).replace(/[^\d]/g, '').slice(0, 2);
-        }
 
-        function ensureInventoryMultiActionEmailModal() {
-            let modal = document.getElementById('inventory-multi-action-email-modal');
-            if (modal) return modal;
-            modal = document.createElement('div');
-            modal.id = 'inventory-multi-action-email-modal';
-            modal.className = 'hidden fixed inset-0 z-[10035] bg-slate-950/55 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-[calc(7.5rem+env(safe-area-inset-top))] backdrop-blur-sm overflow-y-auto overscroll-contain flex items-start justify-center sm:p-4 sm:items-center';
-            modal.setAttribute('onclick', 'if(event.target===this) return closeInventoryMultiActionEmailModal()');
-            modal.innerHTML = `<div class="w-full max-w-xl max-h-[calc(100dvh-9rem)] overflow-y-auto overscroll-contain rounded-[1.5rem] bg-white p-4 shadow-2xl sm:max-h-[calc(100dvh-2rem)]">
-                <div class="flex items-start justify-between gap-3 border-b border-emerald-100 pb-3">
-                    <div class="min-w-0">
-                        <div class="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-[#007a4d]"><i class="ph-bold ph-list-checks"></i><span>Multi Action</span></div>
-                        <div class="mt-2 text-xl font-black leading-tight text-slate-900">Send One Email</div>
-                        <div class="mt-1 text-xs font-bold text-slate-500">Select every action needed for this row, then pick the recipients.</div>
-                    </div>
-                    <button type="button" class="rounded-full border border-slate-200 bg-white p-2 text-slate-500 shadow-sm active:scale-95" onclick="return closeInventoryMultiActionEmailModal()" aria-label="Close multi action email"><i class="ph-bold ph-x"></i></button>
-                </div>
-                <div class="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-3">
-                    <div id="inventory-multi-action-email-title" class="text-base font-black leading-tight text-slate-900">Selected Row</div>
-                    <div id="inventory-multi-action-email-meta" class="mt-1 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500"></div>
-                </div>
-                <div class="mt-4 grid gap-2">
-                    <label class="flex min-h-[58px] items-center gap-3 rounded-2xl border border-emerald-200 bg-white px-4 py-3 shadow-sm active:scale-[.99]">
-                        <input data-inventory-multi-action="ncr" type="checkbox" class="h-5 w-5 accent-[#007a4d]" onchange="return syncInventoryMultiActionEmailModalUi()">
-                        <span class="min-w-0 flex-1">
-                            <span class="block text-[11px] font-black uppercase tracking-[0.14em] text-[#007a4d]">NCR</span>
-                            <span class="mt-0.5 block text-xs font-bold text-slate-500">Include this row as an NCR request.</span>
-                        </span>
-                    </label>
-                    <label class="flex min-h-[58px] items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 shadow-sm active:scale-[.99]">
-                        <input data-inventory-multi-action="take_off_hold" type="checkbox" class="h-5 w-5 accent-[#007a4d]" onchange="return syncInventoryMultiActionEmailModalUi()">
-                        <span class="min-w-0 flex-1">
-                            <span class="block text-[11px] font-black uppercase tracking-[0.14em] text-amber-700">Take Off Hold</span>
-                            <span id="inventory-multi-action-hold-meta" class="mt-0.5 block text-xs font-bold text-amber-700/80">Remove the current hold/stop code.</span>
-                        </span>
-                    </label>
-                    <label class="flex min-h-[58px] items-center gap-3 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 shadow-sm active:scale-[.99]">
-                        <input data-inventory-multi-action="priority" type="checkbox" class="h-5 w-5 accent-[#007a4d]" onchange="return syncInventoryMultiActionEmailModalUi()">
-                        <span class="min-w-0 flex-1">
-                            <span class="block text-[11px] font-black uppercase tracking-[0.14em] text-blue-700">Change Priority</span>
-                            <span class="mt-0.5 block text-xs font-bold text-blue-700/80">Show current priority and requested priority in the email.</span>
-                        </span>
-                    </label>
-                </div>
-                <div id="inventory-multi-action-priority-panel" class="mt-3 hidden rounded-2xl border border-blue-100 bg-white p-3">
-                    <label class="block">
-                        <span class="ml-1 text-[9px] font-black uppercase tracking-[0.14em] text-blue-700">Requested Priority</span>
-                        <input id="inventory-multi-action-priority-value" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" class="mt-1 w-32 rounded-xl border border-blue-200 bg-white px-3 py-3 text-lg font-black text-slate-900 outline-none focus:border-[#007a4d] focus:ring-2 focus:ring-emerald-100" value="1" oninput="return setInventoryMultiActionPriorityValue(this.value)">
-                    </label>
-                    <div id="inventory-multi-action-priority-current" class="mt-2 text-[10px] font-black uppercase tracking-[0.12em] text-slate-400"></div>
-                </div>
-                <label class="mt-3 block">
-                    <span class="ml-1 text-[9px] font-black uppercase tracking-[0.14em] text-slate-500">Message</span>
-                    <textarea id="inventory-multi-action-message" class="mt-1 min-h-[92px] w-full rounded-2xl border border-emerald-100 bg-white px-3 py-3 text-sm font-bold text-slate-800 outline-none focus:border-[#007a4d] focus:ring-2 focus:ring-emerald-100" placeholder="Optional note for the email..."></textarea>
-                </label>
-                <div class="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4">
-                    <button type="button" class="min-h-[52px] rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[12px] font-black uppercase tracking-[0.14em] text-slate-600 shadow-sm active:scale-95" onclick="return closeInventoryMultiActionEmailModal()">Cancel</button>
-                    <button id="inventory-multi-action-email-send" type="button" class="min-h-[52px] rounded-2xl bg-[#007a4d] px-4 py-3 text-[12px] font-black uppercase tracking-[0.14em] text-white shadow-sm active:scale-95" onclick="return sendInventoryMultiActionEmailFromModal()"><i class="ph-bold ph-envelope-simple mr-2"></i>Recipients</button>
-                </div>
-            </div>`;
-            document.body.appendChild(modal);
-            return modal;
-        }
 
-        function closeInventoryMultiActionEmailModal() {
-            if (inventoryMultiActionEmailSending) return false;
-            const modal = document.getElementById('inventory-multi-action-email-modal');
-            if (modal) modal.classList.add('hidden');
-            inventoryMultiActionEmailContext = null;
-            return false;
-        }
 
-        function getInventoryMultiActionCheckbox(action = '') {
-            return document.querySelector(`[data-inventory-multi-action="${String(action || '').trim()}"]`);
-        }
 
-        function getInventoryMultiActionSelections() {
-            const actions = [];
-            const addIfChecked = (action) => {
-                const checkbox = getInventoryMultiActionCheckbox(action);
-                if (checkbox && checkbox.checked) actions.push(action);
-            };
-            addIfChecked('ncr');
-            addIfChecked('take_off_hold');
-            addIfChecked('priority');
-            const priorityInput = document.getElementById('inventory-multi-action-priority-value');
-            const messageInput = document.getElementById('inventory-multi-action-message');
-            return {
-                actions,
-                ncr: actions.includes('ncr'),
-                takeOffHold: actions.includes('take_off_hold'),
-                priority: actions.includes('priority'),
-                requestedPriority: normalizeInventoryMultiActionPriorityValue(priorityInput ? priorityInput.value : ''),
-                message: String(messageInput ? messageInput.value : '').trim()
-            };
-        }
 
-        function getInventoryMultiActionLabels(selections = {}) {
-            const labels = [];
-            if (selections.ncr) labels.push('NCR');
-            if (selections.takeOffHold) labels.push('Take Off Hold');
-            if (selections.priority) labels.push('Priority Change');
-            return labels;
-        }
 
-        function getInventoryMultiActionReportRow(item = null, selections = {}) {
-            const baseRow = getGroupedBloomNcrReportRow(item, null, 0);
-            const screenValues = selections && selections.screenValues && typeof selections.screenValues === 'object'
-                ? selections.screenValues
-                : {};
-            const holdStopCode = String(firstNonEmptyValue(
-                screenValues.holdstopcode,
-                screenValues.HOLDSTOPCODE,
-                selections && selections.holdstopcode,
-                selections && selections.holdStopCode,
-                baseRow && baseRow.holdStopCode,
-                typeof getBloomActionRowCurrentHoldStop === 'function' ? getBloomActionRowCurrentHoldStop(item) : '',
-                item && item.HOLDSTOPCODE,
-                item && item.holdstopcode,
-                item && item.HOLSTOPCODE,
-                item && item.holstopcode,
-                ''
-            ) || '').trim();
-            const holdStopReason = String(firstNonEmptyValue(
-                screenValues.holdstopreason,
-                screenValues.HOLDSTOPREASON,
-                selections && selections.holdstopreason,
-                selections && selections.holdStopReason,
-                baseRow && baseRow.holdStopReason,
-                typeof getBloomActionRowCurrentHoldStopReason === 'function' ? getBloomActionRowCurrentHoldStopReason(item) : '',
-                item && item.HOLDSTOPREASON,
-                item && item.holdstopreason,
-                item && item.HOLDSTOPREASONCODE,
-                item && item.holdstopreasoncode,
-                ''
-            ) || '').trim();
-            const currentPriority = String(firstNonEmptyValue(
-                baseRow && baseRow.priority,
-                item && item.PRIORITY,
-                item && item.priority,
-                ''
-            ) || '').trim();
-            const getScreenValue = (...keys) => {
-                for (const key of keys) {
-                    if (screenValues && Object.prototype.hasOwnProperty.call(screenValues, key)) {
-                        const value = screenValues[key];
-                        if (value !== null && typeof value !== 'undefined' && String(value).trim() !== '') return value;
-                    }
-                }
-                return '';
-            };
-            return {
-                ...(baseRow || {}),
-                itemCode: String(firstNonEmptyValue(baseRow && baseRow.itemCode, item && item.ITEMCODE, item && item.itemcode, '-') || '-').trim(),
-                commonName: String(firstNonEmptyValue(baseRow && baseRow.commonName, item && item.COMMONNAME, item && item.commonname, 'Unknown Item') || 'Unknown Item').trim(),
-                contSize: String(firstNonEmptyValue(baseRow && baseRow.contSize, item && item.CONTSIZE, item && item.contsize, '-') || '-').trim(),
-                lotCode: String(firstNonEmptyValue(getScreenValue('lotcode', 'LOTCODE'), baseRow && (baseRow.lotCode || baseRow.lotcode), item && item.LOTCODE, item && item.lotcode, '-') || '-').trim(),
-                locationCode: String(firstNonEmptyValue(getScreenValue('locationcode', 'LOCATIONCODE'), baseRow && (baseRow.locationCode || baseRow.locationcode), item && item.LOCATIONCODE, item && item.locationcode, '-') || '-').trim(),
-                source: String(firstNonEmptyValue(getScreenValue('source', 'SOURCE'), baseRow && (baseRow.source || baseRow.sourcecode), item && item.SOURCE, item && item.source, item && item.SOURCECODE, item && item.sourcecode, '-') || '-').trim(),
-                ptravailable: String(firstNonEmptyValue(getScreenValue('ptravailable', 'PTRAVAILABLE'), baseRow && baseRow.ptravailable, item && item.PTRAVAILABLE, item && item.ptravailable, '-') || '-').trim(),
-                ptronhand: String(firstNonEmptyValue(getScreenValue('ptronhand', 'PTRONHAND'), baseRow && baseRow.ptronhand, item && item.PTRONHAND, item && item.ptronhand, '-') || '-').trim(),
-                ptrreviewed: String(firstNonEmptyValue(getScreenValue('ptrreviewed', 'PTRREVIEWED'), baseRow && baseRow.ptrreviewed, item && item.PTRREVIEWED, item && item.ptrreviewed, '-') || '-').trim(),
-                priority: currentPriority,
-                requestedPriority: selections && selections.priority ? selections.requestedPriority : '',
-                holdStopCode,
-                holdStopReason,
-                evalDate: String(firstNonEmptyValue(getScreenValue('evaldate', 'EVALDATE', 'eval date'), baseRow && (baseRow.evalDate || baseRow.evaldate), item && item.EVALDATE, item && item.evaldate, '') || '').trim(),
-                priBy: String(firstNonEmptyValue(getScreenValue('priby', 'PRIBY', 'prisetby', 'PRISETBY', 'pri by'), baseRow && (baseRow.priBy || baseRow.priby || baseRow.prisetby), item && item.PRISETBY, item && item.prisetby, item && item.PRIBY, item && item.priby, '') || '').trim(),
-                priUpdate: String(firstNonEmptyValue(getScreenValue('priupdate', 'PRIUPDATE', 'priupdated', 'PRIUPDATED', 'pri update'), baseRow && (baseRow.priUpdate || baseRow.priupdate || baseRow.priupdated), item && item.PRIUPDATED, item && item.priupdated, item && item.PRIUPDATE, item && item.priupdate, '') || '').trim(),
-                locationNoteDate: String(firstNonEmptyValue(getScreenValue('locationnotedate', 'LOCATIONNOTEDATE', 'note date'), baseRow && (baseRow.locationNoteDate || baseRow.locationnotedate), item && item.LOCATIONNOTEDATE, item && item.locationnotedate, '') || '').trim(),
-                locationNote: String(firstNonEmptyValue(getScreenValue('locationnote', 'LOCATIONNOTE'), baseRow && (baseRow.locationNote || baseRow.locationnote), item && item.LOCATIONNOTE, item && item.locationnote, '') || '').trim(),
-                locationPtn1: String(firstNonEmptyValue(getScreenValue('locationptn1', 'LOCATIONPTN1'), baseRow && (baseRow.locationPtn1 || baseRow.locationptn1), item && item.LOCATIONPTN1, item && item.locationptn1, '') || '').trim()
-            };
-        }
 
-        function normalizeRequestChangedFieldDisplayValue(value = '') {
-            const raw = String(value === null || typeof value === 'undefined' ? '' : value).trim();
-            if (!raw || ['BLANK', 'NULL', '-'].includes(raw.toUpperCase())) return '';
-            return raw;
-        }
 
-        function normalizeRequestChangedFieldCompareValue(value = '') {
-            return normalizeRequestChangedFieldDisplayValue(value).replace(/\s+/g, ' ').trim().toUpperCase();
-        }
 
-        function getRequestChangedFieldValue(row = {}, keys = [], fallback = '') {
-            const safeRow = row && typeof row === 'object' ? row : {};
-            for (const key of (Array.isArray(keys) ? keys : [])) {
-                if (Object.prototype.hasOwnProperty.call(safeRow, key)) {
-                    const value = safeRow[key];
-                    if (value !== null && typeof value !== 'undefined' && String(value).trim() !== '') return value;
-                }
-            }
-            return fallback == null ? '' : fallback;
-        }
 
-        function buildInventoryMultiActionChangedFieldRows(item = null, selections = {}, rowArg = null) {
-            const row = rowArg || getInventoryMultiActionReportRow(item, selections);
-            const screenValues = selections && selections.screenValues && typeof selections.screenValues === 'object'
-                ? selections.screenValues
-                : {};
-            const changed = [];
-            const add = (label, currentValue, requestedValue, options = {}) => {
-                const current = normalizeRequestChangedFieldDisplayValue(currentValue);
-                const requested = normalizeRequestChangedFieldDisplayValue(requestedValue);
-                if (!requested && !options.allowBlankRequested) return;
-                if (normalizeRequestChangedFieldCompareValue(current) === normalizeRequestChangedFieldCompareValue(requested)) return;
-                changed.push({
-                    label,
-                    current: current || 'Blank',
-                    requested: requested || 'Blank'
-                });
-            };
-            const currentPriority = firstNonEmptyValue(row.priority, item && item.PRIORITY, item && item.priority, '');
-            add('PRIORITY', currentPriority, selections && selections.priority ? selections.requestedPriority : '');
-            add('HOLDSTOPCODE', firstNonEmptyValue(item && item.HOLDSTOPCODE, item && item.holdstopcode, row.holdStopCode, ''), selections && selections.takeOffHold ? '' : firstNonEmptyValue(screenValues.holdstopcode, screenValues.HOLDSTOPCODE, selections && selections.holdstopcode, row.holdStopCode, ''), { allowBlankRequested: !!(selections && selections.takeOffHold) });
-            add('HOLDSTOPREASON', firstNonEmptyValue(item && item.HOLDSTOPREASON, item && item.holdstopreason, row.holdStopReason, ''), selections && selections.takeOffHold ? '' : firstNonEmptyValue(screenValues.holdstopreason, screenValues.HOLDSTOPREASON, selections && selections.holdstopreason, row.holdStopReason, ''), { allowBlankRequested: !!(selections && selections.takeOffHold) });
-            add('LOTCODE', firstNonEmptyValue(item && item.LOTCODE, item && item.lotcode, row.lotCode, ''), firstNonEmptyValue(screenValues.lotcode, screenValues.LOTCODE, row.lotCode, ''));
-            add('LOCATIONCODE', firstNonEmptyValue(item && item.LOCATIONCODE, item && item.locationcode, row.locationCode, ''), firstNonEmptyValue(screenValues.locationcode, screenValues.LOCATIONCODE, row.locationCode, ''));
-            add('SOURCE', firstNonEmptyValue(item && item.SOURCE, item && item.source, item && item.SOURCECODE, item && item.sourcecode, row.source, ''), firstNonEmptyValue(screenValues.source, screenValues.SOURCE, row.source, ''));
-            add('PTRONHAND', firstNonEmptyValue(item && item.PTRONHAND, item && item.ptronhand, row.ptronhand, ''), firstNonEmptyValue(screenValues.ptronhand, screenValues.PTRONHAND, row.ptronhand, ''));
-            add('PTRREVIEWED', firstNonEmptyValue(item && item.PTRREVIEWED, item && item.ptrreviewed, row.ptrreviewed, ''), firstNonEmptyValue(screenValues.ptrreviewed, screenValues.PTRREVIEWED, row.ptrreviewed, ''));
-            add('PTRAVAILABLE', firstNonEmptyValue(item && item.PTRAVAILABLE, item && item.ptravailable, row.ptravailable, ''), firstNonEmptyValue(screenValues.ptravailable, screenValues.PTRAVAILABLE, row.ptravailable, ''));
-            add('EVAL DATE', firstNonEmptyValue(item && item.EVALDATE, item && item.evaldate, row.evalDate, ''), firstNonEmptyValue(screenValues.evaldate, screenValues.EVALDATE, row.evalDate, ''));
-            add('PRI BY', firstNonEmptyValue(item && item.PRISETBY, item && item.prisetby, item && item.PRIBY, item && item.priby, row.priBy, ''), firstNonEmptyValue(screenValues.priby, screenValues.PRIBY, screenValues.prisetby, screenValues.PRISETBY, row.priBy, ''));
-            add('PRI UPDATE', firstNonEmptyValue(item && item.PRIUPDATED, item && item.priupdated, item && item.PRIUPDATE, item && item.priupdate, row.priUpdate, ''), firstNonEmptyValue(screenValues.priupdate, screenValues.PRIUPDATE, screenValues.priupdated, screenValues.PRIUPDATED, row.priUpdate, ''));
-            add('NOTE DATE', firstNonEmptyValue(item && item.LOCATIONNOTEDATE, item && item.locationnotedate, row.locationNoteDate, ''), firstNonEmptyValue(screenValues.locationnotedate, screenValues.LOCATIONNOTEDATE, row.locationNoteDate, ''));
-            add('LOCATIONNOTE', firstNonEmptyValue(item && item.LOCATIONNOTE, item && item.locationnote, row.locationNote, ''), firstNonEmptyValue(screenValues.locationnote, screenValues.LOCATIONNOTE, row.locationNote, ''));
-            add('LOCATIONPTN1', firstNonEmptyValue(item && item.LOCATIONPTN1, item && item.locationptn1, row.locationPtn1, ''), firstNonEmptyValue(screenValues.locationptn1, screenValues.LOCATIONPTN1, row.locationPtn1, ''));
-            return changed;
-        }
 
-        function serializeInventoryMultiActionChangedFields(rows = []) {
-            try {
-                return JSON.stringify((Array.isArray(rows) ? rows : []).map((field) => ({
-                    label: String(field && field.label || '').trim(),
-                    current: String(field && field.current || '').trim(),
-                    requested: String(field && field.requested || '').trim()
-                })).filter((field) => field.label));
-            } catch (error) {
-                return '';
-            }
-        }
 
-        function setInventoryMultiActionPriorityValue(value = '') {
-            const input = document.getElementById('inventory-multi-action-priority-value');
-            const normalized = normalizeInventoryMultiActionPriorityValue(value);
-            if (input && input.value !== normalized) input.value = normalized;
-            syncInventoryMultiActionEmailModalUi();
-            return false;
-        }
 
-        function syncInventoryMultiActionEmailModalUi() {
-            const selections = getInventoryMultiActionSelections();
-            const priorityPanel = document.getElementById('inventory-multi-action-priority-panel');
-            const priorityCurrent = document.getElementById('inventory-multi-action-priority-current');
-            const sendButton = document.getElementById('inventory-multi-action-email-send');
-            const holdMeta = document.getElementById('inventory-multi-action-hold-meta');
-            const row = inventoryMultiActionEmailContext && inventoryMultiActionEmailContext.item
-                ? getInventoryMultiActionReportRow(inventoryMultiActionEmailContext.item, selections)
-                : null;
-            if (priorityPanel) priorityPanel.classList.toggle('hidden', !selections.priority);
-            if (priorityCurrent) {
-                const currentPriority = row && row.priority ? row.priority : '-';
-                priorityCurrent.textContent = selections.priority ? `Current priority ${currentPriority}` : '';
-            }
-            if (holdMeta && row) {
-                const holdText = [row.holdStopCode, row.holdStopReason].filter(Boolean).join(' | ');
-                holdMeta.textContent = holdText ? `Remove ${holdText}` : 'No current hold/stop code was found.';
-            }
-            const canSend = selections.actions.length > 0 && (!selections.priority || !!selections.requestedPriority);
-            if (sendButton) {
-                sendButton.disabled = inventoryMultiActionEmailSending || !canSend;
-                sendButton.classList.toggle('opacity-50', inventoryMultiActionEmailSending || !canSend);
-                sendButton.classList.toggle('cursor-not-allowed', inventoryMultiActionEmailSending || !canSend);
-                sendButton.innerHTML = inventoryMultiActionEmailSending
-                    ? '<i class="ph-bold ph-spinner-gap mr-2 animate-spin"></i>Sending'
-                    : '<i class="ph-bold ph-envelope-simple mr-2"></i>Recipients';
-            }
-            return false;
-        }
 
-        function openInventoryMultiActionEmailModal(uid = '', sourceView = '') {
-            const item = findInventoryEditMockItemByUid(uid) || findItemByUniqueId(uid) || findItemByDomId(uid);
-            closeInventoryAllEditActionSheet();
-            if (!item) {
-                showToast('Missing Row', 'That row is not loaded anymore.', true);
-                return false;
-            }
-            const modal = ensureInventoryMultiActionEmailModal();
-            inventoryMultiActionEmailContext = { item, uid, sourceView };
-            const row = getInventoryMultiActionReportRow(item, { priority: true, requestedPriority: '1' });
-            const title = document.getElementById('inventory-multi-action-email-title');
-            const meta = document.getElementById('inventory-multi-action-email-meta');
-            const priorityInput = document.getElementById('inventory-multi-action-priority-value');
-            const messageInput = document.getElementById('inventory-multi-action-message');
-            if (title) title.textContent = `${row.commonName}${row.contSize && row.contSize !== '-' ? ` ${row.contSize}` : ''}`;
-            if (meta) meta.textContent = `Item ${row.itemCode} | Loc ${row.locationCode} | Lot ${row.lotCode} | Available ${row.ptravailable}`;
-            const ncr = getInventoryMultiActionCheckbox('ncr');
-            const takeOffHold = getInventoryMultiActionCheckbox('take_off_hold');
-            const priority = getInventoryMultiActionCheckbox('priority');
-            if (ncr) ncr.checked = true;
-            if (takeOffHold) takeOffHold.checked = !!row.holdStopCode;
-            if (priority) priority.checked = true;
-            if (priorityInput) priorityInput.value = '1';
-            if (messageInput) messageInput.value = '';
-            modal.classList.remove('hidden');
-            syncInventoryMultiActionEmailModalUi();
-            setTimeout(() => {
-                try {
-                    if (priorityInput) priorityInput.focus({ preventScroll: true });
-                } catch (error) {
-                    if (priorityInput) priorityInput.focus();
-                }
-            }, 30);
-            return false;
-        }
 
-        function buildInventoryMultiActionPayloadItem(item = null, selections = {}) {
-            const row = getInventoryMultiActionReportRow(item, selections);
-            const labels = getInventoryMultiActionLabels(selections);
-            const changedFields = buildInventoryMultiActionChangedFieldRows(item, selections, row);
-            const changedFieldsJson = serializeInventoryMultiActionChangedFields(changedFields);
-            const priorityText = selections.priority
-                ? `${row.priority || '-'} -> ${selections.requestedPriority || '-'}`
-                : '';
-            const requestFolder = String(firstNonEmptyValue(selections.reportTitle, 'Inventory Multi Action') || 'Inventory Multi Action').trim();
-            const approvalType = String(firstNonEmptyValue(selections.reportTitle, 'Multi Action') || 'Multi Action').trim();
-            return {
-                REQUEST_FOLDER: requestFolder,
-                REQ_CUSTOMER: 'Inventory',
-                ROW: 1,
-                ITEMCODE: row.itemCode,
-                COMMONNAME: row.commonName,
-                CONTSIZE: row.contSize,
-                LOTCODE: row.lotCode,
-                LOCATIONCODE: row.locationCode,
-                SOURCE: row.source,
-                GENUS: row.genus || '',
-                SALESNOTE: row.salesNote || '',
-                HOLDSTOPCODE: row.holdStopCode,
-                HOLDSTOPREASON: row.holdStopReason,
-                PRIORITY: row.priority,
-                REQUESTED_PRIORITY: selections.requestedPriority || '',
-                PTRONHAND: row.ptronhand,
-                PTRREVIEWED: row.ptrreviewed,
-                PTRAVAILABLE: row.ptravailable,
-                EVALDATE: row.evalDate || '',
-                PRISETBY: row.priBy || '',
-                PRIBY: row.priBy || '',
-                PRIUPDATED: row.priUpdate || '',
-                LOCATIONNOTEDATE: row.locationNoteDate || '',
-                LOCATIONNOTE: row.locationNote || '',
-                LOCATIONPTN1: row.locationPtn1 || '',
-                ORIGINAL_PRIORITY: row.priority || '',
-                ORIGINAL_HOLDSTOPCODE: firstNonEmptyValue(item && item.HOLDSTOPCODE, item && item.holdstopcode, row.holdStopCode, ''),
-                ORIGINAL_HOLDSTOPREASON: firstNonEmptyValue(item && item.HOLDSTOPREASON, item && item.holdstopreason, row.holdStopReason, ''),
-                ORIGINAL_LOTCODE: firstNonEmptyValue(item && item.LOTCODE, item && item.lotcode, row.lotCode, ''),
-                ORIGINAL_LOCATIONCODE: firstNonEmptyValue(item && item.LOCATIONCODE, item && item.locationcode, row.locationCode, ''),
-                ORIGINAL_SOURCE: firstNonEmptyValue(item && item.SOURCE, item && item.source, item && item.SOURCECODE, item && item.sourcecode, row.source, ''),
-                ORIGINAL_PTRONHAND: firstNonEmptyValue(item && item.PTRONHAND, item && item.ptronhand, row.ptronhand, ''),
-                ORIGINAL_PTRREVIEWED: firstNonEmptyValue(item && item.PTRREVIEWED, item && item.ptrreviewed, row.ptrreviewed, ''),
-                ORIGINAL_PTRAVAILABLE: firstNonEmptyValue(item && item.PTRAVAILABLE, item && item.ptravailable, row.ptravailable, ''),
-                ORIGINAL_EVALDATE: firstNonEmptyValue(item && item.EVALDATE, item && item.evaldate, row.evalDate, ''),
-                ORIGINAL_PRISETBY: firstNonEmptyValue(item && item.PRISETBY, item && item.prisetby, row.priBy, ''),
-                ORIGINAL_PRIBY: firstNonEmptyValue(item && item.PRIBY, item && item.priby, row.priBy, ''),
-                ORIGINAL_PRIUPDATED: firstNonEmptyValue(item && item.PRIUPDATED, item && item.priupdated, row.priUpdate, ''),
-                ORIGINAL_LOCATIONNOTEDATE: firstNonEmptyValue(item && item.LOCATIONNOTEDATE, item && item.locationnotedate, row.locationNoteDate, ''),
-                ORIGINAL_LOCATIONNOTE: firstNonEmptyValue(item && item.LOCATIONNOTE, item && item.locationnote, row.locationNote, ''),
-                ORIGINAL_LOCATIONPTN1: firstNonEmptyValue(item && item.LOCATIONPTN1, item && item.locationptn1, row.locationPtn1, ''),
-                REQUESTED_HOLDSTOPCODE: selections.takeOffHold ? '' : (row.holdStopCode || ''),
-                REQUESTED_HOLDSTOPREASON: selections.takeOffHold ? '' : (row.holdStopReason || ''),
-                REQUESTED_LOTCODE: row.lotCode || '',
-                REQUESTED_LOCATIONCODE: row.locationCode || '',
-                REQUESTED_SOURCE: row.source || '',
-                REQUESTED_PTRONHAND: row.ptronhand || '',
-                REQUESTED_PTRREVIEWED: row.ptrreviewed || '',
-                REQUESTED_PTRAVAILABLE: row.ptravailable || '',
-                REQUESTED_EVALDATE: row.evalDate || '',
-                REQUESTED_PRISETBY: row.priBy || '',
-                REQUESTED_PRIBY: row.priBy || '',
-                REQUESTED_PRIUPDATED: row.priUpdate || '',
-                REQUESTED_LOCATIONNOTEDATE: row.locationNoteDate || '',
-                REQUESTED_LOCATIONNOTE: row.locationNote || '',
-                REQUESTED_LOCATIONPTN1: row.locationPtn1 || '',
-                CHANGED_FIELDS_JSON: changedFieldsJson,
-                changed_fields_json: changedFieldsJson,
-                APPROVAL_TYPE: approvalType,
-                ACTIONS: labels.join(', '),
-                REQ_COMMENTS: [
-                    labels.length ? `Actions: ${labels.join(', ')}` : '',
-                    priorityText ? `Priority: ${priorityText}` : '',
-                    selections.message ? `Message: ${selections.message}` : ''
-                ].filter(Boolean).join('\n')
-            };
-        }
 
-        function buildInventoryMultiActionEmailSubject(item = null, selections = {}) {
-            const row = getInventoryMultiActionReportRow(item, selections);
-            const label = getInventoryMultiActionLabels(selections).join(' + ') || 'Multi Action';
-            const reportTitle = String(firstNonEmptyValue(selections.reportTitle, 'GNC PH Multi Action') || 'GNC PH Multi Action').trim();
-            return `${reportTitle}: ${label} - ${row.commonName}${row.contSize && row.contSize !== '-' ? ` ${row.contSize}` : ''}${row.locationCode && row.locationCode !== '-' ? ` ${row.locationCode}` : ''}`;
-        }
 
-        function buildInventoryMultiActionEmailText(item = null, selections = {}) {
-            const row = getInventoryMultiActionReportRow(item, selections);
-            const labels = getInventoryMultiActionLabels(selections);
-            const changedFields = buildInventoryMultiActionChangedFieldRows(item, selections, row);
-            const submittedBy = String(firstNonEmptyValue(currentUserDisplay, currentUser, 'Unknown') || 'Unknown').trim();
-            const reportTitle = String(firstNonEmptyValue(selections.reportTitle, 'GNC PH Multi Action') || 'GNC PH Multi Action').trim();
-            const lines = [
-                reportTitle.toUpperCase(),
-                `Submitted By: ${submittedBy}`,
-                `Actions: ${labels.join(', ') || '-'}`,
-                ''
-            ];
-            lines.push(`ITEMCODE: ${row.itemCode}`);
-            lines.push(`COMMONNAME: ${row.commonName}`);
-            lines.push(`CONTSIZE: ${row.contSize}`);
-            lines.push(`LOTCODE: ${row.lotCode}`);
-            lines.push(`LOCATIONCODE: ${row.locationCode}`);
-            lines.push(`SOURCE: ${row.source}`);
-            lines.push(`PTRAVAILABLE: ${row.ptravailable}`);
-            lines.push(`PTRONHAND: ${row.ptronhand}`);
-            lines.push(`PTRREVIEWED: ${row.ptrreviewed}`);
-            lines.push(`CURRENT PRIORITY: ${row.priority || '-'}`);
-            if (selections.priority) lines.push(`REQUESTED PRIORITY: ${selections.requestedPriority || '-'}`);
-            lines.push(`HOLDSTOPCODE: ${row.holdStopCode || '-'}`);
-            lines.push(`HOLDSTOPREASON: ${row.holdStopReason || '-'}`);
-            if (changedFields.length) {
-                lines.push('');
-                lines.push('Changed Fields:');
-                changedFields.forEach((field) => {
-                    lines.push(`${field.label}: ${field.current || 'Blank'} -> ${field.requested || 'Blank'}`);
-                });
-            }
-            lines.push('');
-            lines.push('Requested Actions:');
-            if (selections.ncr) lines.push('- NCR');
-            if (selections.takeOffHold) lines.push(`- Take Off Hold: remove ${row.holdStopCode || '-'}${row.holdStopReason ? ` / ${row.holdStopReason}` : ''}`);
-            if (selections.priority) lines.push(`- Priority Change: ${row.priority || '-'} -> ${selections.requestedPriority || '-'}`);
-            if (selections.message) {
-                lines.push('');
-                lines.push(`Message: ${selections.message}`);
-            }
-            return lines.join('\n').trim();
-        }
 
-        function buildInventoryMultiActionEmailHtml(item = null, selections = {}) {
-            const row = getInventoryMultiActionReportRow(item, selections);
-            const labels = getInventoryMultiActionLabels(selections);
-            const changedFields = buildInventoryMultiActionChangedFieldRows(item, selections, row);
-            const submittedBy = String(firstNonEmptyValue(currentUserDisplay, currentUser, 'Unknown') || 'Unknown').trim();
-            const reportTitle = String(firstNonEmptyValue(selections.reportTitle, 'GNC PH Multi Action') || 'GNC PH Multi Action').trim();
-            const h = (value) => escapeShareHtml(String(value === null || typeof value === 'undefined' ? '' : value));
-            const display = (value, fallback = '-') => {
-                const raw = String(firstNonEmptyValue(value, '') || '').trim();
-                return raw || fallback;
-            };
-            const headerCell = (label) => `<th style="padding:8px 10px;background:#555a57;color:#f4f4f4;font-size:13px;line-height:1.15;font-weight:900;text-align:left;text-transform:uppercase;border-bottom:2px solid #b8b8b8;white-space:normal;">${h(label)}</th>`;
-            const dataCell = (value, options = {}) => `<td style="padding:10px;border-bottom:1px solid #b8b8b8;color:inherit;font-size:13px;line-height:1.25;font-weight:${options.bold === false ? '600' : '800'};vertical-align:top;word-break:break-word;${options.nowrap ? 'white-space:nowrap;' : ''}${options.highlight ? 'background:#fff176;' : ''}">${options.html ? String(value || '') : (h(display(value)) || '&nbsp;')}</td>`;
-            const table = (headers = [], rows = []) => `<table class="gnc-email-table" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;table-layout:auto;margin:0 0 14px 0;"><thead><tr>${headers.map(headerCell).join('')}</tr></thead><tbody>${rows.map((cells) => `<tr>${cells.join('')}</tr>`).join('')}</tbody></table>`;
-            const chip = (label, tone = 'green') => {
-                const color = tone === 'amber' ? '#b45309' : (tone === 'blue' ? '#1d4ed8' : '#007a4d');
-                const bg = tone === 'amber' ? '#fffbeb' : (tone === 'blue' ? '#eff6ff' : '#ecfdf5');
-                const border = tone === 'amber' ? '#fde68a' : (tone === 'blue' ? '#bfdbfe' : '#bbf7d0');
-                return `<span style="display:inline-block;margin:0 6px 6px 0;padding:6px 9px;border:1px solid ${border};border-radius:999px;background:${bg};color:${color};font-size:10px;line-height:1.1;font-weight:900;letter-spacing:.08em;text-transform:uppercase;">${h(label)}</span>`;
-            };
-            const strikeValue = (value) => {
-                const raw = display(value, '');
-                if (!raw) return '&nbsp;';
-                return `<span style="display:inline-block;max-width:100%;min-width:34px;padding:0 8px;color:#111827;font-size:24px;line-height:28px;font-weight:900;text-align:center;text-decoration:line-through;text-decoration-color:#dc2626;text-decoration-thickness:10px;text-decoration-skip-ink:none;word-break:break-word;">${h(raw)}</span>`;
-            };
-            const actionRows = [];
-            if (selections.ncr) actionRows.push([
-                dataCell('NCR', { bold: true, nowrap: true }),
-                dataCell('Request NCR review for this row.', { bold: true })
-            ]);
-            if (selections.takeOffHold) actionRows.push([
-                dataCell('Take Off Hold', { bold: true, nowrap: true }),
-                dataCell(`Remove ${row.holdStopCode || '-'}${row.holdStopReason ? ` / ${row.holdStopReason}` : ''}.`, { bold: true, highlight: true })
-            ]);
-            if (selections.priority) actionRows.push([
-                dataCell('Priority Change', { bold: true, nowrap: true }),
-                dataCell(`${row.priority || '-'} -> ${selections.requestedPriority || '-'}`, { bold: true, highlight: true })
-            ]);
-            const messageHtml = selections.message
-                ? `<div style="margin:0 0 14px 0;border-left:4px solid #007a4d;background:#ecfdf5;padding:10px 12px;font-size:13px;line-height:1.4;"><strong>Message:</strong><br>${h(selections.message).replace(/\n/g, '<br>')}</div>`
-                : '';
-            const changedFieldsHtml = changedFields.length
-                ? `<div style="font-weight:800;margin:0 0 10px 0;text-transform:uppercase;letter-spacing:.08em;color:#007a4d;">Changed Fields</div>${table(['FIELD', 'CURRENT', 'REQUESTED'], changedFields.map((field) => [
-                    dataCell(field.label, { bold: true, nowrap: true }),
-                    dataCell(field.current || 'Blank', { bold: true }),
-                    dataCell(field.requested || 'Blank', { bold: true, highlight: true })
-                ]))}`
-                : '';
-            return `<div style="font-family:Arial,Helvetica,sans-serif;line-height:1.45;color:#111827;max-width:780px;margin:0 auto;">
-                <style>@media screen and (max-width: 620px) {.gnc-email-table th,.gnc-email-table td{font-size:12px!important;padding:7px 6px!important;}}</style>
-                <h2 style="margin:0 0 8px 0;color:#007a4d;font-size:24px;line-height:1.1;">${h(reportTitle)}</h2>
-                <div style="margin:0 0 12px 0;font-size:13px;line-height:1.35;color:#111827;"><strong>Submitted By:</strong> ${h(submittedBy)}<br><strong>Items:</strong> 1</div>
-                <div style="margin:0 0 10px 0;">${labels.map((label) => chip(label, label === 'Take Off Hold' ? 'amber' : (label === 'Priority Change' ? 'blue' : 'green'))).join('')}</div>
-                ${messageHtml}
-                ${table(['ITEMCODE', 'COMMONNAME', 'CONTSIZE', 'LOTCODE', 'LOCATIONCODE', 'SOURCE'], [[
-                    dataCell(row.itemCode, { bold: true, nowrap: true }),
-                    dataCell(row.commonName, { bold: true }),
-                    dataCell(row.contSize, { bold: true, nowrap: true }),
-                    dataCell(row.lotCode, { bold: true, nowrap: true }),
-                    dataCell(row.locationCode, { bold: true, nowrap: true }),
-                    dataCell(row.source, { bold: true, nowrap: true })
-                ]])}
-                ${table(['PRIORITY', 'REQUESTED PRIORITY', 'PTRONHAND', 'PTRREVIEWED', 'PTRAVAILABLE'], [[
-                    dataCell(row.priority || '-', { bold: true, nowrap: true, highlight: selections.priority }),
-                    dataCell(selections.priority ? selections.requestedPriority : '-', { bold: true, nowrap: true, highlight: selections.priority }),
-                    dataCell(row.ptronhand, { bold: true, nowrap: true }),
-                    dataCell(row.ptrreviewed, { bold: true, nowrap: true }),
-                    dataCell(row.ptravailable, { bold: true, nowrap: true })
-                ]])}
-                ${table(['HOLDSTOPCODE', 'HOLDSTOPREASON'], [[
-                    dataCell(selections.takeOffHold ? strikeValue(row.holdStopCode) : row.holdStopCode, { html: selections.takeOffHold, bold: true, nowrap: true, highlight: selections.takeOffHold }),
-                    dataCell(selections.takeOffHold ? strikeValue(row.holdStopReason) : row.holdStopReason, { html: selections.takeOffHold, bold: true, highlight: selections.takeOffHold })
-                ]])}
-                ${changedFieldsHtml}
-                ${table(['ACTION', 'REQUEST'], actionRows.length ? actionRows : [[dataCell('None'), dataCell('-')]])}
-            </div>`;
-        }
 
-        async function sendInventoryMultiActionEmailFromModal() {
-            if (inventoryMultiActionEmailSending) return false;
-            const context = inventoryMultiActionEmailContext || {};
-            const item = context.item || null;
-            if (!item) {
-                showToast('Missing Row', 'That row is not loaded anymore.', true);
-                return false;
-            }
-            const selections = getInventoryMultiActionSelections();
-            if (!selections.actions.length) {
-                showToast('Select Actions', 'Choose at least one action before sending.', true);
-                return false;
-            }
-            if (selections.priority && !selections.requestedPriority) {
-                showToast('Priority Required', 'Enter the requested priority before sending.', true);
-                return false;
-            }
-            const reportRow = getInventoryMultiActionReportRow(item, selections);
-            const changedFields = buildInventoryMultiActionChangedFieldRows(item, selections, reportRow);
-            const holdStopCodeChanged = changedFields.some((field) => String(field && field.label || '').trim().toUpperCase() === 'HOLDSTOPCODE' && normalizeRequestChangedFieldDisplayValue(field.requested));
-            const requestedHoldReason = normalizeRequestChangedFieldDisplayValue(firstNonEmptyValue(
-                reportRow.REQUESTED_HOLDSTOPREASON,
-                reportRow.requestedHoldStopReason,
-                reportRow.holdStopReason,
-                selections && selections.holdstopreason,
-                selections && selections.holdStopReason,
-                selections && selections.screenValues && (selections.screenValues.holdstopreason || selections.screenValues.HOLDSTOPREASON),
-                ''
-            ));
-            if (!selections.takeOffHold && holdStopCodeChanged && !requestedHoldReason) {
-                showToast('Hold Reason Required', 'Enter a Hold/Stop Reason when changing Hold/Stop Code.', true);
-                return false;
-            }
-            const defaultRecipientEmails = dedupeRequestEmailRecipients([
-                ...getInventoryTransactionRequiredRecipientEmails(),
-                resolveRequestRecipientEmail(currentUser || currentUserDisplay || '')
-            ]);
-            const recipientEmails = await openGroupedBloomNcrRecipientModal([item], defaultRecipientEmails, {
-                brandLabel: 'GNC PH Multi Action',
-                title: 'Select Multi Action Recipients'
-            });
-            const safeRecipients = dedupeRequestEmailRecipients([
-                ...(recipientEmails || []),
-                ...defaultRecipientEmails
-            ]);
-            if (!safeRecipients.length) return false;
-            inventoryMultiActionEmailSending = true;
-            syncInventoryMultiActionEmailModalUi();
-            try {
-                const submittedBy = String(firstNonEmptyValue(currentUserDisplay, currentUser, 'Unknown') || 'Unknown').trim();
-                const payloadItem = buildInventoryMultiActionPayloadItem(item, selections);
-                const payload = {
-                    type: 'email',
-                    emailType: 'bloom_purpose_report',
-                    emailSubType: 'inventory_multi_action_report',
-                    email_sub_type: 'inventory_multi_action_report',
-                    subject: buildInventoryMultiActionEmailSubject(item, selections),
-                    brandLabel: 'GNC PH Multi Action',
-                    fromName: 'GNC PH Multi Action',
-                    emailDisplayName: 'GNC PH Multi Action',
-                    sourceLabel: 'GNC PH Multi Action',
-                    actionLabel: 'Multi Action',
-                    reasonLabel: 'Message',
-                    reason: selections.message,
-                    message: selections.message,
-                    userMessage: selections.message,
-                    customer: 'Inventory',
-                    itemsCount: 1,
-                    requestItems: [payloadItem],
-                    requestRows: [payloadItem],
-                    sourceRows: [payloadItem],
-                    items: [payloadItem],
-                    formattedItemsText: buildInventoryMultiActionEmailText(item, selections),
-                    formattedItemsHtml: buildInventoryMultiActionEmailHtml(item, selections),
-                    recipientEmails: safeRecipients,
-                    emailRecipients: safeRecipients,
-                    internalRecipients: safeRecipients,
-                    recipients: safeRecipients,
-                    requestedBy: String(currentUser || '').trim(),
-                    requestedByDisplay: submittedBy,
-                    submittedBy,
-                    emailOnlyReport: true,
-                    email_only_report: true,
-                    forceImmediate: true
-                };
-                const responseData = await postGoogleScriptEmailPayload(payload, REQUEST_EMAIL_SCRIPT_TIMEOUT_MS, 'Inventory Multi Action Email');
-                if (!responseData || responseData.ok !== true) {
-                    throw new Error(getGoogleScriptEmailFailureMessage(responseData, 'Multi Action email did not send.'));
-                }
-                showToast('Email Sent', 'Multi Action email sent.');
-                const modal = document.getElementById('inventory-multi-action-email-modal');
-                if (modal) modal.classList.add('hidden');
-                inventoryMultiActionEmailContext = null;
-                return true;
-            } catch (error) {
-                console.error('Inventory multi action email failed', error);
-                showToast('Email Failed', error && error.message ? error.message : 'Multi Action email did not send.', true);
-                return false;
-            } finally {
-                inventoryMultiActionEmailSending = false;
-                syncInventoryMultiActionEmailModalUi();
-            }
-        }
 
         function getInventoryEditQuickActionLabel(action = '') {
             const normalized = String(action || '').trim();
@@ -40232,35 +37294,7 @@ let avTopControlsRenderToken = 0;
             return 'Inventory Edit';
         }
 
-        function getInventoryEditQuickActionIcon(action = '') {
-            const normalized = String(action || '').trim();
-            if (normalized === 'hold') return 'ph-lock-key';
-            if (normalized === 'take_off_hold') return 'ph-lock-open';
-            if (normalized === 'stop_ship') return 'ph-octagon';
-            if (normalized === 'off_stop_ship') return 'ph-shield-check';
-            if (normalized === 'move_up') return 'ph-arrow-circle-up';
-            if (normalized === 'move_down') return 'ph-arrow-circle-down';
-            if (normalized === 'location_move') return 'ph-map-pin-line';
-            if (normalized === 'ncr') return 'ph-seal-check';
-            if (normalized === 'recount') return 'ph-calculator';
-            if (normalized === 'note') return 'ph-note-pencil';
-            if (normalized === 'shear') return 'ph-scissors';
-            return 'ph-pencil-simple-line';
-        }
 
-        function getInventoryEditQuickActionTone(action = '') {
-            const normalized = String(action || '').trim();
-            if (normalized === 'ncr') return 'border-blue-200 bg-blue-50 text-blue-800';
-            if (normalized === 'move_up') return 'border-emerald-200 bg-emerald-50 text-emerald-800';
-            if (normalized === 'move_down') return 'border-purple-200 bg-purple-50 text-purple-800';
-            if (normalized === 'location_move') return 'border-blue-200 bg-blue-50 text-blue-800';
-            if (normalized === 'recount') return 'border-rose-200 bg-rose-50 text-rose-800';
-            if (normalized === 'note') return 'border-sky-200 bg-sky-50 text-sky-800';
-            if (normalized === 'shear') return 'border-lime-200 bg-lime-50 text-lime-800';
-            if (normalized === 'hold' || normalized === 'take_off_hold') return 'border-amber-200 bg-amber-50 text-amber-800';
-            if (normalized === 'stop_ship' || normalized === 'off_stop_ship') return 'border-red-200 bg-red-50 text-red-800';
-            return 'border-slate-200 bg-white text-slate-700';
-        }
 
         function getInventoryEditQuickActionApprovalType(action = '') {
             const normalized = String(action || '').trim();
@@ -40381,141 +37415,8 @@ let avTopControlsRenderToken = 0;
             });
         }
 
-        function openInventoryEditQuickActionEmailForm(item = null, action = '') {
-            if (!item) return false;
-            const normalizedAction = String(action || '').trim().toLowerCase();
-            if (ARGOS_INVENTORY_TRANSACTION_REQUEST_ACTIONS.includes(normalizedAction)) {
-                if (!isArgosInventoryTransactionEligible(item)) {
-                    showToast('Unavailable', 'Open this request from a live Drive inventory row.', true);
-                    return false;
-                }
-                const uid = firstNonEmptyValue(item.UNIQUE_ID, item.unique_id, item.DOM_ID, '');
-                openArgosInventoryTransactionModal(uid, 'reclass', 'drive');
-                setArgosInventoryTransactionHoldAction(normalizedAction);
-                return false;
-            }
-            if (normalizedAction === 'ncr' || normalizedAction === 'recount') {
-                return openInventoryEditQuickActionApprovalRowForm(item, normalizedAction, { skipEmail: true });
-            }
-            return openBloomActionRowFormModal([item], {
-                action: normalizedAction,
-                selectionKind: 'inventory',
-                emailOnly: true,
-                afterPersist: async (persisted) => {
-                    const rows = persisted && Array.isArray(persisted.rows) ? persisted.rows.filter(Boolean) : [item].filter(Boolean);
-                    const rowOptionsByUid = persisted && persisted.rowOptionsByUid ? persisted.rowOptionsByUid : null;
-                    if (shouldUsePaperInquiryReportEmailForAction(normalizedAction)) {
-                        return await sendPaperInquiryActionReportEmailOnly(rows, {
-                            action: normalizedAction,
-                            rowOptionsByUid,
-                            clearSelection: false
-                        });
-                    }
-                    return await sendBloomActionReportEmailOnly(rows, {
-                        action: normalizedAction,
-                        rowOptionsByUid,
-                        clearSelection: false
-                    });
-                }
-            });
-        }
 
-        function openInventoryEditQuickAction(uid = '', action = '') {
-            const item = findInventoryEditMockItemByUid(uid) || findItemByUniqueId(uid) || findItemByDomId(uid);
-            const normalizedAction = String(action || '').trim().toLowerCase();
-            closeInventoryAllEditActionSheet();
-            if (!item) {
-                showToast('Missing Row', 'That row is not loaded anymore.', true);
-                return false;
-            }
-            if (!normalizedAction) return false;
-            if (normalizedAction === 'location_move') {
-                return openSelectedRowsMoveModal([item]);
-            }
-            if (normalizedAction === 'shear') {
-                return submitShearApprovalRequestForItem(item);
-            }
-            if (ARGOS_INVENTORY_TRANSACTION_REQUEST_ACTIONS.includes(normalizedAction)) {
-                if (!isArgosInventoryTransactionEligible(item)) {
-                    showToast('Unavailable', 'Open this request from a live Drive inventory row.', true);
-                    return false;
-                }
-                const uid = firstNonEmptyValue(item.UNIQUE_ID, item.unique_id, item.DOM_ID, '');
-                openArgosInventoryTransactionModal(uid, 'reclass', 'drive');
-                setArgosInventoryTransactionHoldAction(normalizedAction);
-                return false;
-            }
-            if (normalizedAction === 'ncr') {
-                return openInventoryEditQuickActionApprovalRowForm(item, normalizedAction, { skipEmail: true });
-            }
-            if (normalizedAction === 'recount') {
-                return openInventoryEditQuickActionApprovalRowForm(item, normalizedAction, {
-                    skipEmail: true,
-                    allowMissingPhoto: true,
-                    allowMissingAvNote: true,
-                    approvalMessage: 'Plants were not found at this location. Please recount and verify PTRONHAND.'
-                });
-            }
-            if (canUseInventoryEditDirectEmailActions()) {
-                return openInventoryEditQuickActionEmailForm(item, normalizedAction);
-            }
-            return openInventoryEditQuickActionApprovalRowForm(item, normalizedAction);
-        }
 
-        function openInventoryAllEditActionSheet(uid = '', sourceView = '') {
-            const item = findInventoryEditMockItemByUid(uid) || findItemByUniqueId(uid);
-            if (!item) {
-                showToast('Missing Row', 'That row is not loaded anymore.', true);
-                return false;
-            }
-            const safeUid = escJsAttrValue(firstNonEmptyValue(item.UNIQUE_ID, item.unique_id, uid));
-            const safeSourceView = normalizeCustomerConsigneeOutreachSourceView(sourceView || activeDetailSourceView || lastView || '');
-            const modal = ensureInventoryAllEditActionSheetModal();
-            const title = document.getElementById('inventory-all-edit-action-sheet-title');
-            const meta = document.getElementById('inventory-all-edit-action-sheet-meta');
-            const actions = document.getElementById('inventory-all-edit-action-sheet-actions');
-            const commonName = firstNonEmptyValue(item.COMMONNAME, item.commonname, 'Unknown');
-            const contSize = firstNonEmptyValue(item.CONTSIZE, item.contsize, '');
-            const loc = firstNonEmptyValue(item.LOCATIONCODE, item.locationcode, 'No Loc');
-            const itemCode = firstNonEmptyValue(item.ITEMCODE, item.itemcode, '-');
-            const quickActions = ['hold', 'take_off_hold', 'stop_ship', 'off_stop_ship', 'location_move', 'move_up', 'move_down', 'ncr', 'recount', 'note', 'shear'];
-            if (safeSourceView === 'drive' && !canCurrentUserUseDriveCardOptions(item, 'drive')) {
-                showToast('View Only', 'Drive Mode actions are only available on rows assigned to you.', true);
-                return false;
-            }
-            const quickActionHtml = safeSourceView === 'av'
-                ? ''
-                : `<div class="rounded-2xl border border-slate-200 bg-slate-50 p-3"><div class="mb-2 text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Inventory Edit</div><div class="grid grid-cols-1 gap-2 sm:grid-cols-2">${quickActions.map((action) => {
-                    const label = getInventoryEditQuickActionLabel(action);
-                    const tone = getInventoryEditQuickActionTone(action);
-                    const icon = getInventoryEditQuickActionIcon(action);
-                    return `<button type="button" class="min-h-[48px] rounded-xl border px-3 py-3 text-left shadow-sm active:scale-95 ${tone}" onclick="return openInventoryEditQuickAction('${safeUid}', '${escJsAttrValue(action)}')"><div class="flex items-center gap-2"><i class="ph-bold ${icon} text-lg"></i><span class="text-[10px] font-black uppercase tracking-[0.13em]">${escapeHtml(label)}</span></div></button>`;
-                }).join('')}</div></div>`;
-            const multiActionEmailAction = safeSourceView === 'av'
-                ? ''
-                : `<button type="button" class="min-h-[56px] rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-left text-[#007a4d] shadow-sm active:scale-95" onclick="return openInventoryMultiActionEmailModal('${safeUid}', '${escJsAttrValue(safeSourceView)}')"><div class="flex items-center gap-3"><i class="ph-bold ph-list-checks text-xl"></i><div><div class="text-[11px] font-black uppercase tracking-[0.14em]">Multi Action Email</div><div class="mt-0.5 text-[11px] font-semibold text-emerald-700">NCR, off hold, and priority change in one report email.</div></div></div></button>`;
-            const reversePendingAction = buildNcrApprovalReverseActionSheetHtml(item);
-            const bloomAction = safeSourceView === 'av'
-                ? ''
-                : `<button type="button" class="min-h-[52px] rounded-2xl bg-[#007a4d] px-4 py-3 text-left text-white shadow-sm active:scale-95" onclick="return addInventoryAllEditItemToBloomPicker('${safeUid}')"><div class="flex items-center gap-3"><i class="ph-bold ph-cube text-xl"></i><div><div class="text-[11px] font-black uppercase tracking-[0.14em]">Add To Bloom Picker</div><div class="mt-0.5 text-[11px] font-semibold text-white/80">Keep this row in the sales/order workflow.</div></div></div></button>`;
-            const customerEmailAction = canUseCustomerConsigneeAllEditAction(item, safeSourceView)
-                ? `<button type="button" class="min-h-[52px] rounded-2xl border border-emerald-200 bg-white px-4 py-3 text-left text-[#007a4d] shadow-sm active:scale-95" onclick="closeInventoryAllEditActionSheet(); return openCustomerConsigneeOutreachDetail('${safeUid}', '${escJsAttrValue(safeSourceView)}')"><div class="flex items-center gap-3"><i class="ph-bold ph-envelope-simple text-xl"></i><div><div class="text-[11px] font-black uppercase tracking-[0.14em]">Email Row</div><div class="mt-0.5 text-[11px] font-semibold text-emerald-700">Open the AV customer/consignee email workflow.</div></div></div></button>`
-                : '';
-            const inventoryEditAction = canUseInventoryEditMock(item)
-                ? `<button type="button" class="min-h-[52px] rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-left text-amber-800 shadow-sm active:scale-95" onclick="closeInventoryAllEditActionSheet(); return openInventoryEditRequestModal('${safeUid}', { requestType: 'inventory-edit' })"><div class="flex items-center gap-3"><i class="ph-bold ph-clipboard-text text-xl"></i><div><div class="text-[11px] font-black uppercase tracking-[0.14em]">Inventory Checks</div><div class="mt-0.5 text-[11px] font-semibold text-amber-700">Priority, location notes, report headers, or hold-code changes.</div></div></div></button>`
-                : '';
-            const moveUpAction = canUseInventoryEditMock(item)
-                ? `<button type="button" class="min-h-[52px] rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-left text-emerald-800 shadow-sm active:scale-95" onclick="closeInventoryAllEditActionSheet(); return openInventoryEditRequestModal('${safeUid}', { requestType: 'move-up' })"><div class="flex items-center gap-3"><i class="ph-bold ph-arrow-circle-up text-xl"></i><div><div class="text-[11px] font-black uppercase tracking-[0.14em]">Move Up Inventory Check</div><div class="mt-0.5 text-[11px] font-semibold text-emerald-700">Send through Dylan/Megan approval, then JD if needed.</div></div></div></button>`
-                : '';
-            const ncrAction = canUseInventoryEditMock(item)
-                ? `<button type="button" class="min-h-[52px] rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-left text-blue-800 shadow-sm active:scale-95" onclick="closeInventoryAllEditActionSheet(); return openInventoryEditRequestModal('${safeUid}', { requestType: 'ncr' })"><div class="flex items-center gap-3"><i class="ph-bold ph-seal-check text-xl"></i><div><div class="text-[11px] font-black uppercase tracking-[0.14em]">NCR Inventory Check</div><div class="mt-0.5 text-[11px] font-semibold text-blue-700">Send through Dylan/Megan approval, then JD if needed.</div></div></div></button>`
-                : '';
-            if (title) title.innerText = `${commonName}${contSize ? ` ${contSize}` : ''}`;
-            if (meta) meta.innerText = `Item ${itemCode} | Loc ${loc}`;
-            if (actions) actions.innerHTML = [reversePendingAction, multiActionEmailAction, quickActionHtml, bloomAction, customerEmailAction, inventoryEditAction, moveUpAction, ncrAction].filter(Boolean).join('');
-            modal.classList.remove('hidden');
-            return false;
-        }
 
         function openInventoryEditMockWorkflowView(target = 'request') {
             const safeTarget = String(target || '').trim().toLowerCase();
@@ -42311,30 +39212,6 @@ let avTopControlsRenderToken = 0;
             return hasEvalTaskRequestMeta(item) || isEvalTaskAssignmentValue(assignment) || isEvalTaskItem(item);
         }
 
-        function canRestrictedEvalUserViewRequestItem(item = null, userOverride = '', displayOverride = '') {
-            if (canRestrictedEvalUserUpdateItem(item, userOverride, displayOverride)) return true;
-            if (!isEvalTaskRequestMirrorRow(item)) return false;
-            const ruleAssignee = getEvalTaskRuleAssigneeForItem(item);
-            if (ruleAssignee && isAssignedToCurrentUser(ruleAssignee, userOverride, displayOverride)) return true;
-            return isAssignedToCurrentUser(firstNonEmptyValue(
-                getMasterAssignedToValue(item),
-                item && item.ASSIGNEDTO,
-                item && item.assignedto,
-                item && item.ASSIGNED_TO,
-                item && item.assigned_to,
-                item && item.EVAL_TASK_ASSIGNED_TO,
-                item && item.eval_task_assigned_to,
-                item && item.EVAL_TASK_ASSIGNEES,
-                item && item.eval_task_assignees,
-                item && item.ASSIGNED_USERS,
-                item && item.assigned_users,
-                item && item.REQUESTED_BY,
-                item && item.requested_by,
-                item && item.SALESREPNAME,
-                item && item.SALESREP,
-                ''
-            ), userOverride, displayOverride);
-        }
 
         function getEditableDetailItemForPrefix(prefix = '', itemOverride = null) {
             if (itemOverride && typeof itemOverride === 'object') return itemOverride;
@@ -42383,11 +39260,6 @@ let avTopControlsRenderToken = 0;
             const detailSourceView = String(activeDetailSourceView || lastView || '').trim().toLowerCase();
             if (detailSourceView === 'tasks' && isEvalNcrOrMoveUpDetailTask(item)) return canEditRowDetails('ncr-', item);
             return canAccessView('review') || canAccessView('move-up') || canUseNcrTaskView() || canUseNcrApprovalTaskView();
-        }
-        function getPendingRequestCount() {
-            let items = getScopedRequestItems(requestsInventory);
-            items = items.filter(isRequestPendingVisible);
-            return items.length;
         }
 
         function queueRequestBadgeLiveSync(delay = 450) {
@@ -42597,7 +39469,6 @@ let avTopControlsRenderToken = 0;
         }
 
         function resetDriveQuickCardViewState() {
-            driveQuickRequestCardMode = false;
             driveQuickFilterName = '';
             driveQuickFilterLocation = '';
             driveQuickFilterLot = '';
@@ -42607,101 +39478,16 @@ let avTopControlsRenderToken = 0;
             driveQuickFilterLtsValue = '';
             invalidateDriveResolvedCardState();
         }
-        function setDriveQuickRequestCardMode(enabled) {
-            if (enabled) {
-                setDriveTab('card');
-                return false;
-            }
-            return disableDriveQuickRequestCardMode();
-        }
 
-        function disableDriveQuickRequestCardMode() {
-            resetDriveQuickCardViewState();
-            closeDriveQuickFiltersModal();
-                scheduleDriveRender();
-            return false;
-        }
 
-        function refreshDriveQuickFilterResults() {
-            if (renderDriveQuickCardResultsOnly()) return;
-                scheduleDriveRender();
-        }
-
-        const debouncedDriveQuickFilterInputRender = debounce(() => {
-            scheduleUiRender('drive-quick-filter', () => refreshDriveQuickFilterResults());
-        }, 60);
 
         function getDriveQuickPriorityValues() {
             return [...new Set(String(driveQuickFilterPriority || '').split('|').map(value => value.trim()).filter(Boolean))];
         }
 
-        function setDriveQuickFilter(type, value) {
-            const nextValue = String(value || '').trim();
-            if (type === 'name') driveQuickFilterName = nextValue;
-            else if (type === 'location') driveQuickFilterLocation = nextValue;
-            else if (type === 'lot') driveQuickFilterLot = nextValue;
-            else if (type === 'size') driveQuickFilterSize = nextValue;
-            else if (type === 'priority') driveQuickFilterPriority = nextValue;
-            else if (type === 'ltsMode') driveQuickFilterLtsMode = nextValue;
-            else if (type === 'ltsValue') driveQuickFilterLtsValue = nextValue;
-            invalidateDriveResolvedCardState();
-            if (type === 'name' || type === 'ltsValue') debouncedDriveQuickFilterInputRender();
-            else scheduleUiRender('drive-quick-filter', () => refreshDriveQuickFilterResults());
-            return false;
-        }
 
-        function toggleDriveQuickPriorityFilter(value) {
-            const nextValue = String(value || '').trim();
-            if (!nextValue) {
-                driveQuickFilterPriority = '';
-            } else {
-                const selectedValues = getDriveQuickPriorityValues();
-                if (selectedValues.includes(nextValue)) driveQuickFilterPriority = selectedValues.filter(entry => entry !== nextValue).join('|');
-                else driveQuickFilterPriority = selectedValues.concat(nextValue).sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true })).join('|');
-            }
-            invalidateDriveResolvedCardState();
-            scheduleUiRender('drive-quick-filter', () => refreshDriveQuickFilterResults());
-            return false;
-        }
 
-        function clearDriveQuickFilters() {
-driveQuickFilterName = '';
-driveQuickFilterLocation = '';
-driveQuickFilterLot = '';
-driveQuickFilterSize = '';
-driveQuickFilterPriority = '';
-driveQuickFilterLtsMode = '';
-driveQuickFilterLtsValue = '';
-invalidateDriveResolvedCardState();
-if (driveQuickFiltersModalOpen) renderDriveQuickFiltersModal();
-refreshDriveQuickFilterResults();
-return false;
-}
 
-        function getDriveQuickFilterOptions(candidateItems) {
-            const searchInput = document.getElementById('drive-search');
-            const masterState = getDatasetState('master');
-            const cacheKey = [
-                activeDriveMode,
-                getRoleAccessState().isForeman ? 'foreman-priority-only' : 'all-priority',
-                getRepU3VisibilityScopeKey(),
-                typeof bloomscapesPersonalInventoryScopeKey==='function' ? bloomscapesPersonalInventoryScopeKey() : '',
-                [...driveSelectedSeasons].sort().join('|'),
-                searchInput ? searchInput.value.toLowerCase().trim() : '',
-                candidateItems.length,
-                masterState.lastLoadedAt || ''
-            ].join('::');
-            if (driveQuickFilterOptionsCache && driveQuickFilterOptionsCacheKey === cacheKey) return driveQuickFilterOptionsCache;
-            const buildOptions = (field) => [...new Set(candidateItems.map(item => String(item[field] || '').trim()).filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
-            driveQuickFilterOptionsCacheKey = cacheKey;
-            driveQuickFilterOptionsCache = {
-                locations: buildOptions('LOCATIONCODE'),
-                sizes: buildOptions('CONTSIZE'),
-                lots: buildOptions('LOTCODE'),
-                priorities: buildOptions('PRIORITY')
-            };
-            return driveQuickFilterOptionsCache;
-        }
 
         function getDriveBaseFilterContextKey() {
             return [
@@ -42776,97 +39562,10 @@ return false;
             driveQuickFilterCacheItems = nextItems;
             return nextItems;
         }
-        function getDriveQuickActiveFilterEntries() {
-    const entries = [];
-    if (driveQuickFilterName) entries.push({ label: 'Name', value: driveQuickFilterName });
-    if (driveQuickFilterLocation) entries.push({ label: 'Location', value: driveQuickFilterLocation });
-    getDriveQuickPriorityValues().forEach(value => entries.push({ label: 'Priority', value }));
-    if (driveQuickFilterSize) entries.push({ label: 'Cont Size', value: driveQuickFilterSize });
-    if (driveQuickFilterLot) entries.push({ label: 'Lot', value: driveQuickFilterLot });
-    const ltsValue = String(driveQuickFilterLtsValue || '').trim();
-    if (driveQuickFilterLtsMode && ltsValue) entries.push({ label: 'Open Stock', value: `${driveQuickFilterLtsMode === 'gt' ? '>' : '<'} ${ltsValue}` });
-    return entries;
-}
 
-function getDriveQuickFilterControlsHtml(filterOptions) {
-    const buildOptions = (values, selectedValue, placeholder) => `<option value="">${placeholder}</option>` + values.map(value => `<option value="${esc(value)}" ${selectedValue === value ? 'selected' : ''}>${value}</option>`).join('');
-    const filterInputClass = 'w-full min-w-0 h-[42px] rounded-xl border border-green-200 bg-white mt-1 px-3 text-[13px] font-bold text-slate-700 shadow-sm';
-    const filterLabelClass = 'text-[10px] font-black text-slate-500 uppercase tracking-[0.08em] min-w-0';
-    const selectedPriorities = getDriveQuickPriorityValues();
-    const priorityChipBase = 'min-h-[38px] px-3 py-2 rounded-full border text-[11px] font-black uppercase tracking-[0.08em] transition-colors duration-150';
-    const priorityClearChip = `<button type="button" class="${selectedPriorities.length ? 'bg-white border-emerald-200 text-emerald-700' : 'bg-emerald-600 border-emerald-600 text-white'} ${priorityChipBase}" onclick="toggleDriveQuickPriorityFilter('')">Any</button>`;
-    const priorityChipButtons = filterOptions.priorities.map(value => {
-        const active = selectedPriorities.includes(value);
-        const toneClass = active ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm' : 'bg-white border-emerald-200 text-emerald-700';
-        return `<button type="button" class="${priorityChipBase} ${toneClass}" onclick="toggleDriveQuickPriorityFilter('${esc(value)}')">${esc(value)}</button>`;
-    }).join('');
-    return `
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <label class="${filterLabelClass} sm:col-span-2">Common Name<input type="text" class="${filterInputClass}" value="${esc(driveQuickFilterName)}" placeholder="Name" oninput="setDriveQuickFilter('name', this.value)" onkeydown="dismissSearchKeyboard(event)"></label>
-            <label class="${filterLabelClass}">Location<select class="${filterInputClass}" onchange="setDriveQuickFilter('location', this.value)">${buildOptions(filterOptions.locations, driveQuickFilterLocation, 'All')}</select></label>
-            <div class="${filterLabelClass} sm:col-span-2">Priority<div class="mt-2 flex flex-wrap gap-2">${priorityClearChip}${priorityChipButtons}</div><div class="mt-2 text-[11px] font-semibold normal-case tracking-normal text-slate-500">Tap one or more priorities to keep all matching cards visible.</div></div>
-            <label class="${filterLabelClass}">Cont Size<select class="${filterInputClass}" onchange="setDriveQuickFilter('size', this.value)">${buildOptions(filterOptions.sizes, driveQuickFilterSize, 'All')}</select></label>
-            <label class="${filterLabelClass}">Lot Code<select class="${filterInputClass}" onchange="setDriveQuickFilter('lot', this.value)">${buildOptions(filterOptions.lots, driveQuickFilterLot, 'All')}</select></label>
-            <label class="${filterLabelClass}">Open Stock<select class="${filterInputClass}" onchange="setDriveQuickFilter('ltsMode', this.value)"><option value="">Any</option><option value="gt" ${driveQuickFilterLtsMode === 'gt' ? 'selected' : ''}>GT</option><option value="lt" ${driveQuickFilterLtsMode === 'lt' ? 'selected' : ''}>LT</option></select></label>
-            <label class="${filterLabelClass}">Open Stock #<input type="number" class="${filterInputClass}" value="${esc(driveQuickFilterLtsValue)}" placeholder="#" oninput="setDriveQuickFilter('ltsValue', this.value)"></label>
-        </div>`;
-}
 
-function ensureDriveQuickFiltersModal() {
-    let modal = document.getElementById('drive-quick-filters-modal');
-    if (!modal) {
-        modal = document.createElement('div');
-        modal.id = 'drive-quick-filters-modal';
-        modal.className = 'hidden fixed inset-0 z-[16000]';
-        document.body.appendChild(modal);
-    }
-    return modal;
-}
 
-function renderDriveQuickFiltersModal() {
-    const modal = ensureDriveQuickFiltersModal();
-    if (!driveQuickFiltersModalOpen || !canUseDriveQuickRequest() || activeDriveMode !== 'ok' || activeDriveTab !== 'card') {
-        modal.classList.add('hidden');
-        modal.innerHTML = '';
-        return;
-    }
-    const candidateItems = getDriveFilteredItems(false);
-    const filterOptions = getDriveQuickFilterOptions(candidateItems);
-    const activeFilters = getDriveQuickActiveFilterEntries();
-    const matchingCount = getDriveFilteredItems(true).length;
-    const activeFiltersHtml = activeFilters.length
-        ? `<div class="flex gap-2 overflow-x-auto scrollbar-none pb-2 mb-3">${activeFilters.map(filter => `<span class="shrink-0 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-[11px] font-black text-emerald-700 uppercase tracking-[0.08em]">${esc(filter.label)}: ${esc(filter.value)}</span>`).join('')}</div>`
-        : `<div class="text-[11px] font-semibold text-slate-500 mb-3">No extra card filters are active.</div>`;
-    modal.innerHTML = `
-        <div class="absolute inset-0 bg-slate-900/35" onclick="closeDriveQuickFiltersModal()"></div>
-        <div class="absolute inset-x-0 bottom-0 max-h-[82vh] rounded-t-[1.75rem] border border-emerald-100 bg-white shadow-2xl">
-            <div class="max-h-[82vh] overflow-y-auto px-4 pt-4 pb-6">
-                <div class="sticky top-0 bg-white pb-3">
-                    <div class="flex items-start justify-between gap-3">
-                        <div class="min-w-0">
-                            <div class="text-[10px] font-black text-emerald-700 uppercase tracking-[0.16em]">Drive Filters</div>
-                            <div class="text-lg font-black text-slate-900 mt-1">${matchingCount} matching row${matchingCount === 1 ? '' : 's'}</div>
-                            <div class="text-[11px] font-semibold text-slate-500 mt-1">${activeFilters.length} active filter${activeFilters.length === 1 ? '' : 's'} | changes apply live</div>
-                        </div>
-                        <button type="button" class="shrink-0 min-w-[84px] min-h-[40px] rounded-full border border-slate-200 bg-white px-3 text-[10px] font-black uppercase tracking-[0.12em] text-slate-600" onclick="closeDriveQuickFiltersModal()">Done</button>
-                    </div>
-                </div>
-                ${activeFiltersHtml}
-                ${getDriveQuickFilterControlsHtml(filterOptions)}
-                <div class="mt-4 grid grid-cols-2 gap-2">
-                    <button type="button" class="min-h-[42px] rounded-xl border border-emerald-200 bg-white px-4 text-[11px] font-black uppercase tracking-[0.12em] text-emerald-700" onclick="clearDriveQuickFilters()">Clear</button>
-                    <button type="button" class="min-h-[42px] rounded-xl bg-[#007a4d] px-4 text-[11px] font-black uppercase tracking-[0.12em] text-white shadow-sm" onclick="closeDriveQuickFiltersModal()">Close</button>
-                </div>
-            </div>
-        </div>`;
-    modal.classList.remove('hidden');
-}
 
-function openDriveQuickFiltersModal() {
-    driveQuickFiltersModalOpen = true;
-    renderDriveQuickFiltersModal();
-    return false;
-}
 
 function closeDriveQuickFiltersModal() {
     if (!driveQuickFiltersModalOpen) return false;
@@ -43050,15 +39749,6 @@ function syncDriveReturnedSelectionToolbar() {
     else setTimeout(run, 0);
 }
 
-function toggleDriveQuickRequestItem(domId) {
-            if (!canUseDriveQuickRequest()) return;
-            if (!findItemByDomId(domId)) return;
-            if (driveQuickRequestItems.has(domId)) { driveQuickRequestItems.delete(domId); requestSelectionTokens.delete(domId); }
-            else { driveQuickRequestItems.add(domId); requestSelectionTokens.set(domId, createStableClientBatchId()); }
-            const driveView = document.getElementById('view-drive');
-            if (driveView && !driveView.classList.contains('hidden')) scheduleDriveRender();
-            else renderDriveQuickRequestBar();
-        }
 
         function clearDriveQuickRequestItems(silent = false) {
             const hadItems = driveQuickRequestItems.size > 0;
@@ -43539,24 +40229,8 @@ function toggleDriveQuickRequestItem(domId) {
             return legacyItems.concat(snapshotItems);
         }
 
-        function isFlyerAssignedToUser(item, userName = '') {
-            if (!item) return false;
-            const normalizedTargets = [...new Set([userName, currentUser, currentUserDisplay].map(normalizeFlyerAssigneeKey).filter(Boolean))];
-            if (!normalizedTargets.length) return false;
-            const assignees = getFlyerAssigneeList(item.FLYER_ASSIGNED || item.ASSIGNEDTO || '');
-            return assignees.some((entry) => normalizedTargets.includes(normalizeFlyerAssigneeKey(entry)));
-        }
 
-        function hasSeasonSalesNote(item) {
-            const salesNote = firstNonEmptyValue(item && item.SALES_NOTE, item && item.SALESNOTE, item && item.SALES_DESC, item && item.SALESDESC);
-            return String(salesNote || '').trim() !== '';
-        }
 
-        function qualifiesForFlyerOpenStock(item) {
-            const ltsValue = Number(String(firstNonEmptyValue(item && item.S_LTS, '0')).replace(/,/g, ''));
-            const seasonValue = String(firstNonEmptyValue(item && item.SEASON, '')).toUpperCase();
-            return ltsValue > 0 && !seasonValue.includes('Y') && !seasonValue.includes('Z');
-        }
 
         function getFlyerFolderAssignedNames(folderName, items = null, folderTab = activeFlyerFolderTab) {
             const normalizedFolder = getFlyerFolderName(folderName);
@@ -43644,26 +40318,7 @@ function toggleDriveQuickRequestItem(domId) {
             return rawSnapshot && typeof rawSnapshot === 'object' && !Array.isArray(rawSnapshot) ? rawSnapshot : {};
         }
 
-        function getFlyerFolderRowSafeIdPart(value = '', fallback = 'row') {
-            const safe = String(value || '').trim().replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '').slice(0, 90);
-            return safe || fallback;
-        }
 
-        function buildFlyerFolderRowId(folderName = '', item = null) {
-            const sourceItem = findLinkedMasterRow(item) || item || {};
-            const folderPart = getFlyerFolderRowSafeIdPart(getFlyerFolderName(folderName), 'folder');
-            const sourcePart = getFlyerFolderRowSafeIdPart(firstNonEmptyValue(
-                sourceItem.UNIQUE_ID,
-                sourceItem.unique_id,
-                item && item.MASTER_UNIQUE_ID,
-                item && item.MASTER_ID,
-                item && item.UNIQUE_ID,
-                item && item.ITEMCODE,
-                item && item.DOM_ID,
-                ''
-            ), Date.now().toString(36).toUpperCase());
-            return `FF-${folderPart}-${sourcePart}`;
-        }
 
         function buildFlyerFolderSnapshot(item = null, options = {}) {
             const source = findLinkedMasterRow(item) || item || {};
@@ -43705,58 +40360,6 @@ function toggleDriveQuickRequestItem(domId) {
             };
         }
 
-        function buildFlyerFolderRowPayload(item = null, folderName = '', flyerAssignedTo = '', primaryAssignee = '', createdAt = new Date().toISOString()) {
-            const snapshot = buildFlyerFolderSnapshot(item, { includeCurrentAvData: true });
-            const uniqueId = buildFlyerFolderRowId(folderName, item);
-            const matchNumber = parseLocMatchPercent(snapshot.MATCH);
-            const locMatchQtyNumber = parseAppNumber(snapshot.LOC_MATCH_QTY);
-            const initialPtrNumber = parseAppNumber(snapshot.INITIAL_PTR);
-            return {
-                unique_id: uniqueId,
-                master_unique_id: snapshot.UNIQUE_ID || uniqueId,
-                source_table: snapshot.SOURCE_TABLE || 'ph_master_inventory',
-                flyer_title: getFlyerFolderName(folderName),
-                flyer_assigned: flyerAssignedTo || null,
-                flyer_cat: null,
-                flyer_inst: null,
-                flyer_notes: null,
-                flyer_completed: null,
-                assignedto: primaryAssignee || null,
-                date_completed: null,
-                itemcode: snapshot.ITEMCODE || null,
-                commonname: snapshot.COMMONNAME || null,
-                contsize: snapshot.CONTSIZE || null,
-                locationcode: snapshot.LOCATIONCODE || null,
-                lotcode: snapshot.LOTCODE || null,
-                priority: snapshot.PRIORITY || null,
-                ptravailable: snapshot.PTRAVAILABLE || null,
-                s_lts: snapshot.S_LTS || null,
-                holdstopcode: snapshot.HOLDSTOPCODE || null,
-                plantgroupcode: snapshot.PLANTGROUPCODE || null,
-                locationnote: snapshot.LOCATIONNOTE || null,
-                av_note: snapshot.AV_NOTE || null,
-                match: matchNumber == null ? null : matchNumber,
-                loc_match_qty: locMatchQtyNumber == null ? null : locMatchQtyNumber,
-                spec: snapshot.SPEC || null,
-                caliper: snapshot.CALIPER || null,
-                pick: snapshot.PICK || null,
-                initial_ptr: initialPtrNumber == null ? null : initialPtrNumber,
-                flyer_av_note: snapshot.AV_NOTE || null,
-                flyer_match: matchNumber == null ? null : matchNumber,
-                flyer_loc_match_qty: locMatchQtyNumber == null ? null : locMatchQtyNumber,
-                flyer_spec: snapshot.SPEC || null,
-                flyer_caliper: snapshot.CALIPER || null,
-                flyer_pick: snapshot.PICK || null,
-                flyer_initial_ptr: initialPtrNumber == null ? null : initialPtrNumber,
-                flyer_photo_link: snapshot.PHOTO_LINK || null,
-                flyer_photo_name: snapshot.PHOTO_NAME || null,
-                snapshot,
-                created_by_username: currentUser || null,
-                created_by_display: currentUserDisplay || currentUser || null,
-                created_at: createdAt,
-                updated_at: createdAt
-            };
-        }
 
         function getFlyerFolderSourceMasterId(item = null) {
             return String(firstNonEmptyValue(
@@ -44322,43 +40925,7 @@ function toggleDriveQuickRequestItem(domId) {
             state.lastLoadedAt = new Date().toISOString();
         }
 
-        function maybeWarnFlyerFolderRowsSchemaMissing() {
-            if (flyerFolderRowsSchemaWarningShown || !currentUser) return;
-            flyerFolderRowsSchemaWarningShown = true;
-            console.warn('Flyer folder row schema is not installed. Run flyer_folder_rows_migration.sql in Supabase to preserve folder photos/specs permanently.');
-            showToast('Schema Required', 'Run flyer_folder_rows_migration.sql in Supabase before creating Flyer folders.', true);
-        }
 
-        async function ensureFlyerFolderRowsSchemaReady(force = false) {
-            if (flyerFolderRowsSchemaReady === true && !force) return true;
-            if (flyerFolderRowsSchemaReady === false && !force) return false;
-            if (flyerFolderRowsSchemaPromise && !force) return flyerFolderRowsSchemaPromise;
-            flyerFolderRowsSchemaPromise = (async () => {
-                if (navigator.onLine === false) return false;
-                try {
-                    const response = await window.GncDatabase.fetchTable(SUPABASE_URL, FLYER_FOLDER_ROWS_TABLE, `select=${FLYER_FOLDER_ROW_SELECT_FIELDS}&limit=1`, {
-                        method: 'GET',
-                        headers: {
-                            apikey: SUPABASE_KEY,
-                            Authorization: 'Bearer ' + SUPABASE_KEY,
-                            'Content-Type': 'application/json'
-                        }
-                    }, SUPABASE_READ_TIMEOUT_MS, 'flyer folder row schema probe');
-                    if (!response.ok) throw new Error(await getResponseError(response, `Flyer folder row schema probe failed (${response.status})`));
-                    flyerFolderRowsSchemaReady = true;
-                    flyerFolderRowsSchemaWarningShown = false;
-                    return true;
-                } catch (error) {
-                    flyerFolderRowsSchemaReady = false;
-                    maybeWarnFlyerFolderRowsSchemaMissing();
-                    console.warn('Flyer folder row schema probe failed', error);
-                    return false;
-                } finally {
-                    flyerFolderRowsSchemaPromise = null;
-                }
-            })();
-            return flyerFolderRowsSchemaPromise;
-        }
 
         function finalizeFlyerFolderNavigation(flyerFolder = '') {
             clearDriveQuickRequestItems(true);
@@ -44401,20 +40968,6 @@ function toggleDriveQuickRequestItem(domId) {
             return false;
         }
 
-        function startDriveQuickAssignFlow() {
-            if (!canUseDriveQuickRequest()) return false;
-            if (!getRoleAccessState().isAdmin) {
-                showToast('Restricted', 'Only admin users can assign rows.', true);
-                return false;
-            }
-            if (!driveQuickRequestItems.size) {
-                showToast('Select Rows', 'Add one or more Drive rows first.', true);
-                return false;
-            }
-            driveQuickAssignFlow = true;
-            openAssignModal();
-            return false;
-        }
 
         const flyerFolderBatchIdempotencyKeys = new Map();
         const flyerFolderBatchPromises = new Map();
@@ -44575,15 +41128,6 @@ function toggleDriveQuickRequestItem(domId) {
         }
         async function createCartFlyers() {
             return startBloomscapesCartFlyerBuilder();
-        }
-        function openDriveQuickRequestModal() {
-            if (!canUseDriveQuickRequest()) return;
-            if (!driveQuickRequestItems.size) {
-                showToast('Select Rows', 'Add one or more Drive rows first.', true);
-                return;
-            }
-            driveQuickRequestFlow = true;
-            if (showRequestModalBase() === false) return false;
         }
 
         function configureRequestCustomerStep() {
@@ -45042,17 +41586,7 @@ function toggleDriveQuickRequestItem(domId) {
             return option && { ...option, localReservedChoice: !!resolvedRepName };
         }
 
-        function getRequestModalDefaultCustomerOptionsForRep(repName = '') {
-            return resolveCanonicalRequestRepName(repName) ? [buildRequestModalNaCustomerOption()].filter(Boolean) : [];
-        }
 
-        function getRequestModalCustomerOverrideOptionsForRep(repName = '') {
-            const canonicalRepName = resolveCanonicalRequestRepName(repName);
-            return (REQUEST_REP_CUSTOMER_OVERRIDES || []).filter((entry) => {
-                const names = Array.isArray(entry && entry.repNames) ? entry.repNames : [];
-                return names.some((name) => doesRequestRepMatchValue(name, canonicalRepName) || doesRequestRepMatchValue(canonicalRepName, name));
-            }).map((entry) => buildRequestModalCustomerSearchOption(entry.customerName, entry.consigneeName)).filter(Boolean);
-        }
 
         function getCustomerRepMapRepValue(row = null) {
             return firstNonEmptyValue(row && row.SALESREPNAME, row && row.SALESREP, row && row.SALES_REP, row && row.SALESPERSON,
@@ -47132,11 +43666,6 @@ function toggleDriveQuickRequestItem(domId) {
             return true;
         }
 
-        function getRequestReusableDataForExactRow(sourceItem = null, targetItem = null) {
-            if (!sourceItem) return getEmptyRequestReusableData();
-            if (targetItem && !isSameRequestReusableRow(sourceItem, targetItem)) return getEmptyRequestReusableData();
-            return getRequestReusableData(sourceItem);
-        }
 
         function getRequestReusableData(item) {
             if (!item) return getEmptyRequestReusableData();
@@ -47210,8 +43739,6 @@ function toggleDriveQuickRequestItem(domId) {
             const effectivePhotoLink = String(firstNonEmptyValue(seed && seed.photoLink, '')).trim();
             const effectiveLocPhotoMatch = Number(firstNonEmptyValue(seed && seed.locPhotoMatch, ''));
             const effectiveSourceItem = (seed && (seed.sourceItem || seed.item)) || null;
-            const effectivePlantGroup = String(firstNonEmptyValue(seed && seed.plantGroupCode, '')).trim();
-            const effectiveContSize = String(firstNonEmptyValue(seed && seed.contSize, '')).trim();
             const needsCaliper = false;
             const requiresAvNote = effectiveSourceItem ? requiresAvNoteForCompletion(effectiveSourceItem) : true;
             if (effectiveMatch == null) return false;
@@ -47416,17 +43943,6 @@ function toggleDriveQuickRequestItem(domId) {
             return item._searchCandidates || [];
         }
 
-        function getSearchValuesForProfile(item, profileName = '') {
-            if (!item) return [];
-            if (!profileName) return getSearchCandidates(item);
-            if (!item._searchProfileValues) item._searchProfileValues = {};
-            if (Array.isArray(item._searchProfileValues[profileName])) return item._searchProfileValues[profileName];
-            const resolver = SEARCH_PROFILES[profileName];
-            const values = resolver ? [...new Set(resolver(item).map(normalizeSearchValue).filter(Boolean))] : getSearchCandidates(item);
-            item._searchProfileValues[profileName] = values;
-            return values;
-        }
-
         function getSearchWordStartsForProfile(item, profileName = '') {
             if (!item) return [];
             if (!profileName) {
@@ -47441,61 +43957,7 @@ function toggleDriveQuickRequestItem(domId) {
             return wordStarts;
         }
 
-        function doesSearchProfilePrefixMatch(searchValues = [], terms = []) {
-            const safeValues = Array.isArray(searchValues) ? searchValues : [];
-            const safeTerms = Array.isArray(terms) ? terms.filter(Boolean) : [];
-            if (!safeTerms.length) return true;
-            if (!safeValues.length) return false;
-            const joined = safeTerms.join(' ');
-            if (joined && safeValues.some((value) => String(value || '').startsWith(joined))) return true;
-            return safeTerms.every((term) => safeValues.some((value) => {
-                const normalizedValue = normalizeSearchValue(value);
-                if (normalizedValue.replace(/\s/g, '').includes(normalizeSearchValue(term).replace(/\s/g, ''))) return true;
-                return normalizedValue.startsWith(term) || normalizedSearchTextHasWordStart(normalizedValue, term);
-            }));
-        }
-
-        function matchesItemSearch(item, rawTerm, profileName = '', options = {}) {
-            const terms = Array.isArray(options?.terms) ? options.terms : tokenizeSearchValue(rawTerm);
-            if (!terms.length) return true;
-            const preparedWords = profileName && item?._searchProfileWordStarts?.[profileName];
-            if (Array.isArray(preparedWords) && terms.every(term => preparedWords.some(word => word.startsWith(term)))) return true;
-            const searchValues = getSearchValuesForProfile(item, profileName);
-            if (!searchValues.length) return false;
-            const prefixMatched = doesSearchProfilePrefixMatch(searchValues, terms);
-            if (prefixMatched || (options && options.prefixOnly === true)) return prefixMatched;
-            return terms.every((term) => searchValues.some((value) => normalizedSearchTextHasWordStart(value, term)));
-        }
-
-        function filterBySearch(items, rawTerm, profileName = '') {
-            if (!rawTerm) return items;
-            const scopedItems = Array.isArray(items) ? items : [];
-            if (!scopedItems.length) return [];
-            const normalizedTerm = normalizeSearchValue(rawTerm);
-            if (!normalizedTerm) return scopedItems;
-            let cacheBucket = searchFilterCache.get(scopedItems);
-            if (!cacheBucket) {
-                cacheBucket = new Map();
-                searchFilterCache.set(scopedItems, cacheBucket);
-            }
-            const cacheKey = `${searchFilterCacheEpoch}|${String(profileName || '').trim().toLowerCase()}|${normalizedTerm}|${scopedItems.length}`;
-            if (cacheBucket.has(cacheKey)) {
-                incrementInternalPerfCounter('searchCacheHits');
-                return cacheBucket.get(cacheKey);
-            }
-            const searchStartedAt = beginInternalPerfMeasure();
-            const terms = tokenizeSearchValue(normalizedTerm);
-            const prefixOptions = { prefixOnly: true, terms };
-            const fallbackOptions = { terms };
-            const prefixItems = scopedItems.filter(item => matchesItemSearch(item, normalizedTerm, profileName, prefixOptions));
-            const filteredItems = prefixItems.length
-                ? prefixItems
-                : scopedItems.filter(item => matchesItemSearch(item, normalizedTerm, profileName, fallbackOptions));
-            recordInternalPerfDuration('searchRenderDurations', searchStartedAt, String(profileName || 'default').trim() || 'default');
-            cacheBucket.set(cacheKey, filteredItems);
-            trimInternalCacheMap(cacheBucket);
-            return filteredItems;
-        }
+        /* @runtime-fragment assets/inventory-search-matcher.js */
 
         function scheduleSearchRender(key, renderFn, term = null, options = {}) {
             const safeKey = String(key || 'search');
@@ -47575,26 +44037,6 @@ function toggleDriveQuickRequestItem(domId) {
             }, debounceDelay);
         }
 
-        function restoreSearchInputFocusIfSafe(input = null, cursorPos = null, options = {}) {
-            if (!input || !input.isConnected) return false;
-            const opts = options && typeof options === 'object' ? options : {};
-            const touchConstrained = isTouchConstrainedDevice();
-            const wasActive = document.activeElement === input;
-            if (!wasActive) {
-                if (touchConstrained && !opts.force) return false;
-                try {
-                    input.focus({ preventScroll: true });
-                } catch (error) {
-                    try { input.focus(); } catch (focusError) { globalThis.safeIgnoreProbeError?.("restoreSearchInputFocusIfSafe"); }
-                }
-            }
-            if (document.activeElement !== input) return false;
-            try {
-                const pos = Number.isFinite(Number(cursorPos)) ? Number(cursorPos) : String(input.value || '').length;
-                if (typeof input.setSelectionRange === 'function') input.setSelectionRange(pos, pos);
-            } catch (error) { globalThis.safeIgnoreProbeError?.("restoreSearchInputFocusIfSafe"); }
-            return true;
-        }
 
         /* @runtime-fragment assets/canonical-row-unlock.js */
         function getProtectedEditConfig(prefix) {
@@ -48206,51 +44648,6 @@ function toggleDriveQuickRequestItem(domId) {
             return task;
         }
 
-        async function restorePersistedSessionOnStartup() {
-            const sessionRecord = getPersistedSessionRestoreRecord();
-            if (!sessionRecord) return false;
-            const normalizedUsername = normalizeSessionIdentity(sessionRecord.username);
-            const password = String(sessionRecord.password || '').trim();
-            const role = String(sessionRecord.role || '').trim();
-            const displayName = String(firstNonEmptyValue(sessionRecord.displayName, sessionRecord.username, normalizedUsername) || '').trim();
-            if (!normalizedUsername || !password || !role) return false;
-            if (shouldRequirePasswordChangeForUser(normalizedUsername, password, false, displayName)) {
-                showForcedPasswordChangeGate(normalizedUsername, password, role, displayName);
-                return true;
-            }
-            const usernameInput = document.getElementById('username-input');
-            const pinInput = document.getElementById('pin-code');
-            const loginInputs = document.getElementById('login-inputs');
-            const spinner = document.getElementById('loading-spinner');
-            if (usernameInput) usernameInput.value = displayName || normalizedUsername;
-            if (pinInput) pinInput.value = password;
-            if (loginInputs) loginInputs.classList.add('hidden');
-            if (spinner) spinner.classList.remove('hidden');
-            beginInitialAppLoad('Restoring your workspace...');
-            scheduleLoginStartupWatchdog('restore-session');
-            currentUser = normalizedUsername;
-            currentUserDisplay = displayName || normalizedUsername;
-            currentRole = role;
-            currentUserDivision = String(firstNonEmptyValue(sessionRecord.division, localStorage.getItem('gnc_division_v1'), '10') || '10').trim() || '10';
-            currentUserLanguage = normalizeAppUserLanguage(firstNonEmptyValue(sessionRecord.language, localStorage.getItem('gnc_language_v1'), 'English'));
-            applyCurrentUserLanguagePreference();
-            safeRole = String(currentRole).toUpperCase().replace(/\s+/g,'');
-            try {
-                await finalizeLogin(currentUser, password, false, { restoredSession: true, skipBiometricPrompt: true, sessionSource: sessionRecord.source || 'startup-restore' });
-                showToast('Success', 'Signed in from saved session.');
-                return true;
-            } catch (error) {
-                finishInitialAppLoad();
-                setBootingSession(false);
-                if (recoverRestoredSessionAfterBootFailure(sessionRecord, error)) {
-                    showToast('Success', 'Signed in from saved session.');
-                    return true;
-                }
-                clearInMemorySessionIdentity();
-                resetLoginUiState();
-                return false;
-            }
-        }
 
         function handleLogin(isBiometricLogin=false) {
             if (currentUser || window.hasAgDataRememberedSession?.()) return false;
@@ -48841,101 +45238,6 @@ function toggleDriveQuickRequestItem(domId) {
                 console.warn('Post-login initialization deferred; Home remains available.', error);
             }
         }
-        async function silentBackgroundSync() {
-            if(!currentUser)return;
-            if (shouldUseRealtime() && hasHealthyRealtimeSubscriptions(activeRealtimeTables)) return;
-            const checkTime=new Date().toISOString();
-            try {
-                let data = [];
-                let masterDeltaComplete = false;
-                try {
-                    data = await fetchAllInventoryReadRows('master_delta', { since: lastSyncTime }, { label: 'Inventory changes', limit: 500 });
-                    masterDeltaComplete = true;
-                } catch (masterDeltaError) {
-                    // Keep the last verified snapshot intact. A later app-api poll or revision refresh retries this delta.
-                    console.warn('Inventory delta refresh failed; verified cached inventory was retained.', masterDeltaError);
-                }
-                if(Array.isArray(data)) {
-                    if(data&&data.length>0){
-                        let updated=false;
-                        data.forEach(updatedRow=>{
-                            const indexed = masterInventoryById.get(updatedRow.unique_id);
-                            if (indexed) {
-                                for (const [key, value] of Object.entries(updatedRow)) if (value !== null) indexed[key.toUpperCase()] = value;
-                                normalizeRowPhotoFields(indexed);
-                                updated = true;
-                                if (activeItem?.UNIQUE_ID === updatedRow.unique_id) Object.assign(activeItem, indexed);
-                            } else {
-                                const formattedRow = formatFetchedRows([updatedRow], 'ph_master_inventory')[0];
-                                if (formattedRow && isMasterInventoryRowVisibleToCurrentUser(formattedRow)) {
-                                    formattedRow.DOM_ID = 'fi_' + fullInventory.length;
-                                    fullInventory.push(buildSearchIndex(normalizeRowPhotoFields(formattedRow)));
-                                    masterInventoryById.set(updatedRow.unique_id, formattedRow);
-                                    updated = true;
-                                }
-                            }
-                        });
-                        if(updated){
-                            processAndLoadData({ data: fullInventory, avOpenData: buildAvOpenInventoryFromMasterItems(fullInventory) });
-                            if(activeItem&&!document.getElementById('view-detail').classList.contains('hidden')){
-                                const detailInputActive = (typeof isDetailEditableField === 'function' && isDetailEditableField(document.activeElement))
-                                    || (typeof isDetailMeasurementKeyboardActiveForInput === 'function' && isDetailMeasurementKeyboardActiveForInput());
-                                if(!detailInputActive) openDetail(activeItem.UNIQUE_ID,lastView);
-                            }
-                        }
-                    }
-                }
-
-                const reqData = await fetchActiveRequestLiveRows('*');
-                let hash = JSON.stringify(reqData || []);
-                if(hash !== localStorage.getItem('last_req_hash')) {
-                    processAndLoadData(buildDatasetPayload('requests', reqData));
-                    localStorage.setItem('last_req_hash', hash);
-                    persistCurrentCache(false, 'realtime');
-                    markViewDirty('request');
-                    queueInteractiveViewRender('request', false, true, 48, 220);
-                }
-
-                let soData = null;
-                try {
-                    soData = await fetchAllSupabaseRows('ph_sales_office', 'select=*');
-                } catch (salesOfficeReadError) {
-                    notifySupabaseReadAccessDenied('Sales Office', salesOfficeReadError, true);
-                }
-                if(Array.isArray(soData)) {
-                    let soHash = JSON.stringify(soData);
-                    if(soHash !== localStorage.getItem('last_so_hash')) {
-                        processAndLoadData({ salesOfficeData: formatFetchedRows(soData, 'ph_sales_office') });
-                        localStorage.setItem('last_so_hash', soHash);
-                        markViewDirty('sales-office');
-                        queueInteractiveViewRender('sales-office', false, true, 48, 220);
-                    }
-                }
-
-                const previousDockTeamSnapshot = JSON.stringify(Array.from(dockTeamStatusByTrip.entries()));
-                const previousDockItemSnapshot = JSON.stringify(Array.from(dockItemProgressByUid.entries()));
-                const previousDockIssueSnapshot = JSON.stringify(Array.from(dockIssueStatusByUid.entries()));
-                const previousDockAllocationSnapshot = JSON.stringify(Array.from(dockIssueAllocationsById.entries()));
-                await Promise.allSettled([
-                    ensureDockTeamStatusLoaded(true),
-                    ensureDockItemStatusLoaded(true),
-                    ensureDockIssueDataLoaded(true)
-                ]);
-                const dockWorkflowChanged = previousDockTeamSnapshot !== JSON.stringify(Array.from(dockTeamStatusByTrip.entries()))
-                    || previousDockItemSnapshot !== JSON.stringify(Array.from(dockItemProgressByUid.entries()))
-                    || previousDockIssueSnapshot !== JSON.stringify(Array.from(dockIssueStatusByUid.entries()))
-                    || previousDockAllocationSnapshot !== JSON.stringify(Array.from(dockIssueAllocationsById.entries()));
-                if (dockWorkflowChanged) {
-                    markViewDirty('docks');
-                    queueInteractiveViewRender('docks', false, true, 48, 220);
-                }
-
-                if (masterDeltaComplete) lastSyncTime=checkTime;
-                lastSuccessfulSyncTime = checkTime;
-                syncDiagnosticsOverride = '';
-                updateSyncDiagnostics();
-            } catch (error) { window.GncRuntimeWatchdog?.capture?.(error, 'silentBackgroundSync');}
-        }
 
         async function fetchBackgroundData(mode='full') {
             if (mode === 'critical' || mode === 'supplemental') return true;
@@ -48964,12 +45266,6 @@ function toggleDriveQuickRequestItem(domId) {
             if (!isMasterSeasonWinnerBaseCandidate(item)) return false;
             if (hasCompletionDateValue(item) || isOptimisticallyCompletedRow(item)) return false;
             return true;
-        }
-        function isOpenMasterSeasonFallbackCandidate(item = null) {
-            if (!isMasterSeasonWinnerBaseCandidate(item)) return false;
-            if (hasCompletionDateValue(item) || isOptimisticallyCompletedRow(item)) return false;
-            const ptrValue = getSeasonWinnerPtrAvailable(item);
-            return Number.isFinite(ptrValue);
         }
         function compareSeasonWinnerCandidates(a, b) {
             const ptrA = Number.isFinite(getSeasonWinnerPtrAvailable(a)) ? getSeasonWinnerPtrAvailable(a) : -1;
@@ -49166,19 +45462,6 @@ function toggleDriveQuickRequestItem(domId) {
             return { soPayload, cloneSO, masterSyncId: uniqueId, masterSyncItem: masterItem };
         }
 
-        function refreshViewsAfterMasterAvRuleClear(reason = 'master-av-rule-clear') {
-            invalidateResolvedViewStateCaches();
-            persistCurrentCache(true, reason);
-            ['drive', 'tasks', 'av', 'low-stock', 'sales-office', 'move-up'].forEach((viewId) => markViewDirty(viewId));
-            refreshLocalRequestViewState(reason, { renderVisible: false });
-            if (isViewVisible('drive')) queueInteractiveViewRender('drive', false, false, 0, 180);
-            if (isViewVisible('tasks')) queueInteractiveViewRender('tasks', false, false, 0, 180);
-            if (isViewVisible('av')) queueInteractiveViewRender('av', false, false, 0, 180);
-            if (isViewVisible('low-stock')) queueInteractiveViewRender('low-stock', false, false, 0, 180);
-            if (isViewVisible('request')) queueInteractiveViewRender('request', false, false, 0, 140);
-            if (isViewVisible('reports')) queueInteractiveViewRender('reports', false, false, 0, 140);
-            if (isViewVisible('sales-office')) queueInteractiveViewRender('sales-office', false, false, 0, 160);
-        }
 
         function syncSeasonSalesOfficeAfterSeasonDataSave(item = null, prefix = '', options = {}) {
             if (!item) return [];
@@ -49471,10 +45754,6 @@ function toggleDriveQuickRequestItem(domId) {
             return dockTeamStatusPromise;
         }
 
-        function isDockTeamAssignedToCurrentUser(tripNumber = '') {
-            const info = getDockTeamInfo(tripNumber);
-            return [info.checker, info.inspector, info.mistake].some(value => isAssignedToCurrentUser(value));
-        }
 
         function getDefaultDockItemProgress() {
             return { checker: false, inspector: false, checkerCompletedBy: '', inspectorCompletedBy: '', updatedAt: '' };
@@ -49707,7 +45986,6 @@ function toggleDriveQuickRequestItem(domId) {
         }
 
         function normalizeDockIssueAllocationRow(row = null) {
-            const base = getDefaultDockIssueAllocation();
             const raw = row && typeof row === 'object' ? row : {};
             const issueSourceUniqueId = normalizeDockIssueSourceUniqueId(firstNonEmptyValue(raw.issue_source_unique_id, raw.ISSUE_SOURCE_UNIQUE_ID, raw.issueSourceUniqueId, ''));
             const altMasterUniqueId = String(firstNonEmptyValue(raw.alt_master_unique_id, raw.ALT_MASTER_UNIQUE_ID, raw.altMasterUniqueId, '')).trim();
@@ -49907,25 +46185,11 @@ function toggleDriveQuickRequestItem(domId) {
             ].map((value) => String(value || '').trim()).filter(Boolean).join(' ').toLowerCase();
         }
 
-        function buildDockMistakeSelectedRowMiniHtml(allocation = null, selectedRow = null, issue = null, sourceRow = null) {
-            const row = selectedRow || {};
-            const allocatedQty = Math.max(0, parseAppNumber(firstNonEmptyValue(allocation && allocation.allocatedQty, '0')) || 0);
-            const availableQty = Math.max(0, parseAppNumber(firstNonEmptyValue(row.PTRAVAILABLE, allocation && allocation.altPtrAvailable, '0')) || 0);
-            const qaCode = getDockMistakeCustomerQaCode(issue, sourceRow, row);
-            const title = firstNonEmptyValue(row.COMMONNAME, allocation && allocation.altCommonName, issue && issue.sourceCommonName, 'Selected Drive Mode Row');
-            const contSize = firstNonEmptyValue(row.CONTSIZE, allocation && allocation.altContSize, issue && issue.sourceContSize, '-');
-            const location = firstNonEmptyValue(row.LOCATIONCODE, allocation && allocation.altLocationCode, '-');
-            const lot = firstNonEmptyValue(row.LOTCODE, allocation && allocation.altLotCode, '-');
-            const itemCode = firstNonEmptyValue(row.ITEMCODE, allocation && allocation.altItemCode, '-');
-            const season = firstNonEmptyValue(row.SEASON, row.season, '');
-            return `<div class="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4 shadow-sm"><div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div class="min-w-0"><div class="text-[10px] font-black uppercase tracking-[0.16em] text-[#007a4d]">Selected Drive Mode Row</div><div class="mt-1 text-xl font-black leading-tight text-slate-900 break-words">${esc(title)}</div><div class="mt-1 text-sm font-semibold text-slate-500">${esc(contSize)}</div></div><div class="rounded-2xl border border-emerald-200 bg-white px-4 py-3 text-center text-emerald-700"><div class="text-[10px] font-black uppercase tracking-[0.14em]">Selected Qty</div><div class="text-2xl font-black leading-none">${esc(allocatedQty > 0 ? formatDockDisplayQty(allocatedQty) : 'Tap')}</div></div></div><div class="mt-3 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-[0.14em]"><span class="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-blue-700">Loc ${esc(location)}</span><span class="rounded-full border border-slate-200 bg-white px-3 py-1 text-slate-700">Lot ${esc(lot)}</span><span class="rounded-full border border-slate-200 bg-white px-3 py-1 text-slate-700">Item ${esc(itemCode)}</span>${buildInventoryQuantityChipsHtml(row, { compact: true })}${season ? `<span class="rounded-full border border-emerald-200 bg-white px-3 py-1 text-emerald-700">Season ${esc(season)}</span>` : ''}<span class="rounded-full border border-slate-200 bg-white px-3 py-1 text-slate-700">Customer QA ${esc(qaCode || '-')}</span>${buildInventoryCardFieldChipsHtml(row, { compact: true })}</div></div>`;
-        }
 
         function buildDockMistakeQueueDetailFormHtml(card = null, context = {}) {
             if (!card || !card.issue) return '';
             const issue = card.issue;
             const sourceRow = card.sourceRow || issue.sourceRow || issue || {};
-            const selectedRow = card.selectedRow || {};
             const allocation = card.allocation || null;
             const safeIssueUid = String(firstNonEmptyValue(context.safeIssueUid, issue.issueSourceUniqueId, '') || '').trim();
             const safeAllocationId = allocation ? String(firstNonEmptyValue(context.safeAllocationId, allocation.allocationUniqueId, '') || '').trim() : '';
@@ -50206,10 +46470,6 @@ function toggleDriveQuickRequestItem(domId) {
             return `${safeColumn}=eq.${encodeURIComponent(String(value || '').trim())}`;
         }
 
-        function isDockIssueAllocationForeignKeyError(error = null) {
-            const message = String(error && error.message ? error.message : error || '').toLowerCase();
-            return message.includes('23503') && message.includes('issue_source_unique_id') && (message.includes('ph_dock_issue_allocations') || message.includes('not present'));
-        }
 
         function getDockIssueSourcePhotoCsv(item = null) {
             if (!item) return '';
@@ -50535,9 +46795,6 @@ function toggleDriveQuickRequestItem(domId) {
             };
         }
 
-        function getCurrentDockIssueSourceRowsById() {
-            return getCurrentDockIssueSourceRowsState().rowsBySourceUid;
-        }
 
         function getCurrentDockDisplayRowsBySourceUid() {
             return dockDisplayInventoryBySourceUid instanceof Map ? dockDisplayInventoryBySourceUid : new Map();
@@ -51302,44 +47559,8 @@ function toggleDriveQuickRequestItem(domId) {
             return text;
         }
 
-        function getDockGenusName(item = null) {
-            if (!item) return '';
-            const directValue = normalizeDockFilterValue(firstNonEmptyValue(
-                item.GENUSNAME,
-                item.genusname,
-                item.GENUS_NAME,
-                item.genus_name,
-                item.GENUS,
-                item.genus,
-                ''
-            ));
-            if (directValue) return directValue;
-            const linkedMaster = typeof findLinkedMasterRow === 'function' ? findLinkedMasterRow(item) : null;
-            if (!linkedMaster || linkedMaster === item) return '';
-            return normalizeDockFilterValue(firstNonEmptyValue(
-                linkedMaster.GENUSNAME,
-                linkedMaster.genusname,
-                linkedMaster.GENUS_NAME,
-                linkedMaster.genus_name,
-                linkedMaster.GENUS,
-                linkedMaster.genus,
-                ''
-            ));
-        }
 
-        function getDockContSizeValue(item = null) {
-            return normalizeDockFilterValue(firstNonEmptyValue(item && item.CONTSIZE, item && item.contsize, item && item.ITEMSPEC, item && item.itemspec, ''));
-        }
 
-        function getDockLocationCodeValue(item = null) {
-            return normalizeDockFilterValue(firstNonEmptyValue(
-                item && item.LOCATIONCODE,
-                item && item.locationcode,
-                item && item.LOCATION_CODE,
-                item && item.location_code,
-                ''
-            ));
-        }
 
         function getDockRepFilterValue(item = null) {
             return normalizeDockFilterValue(firstNonEmptyValue(
@@ -51795,9 +48016,6 @@ function toggleDriveQuickRequestItem(domId) {
             return false;
         }
 
-        function selectAllDockGenusFilters() { return selectAllDockFilterSelection('genus'); }
-        function selectAllDockContSizeFilters() { return selectAllDockFilterSelection('contsize'); }
-        function selectAllDockLocationFilters() { return selectAllDockFilterSelection('location'); }
         function selectAllDockRepFilters() { return selectAllDockFilterSelection('rep'); }
         function selectAllDockCustomerFilters() { return selectAllDockFilterSelection('customer'); }
 
@@ -51909,21 +48127,6 @@ function toggleDriveQuickRequestItem(domId) {
             return false;
         }
 
-        function clearDockMobileFilterSheetSelection(kind = '') {
-            const safeKind = normalizeDockMobileFilterKind(kind);
-            if (!safeKind) return false;
-            setDockMobileFilterSelectionForKind(safeKind, new Set(), 'custom');
-            dockMobileFilterSheetState.search = '';
-            const input = document.getElementById('dock-mobile-filter-sheet-search');
-            if (input) input.value = '';
-            closeDockInlineFilterDropdowns();
-            clearDockInlineFilterSearchTerms();
-            resetDockDrillForFilterChange();
-            scheduleDocksRender(0);
-            refreshDockFilterControls();
-            renderDockMobileFilterSheetOptionsOnly();
-            return false;
-        }
 
         function applyDockMobileFilterSheet(kind = '') {
             return closeDockMobileFilterSheet();
@@ -51964,9 +48167,6 @@ function toggleDriveQuickRequestItem(domId) {
             return false;
         }
 
-        function setDockGenusSearchTerm(value = '') { return setDockFilterSearchTerm('genus', value); }
-        function setDockContSizeSearchTerm(value = '') { return setDockFilterSearchTerm('contsize', value); }
-        function setDockLocationSearchTerm(value = '') { return setDockFilterSearchTerm('location', value); }
         function setDockRepSearchTerm(value = '') { return setDockFilterSearchTerm('rep', value); }
         function setDockCustomerSearchTerm(value = '') { return setDockFilterSearchTerm('customer', value); }
 
@@ -51993,9 +48193,6 @@ function toggleDriveQuickRequestItem(domId) {
             return false;
         }
 
-        function toggleDockGenusDropdown() { return toggleDockFilterDropdown('genus'); }
-        function toggleDockContSizeDropdown() { return toggleDockFilterDropdown('contsize'); }
-        function toggleDockLocationDropdown() { return toggleDockFilterDropdown('location'); }
         function toggleDockRepDropdown() { return toggleDockFilterDropdown('rep'); }
         function toggleDockCustomerDropdown() { return toggleDockFilterDropdown('customer'); }
 
@@ -52011,11 +48208,6 @@ function toggleDriveQuickRequestItem(domId) {
             return false;
         }
 
-        function closeDockGenusDropdown() { return closeDockFilterDropdown('genus'); }
-        function closeDockContSizeDropdown() { return closeDockFilterDropdown('contsize'); }
-        function closeDockLocationDropdown() { return closeDockFilterDropdown('location'); }
-        function closeDockRepDropdown() { return closeDockFilterDropdown('rep'); }
-        function closeDockCustomerDropdown() { return closeDockFilterDropdown('customer'); }
 
         function toggleDockFilterSelection(kind = '', value = '') {
             const safeKind = String(kind || '').trim().toLowerCase();
@@ -52056,9 +48248,6 @@ function toggleDriveQuickRequestItem(domId) {
             return false;
         }
 
-        function toggleDockGenusSelection(value = '') { return toggleDockFilterSelection('genus', value); }
-        function toggleDockContSizeSelection(value = '') { return toggleDockFilterSelection('contsize', value); }
-        function toggleDockLocationSelection(value = '') { return toggleDockFilterSelection('location', value); }
         function toggleDockRepSelection(value = '') { return toggleDockFilterSelection('rep', value); }
         function toggleDockCustomerSelection(value = '') { return toggleDockFilterSelection('customer', value); }
 
@@ -52094,11 +48283,6 @@ function toggleDriveQuickRequestItem(domId) {
             return false;
         }
 
-        function clearDockGenusFilters() { return clearDockFilterSelection('genus'); }
-        function clearDockContSizeFilters() { return clearDockFilterSelection('contsize'); }
-        function clearDockLocationFilters() { return clearDockFilterSelection('location'); }
-        function clearDockRepFilters() { return clearDockFilterSelection('rep'); }
-        function clearDockCustomerFilters() { return clearDockFilterSelection('customer'); }
 
         function applyVisibleDockFilterResults(kind = '') {
             const safeKind = String(kind || '').trim().toLowerCase();
@@ -52153,26 +48337,11 @@ function toggleDriveQuickRequestItem(domId) {
             return true;
         }
 
-        function applyVisibleDockGenusResults() { return applyVisibleDockFilterResults('genus'); }
-        function applyVisibleDockContSizeResults() { return applyVisibleDockFilterResults('contsize'); }
-        function applyVisibleDockLocationResults() { return applyVisibleDockFilterResults('location'); }
         function applyVisibleDockRepResults() { return applyVisibleDockFilterResults('rep'); }
         function applyVisibleDockCustomerResults() { return applyVisibleDockFilterResults('customer'); }
 
-        function handleDockGenusSearchKeydown(event) {
-            if (!isEnterKeypress(event)) return;
-            handleSearchEnterApply(event, applyVisibleDockGenusResults);
-        }
 
-        function handleDockContSizeSearchKeydown(event) {
-            if (!isEnterKeypress(event)) return;
-            handleSearchEnterApply(event, applyVisibleDockContSizeResults);
-        }
 
-        function handleDockLocationSearchKeydown(event) {
-            if (!isEnterKeypress(event)) return;
-            handleSearchEnterApply(event, applyVisibleDockLocationResults);
-        }
 
         function handleDockRepSearchKeydown(event) {
             if (!isEnterKeypress(event)) return;
@@ -52313,49 +48482,7 @@ function toggleDriveQuickRequestItem(domId) {
             if (modal) modal.classList.remove('hidden');
         }
 
-        function renderDockIssueAllocationSummary(issueSourceUniqueId = '') {
-            const allocations = getDockIssueAllocations(issueSourceUniqueId);
-            if (!allocations.length) {
-                return `<div class="rounded-xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-4 text-sm font-semibold text-slate-500">No alternate locations have been assigned yet.</div>`;
-            }
-            return allocations.map((allocation) => {
-                const safeAllocationId = esc(allocation.allocationUniqueId || '');
-                const allocationQty = Math.max(0, parseAppNumber(allocation.allocatedQty) || 0);
-                const qtyLabel = allocationQty > 0 ? `Qty ${esc(formatDockDisplayQty(allocationQty))}` : 'Selected';
-                return `<div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Drive Mode Row</div><div class="mt-1 text-base font-black text-slate-900">${esc(allocation.altLocationCode || '-')}</div><div class="mt-1 text-[11px] font-semibold text-slate-500">${esc(allocation.altLotCode || '-')} &bull; ${esc(allocation.altItemCode || '-')}</div></div><div class="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-700">${qtyLabel}</div></div><div class="mt-3 flex justify-end"><button class="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-red-600 active:scale-95" ${buildFastInvokeAttrs('removeDockIssueAllocation', [safeAllocationId], 'Remove row')}>Remove</button></div></div>`;
-            }).join('');
-        }
 
-        function buildDockMistakeDriveCandidateCardHtml(entry = null, issue = null, allocations = [], options = {}) {
-            const row = entry && entry.row ? entry.row : null;
-            if (!row || !issue) return '';
-            const isOriginal = !!entry.isOriginal;
-            const masterUniqueId = String(firstNonEmptyValue(entry && entry.masterUniqueId, row && row.UNIQUE_ID, row && row.unique_id, '')).trim();
-            const existingAllocation = !isOriginal ? (allocations || []).find((allocation) => allocation && allocation.altMasterUniqueId === masterUniqueId) : null;
-            const seasonValue = String(firstNonEmptyValue(row.SEASON, row.season, 'S1') || '').trim().toUpperCase() || 'S1';
-            const availableQty = Math.max(0, parseAppNumber(firstNonEmptyValue(row.PTRAVAILABLE, '0')) || 0);
-            const sourceQty = Math.max(0, parseAppNumber(firstNonEmptyValue(options.sourceQty, issue.sourceQty, getDockDisplayQty(row), '0')) || 0);
-            const remainingQty = Math.max(0, parseAppNumber(firstNonEmptyValue(options.remainingQty, sourceQty, '0')) || 0);
-            const shellToneClass = isOriginal ? 'border-2 border-emerald-400 bg-emerald-50/40' : 'border border-emerald-200 bg-white';
-            const topLabel = isOriginal ? 'Original Dock Row' : `Drive Mode ${seasonValue}`;
-            const topToneClass = isOriginal ? 'text-[#007a4d]' : 'text-emerald-600';
-            const primaryQtyLabel = isOriginal ? `Qty ${formatDockDisplayQty(sourceQty)}` : `Available ${formatDockDisplayQty(availableQty)}`;
-            const metaHtml = isOriginal
-                ? `<div class="mt-3 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-[0.14em]"><span class="rounded-full border border-slate-200 bg-white px-3 py-1 text-slate-700">Dock ${esc(row.DOCK_NUM || issue.dockNum || '-')}</span><span class="rounded-full border border-slate-200 bg-white px-3 py-1 text-slate-700">Stop ${esc(getDockStopOrDropValue(row) || issue.stopNumber || '-')}</span><span class="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-blue-700">Loc ${esc(row.LOCATIONCODE || issue.sourceLocationCode || '-')}</span><span class="rounded-full border border-emerald-200 bg-white px-3 py-1 text-emerald-700">Remaining ${esc(formatDockDisplayQty(remainingQty))}</span>${buildInventoryQuantityChipsHtml(row, { compact: true })}${buildInventoryCardFieldChipsHtml(row, { compact: true })}</div>`
-                : `<div class="mt-3 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-[0.14em]"><span class="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-emerald-700">Season ${esc(seasonValue)}</span><span class="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-blue-700">Loc ${esc(row.LOCATIONCODE || '-')}</span><span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-700">Lot ${esc(row.LOTCODE || '-')}</span><span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-700">Item ${esc(row.ITEMCODE || '-')}</span>${buildInventoryQuantityChipsHtml(row, { compact: true })}${buildInventoryCardFieldChipsHtml(row, { compact: true })}</div>`;
-            const issueNoteHtml = isOriginal && issue.issueNote
-                ? `<div class="mt-3 rounded-xl border border-orange-200 bg-orange-50 px-3 py-3 text-[12px] font-semibold text-orange-800 whitespace-pre-wrap"><span class="font-black">Issue:</span> ${esc(issue.issueNote)}</div>`
-                : '';
-            const actionHtml = isOriginal
-                ? `<div class="rounded-xl border border-emerald-200 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#007a4d]">Reference Row</div>`
-                : (() => {
-                    const allocatedQty = existingAllocation ? Math.max(0, parseAppNumber(existingAllocation.allocatedQty) || 0) : 0;
-                    const label = existingAllocation ? (allocatedQty > 0 ? `Selected Qty ${formatDockDisplayQty(allocatedQty)}` : 'Selected Option') : 'Available Option';
-                    const toneClass = existingAllocation ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-50 text-slate-500';
-                    return `<div class="rounded-xl border ${toneClass} px-4 py-2 text-[10px] font-black uppercase tracking-[0.14em]">${esc(label)}</div>`;
-                })();
-            return `<div class="rounded-2xl ${shellToneClass} p-4 shadow-sm"><div class="flex items-start justify-between gap-3"><div class="min-w-0 flex-1"><div class="text-[10px] font-black uppercase tracking-[0.16em] ${topToneClass}">${topLabel}</div><div class="mt-1 text-xl font-black text-slate-900 leading-tight break-words">${esc(row.COMMONNAME || issue.sourceCommonName || 'Dock Item')}</div><div class="mt-1 text-sm font-semibold text-slate-500 break-words">${esc(row.CONTSIZE || issue.sourceContSize || '-')}</div></div><div class="rounded-full border border-emerald-200 bg-white px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-700">${esc(primaryQtyLabel)}</div></div>${metaHtml}<div class="mt-3 text-[12px] font-bold text-slate-600 break-words">${esc(row.LOCATIONCODE || 'No Loc')}${row.LOTCODE ? ` | ${esc(row.LOTCODE)}` : ''}${row.ITEMCODE ? ` | ${esc(row.ITEMCODE)}` : ''}</div>${issueNoteHtml}<div class="mt-3 flex justify-end">${actionHtml}</div></div>`;
-        }
 
         function getDockIssueCandidateRowsForSource(issue = null, sourceRow = null) {
             if (!issue || !sourceRow) return [];
@@ -52391,12 +48518,6 @@ function toggleDriveQuickRequestItem(domId) {
             return deduped;
         }
 
-        function getDockIssueCandidateRows(issueSourceUniqueId = '') {
-            const issueView = getDockMistakeIssueViewByUniqueId(issueSourceUniqueId);
-            const issue = issueView || getDockIssueStatus(issueSourceUniqueId);
-            const sourceRow = issueView && issueView.sourceRow ? issueView.sourceRow : findDockMistakeSourceRowByUniqueId(issueSourceUniqueId, issue);
-            return getDockIssueCandidateRowsForSource(issue, sourceRow);
-        }
 
         function canEditDockWorkflow() {
             const access = getRoleAccessState();
@@ -52410,9 +48531,6 @@ function toggleDriveQuickRequestItem(domId) {
             return 'checker';
         }
 
-        function isDockRowComplete(item = null) {
-            return getDockRowQueueStage(item) === 'complete';
-        }
 
         function getDockRowQueueOwner(item = null) {
             if (!item) return '';
@@ -52601,13 +48719,7 @@ function toggleDriveQuickRequestItem(domId) {
             return String(firstNonEmptyValue(roleOverride, currentRole, safeRole, '') || '').trim();
         }
 
-        function isCurrentEvalRole(roleOverride = '') {
-            return isEvalRoleValue(getCurrentRoleAccessValue(roleOverride));
-        }
 
-        function isCurrentDivisionRole(roleOverride = '') {
-            return isDivisionRoleValue(getCurrentRoleAccessValue(roleOverride));
-        }
 
         function normalizeMovesUserKey(value = '') {
             return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
@@ -54349,9 +50461,6 @@ function toggleDriveQuickRequestItem(domId) {
             renderChat();
         }
 
-        function setChatComposeTitle(value = '') {
-            chatComposeTitle = String(value || '').slice(0, 120);
-        }
 
         function focusChatRecipientInput(delay = 0) {
             setTimeout(() => {
@@ -54402,14 +50511,6 @@ function toggleDriveQuickRequestItem(domId) {
             }
         }
 
-        function toggleChatUserSelection(username = '') {
-            const normalized = normalizePushUsername(username);
-            if (!normalized || normalized === getCurrentChatUsername()) return;
-            if (chatSelectedUsers.has(normalized)) chatSelectedUsers.delete(normalized);
-            else chatSelectedUsers.add(normalized);
-            chatLastRenderSignature = '';
-            renderChat();
-        }
 
         function findExistingDirectChat(otherUsername = '') {
             const currentUsername = getCurrentChatUsername();
@@ -54756,32 +50857,6 @@ function toggleDriveQuickRequestItem(domId) {
 
 
 
-        async function enablePushNotificationsFromPrompt() {
-            const button = document.getElementById('mobile-push-enable-button');
-            if (button) {
-                button.disabled = true;
-                button.textContent = 'Turning on...';
-            }
-            try {
-                const ok = await subscribeCurrentDeviceForPush({ prompt: true, force: isCellularPushDevice() });
-                if (ok) {
-                    hideMobilePushEnablePrompt();
-                    showToast('Notifications On', 'This device is ready for Ag Data alerts.');
-                } else if (Notification.permission === 'denied') {
-                    maybeWarnPushPermissionBlocked(true);
-                    showPushPermissionHelp();
-                } else {
-                    showToast('Notifications Off', 'Notifications were not enabled on this device.', true);
-                }
-            } catch (error) {
-                showToast('Push Error', error && error.message ? error.message : 'Could not enable notifications.', true);
-            } finally {
-                if (button) {
-                    button.disabled = false;
-                    button.textContent = 'Enable';
-                }
-            }
-        }
 
         
 
@@ -54897,10 +50972,6 @@ function toggleDriveQuickRequestItem(domId) {
             });
         }
 
-        function isCurrentUserFlyerPushTarget() {
-            const normalizedUser = normalizePushUsername(currentUser || currentUserDisplay || '');
-            return !!(normalizedUser && PUSH_ALERT_FLYER_USERS.has(normalizedUser));
-        }
 
         function getPushPromptUserScope() {
             return !!currentUser;
@@ -55138,56 +51209,9 @@ function toggleDriveQuickRequestItem(domId) {
             queuePushNotificationPayload(payload, 0);
         }
 
-        function getActiveRequestFolderItems(folderId = '') {
-            const safeFolderId = String(folderId || '').trim();
-            if (!safeFolderId) return [];
-            return requestsInventory.filter((item) => {
-                const itemFolderId = String(firstNonEmptyValue(item && item.REQUEST_FOLDER, item && item.request_folder, '')).trim();
-                if (itemFolderId !== safeFolderId) return false;
-                const archivedRaw = firstNonEmptyValue(item && item.REQ_ARCHIVED, item && item.req_archived, false);
-                return !(archivedRaw === true || archivedRaw === 1 || archivedRaw === '1' || String(archivedRaw || '').trim().toLowerCase() === 'true');
-            });
-        }
 
-        function isAutoCompleteRequestSubmissionEligible(savedRequestIds = [], autoCompleteSavedIds = [], folderId = '') {
-            const normalizedSavedIds = normalizeRequestIdList(savedRequestIds);
-            if (!normalizedSavedIds.length) return false;
-            const autoCompleteIdSet = new Set(normalizeRequestIdList(autoCompleteSavedIds));
-            if (normalizedSavedIds.some((requestId) => !autoCompleteIdSet.has(requestId))) return false;
-            const folderItems = getActiveRequestFolderItems(folderId);
-            return !!(folderItems.length && folderItems.every((item) => isRequestComplete(item)));
-        }
 
-        async function sendRequestSubmissionNotifications(folderId, repName, customer, itemsCount, summaryDetails = null, completionDetails = null, options = {}) {
-            const safeOptions = options || {};
-            let summaryEmailResult = null;
-            if (!safeOptions.skipSummaryNotification) {
-                sendPushNotification('new_request', folderId, repName, customer, itemsCount);
-                summaryEmailResult = await sendEmailNotification('new_request', folderId, repName, customer, itemsCount, summaryDetails || {}, {
-                    suppressFailureToast: !!safeOptions.suppressSummaryFailureToast
-                });
-            }
-            let delayedReplyResult = null;
-            const wantsCompletionReply = !!safeOptions.queueDelayedCompletionReply || !!safeOptions.sendImmediateCompletionReply;
-            const canSendCompletionReply = wantsCompletionReply && (!!safeOptions.skipSummaryNotification || (summaryEmailResult && summaryEmailResult.ok));
-            const shouldSendCompletionFallback = wantsCompletionReply && !canSendCompletionReply && safeOptions.sendCompletionWhenSummaryFails !== false;
-            if (canSendCompletionReply || shouldSendCompletionFallback) {
-                const completionItemsCount = Number(safeOptions.completionItemsCount) || itemsCount;
-                delayedReplyResult = await sendEmailNotification('request_complete', folderId, repName, customer, completionItemsCount, completionDetails || {}, {
-                    suppressFailureToast: !!safeOptions.suppressDelayedReplyFailureToast,
-                    delayMs: (safeOptions.sendImmediateCompletionReply || shouldSendCompletionFallback) ? 0 : Math.max(REQUEST_AUTO_COMPLETE_REPLY_DELAY_MS, Number(safeOptions.delayMs) || 0)
-                });
-                if (!delayedReplyResult || delayedReplyResult.ok !== false) {
-                    sendPushNotification('request_complete', folderId, repName, customer, completionItemsCount);
-                }
-            }
-            return { summaryEmailResult, delayedReplyResult };
-        }
 
-        function notifyRequestEvent(type, folderId, repName, customer, itemsCount, details = null) {
-            sendEmailNotification(type, folderId, repName, customer, itemsCount, details);
-            sendPushNotification(type, folderId, repName, customer, itemsCount);
-        }
 
         function openViewFromPushMessage(viewId = '', payload = null) {
             const target = String(viewId || '').trim().toLowerCase();
@@ -55432,12 +51456,6 @@ function toggleDriveQuickRequestItem(domId) {
             });
         }
 
-        function markHiddenViewsDirty(visibleViewIds = []) {
-            const visibleSet = new Set(visibleViewIds);
-            TRACKED_VIEW_IDS.forEach((viewId) => {
-                if (!visibleSet.has(viewId)) markViewDirty(viewId);
-            });
-        }
 
         function resetReviewView(shouldRender = true, options = {}) {
             const nextOptions = (options && typeof options === 'object' && !Array.isArray(options)) ? options : {};
@@ -55852,14 +51870,6 @@ function toggleDriveQuickRequestItem(domId) {
             input.value = '';
         }
 
-        function getNcrEmailModalRowLabel(item = activeItem) {
-            if (!item) return '';
-            return [
-                String(firstNonEmptyValue(item.COMMONNAME, 'Unknown Item')).trim(),
-                String(firstNonEmptyValue(item.CONTSIZE, '')).trim(),
-                String(firstNonEmptyValue(item.LOCATIONCODE, '')).trim()
-            ].filter(Boolean).join(' - ');
-        }
 
         function getApprovalPromptChoice(result = null, fallback = 'cancel') {
             if (typeof result === 'string') return String(result || fallback).trim().toLowerCase() || fallback;
@@ -56037,40 +52047,6 @@ function toggleDriveQuickRequestItem(domId) {
             return true;
         }
 
-        function finalizeNcrCompletion(record = null, item = activeItem) {
-            const uid = getNcrSourceUniqueId(record && record.source_unique_id);
-            if (!uid) return false;
-            optimisticNcrCompletedRowIds.delete(uid);
-            managerReviewInventoryDirty = true;
-            moveUpInventoryDirty = true;
-            const sameItemCode = String(firstNonEmptyValue(item && item.ITEMCODE, '')).trim();
-            if (reviewBrowseMode === 'item' && reviewViewLevel === 1 && sameItemCode && String(selectedReviewItemCode || '') === sameItemCode && !getReviewDrilldownItems(sameItemCode).length) {
-                resetReviewView(false);
-            } else if (reviewBrowseMode === 'block' && reviewViewLevel === 2 && !getReviewRowsForBlockLocation(selectedReviewBlockAlpha, selectedReviewLocationCode).length) {
-                backReviewView(false);
-            } else if (reviewBrowseMode === 'block' && reviewViewLevel === 1 && !getReviewRowsForBlock(selectedReviewBlockAlpha).length) {
-                resetReviewView(false);
-            }
-            if (moveUpBrowseMode === 'item' && moveUpViewLevel === 1 && sameItemCode && String(selectedMoveUpItemCode || '') === sameItemCode && !getMoveUpDrilldownItems(sameItemCode).length) {
-                resetMoveUpView(false);
-            } else if (moveUpBrowseMode === 'block' && moveUpViewLevel === 2 && !getMoveUpRowsForBlockLocation(selectedMoveUpBlockAlpha, selectedMoveUpLocationCode).length) {
-                backMoveUpView(false);
-            } else if (moveUpBrowseMode === 'block' && moveUpViewLevel === 1 && !getMoveUpRowsForBlock(selectedMoveUpBlockAlpha).length) {
-                resetMoveUpView(false);
-            }
-            clearNcrDraft(item);
-            markViewDirty('review');
-            markViewDirty('move-up');
-            markViewDirty('tasks');
-            taskScopedQueueItemsCache.clear();
-            taskHotStateCache.clear();
-            taskResolvedStateCache = null;
-            scheduleReviewRender(0);
-            scheduleMoveUpRender(0);
-            scheduleTasksRender(0, 20, true);
-            if (getCurrentVisibleViewId() === 'detail') goBackFromDetail();
-            return true;
-        }
 
         function refreshNcrCandidateViewsAfterOptimisticChange() {
             managerReviewInventoryDirty = true;
@@ -56297,14 +52273,6 @@ function toggleDriveQuickRequestItem(domId) {
             });
         }
 
-        async function maybePublishNcrDraftToAppFromDetail(item = activeItem, photoUrls = []) {
-            if (!item) return false;
-            const shouldPublish = await openNcrAvPublishApproval(item);
-            if (!shouldPublish) return false;
-            await publishNcrDraftToAv(item, photoUrls);
-            showToast('Published', 'New Crop Release photos and data are now visible in Drive Mode and AV.');
-            return true;
-        }
 
         async function publishNcrDraftToAv(item = activeItem, photoUrls = []) {
             const draft = normalizeNcrDraftForCompletion(item);
@@ -56413,36 +52381,6 @@ function toggleDriveQuickRequestItem(domId) {
             };
         }
 
-        async function sendNcrCompletionEmail(item = activeItem, photoUrls = []) {
-            const subject = [
-                String(firstNonEmptyValue(item && item.COMMONNAME, '')).trim(),
-                String(firstNonEmptyValue(item && item.CONTSIZE, '')).trim(),
-                String(firstNonEmptyValue(item && item.LOCATIONCODE, '')).trim()
-            ].filter(Boolean).join(' ').trim() || 'New Crop Release';
-            const requestStyleItem = buildNcrEmailShareItem(item, photoUrls);
-            const itemPayload = buildNcrEmailItemPayload(item, photoUrls);
-            const payload = {
-                type: 'email',
-                emailType: 'ncr_complete',
-                subject,
-                folderId: getNcrSourceUniqueId(item),
-                requestFolder: getNcrSourceUniqueId(item),
-                customer: 'New Crop Release',
-                itemsCount: 1,
-                completedBy: String(currentUserDisplay || currentUser || 'Unknown').trim(),
-                recipientEmails: NCR_EMAIL_RECIPIENTS.slice(),
-                recipients: NCR_EMAIL_RECIPIENTS.map((email) => ({ email, role: 'internal' })),
-                formattedItemsHtml: formatRequestItemsHtml([requestStyleItem], 'New Crop Release'),
-                formattedItemsText: formatRequestItemsText([requestStyleItem], 'New Crop Release', { includePhotoUrls: true }),
-                photoUrls: normalizeNcrEmailPhotoUrls(photoUrls),
-                requestItems: [itemPayload]
-            };
-            const responseData = await postGoogleScriptJsonPayload(payload, REQUEST_EMAIL_SCRIPT_TIMEOUT_MS, 'NCR Email');
-            if (responseData && responseData.ok === false) {
-                throw new Error(String(firstNonEmptyValue(responseData.message, 'NCR email failed.')).trim());
-            }
-            return responseData;
-        }
 
         function normalizeSalesYearForNcrRelease(value = '') {
             const numericValue = parseAppNumber(value);
@@ -56734,7 +52672,6 @@ function toggleDriveQuickRequestItem(domId) {
         const NCR_APPROVAL_BATCH_MARKER_PREFIX = '[[GNC_NCR_BATCH:';
         const NCR_APPROVAL_BATCH_MARKER_SUFFIX = ']]';
         const NCR_APPROVAL_BATCH_MARKER_REGEX = /\[\[GNC_NCR_BATCH:({[\s\S]*?})\]\]/g;
-        const ncrGroupedJdEmailSentBatchIds = new Set();
 
         function getRawNcrApprovalMessageFromItem(item = null) {
             return normalizeNcrApprovalMessage(firstNonEmptyValue(
@@ -56761,18 +52698,6 @@ function toggleDriveQuickRequestItem(domId) {
             };
         }
 
-        function buildNcrApprovalBatchMeta(items = [], type = 'new-crop') {
-            const safeItems = (Array.isArray(items) ? items : []).filter(Boolean);
-            const typeKey = normalizeNcrApprovalType(type);
-            const randomPart = Math.random().toString(36).slice(2, 10);
-            return normalizeNcrApprovalBatchMeta({
-                id: `ncr-bloom-${typeKey}-${Date.now()}-${randomPart}`,
-                type: typeKey,
-                count: safeItems.length,
-                createdBy: String(currentUser || currentUserDisplay || '').trim(),
-                createdAt: new Date().toISOString()
-            });
-        }
 
         function serializeNcrApprovalBatchMeta(meta = null) {
             const safeMeta = normalizeNcrApprovalBatchMeta(meta);
@@ -56780,22 +52705,6 @@ function toggleDriveQuickRequestItem(domId) {
             return `${NCR_APPROVAL_BATCH_MARKER_PREFIX}${JSON.stringify(safeMeta)}${NCR_APPROVAL_BATCH_MARKER_SUFFIX}`;
         }
 
-        function parseNcrApprovalBatchMetaFromText(message = '') {
-            const text = String(message || '');
-            if (!text.includes(NCR_APPROVAL_BATCH_MARKER_PREFIX)) return null;
-            NCR_APPROVAL_BATCH_MARKER_REGEX.lastIndex = 0;
-            let match = null;
-            let parsed = null;
-            while ((match = NCR_APPROVAL_BATCH_MARKER_REGEX.exec(text)) !== null) {
-                try {
-                    parsed = normalizeNcrApprovalBatchMeta(JSON.parse(match[1]));
-                } catch (error) {
-                    parsed = null;
-                }
-            }
-            NCR_APPROVAL_BATCH_MARKER_REGEX.lastIndex = 0;
-            return parsed;
-        }
 
         function stripNcrApprovalBatchMarkers(message = '') {
             const text = String(message || '');
@@ -57464,14 +53373,6 @@ function toggleDriveQuickRequestItem(domId) {
         return normalized;
     }
 
-    function applyApprovalRecommendationMetaToDraft(item = null, meta = null) {
-        if (!item || typeof item !== 'object') return null;
-        const normalized = applyApprovalRecommendationMetaToItem(item, meta);
-        if (!normalized) return null;
-        const draft = ensureNcrDraft(item);
-        draft.approvalRecommendation = normalized;
-        return normalized;
-    }
 
     function getApprovalBaseQtyFromItem(item = null) {
         const raw = firstNonEmptyValue(
@@ -57726,22 +53627,7 @@ function toggleDriveQuickRequestItem(domId) {
         return payload;
     }
 
-        function getNcrApprovalBatchMetaFromItem(item = null) {
-            if (!item || typeof item !== 'object') return null;
-            const explicitMeta = normalizeNcrApprovalBatchMeta(item.NCR_APPROVAL_BATCH || item.ncr_approval_batch || item.ncrApprovalBatch || null);
-            if (explicitMeta) return explicitMeta;
-            return parseNcrApprovalBatchMetaFromText(getRawNcrApprovalMessageFromItem(item));
-        }
 
-        function applyNcrApprovalBatchMetaToItem(item = null, meta = null) {
-            if (!item || typeof item !== 'object') return '';
-            const safeMeta = normalizeNcrApprovalBatchMeta(meta);
-            const mergedMessage = safeMeta
-                ? mergeNcrApprovalMessageWithBatchMeta(getRawNcrApprovalMessageFromItem(item), safeMeta)
-                : stripNcrApprovalBatchMarkers(getRawNcrApprovalMessageFromItem(item));
-            applyNcrApprovalMessageToItem(item, mergedMessage);
-            return mergedMessage;
-        }
 
     function getNcrApprovalMessageFromItem(item = null) {
         return stripAllNcrApprovalMarkers(getRawNcrApprovalMessageFromItem(item));
@@ -58208,231 +54094,16 @@ function toggleDriveQuickRequestItem(domId) {
             return new Promise(resolve => { holdReleasePromptResolver = resolve; });
         }
 
-        function getNcrRepOutreachModalRowLabel(item = null, type = 'new-crop', approvedQty = '') {
-            const rowLabel = [
-                String(firstNonEmptyValue(item && item.ITEMCODE, item && item.itemcode, '') || '').trim(),
-                String(firstNonEmptyValue(item && item.COMMONNAME, item && item.commonname, 'Unknown Item') || '').trim(),
-                String(firstNonEmptyValue(item && item.CONTSIZE, item && item.contsize, item && item.ITEMSPEC, '') || '').trim(),
-                String(firstNonEmptyValue(item && item.LOCATIONCODE, item && item.locationcode, item && item.LOCATION, '') || '').trim()
-            ].filter(Boolean).join(' - ');
-            const qtyLabel = approvedQty !== '' && approvedQty !== null && approvedQty !== undefined ? `Qty ${approvedQty}` : '';
-            return [getNcrApprovalTypeLabel(type), rowLabel, qtyLabel].filter(Boolean).join(' | ');
-        }
-
         /* @runtime-fragment assets/request-prompt-dialogs.js */
 
 
-        function getHoldReleaseCompletionSourceLabel(prefix = '') {
-            const safePrefix = String(prefix || '').trim().toLowerCase();
-            if (safePrefix === 'req-') return 'Request';
-            if (safePrefix === 'dock-') return 'Dock';
-            if (safePrefix === 'flyer-') return 'Flyer';
-            if (safePrefix === 'ssn-') return 'Season Sales Note';
-            if (safePrefix === 'lsn-') return 'Location Sales Note';
-            if (safePrefix === 'na-') return 'Task';
-            return 'Completed Row';
-        }
 
-        function getHoldReleaseSourceView(prefix = '') {
-            const safePrefix = String(prefix || '').trim().toLowerCase();
-            if (safePrefix === 'req-') return 'request';
-            if (safePrefix === 'dock-') return 'docks';
-            if (safePrefix === 'flyer-') return 'flyer';
-            return '';
-        }
 
-        function buildHoldReleaseEmailItemPayload(item = activeItem, photoUrls = [], completedItem = null, prefix = '') {
-            const sourceItem = item || completedItem || {};
-            const completedRow = completedItem || sourceItem;
-            const sourceView = getHoldReleaseSourceView(prefix);
-            const normalizedPhotos = normalizeNcrEmailPhotoUrls(photoUrls);
-            const photoCsv = normalizedPhotos.join(',');
-            const holdCode = getHoldReleaseHoldCode(sourceItem) || getHoldReleaseHoldCode(completedRow);
-            const holdReason = getHoldReleaseHoldReason(sourceItem) || getHoldReleaseHoldReason(completedRow);
-            return {
-                unique_id: String(firstNonEmptyValue(sourceItem && sourceItem.UNIQUE_ID, sourceItem && sourceItem.unique_id, '') || '').trim(),
-                completed_unique_id: String(firstNonEmptyValue(completedRow && completedRow.UNIQUE_ID, completedRow && completedRow.unique_id, '') || '').trim(),
-                source_table: String(firstNonEmptyValue(completedRow && completedRow.SOURCE_TABLE, sourceItem && sourceItem.SOURCE_TABLE, '') || '').trim(),
-                completion_source: getHoldReleaseCompletionSourceLabel(prefix),
-                commonname: String(firstNonEmptyValue(sourceItem && sourceItem.COMMONNAME, completedRow && completedRow.COMMONNAME, 'Unknown Item')).trim(),
-                contsize: String(firstNonEmptyValue(sourceItem && sourceItem.CONTSIZE, completedRow && completedRow.CONTSIZE, '-')).trim(),
-                itemcode: String(firstNonEmptyValue(sourceItem && sourceItem.ITEMCODE, completedRow && completedRow.ITEMCODE, '')).trim(),
-                loc: String(firstNonEmptyValue(sourceItem && sourceItem.LOCATIONCODE, completedRow && completedRow.LOCATIONCODE, '')).trim(),
-                locationcode: String(firstNonEmptyValue(sourceItem && sourceItem.LOCATIONCODE, completedRow && completedRow.LOCATIONCODE, '')).trim(),
-                lotcode: String(firstNonEmptyValue(sourceItem && sourceItem.LOTCODE, completedRow && completedRow.LOTCODE, '')).trim(),
-                season: String(firstNonEmptyValue(sourceItem && sourceItem.SEASON, completedRow && completedRow.SEASON, '')).trim(),
-                s_lts: String(firstNonEmptyValue(sourceItem && sourceItem.S_LTS, completedRow && completedRow.S_LTS, '')).trim(),
-                source: String(firstNonEmptyValue(getMasterInventorySourceCode(sourceItem), getMasterInventorySourceCode(completedRow), sourceItem && sourceItem.SOURCE, completedRow && completedRow.SOURCE, '')).trim(),
-                sourcecode: String(firstNonEmptyValue(getMasterInventorySourceCode(sourceItem), getMasterInventorySourceCode(completedRow), sourceItem && sourceItem.SOURCECODE, completedRow && completedRow.SOURCECODE, sourceItem && sourceItem.SOURCE, completedRow && completedRow.SOURCE, '')).trim(),
-                ptronhand: String(firstNonEmptyValue(sourceItem && sourceItem.PTRONHAND, completedRow && completedRow.PTRONHAND, sourceItem && sourceItem.ptronhand, completedRow && completedRow.ptronhand, '')).trim(),
-                ptrreviewed: String(firstNonEmptyValue(sourceItem && sourceItem.PTRREVIEWED, completedRow && completedRow.PTRREVIEWED, sourceItem && sourceItem.ptrreviewed, completedRow && completedRow.ptrreviewed, '')).trim(),
-                ptravailable: String(firstNonEmptyValue(sourceItem && sourceItem.PTRAVAILABLE, completedRow && completedRow.PTRAVAILABLE, '')).trim(),
-                priority: String(firstNonEmptyValue(sourceItem && sourceItem.PRIORITY, completedRow && completedRow.PRIORITY, '')).trim(),
-                holdstopcode: String(holdCode || '').trim(),
-                holdstopreason: String(holdReason || '').trim(),
-                locationnote: String(firstNonEmptyValue(sourceItem && sourceItem.LOCATIONNOTE, completedRow && completedRow.LOCATIONNOTE, sourceItem && sourceItem.locationnote, completedRow && completedRow.locationnote, '')).trim(),
-                locationnotedate: String(firstNonEmptyValue(sourceItem && sourceItem.LOCATIONNOTEDATE, completedRow && completedRow.LOCATIONNOTEDATE, sourceItem && sourceItem.locationnotedate, completedRow && completedRow.locationnotedate, '')).trim(),
-                locationptn1: String(firstNonEmptyValue(sourceItem && sourceItem.LOCATIONPTN1, completedRow && completedRow.LOCATIONPTN1, sourceItem && sourceItem.locationptn1, completedRow && completedRow.locationptn1, sourceItem && sourceItem.LOC_PTN1, completedRow && completedRow.LOC_PTN1, '')).trim(),
-                av_note: String(firstNonEmptyValue(getItemDisplayValue(completedRow, 'AV_NOTE', sourceView), getItemDisplayValue(sourceItem, 'AV_NOTE', sourceView), completedRow && completedRow.AV_NOTE, sourceItem && sourceItem.AV_NOTE, '') || '').trim(),
-                spec: String(firstNonEmptyValue(getItemDisplayValue(completedRow, 'SPEC', sourceView), getItemDisplayValue(sourceItem, 'SPEC', sourceView), completedRow && completedRow.SPEC, sourceItem && sourceItem.SPEC, '') || '').trim(),
-                caliper: String(firstNonEmptyValue(getItemDisplayValue(completedRow, 'CALIPER', sourceView), getItemDisplayValue(sourceItem, 'CALIPER', sourceView), completedRow && completedRow.CALIPER, sourceItem && sourceItem.CALIPER, '') || '').trim(),
-                match: String(firstNonEmptyValue(getItemDisplayValue(completedRow, 'MATCH', sourceView), getItemDisplayValue(sourceItem, 'MATCH', sourceView), completedRow && completedRow.MATCH, sourceItem && sourceItem.MATCH, '') || '').trim(),
-                loc_match_qty: getPhotoQualifiedLocMatchQtyValue(completedRow || sourceItem, sourceView),
-                pick_note: String(firstNonEmptyValue(getItemDisplayValue(completedRow, 'PICK', sourceView), getItemDisplayValue(sourceItem, 'PICK', sourceView), completedRow && completedRow.PICK, sourceItem && sourceItem.PICK, '') || '').trim(),
-                comments: String(firstNonEmptyValue(completedRow && completedRow.SALES_NOTE, completedRow && completedRow.SALESNOTE, sourceItem && sourceItem.SALES_NOTE, sourceItem && sourceItem.SALESNOTE, '') || '').trim(),
-                photo: photoCsv,
-                photo_link: photoCsv,
-                photo_urls: photoCsv,
-                photos: normalizedPhotos.map((url, index) => ({ label: `Photo ${index + 1}`, url })),
-                completed_by: String(currentUserDisplay || currentUser || 'Unknown').trim(),
-                completed_at: new Date().toISOString()
-            };
-        }
 
-        function buildHoldReleaseEmailShareItem(item = activeItem, photoUrls = [], completedItem = null, prefix = '') {
-            const payload = buildHoldReleaseEmailItemPayload(item, photoUrls, completedItem, prefix);
-            return {
-                SOURCE_TABLE: ACTIVE_REQUEST_TABLE,
-                REQUEST_FOLDER: 'Take off Hold',
-                REQ_CUSTOMER: 'Hold Release',
-                COMMONNAME: payload.commonname,
-                CONTSIZE: payload.contsize,
-                ITEMCODE: payload.itemcode,
-                LOCATIONCODE: payload.locationcode,
-                LOTCODE: payload.lotcode,
-                SEASON: payload.season,
-                S_LTS: payload.s_lts,
-                SOURCE: payload.source,
-                SOURCECODE: payload.sourcecode,
-                PTRONHAND: payload.ptronhand,
-                PTRREVIEWED: payload.ptrreviewed,
-                PTRAVAILABLE: payload.ptravailable,
-                PRIORITY: payload.priority,
-                HOLDSTOPCODE: payload.holdstopcode,
-                HOLDSTOPREASON: payload.holdstopreason,
-                LOCATIONNOTE: payload.locationnote,
-                LOCATIONNOTEDATE: payload.locationnotedate,
-                LOCATIONPTN1: payload.locationptn1,
-                AV_NOTE: payload.av_note,
-                REQ_SPEC: payload.spec,
-                REQ_CALIPER: payload.caliper,
-                REQ_MATCH: payload.match,
-                LOC_MATCH_QTY: payload.loc_match_qty,
-                REQ_PICK: payload.pick_note,
-                REQ_PIC_NOTE: payload.pick_note,
-                REQ_COMMENTS: [
-                    payload.holdstopreason ? `Hold Reason: ${payload.holdstopreason}` : '',
-                    payload.comments ? `Notes: ${payload.comments}` : '',
-                    payload.completion_source ? `Completed From: ${payload.completion_source}` : ''
-                ].filter(Boolean).join('\n'),
-                REQ_PHOTO_LINK: payload.photo,
-                REQUEST_PHOTO_LINK: payload.photo,
-                REQUESTPHOTO_LINK: payload.photo
-            };
-        }
 
-        function getHoldReleaseEmailFieldRows(itemPayload = {}) {
-            const hasPhotoEvidence = normalizeNcrEmailPhotoUrls(itemPayload.photo_urls || itemPayload.photo).length > 0;
-            return [
-                { label: 'Item Code', value: itemPayload.itemcode, force: true },
-                { label: 'Location', value: itemPayload.locationcode, force: true },
-                { label: 'Lot', value: itemPayload.lotcode, force: false },
-                { label: 'Priority', value: itemPayload.priority, force: true },
-                { label: 'Available', value: itemPayload.ptravailable, force: true },
-                { label: 'Open Stock', value: itemPayload.s_lts, force: false },
-                { label: 'Season', value: itemPayload.season, force: false },
-                { label: 'Hold Code', value: itemPayload.holdstopcode, force: true },
-                { label: 'Hold Reason', value: itemPayload.holdstopreason, force: false },
-                { label: 'AV Note', value: hasPhotoEvidence ? itemPayload.av_note : '', force: false },
-                { label: 'Spec', value: hasPhotoEvidence ? itemPayload.spec : '', force: false },
-                { label: 'Caliper', value: hasPhotoEvidence ? itemPayload.caliper : '', force: false },
-                { label: 'LOC MATCH %', value: hasPhotoEvidence ? itemPayload.match : '', force: false, percent: true },
-                { label: 'LOC PHOTO MATCH', value: itemPayload.loc_match_qty == null ? 'Not verified' : itemPayload.loc_match_qty, force: true },
-                { label: 'Pick Note', value: itemPayload.pick_note, force: false },
-                { label: 'Notes', value: itemPayload.comments, force: false },
-                { label: 'Completed By', value: itemPayload.completed_by, force: true },
-                { label: 'Completed From', value: itemPayload.completion_source, force: true }
-            ];
-        }
 
-        function formatHoldReleaseEmailText(itemPayload = {}) {
-            return [
-                String(firstNonEmptyValue(itemPayload.commonname, 'Unknown Item') || 'Unknown Item').trim(),
-                String(firstNonEmptyValue(itemPayload.contsize, '') || '').trim(),
-                String(firstNonEmptyValue(itemPayload.itemcode, '') || '').trim(),
-                itemPayload.holdstopcode ? `HOLDSTOPCODE: ${String(itemPayload.holdstopcode).trim()}` : '',
-                itemPayload.holdstopreason ? `HOLDSTOPREASON: ${String(itemPayload.holdstopreason).trim()}` : ''
-            ].filter(Boolean).join('\n');
-        }
 
-        function formatHoldReleaseEmailHtml(itemPayload = {}) {
-            const h = (value) => escapeShareHtml(String(value === null || typeof value === 'undefined' ? '' : value));
-            const commonName = String(firstNonEmptyValue(itemPayload.commonname, 'Unknown Item') || 'Unknown Item').trim();
-            const contSize = String(firstNonEmptyValue(itemPayload.contsize, '') || '').trim();
-            const itemCode = String(firstNonEmptyValue(itemPayload.itemcode, '') || '').trim();
-            const offHoldStrikeValue = (value, fontSize = '34px', thickness = '8px') => `<span style="display:inline-block;max-width:100%;color:#111827!important;font-size:${fontSize};line-height:1.05;font-weight:900;word-break:break-word;text-decoration:line-through;text-decoration-color:#ffd400;text-decoration-thickness:${thickness};text-decoration-skip-ink:none;background:linear-gradient(to bottom, transparent 43%, #ffd400 43%, #ffd400 58%, transparent 58%);">${h(value)}</span>`;
-            const offHoldCodeValue = (value) => offHoldStrikeValue(value, '34px', '8px');
-            const offHoldReasonValue = (value) => offHoldStrikeValue(value, '32px', '9px');
-            const holdField = (label, value) => {
-                const raw = String(firstNonEmptyValue(value, '') || '').trim();
-                if (!raw) return '';
-                const safeLabel = String(label || '').trim().toUpperCase();
-                const valueHtml = safeLabel === 'HOLDSTOPCODE' ? offHoldCodeValue(raw) : offHoldReasonValue(raw);
-                return `<div style="margin:8px 0 0 0;padding:9px 10px;border:2px solid #facc15;border-radius:10px;background:#fffbeb;color:#b45309;font-size:11px;line-height:1.2;font-weight:900;letter-spacing:.06em;text-transform:uppercase;"><div style="margin-bottom:3px;color:#b45309;">${h(safeLabel)}</div>${valueHtml}</div>`;
-            };
-            return [
-                '<div style="margin:0 0 14px 0;border:1px solid #b7dac7;border-radius:12px;background:#ffffff;overflow:hidden;font-family:Arial,sans-serif;color:#111827;line-height:1.35;">',
-                '<div style="padding:11px 12px 12px 12px;">',
-                '<div style="display:inline-block;margin:0 0 6px 0;padding:4px 8px;border:1px solid #bbf7d0;border-radius:999px;background:#ecfdf5;color:#007a4d;font-size:9px;line-height:1.1;font-weight:900;letter-spacing:.08em;text-transform:uppercase;">Item Inquiry</div>',
-                `<div style="font-size:18px;line-height:1.15;font-weight:900;color:#111827;word-break:break-word;">${h(commonName)}</div>`,
-                contSize ? `<div style="margin-top:5px;font-size:16px;line-height:1.12;font-weight:900;color:#111827;text-transform:uppercase;">${h(contSize)}</div>` : '',
-                itemCode ? `<div style="margin-top:4px;font-size:12px;line-height:1.2;font-weight:900;letter-spacing:.08em;color:#64748b;text-transform:uppercase;">${h(itemCode)}</div>` : '',
-                holdField('HOLDSTOPCODE', itemPayload.holdstopcode),
-                holdField('HOLDSTOPREASON', itemPayload.holdstopreason),
-                '</div>',
-                '</div>'
-            ].join('');
-        }
 
-        async function sendHoldReleaseEmail(item = activeItem, photoUrls = [], options = {}) {
-            const safeOptions = options || {};
-            const completedItem = safeOptions.completedItem || item;
-            const safePrefix = String(safeOptions.prefix || '').trim().toLowerCase();
-            const normalizedPhotos = normalizeNcrEmailPhotoUrls(photoUrls);
-            const itemPayload = buildHoldReleaseEmailItemPayload(item, normalizedPhotos, completedItem, safePrefix);
-            const requestStyleItem = buildHoldReleaseEmailShareItem(item, normalizedPhotos, completedItem, safePrefix);
-            const subjectLabel = getHoldReleaseEmailModalRowLabel(item) || [itemPayload.commonname, itemPayload.contsize, itemPayload.locationcode].filter(Boolean).join(' ');
-            const recipientEmails = dedupeRequestEmailRecipients(HOLD_RELEASE_EMAIL_RECIPIENTS);
-            const folderId = `hold-release-${String(firstNonEmptyValue(itemPayload.unique_id, itemPayload.completed_unique_id, Date.now()) || Date.now()).trim()}`;
-            const payload = {
-                type: 'email',
-                emailType: 'hold_release_request',
-                subject: `Take off Hold: ${subjectLabel || 'Completed Photo Row'}`,
-                folderId,
-                requestFolder: 'Take off Hold',
-                customer: 'Hold Release',
-                requestCustomer: 'Hold Release',
-                itemsCount: 1,
-                completedBy: itemPayload.completed_by,
-                requestedBy: itemPayload.completed_by,
-                dylanEmail: HOLD_RELEASE_EMAIL_RECIPIENTS[0],
-                jdEmail: HOLD_RELEASE_EMAIL_RECIPIENTS[1],
-                internalRecipients: recipientEmails,
-                recipientEmails,
-                recipients: recipientEmails.map((email) => ({ email, role: 'internal' })),
-                formattedItemsHtml: formatHoldReleaseEmailHtml(itemPayload),
-                formattedItemsText: formatHoldReleaseEmailText(itemPayload),
-                photoUrls: normalizedPhotos,
-                requestItems: [itemPayload],
-                requestRows: [requestStyleItem],
-                holdRelease: true
-            };
-            const responseData = await postGoogleScriptJsonPayload(payload, REQUEST_EMAIL_SCRIPT_TIMEOUT_MS, 'Hold Release Email');
-            if (responseData && responseData.ok === false) {
-                throw new Error(String(firstNonEmptyValue(responseData.message, 'Hold release email failed.')).trim());
-            }
-            return responseData;
-        }
 
         function canSubmitLiveHoldRemoval(item = null) {
             const permission = getAuditedAppPermission('drive.reclass.submit');
@@ -59022,35 +54693,7 @@ function toggleDriveQuickRequestItem(domId) {
             }
         }
 
-        function getGroupedBloomNcrEligibleItems(items = getCartSelectedItems()) {
-            return (Array.isArray(items) ? items : []).filter((item) => {
-                if (!item || !canUseCartInventoryActions([item])) return false;
-                return canSendDriveRowToNewCropRelease(item);
-            });
-        }
 
-        function sendGroupedBloomNcrApprovalPush(items = [], type = 'new-crop', options = {}) {
-            const safeItems = (Array.isArray(items) ? items : []).filter(Boolean);
-            const firstItem = safeItems[0] || null;
-            const uid = firstItem ? getNcrSourceUniqueId(firstItem) : '';
-            if (!uid) return;
-            const safeOptions = options || {};
-            const safeType = normalizeNcrApprovalType(type);
-            const safeStage = String(firstNonEmptyValue(safeOptions.stage, 'dylan') || 'dylan').trim().toLowerCase() === 'jd' ? 'jd' : 'dylan';
-            const targetUsers = safeStage === 'jd' ? NCR_APPROVAL_JD_STAGE_USERS.slice() : NCR_APPROVAL_FIRST_STAGE_USERS.slice();
-            targetUsers.forEach((targetUser) => {
-                sendPushNotification('ncr_approval', uid, targetUser, `${getNcrApprovalTypeLabel(safeType)} Approval`, safeItems.length, {
-                    targetUsers: [targetUser],
-                    targetUsernames: [targetUser],
-                    viewId: 'tasks',
-                    taskView: getNcrApprovalTaskViewForType(safeType),
-                    ncrApprovalStage: safeStage,
-                    ncrApprovalType: safeType,
-                    grouped: true,
-                    groupedCount: safeItems.length
-                });
-            });
-        }
 
         function getGroupedBloomNcrReportValue(item = null, fields = [], fallback = '-') {
             const values = (Array.isArray(fields) ? fields : []).map((field) => item && item[field]);
@@ -59264,297 +54907,12 @@ function toggleDriveQuickRequestItem(domId) {
             ].map((value) => String(value === null || typeof value === 'undefined' || value === '' ? '-' : value));
         }
 
-        function getGroupedBloomMoveUpCorePairs(row = {}) {
-            return [
-                ['ITEMCODE', row.itemCode],
-                ['COMMONNAME', row.commonName],
-                ['LOCATIONCODE', firstNonEmptyValue(row.locationcode, row.locationCode, '')],
-                ['LOTCODE', firstNonEmptyValue(row.lotcode, row.lotCode, '')],
-                ['SOURCE', firstNonEmptyValue(row.source, row.sourcecode, '')],
-                ['PTRONHAND', row.ptronhand],
-                ['PTRREVIEWED', row.ptrreviewed],
-                ['PTRAVAILABLE', row.ptravailable]
-            ];
-        }
 
-        function getGroupedBloomMoveUpUpdatedPairs(item = null, row = {}, rowOptions = null) {
-            const safeOptions = rowOptions || {};
-            const screenValues = safeOptions.screenValues && typeof safeOptions.screenValues === 'object' ? safeOptions.screenValues : {};
-            const normalizeValue = (value) => String(value === null || typeof value === 'undefined' ? '' : value).trim();
-            const isBlankValue = (value) => {
-                const raw = normalizeValue(value);
-                return !raw || raw === '-';
-            };
-            const pairs = [];
-            const addPair = (label, value, options = {}) => {
-                const raw = normalizeValue(value);
-                if (!raw) return;
-                if (!options.always) {
-                    const previous = normalizeValue(options.previous);
-                    if (previous && raw === previous) return;
-                }
-                pairs.push([label, raw]);
-            };
-            addPair('MOVE UP QTY', firstNonEmptyValue(screenValues.moveUpQty, row.releaseQty, ''), { always: true });
-            if (!isBlankValue(screenValues.holdstopcode)) addPair('HOLDSTOPCODE', screenValues.holdstopcode, { previous: getBloomActionRowCurrentHoldStop(item) });
-            if (!isBlankValue(screenValues.holdstopreason)) addPair('HOLDSTOPREASON', screenValues.holdstopreason, { previous: getBloomActionRowCurrentHoldStopReason(item) });
-            if (!isBlankValue(screenValues.priority)) addPair('PRIORITY', screenValues.priority, { previous: firstNonEmptyValue(item && item.PRIORITY, item && item.priority, '') });
-            if (!isBlankValue(screenValues.locationnote)) addPair('LOCATIONNOTE', screenValues.locationnote, { previous: firstNonEmptyValue(item && item.LOCATIONNOTE, item && item.locationnote, '') });
-            if (!isBlankValue(screenValues.locationptn1)) addPair('LOCATIONPTN1', screenValues.locationptn1, { previous: firstNonEmptyValue(item && item.LOCATIONPTN1, item && item.locationptn1, item && item.LOC_PTN1, item && item.loc_ptn1, '') });
-            return pairs.length ? pairs : [['MOVE UP QTY', firstNonEmptyValue(row.releaseQty, '-')]];
-        }
 
-        function getGroupedBloomActionUpdatedPairs(action = '', item = null, row = {}, rowOptions = null) {
-            const normalizedAction = String(action || '').trim();
-            const approvalType = normalizeNcrApprovalType(firstNonEmptyValue(action, row && row.approvalType, row && row.actionType, 'new-crop'));
-            const screenValues = rowOptions && rowOptions.screenValues && typeof rowOptions.screenValues === 'object' ? rowOptions.screenValues : {};
-            const normalizeValue = (value) => String(value === null || typeof value === 'undefined' ? '' : value).trim();
-            const isBlankValue = (value) => {
-                const raw = normalizeValue(value);
-                return !raw || raw === '-';
-            };
-            const pairs = [];
-            const addPair = (label, value) => {
-                const raw = normalizeValue(value);
-                if (!raw) return;
-                pairs.push([label, raw]);
-            };
-            if (approvalType === 'move-up' || normalizedAction === 'move_up') {
-                return getGroupedBloomMoveUpUpdatedPairs(item, row, rowOptions);
-            }
-            if (normalizedAction === 'note' || normalizedAction === 'send_note' || normalizedAction === 'send_as_note') {
-                addPair('NOTE', firstNonEmptyValue(screenValues.note, screenValues.locationnote, row.note, row.ncrNote, ''));
-                return pairs.length ? pairs : [['ACTION', getBloomPurposeActionLabel(normalizedAction)]];
-            }
-            if (normalizedAction === 'recount') {
-                addPair('RE-COUNT', firstNonEmptyValue(screenValues.note, screenValues.locationnote, row.ncrNote, row.note, 'Verify PTRONHAND is accurate.'));
-                return pairs.length ? pairs : [['ACTION', getBloomPurposeActionLabel(normalizedAction)]];
-            }
-            if (normalizedAction === 'move_down') {
-                addPair('MOVE DOWN QTY', firstNonEmptyValue(screenValues.moveDownQty, row.moveDownQty, ''));
-                addPair('MOVE DOWN SEASON', firstNonEmptyValue(screenValues.moveDownSeason, row.moveDownSeason, ''));
-            } else if (normalizedAction === 'ncr' || approvalType === 'new-crop') {
-                addPair('RELEASE QTY', firstNonEmptyValue(screenValues.releaseQty, row.releaseQty, ''));
-            }
-            if (!isBlankValue(firstNonEmptyValue(screenValues.holdstopcode, row.holdStopCode, ''))) addPair('HOLDSTOPCODE', firstNonEmptyValue(screenValues.holdstopcode, row.holdStopCode, ''));
-            if (!isBlankValue(firstNonEmptyValue(screenValues.holdstopreason, row.holdStopReason, ''))) addPair('HOLDSTOPREASON', firstNonEmptyValue(screenValues.holdstopreason, row.holdStopReason, ''));
-            if (!isBlankValue(screenValues.priority)) addPair('PRIORITY', screenValues.priority);
-            if (!isBlankValue(screenValues.locationnote)) addPair('LOCATIONNOTE', screenValues.locationnote);
-            if (!isBlankValue(screenValues.locationptn1)) addPair('LOCATIONPTN1', screenValues.locationptn1);
-            if (!pairs.length && normalizedAction && normalizedAction !== 'ncr') addPair('ACTION', getBloomPurposeActionLabel(normalizedAction));
-            return pairs;
-        }
 
-        function buildGroupedBloomInquiryStyleEmailHtml(items = [], options = {}) {
-            const safeOptions = options || {};
-            const rows = (Array.isArray(items) ? items : []).filter(Boolean);
-            const rowOptionsByUid = safeOptions.rowOptionsByUid || null;
-            const action = String(firstNonEmptyValue(safeOptions.action, '') || '').trim();
-            const approvalType = normalizeNcrApprovalType(firstNonEmptyValue(safeOptions.approvalType, safeOptions.type, action || 'new-crop'));
-            const title = String(firstNonEmptyValue(
-                safeOptions.title,
-                action ? getBloomPurposeReportTitle(action) : (approvalType === 'move-up' ? 'GNC PH MOVE UP' : 'GNC PH NCR'),
-                ''
-            ) || '').trim();
-            const submittedBy = String(firstNonEmptyValue(safeOptions.submittedBy, currentUserDisplay, currentUser, 'Unknown') || 'Unknown').trim();
-            const message = String(firstNonEmptyValue(safeOptions.reason, safeOptions.approvalMessage, safeOptions.message, '') || '').trim();
-            const messageLabel = String(firstNonEmptyValue(safeOptions.reasonLabel, action ? getBloomPurposeReasonLabel(action) : 'Message') || 'Message').trim();
-            const normalizedAction = action.trim().toLowerCase().replace(/[\s-]+/g, '_');
-            const hasExplicitAction = Boolean(normalizedAction);
-            const isTakeOffHoldEmail = normalizedAction === 'take_off_hold' || normalizedAction === 'off_hold' || normalizedAction === 'hold_release' || approvalType === 'hold-release';
-            const isPlaceOnHoldEmail = normalizedAction === 'hold' || normalizedAction === 'on_hold';
-            const hideSummaryHeader = safeOptions.hideSummaryHeader === true || safeOptions.hideHeader === true || isTakeOffHoldEmail;
-            const h = (value) => escapeShareHtml(String(value === null || typeof value === 'undefined' ? '' : value));
-            const blank = (value) => {
-                const raw = String(value === null || typeof value === 'undefined' ? '' : value).trim();
-                return raw || '-';
-            };
-            const linePart = (label, value, options = {}) => {
-                const raw = blank(value);
-                const safeLabel = String(label || '').trim();
-                const valueStyle = options.strike ? 'text-decoration:line-through;text-decoration-thickness:2px;text-decoration-color:#facc15;' : '';
-                const renderedValue = options.circleValue
-                    ? `<span style="display:inline-block;min-width:17px;height:17px;line-height:17px;text-align:center;border:2px solid #007a4d;border-radius:999px;color:#111827;font-weight:900;${valueStyle}">${h(raw)}</span>`
-                    : `<span style="color:#111827;${valueStyle}">${h(raw)}</span>`;
-                return `<span style="display:inline-block;margin-right:8px;white-space:nowrap;"><span style="color:#94a3b8;font-weight:900;letter-spacing:.06em;text-transform:uppercase;">${h(safeLabel)}</span> ${renderedValue}</span>`;
-            };
-            const chip = (label, value, tone = 'slate', options = {}) => {
-                const raw = blank(value);
-                if (raw === '-') return '';
-                const color = tone === 'green' ? '#007a4d' : (tone === 'amber' ? '#b45309' : '#334155');
-                const bg = tone === 'green' ? '#ecfdf5' : (tone === 'amber' ? '#fffbeb' : '#f8fafc');
-                const border = tone === 'green' ? '#bbf7d0' : (tone === 'amber' ? '#fde68a' : '#dbe5df');
-                const valueStyle = options.strike ? 'text-decoration:line-through;text-decoration-thickness:2px;text-decoration-color:#facc15;' : '';
-                const valueHtml = options.circleValue
-                    ? `<span style="display:inline-block;min-width:18px;height:18px;line-height:18px;text-align:center;border:2px solid ${color};border-radius:999px;color:#111827;font-weight:900;${valueStyle}">${h(raw)}</span>`
-                    : `<span style="color:#111827;${valueStyle}">${h(raw)}</span>`;
-                return `<span style="display:inline-block;margin:0 5px 5px 0;padding:5px 7px;border:1px solid ${border};border-radius:999px;background:${bg};font-size:9px;line-height:1.15;font-weight:900;letter-spacing:.04em;color:${color};text-transform:uppercase;white-space:nowrap;">${h(label)} ${valueHtml}</span>`;
-            };
-            const updatedChip = (label, value) => {
-                const safeLabel = String(label || '').trim().toUpperCase();
-                const isHoldCode = safeLabel === 'HOLDSTOPCODE';
-                const isHoldReason = safeLabel === 'HOLDSTOPREASON';
-                const tone = isHoldCode || isHoldReason ? 'amber' : 'green';
-                return chip(label, value, tone, {
-                    strike: isTakeOffHoldEmail && (isHoldCode || isHoldReason),
-                    circleValue: isPlaceOnHoldEmail && isHoldCode
-                });
-            };
-            const holdEditField = (label, value) => {
-                const raw = blank(value);
-                if (raw === '-') return '';
-                const safeLabel = String(label || '').trim().toUpperCase();
-                const isHoldCode = safeLabel === 'HOLDSTOPCODE';
-                const isHoldReason = safeLabel === 'HOLDSTOPREASON';
-                if (isTakeOffHoldEmail && (isHoldCode || isHoldReason)) {
-                    const valueHtml = isHoldCode
-                        ? `<span style="display:inline-block;max-width:100%;color:#111827!important;font-size:34px;line-height:1.05;font-weight:900;word-break:break-word;text-decoration:line-through;text-decoration-color:#ffd400;text-decoration-thickness:8px;text-decoration-skip-ink:none;background:linear-gradient(to bottom, transparent 43%, #ffd400 43%, #ffd400 58%, transparent 58%);">${h(raw)}</span>`
-                        : `<span style="display:inline-block;max-width:100%;color:#111827!important;font-size:32px;line-height:1.05;font-weight:900;word-break:break-word;text-decoration:line-through;text-decoration-color:#ffd400;text-decoration-thickness:9px;text-decoration-skip-ink:none;background:linear-gradient(to bottom, transparent 43%, #ffd400 43%, #ffd400 58%, transparent 58%);">${h(raw)}</span>`;
-                    return `<div style="margin:8px 0 0 0;padding:9px 10px;border:2px solid #facc15;border-radius:10px;background:#fffbeb;color:#b45309;font-size:11px;line-height:1.2;font-weight:900;letter-spacing:.06em;text-transform:uppercase;"><div style="margin-bottom:3px;color:#b45309;">${h(safeLabel)}</div>${valueHtml}</div>`;
-                }
-                const valueStyle = isTakeOffHoldEmail && (isHoldCode || isHoldReason) ? 'text-decoration:line-through;text-decoration-thickness:2px;text-decoration-color:#facc15;' : '';
-                const valueHtml = isPlaceOnHoldEmail && isHoldCode
-                    ? `<span style="display:inline-block;min-width:19px;height:19px;line-height:19px;text-align:center;border:2px solid #b45309;border-radius:999px;color:#111827;font-weight:900;${valueStyle}">${h(raw)}</span>`
-                    : `<span style="color:#111827;font-weight:900;${valueStyle}">${h(raw)}</span>`;
-                return `<div style="margin:6px 0 0 0;padding:7px 9px;border:1px solid #fde68a;border-radius:8px;background:#fffbeb;font-size:10px;line-height:1.25;font-weight:900;letter-spacing:.04em;text-transform:uppercase;color:#b45309;"><span style="display:inline-block;min-width:112px;color:#b45309;">${h(safeLabel)}</span> ${valueHtml}</div>`;
-            };
-            const rowBlocksHtml = rows.map((item, index) => {
-                const rowOptions = getGroupedBloomNcrRowOption(rowOptionsByUid, item, index);
-                const row = getGroupedBloomNcrReportRow(item, rowOptions, index);
-                const effectiveAction = action || (approvalType === 'move-up' ? 'move_up' : 'ncr');
-                const updatedPairs = getGroupedBloomActionUpdatedPairs(effectiveAction, item, row, rowOptions);
-                const updatedLabels = new Set(updatedPairs.map((pair) => String(pair && pair[0] || '').trim().toUpperCase()).filter(Boolean));
-                const holdEditPairs = updatedPairs.filter((pair) => ['HOLDSTOPCODE', 'HOLDSTOPREASON'].includes(String(pair && pair[0] || '').trim().toUpperCase()));
-                const inlineUpdatedPairs = updatedPairs.filter((pair) => !['HOLDSTOPCODE', 'HOLDSTOPREASON'].includes(String(pair && pair[0] || '').trim().toUpperCase()));
-                const holdEditHtml = holdEditPairs.map((pair) => holdEditField(pair[0], pair[1])).join('');
-                const updatedHtml = inlineUpdatedPairs.map((pair) => updatedChip(pair[0], pair[1])).join('');
-                const locationNote = firstNonEmptyValue(row.locationnote, row.locationNote, '');
-                const detailHtml = [
-                    chip('Date', firstNonEmptyValue(row.locationnoteDate, row.evaldate, ''), 'slate'),
-                    chip('PTN1', row.locationptn1, 'slate'),
-                    updatedLabels.has('LOCATIONNOTE') ? '' : chip('Location Note', locationNote, 'green')
-                ].join('');
-                const rowLineHtml = [
-                    linePart('Row', row.index || index + 1),
-                    linePart('Lot', firstNonEmptyValue(row.lotcode, row.lotCode, '')),
-                    linePart('Loc', firstNonEmptyValue(row.locationcode, row.locationCode, '')),
-                    linePart('Src', firstNonEmptyValue(row.source, row.sourcecode, '')),
-                    linePart('Pri', row.priority),
-                    linePart('On Hand', row.ptronhand),
-                    linePart('Review', row.ptrreviewed),
-                    linePart('Available', row.ptravailable)
-                ].join('');
-                const commonName = blank(row.commonName || 'Unknown Item');
-                const contSize = blank(row.contSize || '-');
-                const itemCode = blank(row.itemCode || '-');
-                const genus = blank(row.genus || '-');
-                const identityLine = [itemCode, contSize, genus].filter((value) => value && value !== '-').join(' | ') || '-';
-                const offHoldIdentityHtml = [
-                    contSize && contSize !== '-' ? `<div style="margin-top:5px;font-size:16px;line-height:1.12;font-weight:900;color:#111827;text-transform:uppercase;">${h(contSize)}</div>` : '',
-                    itemCode && itemCode !== '-' ? `<div style="margin-top:4px;font-size:12px;line-height:1.2;font-weight:900;letter-spacing:.08em;color:#64748b;text-transform:uppercase;">${h(itemCode)}</div>` : ''
-                ].filter(Boolean).join('');
-                return [
-                    '<div style="margin:0 0 14px 0;border:1px solid #b7dac7;border-radius:12px;background:#ffffff;overflow:hidden;">',
-                    '<div style="padding:11px 12px 12px 12px;">',
-                    `<div style="display:inline-block;margin:0 0 5px 0;padding:4px 8px;border:1px solid #bbf7d0;border-radius:999px;background:#ecfdf5;color:#007a4d;font-size:9px;line-height:1.1;font-weight:900;letter-spacing:.08em;text-transform:uppercase;">Item Inquiry</div>`,
-                    `<div style="font-size:18px;line-height:1.15;font-weight:900;color:#111827;word-break:break-word;">${h(commonName)}</div>`,
-                    isTakeOffHoldEmail ? offHoldIdentityHtml : `<div style="margin-top:3px;font-size:12px;line-height:1.2;font-weight:900;letter-spacing:.08em;color:#64748b;text-transform:uppercase;">${h(identityLine)}</div>`,
-                    holdEditHtml,
-                    '</div>',
-                    isTakeOffHoldEmail ? '' : `<div style="padding:7px 10px;border-top:1px solid #dbe5df;font-size:9px;line-height:1.55;font-weight:900;white-space:nowrap;color:#111827;">${rowLineHtml}</div>`,
-                    !isTakeOffHoldEmail && (updatedHtml || detailHtml) ? [
-                        '<div style="padding:8px 12px 10px 12px;border-top:1px solid #dbe5df;background:#f8fafc;">',
-                        updatedHtml ? `<div style="margin:0 0 3px 0;white-space:nowrap;">${updatedHtml}</div>` : '',
-                        detailHtml ? `<div style="margin:0;white-space:nowrap;">${detailHtml}</div>` : '',
-                        '</div>'
-                    ].join('') : '',
-                    '</div>'
-                ].join('');
-            }).join('');
-            return [
-                '<div style="font-family:Arial,sans-serif;color:#111827;max-width:760px;margin:0 auto;line-height:1.35;">',
-                !hideSummaryHeader && title ? `<h2 style="margin:0 0 8px 0;color:#007a4d;font-size:24px;line-height:1.1;">${h(title)}</h2>` : '',
-                !hideSummaryHeader ? `<div style="margin:0 0 12px 0;font-size:13px;line-height:1.35;color:#111827;"><strong>Submitted By:</strong> ${h(submittedBy)}<br><strong>Items:</strong> ${rows.length}</div>` : '',
-                !isTakeOffHoldEmail && message ? `<div style="margin:0 0 12px 0;border-left:4px solid #007a4d;background:#ecfdf5;padding:9px 11px;font-size:13px;line-height:1.35;"><strong>${h(messageLabel)}:</strong><br>${h(message).replace(/\n/g, '<br>')}</div>` : '',
-                rowBlocksHtml,
-                '</div>'
-            ].join('');
-        }
 
-        function buildGroupedBloomNcrReportEmailText(items = [], options = {}) {
-            const safeOptions = options || {};
-            const rows = (Array.isArray(items) ? items : []).filter(Boolean);
-            const rowOptionsByUid = safeOptions.rowOptionsByUid || null;
-            const submittedBy = String(firstNonEmptyValue(safeOptions.submittedBy, currentUserDisplay, currentUser, 'Unknown') || 'Unknown').trim();
-            const approvalType = normalizeNcrApprovalType(firstNonEmptyValue(safeOptions.approvalType, safeOptions.type, 'new-crop'));
-            const reportTitle = approvalType === 'move-up' ? 'GNC PH MOVE UP' : 'GNC PH NCR';
-            const isHoldReleaseReport = approvalType === 'hold-release';
-            const lines = isHoldReleaseReport ? [] : [
-                reportTitle,
-                `Submitted By: ${submittedBy}`,
-                `Items: ${rows.length}`,
-                ''
-            ];
-            const approvalMessage = String(firstNonEmptyValue(safeOptions.approvalMessage, '') || '').trim();
-            if (approvalMessage && !isHoldReleaseReport) lines.push(`Message: ${approvalMessage}`, '');
-            if (rows.length) {
-                if (!isHoldReleaseReport) lines.push('Rows:');
-                rows.forEach((item, index) => {
-                    const rowOptions = getGroupedBloomNcrRowOption(rowOptionsByUid, item, index);
-                    const row = getGroupedBloomNcrReportRow(item, rowOptions, index);
-                    if (isHoldReleaseReport) {
-                        lines.push(
-                            String(firstNonEmptyValue(row.commonName, 'Unknown Item') || 'Unknown Item'),
-                            String(firstNonEmptyValue(row.contSize, '') || ''),
-                            String(firstNonEmptyValue(row.itemCode, '') || ''),
-                            row.holdStopCode ? `HOLDSTOPCODE: ${row.holdStopCode}` : '',
-                            row.holdStopReason ? `HOLDSTOPREASON: ${row.holdStopReason}` : '',
-                            ''
-                        );
-                        return;
-                    }
-                    lines.push(getGroupedBloomNcrReportRowLabel(row));
-                    if (approvalType === 'move-up') {
-                        lines.push('Core Fields:');
-                        getGroupedBloomMoveUpCorePairs(row).forEach(([label, value]) => lines.push(`${label}: ${String(firstNonEmptyValue(value, '-') || '-')}`));
-                        lines.push('Updated Fields:');
-                        getGroupedBloomMoveUpUpdatedPairs(item, row, rowOptions).forEach(([label, value]) => lines.push(`${label}: ${String(firstNonEmptyValue(value, '-') || '-')}`));
-                    } else {
-                        lines.push(getGroupedBloomNcrItemReportHeaders().join('\t'));
-                        lines.push(getGroupedBloomNcrItemReportCells(row).join('\t'));
-                        lines.push(getGroupedBloomNcrLotReportHeaders().join('\t'));
-                        lines.push(getGroupedBloomNcrLotReportCells(row).join('\t'));
-                        lines.push(getGroupedBloomNcrScreenReportHeaders(approvalType).join('\t'));
-                        lines.push(getGroupedBloomNcrScreenReportCells(row).join('\t'));
-                    }
-                    lines.push('');
-                });
-            }
-            return lines.join('\n');
-        }
 
-        function buildGroupedBloomNcrReportEmailHtml(items = [], options = {}) {
-            const safeOptions = options || {};
-            const approvalType = normalizeNcrApprovalType(firstNonEmptyValue(safeOptions.approvalType, safeOptions.type, 'new-crop'));
-            const reportTitle = approvalType === 'move-up' ? 'GNC PH MOVE UP' : 'GNC PH NCR';
-            return formatRequestItemsHtml(buildGroupedBloomTableEmailRows(items, {
-                rowOptionsByUid: safeOptions.rowOptionsByUid || null,
-                approvalType,
-                action: approvalType === 'move-up' ? 'move_up' : 'ncr',
-                approvalMessage: safeOptions.approvalMessage
-            }), reportTitle);
-        }
 
-        function getBloomActionReportDetailTitle(action = '') {
-            if (action === 'hold') return 'Hold Detail';
-            if (action === 'take_off_hold') return 'Off Hold Detail';
-            if (action === 'stop_ship') return 'Stop Ship Detail';
-            if (action === 'off_stop_ship') return 'Off Stop Ship Detail';
-            if (action === 'move_up') return 'Move Up Detail';
-            if (action === 'move_down') return 'Move Down Detail';
-            if (action === 'note') return 'Note Detail';
-            return 'NCR Detail';
-        }
 
         function getBloomActionReportScreenHeaders(action = '') {
             if (action === 'ncr') return getGroupedBloomNcrScreenReportHeaders('new-crop');
@@ -59659,200 +55017,6 @@ function toggleDriveQuickRequestItem(domId) {
             }), title);
         }
 
-        async function sendGroupedBloomNcrApprovalEmail(items = [], type = 'new-crop', options = {}) {
-            const safeItems = (Array.isArray(items) ? items : []).filter(Boolean);
-            if (!safeItems.length) throw new Error('No NCR rows were selected.');
-            const safeOptions = options || {};
-            const safeType = normalizeNcrApprovalType(type);
-            const typeLabel = getNcrApprovalTypeLabel(safeType);
-            const brandLabel = getNcrApprovalEmailBrandLabel(safeType);
-            const safeStage = String(firstNonEmptyValue(safeOptions.stage, 'dylan') || 'dylan').trim().toLowerCase() === 'jd' ? 'jd' : 'dylan';
-            const currentUserEmail = resolveRequestRecipientEmail(currentUser || currentUserDisplay || '');
-            const requester = safeOptions.requester || getCurrentNcrApprovalRequesterEntry() || null;
-            const requestedByEmail = normalizeRequestEmailAddress(firstNonEmptyValue(safeOptions.requestedByEmail, requester && requester.email, currentUserEmail, ''));
-            const requestedByUsername = String(firstNonEmptyValue(safeOptions.requestedByUsername, requester && requester.username, '') || '').trim();
-            const requestedByDisplay = String(firstNonEmptyValue(safeOptions.requestedByDisplay, requester && requester.display, '') || '').trim();
-            const submittedBySummary = String(firstNonEmptyValue(requestedByDisplay, requestedByUsername, requestedByEmail, currentUserDisplay, currentUser, 'Unknown') || '').trim();
-            const firstStageEmails = getNcrApprovalFirstStageEmails();
-            const jdStageEmails = getNcrApprovalJdStageEmails();
-            const recipientTargets = safeStage === 'jd'
-                ? [...firstStageEmails, ...jdStageEmails, requestedByEmail]
-                : [...firstStageEmails, requestedByEmail];
-            const selectedRecipientEmails = normalizeApprovalExtraRecipientEmails(firstNonEmptyValue(safeOptions.recipientEmails, safeOptions.emailRecipients, safeOptions.recipients, []));
-            const inventoryTransactionRecipients = (safeOptions.emailOnly === true || safeOptions.reportOnly === true || safeOptions.reportStyle === true || safeOptions.selectionKind === 'inventory')
-                ? getInventoryTransactionRequiredRecipientEmails()
-                : [];
-            const recipientEmails = dedupeRequestEmailRecipients([
-                ...(selectedRecipientEmails.length ? selectedRecipientEmails : recipientTargets),
-                requestedByEmail,
-                ...inventoryTransactionRecipients
-            ]);
-            const requestRows = [];
-            const requestItems = [];
-            const allPhotoUrls = [];
-            const rowOptionsByUid = safeOptions.rowOptionsByUid || safeOptions.rowOptions || null;
-            safeItems.forEach((item, index) => {
-                const rowOptions = getGroupedBloomNcrRowOption(rowOptionsByUid, item, index);
-                const photoUrls = normalizeNcrEmailPhotoUrls(getNcrApprovalPhotoUrls(item));
-                photoUrls.forEach((url) => {
-                    if (!allPhotoUrls.includes(url)) allPhotoUrls.push(url);
-                });
-                const requestRow = buildNcrEmailShareItem(item, photoUrls, safeType);
-                if (rowOptions) applyGroupedBloomNcrRowOptionsToItem(requestRow, rowOptions);
-                requestRows.push(requestRow);
-                requestItems.push({
-                    ...buildNcrEmailItemPayload(item, photoUrls),
-                    approval_type: safeType,
-                    approval_stage: safeStage,
-                    grouped_ncr: true,
-                    ncr_qty: firstNonEmptyValue(rowOptions && rowOptions.ncrQty, item && item.NCR_REQUESTED_QTY, item && item.LOC_MATCH_QTY, ''),
-                    remove_holdstopcode: rowOptions && rowOptions.removeHoldStop ? true : false,
-                    priority_one: rowOptions && rowOptions.priorityOne ? true : false
-                });
-            });
-            const plural = safeItems.length === 1 ? 'Row' : 'Rows';
-            const subject = `${typeLabel} Approval: ${safeItems.length} Bloom Picker ${plural}`;
-            const taskViewLabel = getNcrApprovalTaskInstructionLabel(safeType);
-            const emailOnlyReport = safeOptions.emailOnly === true || safeOptions.reportOnly === true;
-            const appInstruction = emailOnlyReport
-                ? `${typeLabel} email report only. No app rows were changed.`
-                : (safeStage === 'jd'
-                ? `JD: open the app and check Managers > ${taskViewLabel}. Review the grouped rows, enter the approved amounts where needed, then approve them to send to Inventory Office.`
-                : `Dylan/Megan: open the app and check Managers > ${taskViewLabel}. Review the grouped rows, then approve each row to send the whole batch to JD.`);
-            const folderId = String(firstNonEmptyValue(safeOptions.batchMeta && safeOptions.batchMeta.id, safeOptions.folderId, `ncr-bloom-group-${Date.now()}`) || '').trim();
-            if (safeOptions.reportStyle === true) {
-                const reportSubject = `${brandLabel}: ${safeItems.length} Bloom Picker ${plural}`;
-                const reportPayload = {
-                    type: 'email',
-                    emailType: 'drive_customer_outreach',
-                    emailSubType: 'grouped_bloom_ncr',
-                    email_sub_type: 'grouped_bloom_ncr',
-                    subject: reportSubject,
-                    fromName: brandLabel,
-                    brandLabel,
-                    emailDisplayName: brandLabel,
-                    sourceLabel: brandLabel,
-                    folderId,
-                    requestFolder: folderId,
-                    customer: '',
-                    requestCustomer: '',
-                    commonname: brandLabel,
-                    commonName: brandLabel,
-                    hideItemHeader: true,
-                    audienceLabel: '',
-                    audience: '',
-                    approvalType: safeType,
-                    approval_type: safeType,
-                    approvalLabel: typeLabel,
-                    itemsCount: safeItems.length,
-                    completedBy: String(currentUserDisplay || currentUser || 'Unknown').trim(),
-                    submittedBy: submittedBySummary,
-                    submittedBySummary,
-                    approvalStage: safeStage,
-                    approvalStageLabel: emailOnlyReport ? 'Email report only' : (safeStage === 'jd' ? 'JD approval needed' : 'Dylan/Megan approval needed'),
-                    appInstruction,
-                    taskViewLabel,
-                    taskViewId: getNcrApprovalTaskViewForType(safeType),
-                    requestedByEmail,
-                    requestedByUsername,
-                    requestedByDisplay,
-                    internalRecipients: recipientEmails,
-                    recipientEmails,
-                    emailRecipients: recipientEmails,
-                    recipients: recipientEmails.map((email) => ({ email, role: 'internal' })),
-                    formattedItemsHtml: buildGroupedBloomNcrReportEmailHtml(safeItems, {
-                        rowOptionsByUid,
-                        approvalType: safeType,
-                        approvalMessage: safeOptions.approvalMessage,
-                        submittedBy: submittedBySummary
-                    }),
-                    formattedItemsText: buildGroupedBloomNcrReportEmailText(safeItems, {
-                        rowOptionsByUid,
-                        approvalType: safeType,
-                        approvalMessage: safeOptions.approvalMessage,
-                        submittedBy: submittedBySummary
-                    }),
-                    photoUrls: [],
-                    requestItems: [],
-                    requestRows: [],
-                    sourceRows: [],
-                    items: [],
-                    groupedNcr: true,
-                    grouped_ncr: true,
-                    emailOnlyReport,
-                    email_only_report: emailOnlyReport,
-                    forceImmediate: true,
-                    queueJdApprovalEmail: false
-                };
-                const responseData = await postGoogleScriptEmailPayload(reportPayload, REQUEST_EMAIL_SCRIPT_TIMEOUT_MS, 'Grouped NCR Report Email');
-                if (!responseData || responseData.ok === false) {
-                    throw new Error(getGoogleScriptEmailFailureMessage(responseData, 'Grouped NCR report email did not send.'));
-                }
-                return responseData;
-            }
-            const approvalReportEmailOptions = {
-                rowOptionsByUid,
-                approvalType: safeType,
-                approvalMessage: safeOptions.approvalMessage,
-                submittedBy: submittedBySummary
-            };
-            const formattedApprovalItemsHtml = safeType === 'hold-release'
-                ? buildGroupedBloomNcrReportEmailHtml(safeItems, approvalReportEmailOptions)
-                : formatRequestItemsHtml(requestRows, `${typeLabel} - Bloom Picker Group (${safeItems.length} ${plural})`);
-            const formattedApprovalItemsText = safeType === 'hold-release'
-                ? buildGroupedBloomNcrReportEmailText(safeItems, approvalReportEmailOptions)
-                : formatRequestItemsText(requestRows, `${typeLabel} - Bloom Picker Group (${safeItems.length} ${plural})`, { includePhotoUrls: true });
-            const payload = {
-                type: 'email',
-                emailType: 'ncr_approval',
-                subject,
-                fromName: brandLabel,
-                brandLabel,
-                emailDisplayName: brandLabel,
-                sourceLabel: brandLabel,
-                folderId,
-                requestFolder: folderId,
-                customer: typeLabel,
-                approvalType: safeType,
-                approval_type: safeType,
-                approvalLabel: typeLabel,
-                itemsCount: safeItems.length,
-                completedBy: String(currentUserDisplay || currentUser || 'Unknown').trim(),
-                submittedBy: submittedBySummary,
-                submittedBySummary,
-                approvalStage: safeStage,
-                approvalStageLabel: safeStage === 'jd' ? 'JD approval needed' : 'Dylan/Megan approval needed',
-                appInstruction,
-                taskViewLabel,
-                taskViewId: getNcrApprovalTaskViewForType(safeType),
-                requestedByEmail,
-                requestedByUsername,
-                requestedByDisplay,
-                internalRecipients: recipientEmails,
-                recipientEmails,
-                dylanEmail: recipientEmails.includes(NCR_APPROVAL_EMAIL_BY_USER[NCR_APPROVAL_DYLAN_USER]) ? NCR_APPROVAL_EMAIL_BY_USER[NCR_APPROVAL_DYLAN_USER] : '',
-                meganEmail: recipientEmails.includes(NCR_APPROVAL_EMAIL_BY_USER[NCR_APPROVAL_MEGAN_USER]) ? NCR_APPROVAL_EMAIL_BY_USER[NCR_APPROVAL_MEGAN_USER] : '',
-                jdEmail: recipientEmails.includes(NCR_APPROVAL_EMAIL_BY_USER[NCR_APPROVAL_JD_USER]) ? NCR_APPROVAL_EMAIL_BY_USER[NCR_APPROVAL_JD_USER] : '',
-                recipients: recipientEmails.map((email) => ({ email, role: 'internal' })),
-                formattedItemsHtml: formattedApprovalItemsHtml,
-                formattedItemsText: formattedApprovalItemsText,
-                photoUrls: allPhotoUrls,
-                requestItems,
-                requestRows,
-                groupedNcr: true,
-                grouped_ncr: true,
-                forceImmediate: safeStage === 'jd' ? true : !!safeOptions.forceImmediate,
-                queueJdApprovalEmail: safeStage === 'jd' ? false : safeOptions.queueJdApprovalEmail
-            };
-            try {
-                return await postGoogleScriptEmailPayload(payload, REQUEST_EMAIL_SCRIPT_TIMEOUT_MS, 'Grouped NCR Approval Email');
-            } catch (error) {
-                if (!shouldTryLegacyNcrApprovalEmailFallback(error)) throw error;
-                console.warn('Grouped NCR approval email failed; retrying through legacy NCR email type', error);
-                const legacyPayload = buildLegacyNcrApprovalEmailPayload(payload);
-                return await postGoogleScriptEmailPayload(legacyPayload, REQUEST_EMAIL_SCRIPT_TIMEOUT_MS, 'Grouped NCR Approval Email Fallback');
-            }
-        }
 
         function sendNcrApprovalPush(item = activeItem, type = 'new-crop', stage = 'dylan', targetUser = NCR_APPROVAL_DYLAN_USER) {
             const uid = getNcrSourceUniqueId(item);
@@ -60273,10 +55437,6 @@ function toggleDriveQuickRequestItem(domId) {
             return !!card;
         }
 
-        async function resendNcrApprovalStageEmail(uniqueId = '', button = null) {
-            showToast('Approval Only', 'Manager approval rows are not emailed from approval views.');
-            return false;
-        }
 
         async function submitNcrApprovalToDylan(item = activeItem, type = 'new-crop', options = {}) {
             const safeType = normalizeNcrApprovalType(type);
@@ -60298,17 +55458,7 @@ function toggleDriveQuickRequestItem(domId) {
             return masterItem || item;
         }
 
-        function canSendDriveRowToNcrApproval(item = null, type = 'new-crop', sourceView = '') {
-            const safeType = normalizeNcrApprovalType(type) === 'move-up' ? 'move-up' : 'new-crop';
-            const safeSource = String(sourceView || '').trim().toLowerCase();
-            if (!item || safeSource === 'av' || !canEditNcrWorkflow(item)) return false;
-            if (safeType === 'move-up') return isNcrMoveUpSendActionCandidateRow(item) || isNcrSameTypeResendCandidateRow(item, safeType);
-            return isNcrReleaseSendActionCandidateRow(item) || isNcrSameTypeResendCandidateRow(item, safeType);
-        }
 
-        function canSendDriveRowToNewCropRelease(item = null) {
-            return canSendDriveRowToNcrApproval(item, 'new-crop');
-        }
 
         function getDriveNewCropReleaseButtonHtml(item = null) {
             return buildInventoryAllEditRailButtonHtml(item, 'drive');
@@ -60320,59 +55470,7 @@ function toggleDriveQuickRequestItem(domId) {
             return findInventoryEditMockItemByUid(safeUid) || findItemByUniqueId(safeUid) || findItemByDomId(safeUid);
         }
 
-        async function sendDriveRowToNcrApproval(uniqueId = '', type = 'new-crop', button = null) {
-            const uid = String(uniqueId || '').trim();
-            const safeType = normalizeNcrApprovalType(type) === 'move-up' ? 'move-up' : 'new-crop';
-            const typeLabel = getNcrApprovalTypeLabel(safeType);
-            const item = findDriveRowForNcrApprovalUid(uid);
-            if (!item) {
-                showToast('Not Found', 'That Drive row could not be found.', true);
-                return false;
-            }
-            if (!canEditNcrWorkflow(item)) {
-                showToast('Restricted', `Only admin users can send ${typeLabel} rows.`, true);
-                return false;
-            }
-            if (!canSendDriveRowToNcrApproval(item, safeType)) {
-                showToast('Not Eligible', `This row is not currently eligible for ${typeLabel}.`, true);
-                return false;
-            }
-            const promptResult = await openNcrEmailModal(item, safeType, { noChoice: 'cancel' });
-            const choice = getApprovalPromptChoice(promptResult, 'cancel');
-            if (choice !== 'email') return false;
-            const approvalMessage = getApprovalPromptMessage(promptResult);
-            if (safeType === 'move-up') {
-                const moveRequester = getCurrentNcrApprovalRequesterEntry() || {
-                    username: String(currentUser || '').trim(),
-                    display: String(firstNonEmptyValue(currentUserDisplay, currentUser, '') || '').trim(),
-                    email: resolveRequestRecipientEmail(currentUser || currentUserDisplay || '')
-                };
-                return openMoveUpApprovalRowForm(item, {
-                    requester: moveRequester,
-                    requestedByEmail: moveRequester && moveRequester.email ? moveRequester.email : resolveRequestRecipientEmail(currentUser || currentUserDisplay || ''),
-                    requestedByUsername: moveRequester && moveRequester.username ? moveRequester.username : currentUser,
-                    requestedByDisplay: moveRequester && moveRequester.display ? moveRequester.display : currentUserDisplay,
-                    approvalMessage
-                });
-            }
-            const ncrRequester = getCurrentNcrApprovalRequesterEntry() || {
-                username: String(currentUser || '').trim(),
-                display: String(firstNonEmptyValue(currentUserDisplay, currentUser, '') || '').trim(),
-                email: resolveRequestRecipientEmail(currentUser || currentUserDisplay || '')
-            };
-            return openNcrApprovalRowForm(item, {
-                requester: ncrRequester,
-                requestedByEmail: ncrRequester && ncrRequester.email ? ncrRequester.email : resolveRequestRecipientEmail(currentUser || currentUserDisplay || ''),
-                requestedByUsername: ncrRequester && ncrRequester.username ? ncrRequester.username : currentUser,
-                requestedByDisplay: ncrRequester && ncrRequester.display ? ncrRequester.display : currentUserDisplay,
-                approvalMessage,
-                photoUrls: getNcrApprovalPhotoUrls(item)
-            });
-        }
 
-        async function sendDriveRowToNewCropRelease(uniqueId = '', button = null) {
-            return sendDriveRowToNcrApproval(uniqueId, 'new-crop', button);
-        }
 
         async function sendDriveRowToHoldRelease(uniqueId = '', button = null) {
             const uid = String(uniqueId || '').trim();
@@ -60456,125 +55554,9 @@ function toggleDriveQuickRequestItem(domId) {
             return false;
         }
 
-        function getNcrApprovalBatchRows(batchMeta = null, extraRows = []) {
-            const safeMeta = normalizeNcrApprovalBatchMeta(batchMeta);
-            if (!safeMeta) return [];
-            const candidates = [
-                ...(Array.isArray(extraRows) ? extraRows : []),
-                ...(Array.isArray(fullInventory) ? fullInventory : []),
-                ...(Array.isArray(managerReviewInventory) ? managerReviewInventory : []),
-                ...(Array.isArray(moveUpInventory) ? moveUpInventory : [])
-            ].filter(Boolean);
-            const rows = [];
-            const seen = new Set();
-            candidates.forEach((row) => {
-                const rowMeta = getNcrApprovalBatchMetaFromItem(row);
-                if (!rowMeta || rowMeta.id !== safeMeta.id) return;
-                const uid = getNcrSourceUniqueId(row) || String(rows.length);
-                if (seen.has(uid)) return;
-                seen.add(uid);
-                rows.push(row);
-            });
-            return rows;
-        }
 
-        function getNcrApprovalBatchProgress(batchMeta = null, type = 'new-crop', extraRows = []) {
-            const safeMeta = normalizeNcrApprovalBatchMeta(batchMeta);
-            if (!safeMeta) return { rows: [], approvedRows: [], actedRows: [], approvedCount: 0, actionCount: 0, totalCount: 0 };
-            const safeType = normalizeNcrApprovalType(type || safeMeta.type);
-            const rows = getNcrApprovalBatchRows(safeMeta, extraRows).filter((row) => {
-                const rowType = getNcrApprovalQueueTypeForItem(row) || getExplicitNcrApprovalTypeFromItem(row) || safeType;
-                return normalizeNcrApprovalType(rowType) === safeType;
-            });
-            const approvedRows = rows.filter((row) => getNcrApprovalStageForItem(row) === 'jd');
-            const actedRows = rows.filter((row) => {
-                const stage = getNcrApprovalStageForItem(row);
-                return stage === 'jd' || stage === 'denied';
-            });
-            const totalCount = safeMeta.count > 0 ? safeMeta.count : rows.length;
-            return { rows, approvedRows, actedRows, approvedCount: approvedRows.length, actionCount: actedRows.length, totalCount };
-        }
 
-        async function persistNcrApprovalBatchMetaForRows(rows = [], batchMeta = null, reason = 'ncr-batch-meta') {
-            const safeMeta = normalizeNcrApprovalBatchMeta(batchMeta);
-            const safeRows = (Array.isArray(rows) ? rows : []).filter(Boolean);
-            if (!safeMeta || !safeRows.length) return false;
-            const canPersist = await ensureNcrApprovalRequesterColumnsReady().catch(() => false);
-            const seen = new Set();
-            for (const row of safeRows) {
-                const uid = getNcrSourceUniqueId(row);
-                if (!uid || seen.has(uid)) continue;
-                seen.add(uid);
-                const message = applyNcrApprovalBatchMetaToItem(row, safeMeta);
-                if (!canPersist) continue;
-                try {
-                    await writeNcrApprovalMasterPayload(row, { ncr_approval_message: message || null }, reason);
-                } catch (error) {
-                    console.warn('Could not persist NCR batch metadata', error);
-                }
-            }
-            return true;
-        }
 
-        async function maybeSendGroupedNcrBatchEmailToJdAfterDylanApproval(item = null, type = 'new-crop', options = {}) {
-            const safeOptions = options || {};
-            const safeType = normalizeNcrApprovalType(type);
-            const batchMeta = normalizeNcrApprovalBatchMeta(safeOptions.batchMeta || getNcrApprovalBatchMetaFromItem(item));
-            const jdStageItem = {
-                ...(item || {}),
-                APP_TAB_ASSIGNMENT: getNcrApprovalAssignment(safeType, 'jd'),
-                app_tab_assignment: getNcrApprovalAssignment(safeType, 'jd'),
-                ASSIGNEDTO: NCR_APPROVAL_JD_USER,
-                assignedto: NCR_APPROVAL_JD_USER
-            };
-            const jdNotifyOptions = {
-                ...safeOptions,
-                forceImmediate: true,
-                queueJdApprovalEmail: false
-            };
-            if (!batchMeta || batchMeta.count <= 1) {
-                await notifyNcrApprovalStage(jdStageItem, safeType, 'jd', jdNotifyOptions);
-                return { grouped: false, emailed: true, approvedCount: 1, totalCount: 1 };
-            }
-            if (safeOptions.sendIndividualJdEmail !== false) {
-                await notifyNcrApprovalStage(jdStageItem, safeType, 'jd', jdNotifyOptions);
-                return { grouped: true, emailed: true, individual: true, approvedCount: 1, totalCount: batchMeta.count };
-            }
-            const batchRows = getNcrApprovalBatchRows(batchMeta, [item]);
-            const latestMetaWithSentFlag = batchRows.map((row) => getNcrApprovalBatchMetaFromItem(row)).find((meta) => meta && meta.jdEmailSentAt) || batchMeta;
-            if (latestMetaWithSentFlag.jdEmailSentAt || ncrGroupedJdEmailSentBatchIds.has(batchMeta.id)) {
-                ncrGroupedJdEmailSentBatchIds.add(batchMeta.id);
-                return { grouped: true, emailed: false, alreadySent: true, approvedCount: batchRows.length, totalCount: batchMeta.count };
-            }
-            const progress = getNcrApprovalBatchProgress(batchMeta, safeType, [item]);
-            if (progress.totalCount && progress.actionCount < progress.totalCount) {
-                return { grouped: true, emailed: false, approvedCount: progress.approvedCount, actionCount: progress.actionCount, totalCount: progress.totalCount };
-            }
-            const approvedRows = progress.approvedRows.length ? progress.approvedRows : batchRows;
-            if (!approvedRows.length || !progress.approvedRows.length) {
-                return { grouped: true, emailed: false, noApprovedRows: true, approvedCount: 0, actionCount: progress.actionCount, totalCount: progress.totalCount };
-            }
-            const requesterOptions = getNcrApprovalRequesterNotifyOptions(item, safeOptions);
-            sendGroupedBloomNcrApprovalPush(approvedRows, safeType, { stage: 'jd' });
-            await sendGroupedBloomNcrApprovalEmail(approvedRows, safeType, {
-                ...requesterOptions,
-                stage: 'jd',
-                batchMeta
-            });
-            const sentMeta = normalizeNcrApprovalBatchMeta({
-                ...batchMeta,
-                count: progress.totalCount || approvedRows.length,
-                jdEmailSentAt: new Date().toISOString()
-            });
-            ncrGroupedJdEmailSentBatchIds.add(batchMeta.id);
-            await persistNcrApprovalBatchMetaForRows(approvedRows, sentMeta, 'ncr-batch-jd-email-sent');
-            return {
-                grouped: true,
-                emailed: true,
-                approvedCount: approvedRows.length,
-                totalCount: progress.totalCount || approvedRows.length
-            };
-        }
 
         async function buildNcrInventoryOfficeApprovalPayload(item = null, type = 'new-crop', options = {}) {
             const opts = options || {};
@@ -60636,7 +55618,7 @@ function toggleDriveQuickRequestItem(domId) {
                         date_completed: null,
                         updated_at: approvedAt
                     };
-                const masterItem = await writeNcrApprovalMasterPayload(item, payload, sendDirectToInventoryOffice ? 'ncr-approval-dylan-inventory' : 'ncr-approval-dylan');
+                await writeNcrApprovalMasterPayload(item, payload, sendDirectToInventoryOffice ? 'ncr-approval-dylan-inventory' : 'ncr-approval-dylan');
                 didWriteApproval = true;
                 removeNcrApprovalCardFromCurrentTaskView(uid);
                 if (sendDirectToInventoryOffice) {
@@ -60656,73 +55638,10 @@ function toggleDriveQuickRequestItem(domId) {
             return false;
         }
 
-        function shouldPromptNcrRepOutreachAfterJdApproval(type = '') {
-            const normalizedUser = normalizePushUsername(currentUser || currentUserDisplay || '');
-            const normalizedType = normalizeNcrApprovalType(type);
-            return isNcrApprovalJdStageUser(normalizedUser) && ['new-crop', 'move-up', 'hold-release'].includes(normalizedType);
-        }
 
-        function buildNcrRepOutreachSummaryLine(item = null, approvedQty = '') {
-            return [
-                firstNonEmptyValue(item && item.ITEMCODE, item && item.itemcode, ''),
-                firstNonEmptyValue(item && item.COMMONNAME, item && item.commonname, ''),
-                firstNonEmptyValue(item && item.CONTSIZE, item && item.contsize, item && item.ITEMSPEC, ''),
-                firstNonEmptyValue(item && item.LOCATIONCODE, item && item.locationcode, item && item.LOCATION, ''),
-                approvedQty !== '' && approvedQty !== null && approvedQty !== undefined ? `Qty ${approvedQty}` : ''
-            ].map((value) => String(value || '').trim()).filter(Boolean).join(' | ');
-        }
 
-        function buildNcrRepOutreachRow(item = null, type = 'new-crop', approvedQty = '') {
-            const label = getNcrApprovalTypeLabel(type);
-            const summary = buildNcrRepOutreachSummaryLine(item, approvedQty);
-            const row = { ...(item || {}) };
-            row.NCR_APPROVED_QTY = approvedQty;
-            row.APPROVED_QTY = approvedQty;
-            row.LOC_MATCH_QTY = firstNonEmptyValue(approvedQty, row.LOC_MATCH_QTY, row.loc_match_qty, '');
-            row.loc_match_qty = row.LOC_MATCH_QTY;
-            row.SALES_NOTE = firstNonEmptyValue(row.SALES_NOTE, row.sales_note, `${label} approved by JD Jones`);
-            row.NOTES = [
-                `${label} approved by JD Jones${summary ? `: ${summary}` : ''}.`,
-                firstNonEmptyValue(row.NOTES, row.notes, '')
-            ].map((value) => String(value || '').trim()).filter(Boolean).join('\n');
-            return row;
-        }
 
-        function buildNcrRepOutreachEmailContext(item = null, type = 'new-crop', approvedQty = '') {
-            const label = getNcrApprovalTypeLabel(type);
-            const shortLabel = getNcrApprovalShortLabel(type);
-            const brandLabel = getNcrApprovalEmailBrandLabel(type);
-            const summary = buildNcrRepOutreachSummaryLine(item, approvedQty) || label;
-            const defaultMessage = [
-                `${label} approved by JD Jones.`,
-                summary,
-                'Please review the attached row details and photos.'
-            ].filter(Boolean).join('\n');
-            return {
-                source: 'ncr_jd_approval_rep_outreach',
-                sourceLabel: brandLabel,
-                approvalType: normalizeNcrApprovalType(type),
-                approvedQty,
-                eyebrow: 'JD Approval',
-                title: `${label} Rep Send`,
-                rowCountLabel: `${shortLabel} approved | ${summary}`,
-                subject: `${brandLabel} - ${summary}`,
-                brandLabel,
-                defaultMessage,
-                emailIntroText: defaultMessage,
-                sendButtonLabel: 'Send To Selected Reps'
-            };
-        }
 
-        async function promptNcrRepOutreachAfterJdApproval(item = null, type = 'new-crop', approvedQty = '') {
-            if (!shouldPromptNcrRepOutreachAfterJdApproval(type)) return false;
-            const choice = await openNcrRepOutreachModal(item, type, approvedQty);
-            if (String(choice || '').trim().toLowerCase() !== 'yes') return false;
-            const outreachRow = buildNcrRepOutreachRow(item, type, approvedQty);
-            return openBloomCropUpdateModal([outreachRow], {
-                emailContext: buildNcrRepOutreachEmailContext(outreachRow, type, approvedQty)
-            });
-        }
 
         async function approveNcrApprovalAsJd(uniqueId = '', inputId = '', button = null) {
             const uid = String(uniqueId || '').trim();
@@ -60900,10 +55819,6 @@ function toggleDriveQuickRequestItem(domId) {
             return false;
         }
 
-        async function resendNotOnInventoryApprovalStageEmail(uniqueId = '', button = null) {
-            showToast('Approval Only', 'Manager approval rows are not emailed from approval views.');
-            return false;
-        }
 
         async function approveNotOnInventoryApprovalAsDylan(uniqueId = '', button = null) {
             const uid = String(uniqueId || '').trim();
@@ -61092,15 +56007,11 @@ function toggleDriveQuickRequestItem(domId) {
         }
 
         function resetReportsView(shouldRender = true) {
-            reportViewLevel = 0;
-            selectedReqRep = null;
-            selectedReqRepStatus = null;
             selectedReqFolder = null;
             if (shouldRender && typeof renderReports === 'function') scheduleReportsRender();
         }
 
         function resetReservesView(shouldRender = true) {
-            reservesViewLevel = 0;
             if (shouldRender && typeof renderReserves === 'function') scheduleReservesRender();
         }
 
@@ -61599,7 +56510,6 @@ function toggleDriveQuickRequestItem(domId) {
             const loc = firstNonEmptyValue(row.LOCATIONCODE, row.locationcode, 'No Loc');
             const lot = firstNonEmptyValue(row.LOTCODE, row.lotcode, '-');
             const season = firstNonEmptyValue(row.SEASON, row.season, '-');
-            const ptr = getShearDrivePtr(row);
             const alreadyOpen = isProductionWorkflowRowOpen(row);
             const bayHtml = meta.needsBay ? `<label class="block">
                 <span class="block text-[9px] font-black uppercase tracking-[0.14em] text-[#007a4d]">Bay Number Optional</span>
@@ -61989,16 +56899,6 @@ function toggleDriveQuickRequestItem(domId) {
             return !!(access && access.isRepLike && !access.isAdmin);
         }
 
-        function renderSalesHubCardMarkup(card = {}) {
-            if (!card || !canAccessView(card.view)) return '';
-            const id = card.id ? ` id="${escapeHtml(card.id)}"` : '';
-            const action = card.action || `return switchView('${escapeHtml(card.view)}')`;
-            return `<button type="button"${id} class="rounded-2xl border border-[#007a4d] bg-white p-4 text-left shadow-sm active:scale-[0.99] transition-transform" onclick="${action}">
-                <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl ${escapeHtml(card.iconBg || 'bg-emerald-50')} ${escapeHtml(card.iconColor || 'text-[#007a4d]')}"><i class="ph-bold ${escapeHtml(card.icon || 'ph-square')} text-2xl"></i></div>
-                <div class="text-lg font-black text-slate-900">${escapeHtml(card.title || '')}</div>
-                <div class="mt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">${escapeHtml(card.subtitle || '')}</div>
-            </button>`;
-        }
 
         function renderRepHomeDashboardTileMarkup(card = {}) {
             if (!card || !canAccessView(card.view)) return '';
@@ -62056,9 +56956,6 @@ function toggleDriveQuickRequestItem(domId) {
             return capabilityStatus + moduleHtml;
         }
 
-        function getRepSalesHomeHubHtml() {
-            return getRepHomeDashboardHtml();
-        }
 
         function openSalesAvModule() {
             if (shouldUseRepScopedAvView()) {
@@ -62745,8 +57642,6 @@ function toggleDriveQuickRequestItem(domId) {
         let notOnInventoryCatalogRowsCache = [];
         let notOnInventoryBaseProfilesCacheKey = '';
         let notOnInventoryBaseProfilesCache = [];
-        let notOnInventoryCommonNameOptionsCacheKey = '';
-        let notOnInventoryCommonNameOptionsCache = [];
         let notOnInventoryContSizeOptionsCacheKey = '';
         let notOnInventoryContSizeOptionsCache = [];
         let notOnInventoryLocationOptionsCacheKey = '';
@@ -62958,9 +57853,6 @@ function toggleDriveQuickRequestItem(domId) {
             });
         }
 
-        function openNotOnInventoryPanel() {
-            return openNotOnInventoryDetailCard();
-        }
 
         function isNotOnInventoryDetailActive() {
             return String(activeDetailSourceView || '').trim().toLowerCase() === 'not-on-inventory';
@@ -63186,18 +58078,6 @@ function toggleDriveQuickRequestItem(domId) {
             return `${epoch}|${fullSig}|${avSig}`;
         }
 
-        function invalidateNotOnInventoryCaches() {
-            notOnInventoryCatalogRowsCacheKey = '';
-            notOnInventoryCatalogRowsCache = [];
-            notOnInventoryBaseProfilesCacheKey = '';
-            notOnInventoryBaseProfilesCache = [];
-            notOnInventoryCommonNameOptionsCacheKey = '';
-            notOnInventoryCommonNameOptionsCache = [];
-            notOnInventoryContSizeOptionsCacheKey = '';
-            notOnInventoryContSizeOptionsCache = [];
-            notOnInventoryLocationOptionsCacheKey = '';
-            notOnInventoryLocationOptionsCache = [];
-        }
 
         function getNotOnInventoryCatalogRows() {
             const cacheKey = getNotOnInventoryInventoryCacheKey();
@@ -63227,23 +58107,6 @@ function toggleDriveQuickRequestItem(domId) {
             return result;
         }
 
-        function getNotOnInventoryCommonNameOptions() {
-            const cacheKey = getNotOnInventoryInventoryCacheKey();
-            if (notOnInventoryCommonNameOptionsCacheKey === cacheKey && Array.isArray(notOnInventoryCommonNameOptionsCache)) {
-                return notOnInventoryCommonNameOptionsCache;
-            }
-            const options = new Map();
-            getNotOnInventoryBaseProfiles().forEach((row) => {
-                const commonName = getNotOnInventoryCommonName(row);
-                if (!commonName) return;
-                const key = normalizeSearchValue(commonName);
-                if (!options.has(key)) options.set(key, commonName);
-            });
-            const result = Array.from(options.values()).sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }));
-            notOnInventoryCommonNameOptionsCacheKey = cacheKey;
-            notOnInventoryCommonNameOptionsCache = result;
-            return result;
-        }
 
         function getNotOnInventoryContSizeOptions() {
             const cacheKey = getNotOnInventoryInventoryCacheKey();
@@ -63374,11 +58237,6 @@ function toggleDriveQuickRequestItem(domId) {
             return `${baseItemCode}.${contSize.code}.${quality.suffix}`;
         }
 
-        function buildNotOnInventoryCommonNameDatalistHtml() {
-            return getNotOnInventoryCommonNameOptions()
-                .map((commonName) => `<option value="${escapeHtml(commonName)}"></option>`)
-                .join('');
-        }
 
         function buildNotOnInventorySourceOptionsHtml(options = getNotOnInventorySourceOptions()) {
             const term = normalizeSearchValue(notOnInventorySearchTerm);
@@ -64057,9 +58915,6 @@ function toggleDriveQuickRequestItem(domId) {
             ) || '').trim();
         }
 
-        function getSpreadCountRecordType(row = null) {
-            return normalizeSpreadCountType(getSpreadCountValue(row, 'count_type', 'spread'));
-        }
 
         function buildSpreadCountUniqueId(row = null, countType = getActiveSpreadCountType()) {
             const sourceUid = getSpreadCountSourceUid(row);
@@ -65006,7 +59861,6 @@ function toggleDriveQuickRequestItem(domId) {
         let inventoryProjectRows = [];
         let queueInventoryProjectsScope = '', queueInventoryProjectsLoad = null, queueInventoryProjectsRefreshedAt = 0, queueInventoryProjectsError = '';
         let queueInventoryProjectsFilter = 'active', queueInventoryProjectsAssigned = 'all';
-        let inventoryProjectFilter = 'all';
         let activeInventoryProjectId = '';
         async function inventoryProjectApi(action, payload = {}) {
             const result = await postAppFunctionJson(APP_API_FUNCTION_URL, { action, ...payload }, { timeoutMs:30000, label:'Inventory Projects' });
@@ -65050,11 +59904,6 @@ function toggleDriveQuickRequestItem(domId) {
             if (panel) panel.classList.add('hidden');
             if (grid) grid.classList.remove('hidden');
             updateGlobalBackButton();
-            return false;
-        }
-        function setInventoryProjectFilter(filter) {
-            inventoryProjectFilter = ['all','mine','active','completed'].includes(filter) ? filter : 'all';
-            renderInventoryProjects();
             return false;
         }
         function renderInventoryProjects() { return renderQueueInventoryProjects(true,'inventory-projects-panel'); }
@@ -65466,12 +60315,6 @@ function toggleDriveQuickRequestItem(domId) {
             });
         }
 
-        function sumPoManagementField(rows = [], field = '') {
-            return rows.reduce((total, row) => {
-                const parsed = parsePoManagementNumber(row && row[field]);
-                return parsed === null ? total : total + parsed;
-            }, 0);
-        }
 
         function getPoManagementSharedRemaining(rows = []) {
             const balances = new Map();
@@ -66054,38 +60897,7 @@ function toggleDriveQuickRequestItem(domId) {
             });
         }
 
-        function renderWeatherHoldItemcodeProfileCard(group = null) {
-            if (!group || !group.itemcode) return '';
-            const contsizeText = Array.from(group.contsizes || []).slice(0, 3).join(', ') || '-';
-            const title = [group.commonname || group.genus || 'Itemcode', contsizeText && contsizeText !== '-' ? contsizeText : ''].filter(Boolean).join(' ');
-            const reasonText = Array.from(group.reasons || []).map(getHoldRecoveryReasonLabel).filter(Boolean).slice(0, 4).join(', ') || 'hold';
-            const releaseProfile = group.bestReleaseProfile || {};
-            const weatherProfile = group.bestWeatherProfile || releaseProfile || {};
-            const releaseGdd = getWeatherHoldProfileNumber(releaseProfile, ['median_gdd_base_50_to_release', 'avg_gdd_base_50_to_release'], NaN);
-            const releaseDays = getWeatherHoldProfileNumber(releaseProfile, 'avg_days_to_release', NaN);
-            const weatherGdd = getWeatherHoldProfileNumber(weatherProfile, ['median_gdd_base_50_30d', 'avg_gdd_base_50_30d'], NaN);
-            return `<button type="button" class="w-full rounded-2xl border border-emerald-100 bg-white p-4 text-left shadow-sm active:scale-[0.99]" onclick="return openWeatherHoldItemMlDetail('${escJsAttrValue(group.itemcode)}')">
-                <div class="flex items-start justify-between gap-3">
-                    <div class="min-w-0">
-                        <div class="font-black text-slate-900 leading-tight break-words">${escapeHtml(title || group.itemcode)}</div>
-                        <div class="mt-1 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-700">Item ${escapeHtml(group.itemcode)} | ${escapeHtml(reasonText)} | ${escapeHtml(String(group.holdSamples || 0))} blocked obs | ${escapeHtml(String(group.releaseSamples || 0))} cleared events</div>
-                    </div>
-                    <div class="shrink-0 text-right text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">${escapeHtml(formatWeatherHoldDate(group.lastHoldOn))}</div>
-                </div>
-                <div class="mt-3 grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
-                    <div class="rounded-xl bg-emerald-50 p-2"><div class="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">GDD 30</div><div class="text-sm font-black text-slate-900">${escapeHtml(formatWeatherHoldInteger(weatherGdd))}</div></div>
-                    <div class="rounded-xl bg-rose-50 p-2"><div class="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">GDD Clear</div><div class="text-sm font-black text-slate-900">${escapeHtml(formatWeatherHoldInteger(releaseGdd))}</div></div>
-                    <div class="rounded-xl bg-slate-50 p-2"><div class="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">Days Clear</div><div class="text-sm font-black text-slate-900">${escapeHtml(formatWeatherHoldNumber(releaseDays, 1))}</div></div>
-                    <div class="rounded-xl bg-blue-50 p-2"><div class="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">ML Detail</div><div class="text-sm font-black text-blue-700">Open</div></div>
-                </div>
-            </button>`;
-        }
 
-        function showMoreWeatherHoldProfileItems() {
-            weatherHoldState.holdProfileVisibleCount = Math.min(10000, Math.max(24, Number(weatherHoldState.holdProfileVisibleCount) || 24) + 24);
-            renderWeatherHold();
-            return false;
-        }
 
         function getWeatherHoldItemCardForCode(itemcode = '') {
             const safeItemcode = normalizeWeatherHoldItemcode(itemcode);
@@ -66109,32 +60921,6 @@ function toggleDriveQuickRequestItem(domId) {
             return `<div class="rounded-xl border ${toneMap[tone] || toneMap.slate} px-3 py-3"><div class="text-[9px] font-black uppercase tracking-[0.14em] opacity-70">${escapeHtml(label)}</div><div class="mt-1 text-lg font-black text-slate-900">${escapeHtml(value)}</div></div>`;
         }
 
-        function renderWeatherHoldProfileDetailCard(row = null) {
-            if (!row) return '';
-            const reason = String(firstNonEmptyValue(row.hold_reason_category, row.HOLD_REASON_CATEGORY, 'unknown') || 'unknown').trim();
-            const releaseGdd = getWeatherHoldProfileNumber(row, ['median_gdd_base_50_to_release', 'avg_gdd_base_50_to_release'], NaN);
-            return `<div class="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm">
-                <div class="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                        <div class="text-[10px] font-black uppercase tracking-[0.16em] text-[#007a4d]">${escapeHtml(getHoldRecoveryReasonLabel(reason))} Learning</div>
-                        <div class="mt-1 text-base font-black text-slate-900">${escapeHtml(String(firstNonEmptyValue(row.commonname, row.COMMONNAME, 'Hold profile') || 'Hold profile'))} ${escapeHtml(String(firstNonEmptyValue(row.contsize, row.CONTSIZE, '') || ''))}</div>
-                    </div>
-                    <div class="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-700">${escapeHtml(String(getWeatherHoldProfileNumber(row, 'release_sample_count', 0)))} cleared events</div>
-                </div>
-                <div class="mt-3 grid grid-cols-2 gap-2 md:grid-cols-5">
-                    ${renderWeatherHoldItemDetailMetric('Blocked File Obs', formatWeatherHoldInteger(getWeatherHoldProfileNumber(row, 'sample_count', NaN)), 'green')}
-                    ${renderWeatherHoldItemDetailMetric('GDD Before Hold', formatWeatherHoldInteger(getWeatherHoldProfileNumber(row, ['median_gdd_base_50_30d', 'avg_gdd_base_50_30d'], NaN)), 'blue')}
-                    ${renderWeatherHoldItemDetailMetric('GDD To Clear', formatWeatherHoldInteger(releaseGdd), 'rose')}
-                    ${renderWeatherHoldItemDetailMetric('Avg Days', formatWeatherHoldNumber(getWeatherHoldProfileNumber(row, 'avg_days_to_release', NaN), 1), 'slate')}
-                    ${renderWeatherHoldItemDetailMetric('Cleared Events', formatWeatherHoldInteger(getWeatherHoldProfileNumber(row, 'release_sample_count', 0)), 'amber')}
-                </div>
-                <div class="mt-3 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">
-                    <span class="rounded-full bg-slate-100 px-2.5 py-1">First ${escapeHtml(formatWeatherHoldDate(getWeatherHoldProfileDate(row, 'first_hold_on')))}</span>
-                    <span class="rounded-full bg-slate-100 px-2.5 py-1">Last ${escapeHtml(formatWeatherHoldDate(getWeatherHoldProfileDate(row, 'last_hold_on')))}</span>
-                    <span class="rounded-full bg-slate-100 px-2.5 py-1">Updated ${escapeHtml(formatWeatherHoldDate(getWeatherHoldProfileDate(row, 'updated_at')))}</span>
-                </div>
-            </div>`;
-        }
 
         function renderWeatherHoldReleaseCycleDetailCard(row = null) {
             if (!row) return '';
@@ -66221,31 +61007,6 @@ function toggleDriveQuickRequestItem(domId) {
             });
         }
 
-        function renderWeatherHoldReasonSummaryCard(group = null) {
-            if (!group) return '';
-            const medianDays = getWeatherHoldMedianValue(group.days);
-            const medianGdd = getWeatherHoldMedianValue(group.gdd);
-            const reasonExamples = Array.from(group.reasons || []).slice(0, 8);
-            const reasonHtml = reasonExamples.length
-                ? `<div class="mt-3 flex flex-wrap gap-2">${reasonExamples.map((reason) => `<span class="rounded-full bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.1em] text-slate-600">${escapeHtml(reason)}</span>`).join('')}</div>`
-                : '<div class="mt-3 rounded-xl bg-white px-3 py-2 text-[11px] font-bold text-slate-400">No raw holdstopreason stored for this group.</div>';
-            return `<div class="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 shadow-sm">
-                <div class="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                        <div class="text-[10px] font-black uppercase tracking-[0.16em] text-[#007a4d]">${escapeHtml(getHoldRecoveryReasonLabel(group.category))} Event Summary</div>
-                        <div class="mt-1 text-sm font-black text-slate-900">${escapeHtml(String(group.observations || 0))} blocked file observations across ${escapeHtml(String(group.events || 0))} H/S events</div>
-                    </div>
-                    <div class="rounded-full border border-emerald-200 bg-white px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-700">${escapeHtml(String(group.cleared || 0))} cleared</div>
-                </div>
-                <div class="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
-                    ${renderWeatherHoldItemDetailMetric('Open Events', formatWeatherHoldInteger(group.open || 0), group.open ? 'amber' : 'slate')}
-                    ${renderWeatherHoldItemDetailMetric('Median Days', formatWeatherHoldNumber(medianDays, 1), 'slate')}
-                    ${renderWeatherHoldItemDetailMetric('Median GDD Clear', formatWeatherHoldInteger(medianGdd), 'rose')}
-                    ${renderWeatherHoldItemDetailMetric('Last Cleared', formatWeatherHoldDate(group.lastRelease), 'green')}
-                </div>
-                ${reasonHtml}
-            </div>`;
-        }
 
         function renderWeatherHoldMlJobDetailCard(row = null) {
             const item = normalizeMlImageJobRow(row);
@@ -66621,7 +61382,6 @@ function toggleDriveQuickRequestItem(domId) {
             const lot = firstNonEmptyValue(row.LOTCODE, row.lotcode, '-');
             const season = firstNonEmptyValue(row.SEASON, row.season, '-');
             const block = firstNonEmptyValue(row.BLOCKALPHA, row.blockalpha, '-');
-            const ptr = getShearDrivePtr(row);
             const holdReason = firstNonEmptyValue(row.HOLDSTOPREASON, row.holdstopreason, '');
             const recovery = getShearDecisionRecoveryEstimate(row);
             const safeItemcode = normalizeWeatherHoldItemcode(itemCode);
@@ -67068,54 +61828,7 @@ function toggleDriveQuickRequestItem(domId) {
             return `shear-${sourceUid}`.replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
         }
 
-        function buildShearListSnapshot(item = null) {
-            if (!item) return {};
-            const fields = ['UNIQUE_ID','ITEMCODE','COMMONNAME','GENUS','CONTSIZE','LOCATIONCODE','LOTCODE','SEASON','SALESYEAR','BLOCKALPHA','PTRAVAILABLE','S_LTS','PRIORITY','SOURCE','HOLDSTOPCODE','HOLDSTOPREASON','DESIGCUST'];
-            const snapshot = {};
-            fields.forEach((field) => {
-                const lower = field.toLowerCase();
-                const value = firstNonEmptyValue(item[field], item[lower], '');
-                if (value !== '') snapshot[lower] = value;
-            });
-            return snapshot;
-        }
 
-        function buildShearListPayload(item = null, percent = 0, instructions = '', shearType = '') {
-            const uniqueId = buildShearListUniqueId(item);
-            const sourceUid = buildShearListSourceUid(item);
-            if (!uniqueId || !sourceUid || !item) return null;
-            const now = new Date().toISOString();
-            const safeInstructions = String(instructions || '').trim();
-            const safePercent = Number(percent) || 0;
-            const safeShearType = normalizeShearListType(shearType);
-            const snapshot = buildShearListSnapshot(item);
-            snapshot.percent_to_shear = safePercent;
-            snapshot.shear_type = safeShearType;
-            const payload = {
-                unique_id: uniqueId,
-                source_unique_id: sourceUid,
-                status: 'open',
-                percent_to_shear: safePercent,
-                itemcode: firstNonEmptyValue(item.ITEMCODE, item.itemcode, ''),
-                commonname: firstNonEmptyValue(item.COMMONNAME, item.commonname, ''),
-                contsize: firstNonEmptyValue(item.CONTSIZE, item.contsize, ''),
-                locationcode: firstNonEmptyValue(item.LOCATIONCODE, item.locationcode, ''),
-                lotcode: firstNonEmptyValue(item.LOTCODE, item.lotcode, ''),
-                season: firstNonEmptyValue(item.SEASON, item.season, ''),
-                blockalpha: firstNonEmptyValue(item.BLOCKALPHA, item.blockalpha, ''),
-                ptravailable: Number(firstNonEmptyValue(item.PTRAVAILABLE, item.ptravailable, 0)) || 0,
-                holdstopcode: firstNonEmptyValue(item.HOLDSTOPCODE, item.holdstopcode, ''),
-                holdstopreason: firstNonEmptyValue(item.HOLDSTOPREASON, item.holdstopreason, ''),
-                created_by_username: currentUser || '',
-                created_by_display: currentUserDisplay || currentUser || '',
-                updated_by_username: currentUser || '',
-                updated_by_display: currentUserDisplay || currentUser || '',
-                updated_at: now,
-                snapshot
-            };
-            if (safeInstructions) payload.instructions = safeInstructions;
-            return payload;
-        }
 
         function getShearDecisionDomKey(value = '') {
             return String(value || 'shear')
@@ -67124,9 +61837,6 @@ function toggleDriveQuickRequestItem(domId) {
                 .replace(/^-+|-+$/g, '') || 'shear';
         }
 
-        function getShearDecisionRowUid(row = null) {
-            return buildShearListSourceUid(row) || String(firstNonEmptyValue(row && row.UNIQUE_ID, row && row.unique_id, row && row.DOM_ID, '') || '').trim();
-        }
 
         function getShearDecisionNumber(value = 0, fallback = 0) {
             const parsed = parseAppNumber(value);
@@ -67265,16 +61975,6 @@ function toggleDriveQuickRequestItem(domId) {
             }
         }
 
-        function writeShearMoveTestRecords(records = []) {
-            try {
-                localStorage.setItem(SHEAR_MOVE_TEST_STORAGE_KEY, JSON.stringify((Array.isArray(records) ? records : []).filter(Boolean)));
-                return true;
-            } catch (error) {
-                console.warn('Shear move test write failed', error);
-                showToast('Mock Save Failed', 'Browser storage could not save the shear test record.', true);
-                return false;
-            }
-        }
 
         function getShearMoveTestRecords() {
             return readShearMoveTestRecords()
@@ -67301,169 +62001,9 @@ function toggleDriveQuickRequestItem(domId) {
             return null;
         }
 
-        function upsertShearMoveTestRecord(record = null) {
-            if (!record || !record.id) return false;
-            const records = getShearMoveTestRecords();
-            const index = records.findIndex((entry) => entry.id === record.id);
-            const nextRecord = { ...record, updated_at: new Date().toISOString() };
-            if (index === -1) records.unshift(nextRecord);
-            else records[index] = { ...records[index], ...nextRecord };
-            const saved = writeShearMoveTestRecords(records);
-            if (saved) {
-                markViewDirty('request');
-                if (isViewVisible('request')) renderRequest();
-            }
-            return saved;
-        }
 
-        function upsertShearMoveTestRecordFromPayload(payload = null, item = null, status = 'Waiting On Shear') {
-            if (!payload || typeof payload !== 'object') return false;
-            const sourceItem = item || findItemByUniqueId(payload.source_unique_id) || findInventoryEditMockItemByUid(payload.source_unique_id) || payload.snapshot || payload;
-            const plan = getShearMoveTestDestinationPlan(sourceItem, payload.percent_to_shear || 100);
-            const now = new Date().toISOString();
-            const id = `shear-test-${String(firstNonEmptyValue(payload.unique_id, payload.source_unique_id, plan.snapshot.source_unique_id, now) || now).replace(/[^a-zA-Z0-9_-]+/g, '-')}`;
-            return upsertShearMoveTestRecord({
-                id,
-                shear_unique_id: String(firstNonEmptyValue(payload.unique_id, '') || '').trim(),
-                source_unique_id: String(firstNonEmptyValue(payload.source_unique_id, plan.snapshot.source_unique_id, '') || '').trim(),
-                status,
-                snapshot: plan.snapshot,
-                percent: plan.percent,
-                source_ptr: plan.sourcePtr,
-                move_qty: plan.moveQty,
-                destination: {
-                    season: plan.destinationSeason,
-                    salesyear: plan.destinationSalesYear,
-                    locationcode: plan.destinationLocation,
-                    lotcode: plan.destinationLot,
-                    fallback_used: plan.fallbackUsed,
-                    guidance: plan.guidance,
-                    row: plan.destinationRowSnapshot
-                },
-                assignedto: plan.snapshot.assignedto,
-                hold_reason: String(firstNonEmptyValue(plan.snapshot.holdstopreason, payload.holdstopreason, '') || '').trim(),
-                instructions: String(firstNonEmptyValue(payload.instructions, '') || '').trim(),
-                sent_by_username: String(currentUser || '').trim(),
-                sent_by_display: String(currentUserDisplay || currentUser || '').trim(),
-                sent_at: now,
-                created_at: now,
-                updated_at: now
-            });
-        }
 
-        function upsertInventoryEditMockShearOfficeRecord(shearRecord = null) {
-            if (!shearRecord || !shearRecord.id) return false;
-            const snapshot = shearRecord.snapshot || {};
-            const destination = shearRecord.destination || {};
-            const now = new Date().toISOString();
-            const id = `inventory_edit_shear_${String(shearRecord.id || shearRecord.shear_unique_id || now).replace(/[^a-zA-Z0-9_-]+/g, '-')}`;
-            const destinationLabel = [
-                destination.season ? `${destination.season} ${destination.salesyear || ''}`.trim() : '',
-                destination.locationcode ? `Loc ${destination.locationcode}` : '',
-                destination.lotcode ? `Lot ${destination.lotcode}` : ''
-            ].filter(Boolean).join(' | ') || 'Destination row needed';
-            const current = {
-                priority: String(firstNonEmptyValue(snapshot.priority, snapshot.PRIORITY, '-') || '-').trim(),
-                locationnote: String(firstNonEmptyValue(snapshot.locationnote, snapshot.LOCATIONNOTE, '-') || '-').trim(),
-                holdstopcode: String(firstNonEmptyValue(snapshot.holdstopcode, snapshot.HOLDSTOPCODE, '-') || '-').trim(),
-                holdreason: String(firstNonEmptyValue(snapshot.holdstopreason, snapshot.hold_reason, shearRecord.hold_reason, '') || '').trim()
-            };
-            const officeSnapshot = {
-                ...snapshot,
-                current,
-                sourceUniqueId: String(firstNonEmptyValue(snapshot.source_unique_id, snapshot.sourceUniqueId, shearRecord.source_unique_id, '') || '').trim(),
-                masterUniqueId: String(firstNonEmptyValue(snapshot.master_unique_id, snapshot.masterUniqueId, shearRecord.source_unique_id, '') || '').trim(),
-                commonname: String(firstNonEmptyValue(snapshot.commonname, snapshot.COMMONNAME, 'Unknown') || 'Unknown').trim(),
-                contsize: String(firstNonEmptyValue(snapshot.contsize, snapshot.CONTSIZE, '') || '').trim(),
-                itemcode: String(firstNonEmptyValue(snapshot.itemcode, snapshot.ITEMCODE, '') || '').trim(),
-                locationcode: String(firstNonEmptyValue(snapshot.locationcode, snapshot.LOCATIONCODE, '') || '').trim(),
-                lotcode: String(firstNonEmptyValue(snapshot.lotcode, snapshot.LOTCODE, '') || '').trim(),
-                source: String(firstNonEmptyValue(snapshot.source, snapshot.SOURCE, 'Shear') || 'Shear').trim(),
-                ptravailable: String(firstNonEmptyValue(shearRecord.source_ptr, snapshot.ptravailable, snapshot.PTRAVAILABLE, '') || '').trim(),
-                assignedto: String(firstNonEmptyValue(shearRecord.assignedto, snapshot.assignedto, '') || '').trim()
-            };
-            const record = {
-                id,
-                inventory_edit_mock: true,
-                request_type: 'shear-u1',
-                status: getInventoryEditMockStageLabel('inventory-office'),
-                workflow_stage: 'inventory-office',
-                stage: 'inventory-office',
-                snapshot: officeSnapshot,
-                assignedto: officeSnapshot.assignedto,
-                requested: {
-                    request_type: 'shear-u1',
-                    shear_percent: shearRecord.percent,
-                    move_qty: shearRecord.move_qty,
-                    destination: destinationLabel
-                },
-                changes: [
-                    { key: 'shear_percent', label: 'shear percent', current: '-', requested: `${formatShearDecisionNumber(shearRecord.percent, 0)}%` },
-                    { key: 'move_qty', label: 'move qty to U1 bucket', current: formatShearDecisionNumber(shearRecord.source_ptr, 0), requested: formatShearDecisionNumber(shearRecord.move_qty, 0) },
-                    { key: 'destination', label: 'destination', current: `${snapshot.season || '-'} ${snapshot.salesyear || '-'}`, requested: destinationLabel }
-                ],
-                shear_move_test: true,
-                shear_record_id: shearRecord.id,
-                shear_unique_id: shearRecord.shear_unique_id,
-                sent_by: String(firstNonEmptyValue(shearRecord.completed_by_username, currentUser, shearRecord.sent_by_username, '') || '').trim(),
-                sent_by_display: String(firstNonEmptyValue(shearRecord.completed_by_display, currentUserDisplay, shearRecord.sent_by_display, '') || '').trim(),
-                sent_at: String(firstNonEmptyValue(shearRecord.completed_at, now) || now).trim(),
-                stage_updated_by: String(firstNonEmptyValue(shearRecord.completed_by_username, currentUser, '') || '').trim(),
-                stage_updated_by_display: String(firstNonEmptyValue(shearRecord.completed_by_display, currentUserDisplay, '') || '').trim(),
-                stage_updated_at: now,
-                holdreason: String(firstNonEmptyValue(shearRecord.hold_reason, '') || '').trim(),
-                reason: String(firstNonEmptyValue(shearRecord.hold_reason, '') || '').trim()
-            };
-            const records = readInventoryEditMockRequests();
-            const index = records.findIndex((entry) => String(entry && entry.id || '').trim() === id);
-            if (index >= 0) records[index] = { ...records[index], ...record };
-            else records.unshift(record);
-            return writeInventoryEditMockRequests(records);
-        }
 
-        function completeShearMoveTestRecordFromShearRow(row = null) {
-            if (!row) return false;
-            const shearId = getShearListRowId(row);
-            const item = findItemByUniqueId(getShearListValue(row, 'source_unique_id', '')) || findInventoryEditMockItemByUid(getShearListValue(row, 'source_unique_id', '')) || row;
-            const plan = getShearMoveTestDestinationPlan(item, getShearListValue(row, 'percent_to_shear', 100));
-            const records = getShearMoveTestRecords();
-            const existing = records.find((record) => String(record.shear_unique_id || '').trim() === shearId);
-            const now = new Date().toISOString();
-            const nextRecord = existing || {
-                id: `shear-test-${String(firstNonEmptyValue(shearId, getShearListValue(row, 'source_unique_id', now)) || now).replace(/[^a-zA-Z0-9_-]+/g, '-')}`,
-                shear_unique_id: shearId,
-                source_unique_id: getShearListValue(row, 'source_unique_id', plan.snapshot.source_unique_id),
-                snapshot: plan.snapshot,
-                percent: plan.percent,
-                source_ptr: plan.sourcePtr,
-                move_qty: plan.moveQty,
-                destination: {
-                    season: plan.destinationSeason,
-                    salesyear: plan.destinationSalesYear,
-                    locationcode: plan.destinationLocation,
-                    lotcode: plan.destinationLot,
-                    fallback_used: plan.fallbackUsed,
-                    guidance: plan.guidance,
-                    row: plan.destinationRowSnapshot
-                },
-                assignedto: plan.snapshot.assignedto,
-                hold_reason: String(firstNonEmptyValue(plan.snapshot.holdstopreason, getShearListValue(row, 'holdstopreason', '')) || '').trim(),
-                sent_by_username: getShearListValue(row, 'created_by_username', ''),
-                sent_by_display: getShearListValue(row, 'created_by_display', ''),
-                sent_at: getShearListValue(row, 'created_at', now),
-                created_at: getShearListValue(row, 'created_at', now)
-            };
-            const completedRecord = {
-                ...nextRecord,
-                status: 'Shear Complete',
-                completed_by_username: String(currentUser || '').trim(),
-                completed_by_display: String(currentUserDisplay || currentUser || '').trim(),
-                completed_at: now,
-                updated_at: now
-            };
-            const savedShearRecord = upsertShearMoveTestRecord(completedRecord);
-            return savedShearRecord;
-        }
 
         function canSeeShearMoveTestRecord(record = null) {
             if (!record) return false;
@@ -67529,7 +62069,6 @@ function toggleDriveQuickRequestItem(domId) {
                 if (!canSeeShearMoveTestRecord(record) && !isShearMoveTestSupervisorUser() && !(getRoleAccessState() && getRoleAccessState().isAdmin)) {
                     if (status && status !== 'waiting on shear') return;
                 }
-                const snapshot = record.snapshot || {};
                 byId.set(record.id, record);
             };
             getShearMoveTestRecords().forEach(addRecord);
@@ -67543,68 +62082,7 @@ function toggleDriveQuickRequestItem(domId) {
                 .sort((left, right) => Date.parse(right.updated_at || right.sent_at || right.created_at || 0) - Date.parse(left.updated_at || left.sent_at || left.created_at || 0));
         }
 
-        async function setShearMoveTestStatus(id = '', status = '') {
-            const safeId = String(id || '').trim();
-            if (!safeId) return false;
-            const records = getShearMoveTestRecords();
-            const record = records.find((entry) => entry.id === safeId);
-            if (!record) {
-                showToast('Missing Test Row', 'That shear test request is not in browser storage anymore.', true);
-                return false;
-            }
-            const note = await showAppPrompt(`Optional handler note for ${status}:`, record.handler_note || '', {
-                title: 'Shear Test Note',
-                confirmLabel: 'Save',
-                cancelLabel: 'Skip',
-                multiline: true
-            }) || '';
-            record.status = String(status || 'Ready For Eval Follow-Up').trim();
-            record.handler_note = String(note || '').trim();
-            record.handled_by_username = String(currentUser || '').trim();
-            record.handled_by_display = String(currentUserDisplay || currentUser || '').trim();
-            record.handled_at = new Date().toISOString();
-            writeShearMoveTestRecords(records);
-            renderRequest();
-            showToast('Saved', `Shear test marked ${record.status}.`);
-            return false;
-        }
 
-        async function updateShearMoveTestHoldReason(id = '', reuseCurrent = false, days = 3) {
-            const safeId = String(id || '').trim();
-            if (!safeId) return false;
-            const records = getShearMoveTestRecords();
-            const record = records.find((entry) => entry.id === safeId);
-            if (!record) {
-                showToast('Missing Test Row', 'That shear test request is not in browser storage anymore.', true);
-                return false;
-            }
-            const currentReason = String(firstNonEmptyValue(record.hold_reason, record.snapshot && record.snapshot.holdstopreason, '') || '').trim();
-            const nextReason = reuseCurrent
-                ? currentReason
-                : String(await showAppPrompt('Update hold reason for this recheck:', currentReason || 'Shear recheck', {
-                    title: 'Hold Recheck Reason',
-                    confirmLabel: 'Save',
-                    cancelLabel: 'Cancel',
-                    multiline: true
-                }) || '').trim();
-            if (!nextReason) {
-                showToast('Hold Reason Needed', 'Enter a hold reason or reuse the existing hold reason.', true);
-                return false;
-            }
-            const now = new Date();
-            const next = new Date(now.getTime());
-            next.setDate(next.getDate() + Math.max(3, Math.min(7, Math.round(Number(days) || 3))));
-            record.hold_reason = nextReason;
-            record.hold_rechecked_by_username = String(currentUser || '').trim();
-            record.hold_rechecked_by_display = String(currentUserDisplay || currentUser || '').trim();
-            record.hold_rechecked_at = now.toISOString();
-            record.next_hold_recheck_at = next.toISOString();
-            record.status = 'Hold Recheck Scheduled';
-            writeShearMoveTestRecords(records);
-            renderRequest();
-            showToast('Hold Recheck Set', `Next check ${formatWeatherHoldDate(record.next_hold_recheck_at)}.`);
-            return false;
-        }
 
         function renderShearMoveTestPlanHtml(item = null, percent = 100) {
             const plan = getShearMoveTestDestinationPlan(item, percent);
@@ -67625,78 +62103,6 @@ function toggleDriveQuickRequestItem(domId) {
             </div>`;
         }
 
-        function renderShearMoveTestRequestCard(record = null) {
-            const snapshot = record && record.snapshot ? record.snapshot : {};
-            const destination = record && record.destination ? record.destination : {};
-            const values = getShearMoveTestDisplayValues(record);
-            const item = findShearMoveTestRecordItem(record);
-            const uid = String(firstNonEmptyValue(snapshot.source_unique_id, record && record.source_unique_id, item && item.UNIQUE_ID, '') || '').trim();
-            const safeUid = escJsAttrValue(uid);
-            const safeId = escJsAttrValue(record && record.id);
-            const canInventoryEdit = item && canUseInventoryEditMock(item);
-            const status = String(firstNonEmptyValue(record && record.status, 'Ready For Eval Follow-Up') || '').trim();
-            const moveLabel = `${formatShearDecisionNumber(record && record.move_qty, 0)} -> ${destination.season || 'U1'} ${destination.salesyear || getConfiguredCurrentSalesYearCode()}`;
-            const destinationLabel = [destination.locationcode ? `Loc ${destination.locationcode}` : '', destination.lotcode ? `Lot ${destination.lotcode}` : ''].filter(Boolean).join(' | ') || 'Destination row needed';
-            const fallbackHtml = destination.fallback_used ? '<span class="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-amber-700">F1 fallback</span>' : '<span class="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-emerald-700">U1 found</span>';
-            const handledHtml = record.handled_at
-                ? `<div class="mt-3 rounded-xl border border-slate-100 bg-slate-50 p-3 text-[11px] font-bold text-slate-600"><span class="font-black uppercase tracking-[0.12em] text-slate-400">Handled</span><br>${escapeHtml(record.handled_by_display || record.handled_by_username || 'Unknown')} | ${escapeHtml(formatInventoryEditMockTimestamp(record.handled_at))}${record.handler_note ? `<br>${escapeHtml(record.handler_note)}` : ''}</div>`
-                : '';
-            const holdReason = String(firstNonEmptyValue(record && record.hold_reason, snapshot.holdstopreason, '') || '').trim();
-            const holdRecheckHtml = record.next_hold_recheck_at
-                ? `<span class="rounded-full border border-lime-200 bg-lime-50 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-lime-700">Next hold check ${escapeHtml(formatWeatherHoldDate(record.next_hold_recheck_at))}</span>`
-                : '';
-            const actionButtons = [
-                `<button type="button" class="rounded-xl border border-lime-200 bg-lime-50 px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-lime-800" onclick="return updateShearMoveTestHoldReason('${safeId}', true, 3)">Use Same Hold Reason</button>`,
-                `<button type="button" class="rounded-xl border border-lime-200 bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-lime-800" onclick="return updateShearMoveTestHoldReason('${safeId}', false, 7)">Update Hold Reason</button>`,
-                `<button type="button" class="rounded-xl border border-emerald-200 bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-[#007a4d]" onclick="return setShearMoveTestStatus('${safeId}', 'Done')">Done</button>`,
-                `<button type="button" class="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-sky-800" onclick="return setShearMoveTestStatus('${safeId}', 'Needs Info')">Needs Info</button>`
-            ].filter(Boolean).join('');
-            return `<div class="rounded-[1.4rem] border border-lime-200 bg-white p-4 shadow-sm">
-                <div class="flex flex-wrap items-start justify-between gap-3">
-                    <div class="min-w-0 flex-1">
-                        <div class="flex flex-wrap items-center gap-2">
-                            <span class="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-amber-700">Test Mode</span>
-                            <span class="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-slate-600">${escapeHtml(status)}</span>
-                            ${fallbackHtml}
-                            ${holdRecheckHtml}
-                        </div>
-                        <div class="mt-2 text-xl font-black leading-tight text-slate-900">${escapeHtml(snapshot.commonname || 'Unknown')} <span class="text-slate-500">${escapeHtml(snapshot.contsize || '')}</span></div>
-                        <div class="mt-1 text-[11px] font-bold uppercase tracking-[0.10em] text-slate-500">Item ${escapeHtml(snapshot.itemcode || '-')} | Loc ${escapeHtml(snapshot.locationcode || '-')} | Lot ${escapeHtml(snapshot.lotcode || '-')}</div>
-                    </div>
-                    <div class="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-right">
-                        <div class="text-[9px] font-black uppercase tracking-[0.14em] text-emerald-700">Move Qty</div>
-                        <div class="text-lg font-black text-emerald-900">${escapeHtml(moveLabel)}</div>
-                    </div>
-                </div>
-                <div class="mt-4 grid gap-3 md:grid-cols-2">
-                    <div class="rounded-2xl border border-slate-100 bg-slate-50 p-3">
-                        <div class="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Current Row</div>
-                        <div class="mt-2 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-[0.12em]">
-                            <span class="rounded-full bg-white px-2.5 py-1 text-slate-700">On hand ${escapeHtml(values.ptronhand)}</span>
-                            <span class="rounded-full bg-white px-2.5 py-1 text-slate-700">Review ${escapeHtml(values.ptrreviewed)}</span>
-                            <span class="rounded-full bg-white px-2.5 py-1 text-slate-700">Available ${escapeHtml(values.ptravailable)}</span>
-                            <span class="rounded-full bg-white px-2.5 py-1 text-slate-700">Open Stock ${escapeHtml(values.s_lts)}</span>
-                            <span class="rounded-full bg-white px-2.5 py-1 text-slate-700">${escapeHtml(snapshot.season || '-')} ${escapeHtml(String(snapshot.salesyear || '-'))}</span>
-                            <span class="rounded-full bg-white px-2.5 py-1 text-slate-700">Assigned ${escapeHtml(record.assignedto || '-')}</span>
-                        </div>
-                        <div class="mt-3 text-[11px] font-bold text-slate-600">Hold reason: ${escapeHtml(holdReason || 'N/A')}</div>
-                    </div>
-                    <div class="rounded-2xl border border-emerald-100 bg-emerald-50 p-3">
-                        <div class="text-[10px] font-black uppercase tracking-[0.14em] text-[#007a4d]">Requested / Office Keying</div>
-                        <div class="mt-2 text-sm font-black text-slate-900">${escapeHtml(destinationLabel)}</div>
-                        <div class="mt-1 text-[11px] font-semibold text-emerald-800">${escapeHtml(destination.guidance || 'Move calculated from shear percent.')}</div>
-                    </div>
-                </div>
-                <div class="mt-3 grid grid-cols-3 gap-2 text-center text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">
-                    <div class="rounded-xl bg-slate-50 p-2"><div class="text-slate-400">Sent</div><div>${escapeHtml(formatInventoryEditMockTimestamp(record.sent_at || record.created_at))}</div></div>
-                    <div class="rounded-xl bg-slate-50 p-2"><div class="text-slate-400">Sheared</div><div>${escapeHtml(record.completed_at ? formatInventoryEditMockTimestamp(record.completed_at) : 'Waiting')}</div></div>
-                    <div class="rounded-xl bg-slate-50 p-2"><div class="text-slate-400">Eval</div><div>${escapeHtml(status)}</div></div>
-                </div>
-                ${record.instructions ? `<div class="mt-3 rounded-xl border border-slate-100 bg-white px-3 py-2 text-[11px] font-bold text-slate-600"><span class="font-black uppercase tracking-[0.12em] text-slate-400">Instructions</span><br>${escapeHtml(record.instructions)}</div>` : ''}
-                ${handledHtml}
-                <div class="mt-4 flex flex-wrap gap-2">${actionButtons}</div>
-            </div>`;
-        }
 
         function findShearMoveTestRequestRecordById(id = '') {
             const safeId = String(id || '').trim();
@@ -67883,89 +62289,10 @@ function toggleDriveQuickRequestItem(domId) {
             </div>`;
         }
 
-        function getShearDecisionCandidateRows(item = null, limit = 18) {
-            if (!item) return [];
-            const itemCode = getShearListCompareKey(firstNonEmptyValue(item.ITEMCODE, item.itemcode, ''));
-            const commonName = getShearListCompareKey(firstNonEmptyValue(item.COMMONNAME, item.commonname, ''));
-            const contSize = getShearListCompareKey(firstNonEmptyValue(item.CONTSIZE, item.contsize, ''));
-            const sourceUid = getShearDecisionRowUid(item);
-            const rows = Array.isArray(fullInventory) ? fullInventory : [];
-            const seen = new Set();
-            const matches = [];
-            rows.forEach((candidate) => {
-                if (!candidate) return;
-                const candidateItemCode = getShearListCompareKey(firstNonEmptyValue(candidate.ITEMCODE, candidate.itemcode, ''));
-                const candidateCommon = getShearListCompareKey(firstNonEmptyValue(candidate.COMMONNAME, candidate.commonname, ''));
-                const candidateCont = getShearListCompareKey(firstNonEmptyValue(candidate.CONTSIZE, candidate.contsize, ''));
-                const isMatch = itemCode
-                    ? candidateItemCode === itemCode
-                    : (commonName && contSize && candidateCommon === commonName && candidateCont === contSize);
-                if (!isMatch) return;
-                const candidateUid = getShearDecisionRowUid(candidate) || [
-                    candidateItemCode,
-                    getShearListCompareKey(firstNonEmptyValue(candidate.LOCATIONCODE, candidate.locationcode, '')),
-                    getShearListCompareKey(firstNonEmptyValue(candidate.LOTCODE, candidate.lotcode, ''))
-                ].join('|');
-                if (!candidateUid || seen.has(candidateUid)) return;
-                seen.add(candidateUid);
-                matches.push(candidate);
-            });
-            matches.sort((left, right) => {
-                const leftUid = getShearDecisionRowUid(left);
-                const rightUid = getShearDecisionRowUid(right);
-                if (sourceUid && leftUid === sourceUid) return -1;
-                if (sourceUid && rightUid === sourceUid) return 1;
-                const ptrDiff = getShearDecisionNumber(firstNonEmptyValue(right.PTRAVAILABLE, right.ptravailable, 0)) - getShearDecisionNumber(firstNonEmptyValue(left.PTRAVAILABLE, left.ptravailable, 0));
-                if (ptrDiff) return ptrDiff;
-                return String(firstNonEmptyValue(left.LOCATIONCODE, left.locationcode, '') || '').localeCompare(String(firstNonEmptyValue(right.LOCATIONCODE, right.locationcode, '') || ''), undefined, { numeric: true, sensitivity: 'base' });
-            });
-            return matches.slice(0, limit);
-        }
 
-        function getShearDecisionReserveLocalRows(item = null) {
-            const rows = Array.isArray(reservesInventory) ? reservesInventory : [];
-            if (!item || !rows.length) return [];
-            return rows.filter((row) => isDriveCustomerOutreachSameItemCode(row, item));
-        }
 
-        function buildShearDecisionReserveQuery(item = null) {
-            const itemCodes = getDriveCustomerOutreachItemCodeVariants(item);
-            if (!itemCodes.length) return '';
-            if (itemCodes.length === 1) return `select=*&itemcode=eq.${encodeURIComponent(itemCodes[0])}`;
-            const conditions = itemCodes.map((itemCode) => `itemcode.eq.${encodeURIComponent(itemCode)}`);
-            return `select=*&or=(${conditions.join(',')})`;
-        }
 
-        async function loadShearDecisionReserveRows(baseUid = '', item = null, force = false) {
-            const safeBaseUid = String(baseUid || '').trim();
-            if (!safeBaseUid || !item) return [];
-            if (!force && shearListModalReserveRowsByBaseUid.has(safeBaseUid)) return shearListModalReserveRowsByBaseUid.get(safeBaseUid) || [];
-            if (shearListModalReserveLoadingByBaseUid.has(safeBaseUid)) return shearListModalReserveRowsByBaseUid.get(safeBaseUid) || [];
-            const query = buildShearDecisionReserveQuery(item);
-            if (!query) return [];
-            shearListModalReserveLoadingByBaseUid.add(safeBaseUid);
-            shearListModalReserveErrorByBaseUid.delete(safeBaseUid);
-            try {
-                const rows = await supabaseFetch('ph_reserves', 'GET', null, query);
-                const hydratedRows = hydrateDriveCustomerOutreachReserveRows(rows || [], `shear_${safeBaseUid}`);
-                shearListModalReserveRowsByBaseUid.set(safeBaseUid, hydratedRows);
-                return hydratedRows;
-            } catch (error) {
-                shearListModalReserveErrorByBaseUid.set(safeBaseUid, error && error.message ? error.message : 'Could not load ph_reserves rows.');
-                return shearListModalReserveRowsByBaseUid.get(safeBaseUid) || [];
-            } finally {
-                shearListModalReserveLoadingByBaseUid.delete(safeBaseUid);
-            }
-        }
 
-        function getShearDecisionReserveRows(baseUid = '', item = null) {
-            const safeBaseUid = String(baseUid || '').trim();
-            const fetchedRows = safeBaseUid && shearListModalReserveRowsByBaseUid.has(safeBaseUid)
-                ? shearListModalReserveRowsByBaseUid.get(safeBaseUid)
-                : null;
-            const rows = Array.isArray(fetchedRows) ? fetchedRows : getShearDecisionReserveLocalRows(item);
-            return preferDriveCustomerOutreachSeasonRows(rows, item);
-        }
 
         function parseShearDecisionReserveDate(row = null) {
             const raw = firstNonEmptyValue(
@@ -68001,53 +62328,8 @@ function toggleDriveQuickRequestItem(domId) {
             ), 0));
         }
 
-        function isShearDecisionSameLocation(row = null, candidate = null) {
-            const left = getShearListCompareKey(firstNonEmptyValue(row && row.LOCATIONCODE, row && row.locationcode, row && row.LOCATION, ''));
-            const right = getShearListCompareKey(firstNonEmptyValue(candidate && candidate.LOCATIONCODE, candidate && candidate.locationcode, candidate && candidate.LOCATION, ''));
-            return !!(left && right && left === right);
-        }
 
-        function isShearDecisionSameLot(row = null, candidate = null) {
-            const left = getShearListCompareKey(firstNonEmptyValue(row && row.LOTCODE, row && row.lotcode, ''));
-            const right = getShearListCompareKey(firstNonEmptyValue(candidate && candidate.LOTCODE, candidate && candidate.lotcode, ''));
-            return !!(left && right && left === right);
-        }
 
-        function getShearDecisionReserveDemand(baseUid = '', item = null, candidate = null, days = 14) {
-            const safeDays = Math.max(1, Math.min(120, Math.round(Number(days) || 14)));
-            const start = new Date();
-            start.setHours(0, 0, 0, 0);
-            const startMs = start.getTime();
-            const endMs = startMs + (safeDays * 24 * 60 * 60 * 1000);
-            const rows = getShearDecisionReserveRows(baseUid, item)
-                .filter((row) => isDriveCustomerOutreachSameItemCode(row, item));
-            const datedRows = [];
-            const undatedRows = [];
-            rows.forEach((row) => {
-                const stamp = parseShearDecisionReserveDate(row);
-                if (!Number.isFinite(stamp)) {
-                    undatedRows.push(row);
-                    return;
-                }
-                if (stamp >= startMs && stamp <= endMs) datedRows.push(row);
-            });
-            const locationRows = datedRows.filter((row) => isShearDecisionSameLocation(row, candidate));
-            const lotRows = datedRows.filter((row) => isShearDecisionSameLot(row, candidate));
-            const selectedRows = locationRows.length ? locationRows : (lotRows.length ? lotRows : datedRows);
-            const matchScope = locationRows.length ? 'location' : (lotRows.length ? 'lot' : 'item');
-            const sumQty = (list) => list.reduce((total, row) => total + getShearDecisionReserveQty(row), 0);
-            return {
-                days: safeDays,
-                rows: selectedRows,
-                rowCount: selectedRows.length,
-                qty: sumQty(selectedRows),
-                itemQty: sumQty(datedRows),
-                itemRowCount: datedRows.length,
-                undatedQty: sumQty(undatedRows),
-                undatedRowCount: undatedRows.length,
-                matchScope
-            };
-        }
 
         function getShearDecisionRecentDailyGddAverage(days = 14) {
             const rows = getDailyWeatherRowsSince(days);
@@ -68368,199 +62650,11 @@ function toggleDriveQuickRequestItem(domId) {
             return `<div class="rounded-xl border border-lime-100 bg-lime-50 px-3 py-2 text-[11px] font-black uppercase tracking-[0.12em] text-lime-700 ${escapeHtml(extraClass || '')}">${escapeHtml(getShearRecoveryDisplayText(recovery))}</div>`;
         }
 
-        function buildShearDecisionLocationCard(candidate = null, context = {}) {
-            const baseUid = String(context.baseUid || '').trim();
-            const selectedUid = String(context.selectedUid || '').trim();
-            const candidateUid = getShearDecisionRowUid(candidate);
-            const ptr = getShearDecisionNumber(firstNonEmptyValue(candidate && candidate.PTRAVAILABLE, candidate && candidate.ptravailable, 0), 0);
-            const hasPercent = String(context.percent == null ? '' : context.percent).trim() !== '';
-            const percent = hasPercent ? Math.max(1, Math.min(100, getShearDecisionNumber(context.percent, 100))) : 100;
-            const shearQty = Math.ceil(ptr * (percent / 100));
-            const demand = getShearDecisionReserveDemand(baseUid, context.item, candidate, context.days);
-            const remainingAfterShear = Math.max(0, ptr - shearQty);
-            const remainingAfterOrders = remainingAfterShear - demand.qty;
-            const isSelected = candidateUid && selectedUid && candidateUid === selectedUid;
-            const isRecommended = candidateUid && context.bestUid && candidateUid === context.bestUid;
-            const riskClass = remainingAfterOrders >= 0
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                : (remainingAfterOrders >= -Math.max(10, ptr * 0.1) ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-red-200 bg-red-50 text-red-700');
-            const riskText = remainingAfterOrders >= 0 ? 'Best Fit' : (remainingAfterOrders >= -Math.max(10, ptr * 0.1) ? 'Watch' : 'Risk');
-            const loc = firstNonEmptyValue(candidate && candidate.LOCATIONCODE, candidate && candidate.locationcode, 'No Loc');
-            const lot = firstNonEmptyValue(candidate && candidate.LOTCODE, candidate && candidate.lotcode, '-');
-            const block = firstNonEmptyValue(candidate && candidate.BLOCKALPHA, candidate && candidate.blockalpha, '-');
-            const season = firstNonEmptyValue(candidate && candidate.SEASON, candidate && candidate.season, '-');
-            const safeBaseUid = escJsAttrValue(baseUid);
-            const safeCandidateUid = escJsAttrValue(candidateUid);
-            const badgeHtml = isRecommended ? '<span class="rounded-full border border-emerald-200 bg-white px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-emerald-700">Recommended</span>' : '';
-            return `<div class="rounded-xl border ${isSelected ? 'border-[#007a4d] bg-emerald-50/70' : 'border-slate-200 bg-white'} p-3 shadow-sm">
-                <div class="flex items-start justify-between gap-3">
-                    <div class="min-w-0">
-                        <div class="flex flex-wrap items-center gap-2">
-                            <div class="font-black text-slate-900">Loc ${escapeHtml(loc)} <span class="text-slate-400">| Lot ${escapeHtml(lot)}</span></div>
-                            ${badgeHtml}
-                        </div>
-                        <div class="mt-1 text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">Block ${escapeHtml(block)} | ${escapeHtml(season)} | Matched ${escapeHtml(demand.matchScope)}</div>
-                    </div>
-                    <span class="rounded-full border ${riskClass} px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em]">${escapeHtml(riskText)}</span>
-                </div>
-                <div class="mt-3 grid grid-cols-2 gap-2 text-center sm:grid-cols-5">
-                    <div class="rounded-lg bg-slate-50 p-2"><div class="text-[8px] font-black uppercase tracking-[0.12em] text-slate-400">PTR</div><div class="text-sm font-black text-slate-900">${escapeHtml(formatShearDecisionNumber(ptr))}</div></div>
-                    <div class="rounded-lg bg-lime-50 p-2"><div class="text-[8px] font-black uppercase tracking-[0.12em] text-slate-400">Shear Qty</div><div class="text-sm font-black text-slate-900">${escapeHtml(formatShearDecisionNumber(shearQty))}</div></div>
-                    <div class="rounded-lg bg-sky-50 p-2"><div class="text-[8px] font-black uppercase tracking-[0.12em] text-slate-400">Shipping Over ${escapeHtml(String(demand.days))} Days</div><div class="text-sm font-black text-slate-900">${escapeHtml(formatShearDecisionNumber(demand.qty))}</div></div>
-                    <div class="rounded-lg bg-emerald-50 p-2"><div class="text-[8px] font-black uppercase tracking-[0.12em] text-slate-400">After Shear</div><div class="text-sm font-black text-slate-900">${escapeHtml(formatShearDecisionNumber(remainingAfterShear))}</div></div>
-                    <div class="rounded-lg ${remainingAfterOrders >= 0 ? 'bg-emerald-50' : 'bg-red-50'} p-2"><div class="text-[8px] font-black uppercase tracking-[0.12em] text-slate-400">After Orders</div><div class="text-sm font-black ${remainingAfterOrders >= 0 ? 'text-emerald-800' : 'text-red-700'}">${escapeHtml(formatShearDecisionNumber(remainingAfterOrders))}</div></div>
-                </div>
-                <div class="mt-2 text-[10px] font-bold text-slate-400">${demand.rowCount} dated reserve row${demand.rowCount === 1 ? '' : 's'}${demand.undatedRowCount ? ` | ${escapeHtml(String(demand.undatedRowCount))} undated row${demand.undatedRowCount === 1 ? '' : 's'} not counted` : ''}</div>
-                <button type="button" class="mt-3 w-full rounded-xl ${isSelected ? 'bg-[#007a4d] text-white' : 'border border-emerald-200 bg-white text-[#007a4d]'} px-3 py-2.5 text-[10px] font-black uppercase tracking-[0.14em] shadow-sm active:scale-95" onclick="return selectShearDecisionLocation('${safeBaseUid}', '${safeCandidateUid}')">${isSelected ? 'Selected Location' : 'Use This Location'}</button>
-            </div>`;
-        }
 
-        function renderShearDecisionPlannerHtml(item = null, selectedItem = null, context = {}) {
-            const baseUid = String(context.baseUid || '').trim();
-            const percent = String(context.percent == null ? '' : context.percent).trim() === '' ? 100 : getShearDecisionNumber(context.percent, 100);
-            const days = Math.max(1, Math.min(120, Math.round(Number(context.days) || 14)));
-            const candidates = getShearDecisionCandidateRows(item);
-            const recovery = getShearDecisionRecoveryEstimate(item);
-            const loading = shearListModalReserveLoadingByBaseUid.has(baseUid);
-            const error = shearListModalReserveErrorByBaseUid.get(baseUid) || '';
-            const candidateScores = candidates.map((candidate) => {
-                const ptr = getShearDecisionNumber(firstNonEmptyValue(candidate && candidate.PTRAVAILABLE, candidate && candidate.ptravailable, 0), 0);
-                const shearQty = Math.ceil(ptr * (Math.max(1, Math.min(100, percent)) / 100));
-                const demand = getShearDecisionReserveDemand(baseUid, item, candidate, days);
-                return {
-                    uid: getShearDecisionRowUid(candidate),
-                    score: (ptr - shearQty) - demand.qty,
-                    ptr
-                };
-            }).sort((left, right) => {
-                if (right.score !== left.score) return right.score - left.score;
-                return right.ptr - left.ptr;
-            });
-            const bestUid = candidateScores[0] ? candidateScores[0].uid : '';
-            const selectedLoc = firstNonEmptyValue(selectedItem && selectedItem.LOCATIONCODE, selectedItem && selectedItem.locationcode, 'No Loc');
-            const selectedPtr = firstNonEmptyValue(selectedItem && selectedItem.PTRAVAILABLE, selectedItem && selectedItem.ptravailable, '0');
-            const locationCards = candidates.length
-                ? candidates.map((candidate) => buildShearDecisionLocationCard(candidate, { ...context, item, percent, days, bestUid })).join('')
-                : '<div class="rounded-xl border border-dashed border-slate-200 bg-white px-4 py-5 text-center text-[11px] font-bold text-slate-400">No other Drive Mode locations found for this item.</div>';
-            const loadingHtml = loading ? '<div class="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-sky-700">Loading current ph_reserves shipping demand...</div>' : '';
-            const errorHtml = error ? `<div class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-amber-700">${escapeHtml(error)}</div>` : '';
-            const moveTestPlanHtml = renderShearMoveTestPlanHtml(selectedItem || item, percent);
-            return `<div class="mt-3 rounded-2xl border border-emerald-200 bg-white p-3">
-                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div class="min-w-0">
-                        <div class="text-[10px] font-black uppercase tracking-[0.16em] text-[#007a4d]">Drive Mode Location Planner</div>
-                        <div class="mt-1 text-[12px] font-bold text-slate-500">Selected Loc ${escapeHtml(selectedLoc)} | Available ${escapeHtml(String(selectedPtr))}</div>
-                        <div class="mt-1 text-[11px] font-black uppercase tracking-[0.12em] text-lime-700">${escapeHtml(recovery.label)}</div>
-                    </div>
-                    <label class="block min-w-[128px]">
-                        <span class="block text-[9px] font-black uppercase tracking-[0.14em] text-slate-400">Shipping Window Days</span>
-                        <input type="number" min="1" max="120" step="1" inputmode="numeric" class="shear-window-input mt-1 w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-center text-base font-black text-slate-900 outline-none focus:border-[#007a4d]" value="${escapeHtml(String(days))}" data-base-uid="${escapeHtml(baseUid)}" onchange="return refreshShearDecisionPlanner('${escJsAttrValue(baseUid)}')">
-                    </label>
-                </div>
-                ${moveTestPlanHtml}
-                <div class="mt-3 space-y-2">${loadingHtml}${errorHtml}</div>
-                <div class="mt-3 grid grid-cols-1 gap-2">${locationCards}</div>
-            </div>`;
-        }
 
-        function renderShearListModalRows(items = shearListModalItems, draftState = collectShearListModalDraftState()) {
-            const rowsEl = document.getElementById('shear-list-modal-rows');
-            if (!rowsEl) return;
-            const rows = Array.isArray(items) ? items : [];
-            shearListModalDraftState = cloneShearListModalDraftState(draftState);
-            if (!rows.length) {
-                rowsEl.innerHTML = '<div class="rounded-2xl border border-dashed border-lime-200 bg-lime-50/60 px-4 py-6 text-center text-sm font-bold text-lime-700">No rows selected.</div>';
-                return;
-            }
-            const summaryHtml = `<div class="rounded-2xl border border-lime-100 bg-white p-3 shadow-sm">
-                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <div class="text-[10px] font-black uppercase tracking-[0.16em] text-[#007a4d]">Rows From Bloom Picker</div>
-                        <div class="mt-1 text-[12px] font-bold text-slate-500">${escapeHtml(String(rows.length))} row${rows.length === 1 ? '' : 's'} selected. Set each row's percent and shear type before adding.</div>
-                    </div>
-                    <span class="shrink-0 rounded-full border border-lime-200 bg-lime-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-lime-700">${escapeHtml(String(rows.length))} Row${rows.length === 1 ? '' : 's'}</span>
-                </div>
-            </div>`;
-            const rowsHtml = rows.map((item, index) => {
-                const baseUid = buildShearListSourceUid(item);
-                const selectedUid = getShearListModalDraftValue(draftState, 'selectedUid', baseUid, baseUid) || baseUid;
-                const selectedItem = findItemByUniqueId(selectedUid) || findItemByDomId(selectedUid) || item;
-                const selectedDomId = String(firstNonEmptyValue(selectedItem && selectedItem.DOM_ID, selectedItem && selectedItem.dom_id, '') || '').trim();
-                const commonName = firstNonEmptyValue(item.COMMONNAME, item.commonname, 'Unknown');
-                const contSize = firstNonEmptyValue(item.CONTSIZE, item.contsize, '-');
-                const loc = firstNonEmptyValue(item.LOCATIONCODE, item.locationcode, 'No Loc');
-                const lot = firstNonEmptyValue(item.LOTCODE, item.lotcode, '-');
-                const ptr = firstNonEmptyValue(item.PTRAVAILABLE, item.ptravailable, '0');
-                const percent = getShearListModalDraftValue(draftState, 'percent', baseUid, '');
-                const shearType = normalizeShearListType(getShearListModalDraftValue(draftState, 'type', baseUid, ''));
-                const instructions = getShearListModalDraftValue(draftState, 'instructions', baseUid, '');
-                const days = getShearListModalDraftValue(draftState, 'days', baseUid, '14') || '14';
-                return `<div class="rounded-2xl border border-lime-100 bg-lime-50/50 p-3 shadow-sm" data-shear-base-uid="${escapeHtml(baseUid)}">
-                    <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                        <div class="min-w-0">
-                            <div class="font-black text-slate-900 leading-tight">${escapeHtml(commonName)}</div>
-                            <div class="mt-1 text-[11px] font-bold text-slate-500">${escapeHtml(contSize)} | Original Loc ${escapeHtml(loc)} | Lot ${escapeHtml(lot)} | Available ${escapeHtml(String(ptr))}</div>
-                        </div>
-                        <span class="shrink-0 rounded-full border border-emerald-200 bg-white px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-[#007a4d]">Row ${escapeHtml(String(index + 1))} of ${escapeHtml(String(rows.length))}</span>
-                    </div>
-                    <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
-                        <label class="block">
-                            <span class="block text-[10px] font-black uppercase tracking-[0.14em] text-lime-700">Percent To Shear</span>
-                            <input type="number" min="1" max="100" step="1" inputmode="numeric" class="shear-percent-input input-field !mb-0 mt-1 border-lime-200 bg-white text-center text-lg font-black" value="${escapeHtml(String(percent))}" data-base-uid="${escapeHtml(baseUid)}" data-dom-id="${escapeHtml(selectedDomId)}" data-selected-uid="${escapeHtml(selectedUid)}" onchange="return refreshShearDecisionPlanner('${escJsAttrValue(baseUid)}')">
-                        </label>
-                        <label class="block">
-                            <span class="block text-[10px] font-black uppercase tracking-[0.14em] text-lime-700">Shear Type</span>
-                            <select class="shear-type-select input-field !mb-0 mt-1 border-lime-200 bg-white text-sm font-black" data-base-uid="${escapeHtml(baseUid)}">
-                                ${renderShearListTypeOptions(shearType)}
-                            </select>
-                        </label>
-                    </div>
-                    ${renderShearDecisionPlannerHtml(item, selectedItem, { baseUid, selectedUid, percent, days })}
-                    <label class="mt-3 block text-[10px] font-black uppercase tracking-[0.14em] text-lime-700">Instructions Optional</label>
-                    <textarea class="shear-instructions-input input-field !mb-0 min-h-[78px] border-lime-200 bg-white text-sm font-bold" placeholder="Add shear instructions..." data-base-uid="${escapeHtml(baseUid)}">${escapeHtml(instructions)}</textarea>
-                </div>`;
-            }).join('');
-            rowsEl.innerHTML = `${summaryHtml}${rowsHtml}`;
-        }
 
-        function ensureShearDecisionModalData(items = shearListModalItems) {
-            if (typeof loadWeatherHoldData === 'function' && !weatherHoldState.loaded && !weatherHoldState.loading && !weatherHoldState.error) {
-                loadWeatherHoldData(false).then(() => {
-                    const modal = document.getElementById('shear-list-modal');
-                    if (modal && !modal.classList.contains('hidden')) renderShearListModalRows();
-                }).catch(() => {});
-            } else if (typeof queueWeatherHoldRiskRefresh === 'function' && canUseWeatherHoldRiskTools() && !weatherHoldState.riskLoaded && !weatherHoldState.riskLoading) {
-                queueWeatherHoldRiskRefresh(false);
-            }
-            (Array.isArray(items) ? items : []).forEach((item) => {
-                const baseUid = buildShearListSourceUid(item);
-                if (!baseUid || shearListModalReserveRowsByBaseUid.has(baseUid) || shearListModalReserveLoadingByBaseUid.has(baseUid)) return;
-                loadShearDecisionReserveRows(baseUid, item, false).then(() => {
-                    const modal = document.getElementById('shear-list-modal');
-                    if (modal && !modal.classList.contains('hidden')) renderShearListModalRows();
-                }).catch(() => {});
-            });
-        }
 
-        function refreshShearDecisionPlanner(baseUid = '') {
-            renderShearListModalRows(shearListModalItems, collectShearListModalDraftState());
-            return false;
-        }
 
-        function selectShearDecisionLocation(baseUid = '', selectedUid = '') {
-            const safeBaseUid = String(baseUid || '').trim();
-            const safeSelectedUid = String(selectedUid || '').trim();
-            if (!safeBaseUid || !safeSelectedUid) return false;
-            const input = Array.from(document.querySelectorAll('.shear-percent-input'))
-                .find((entry) => String(entry && entry.dataset ? entry.dataset.baseUid || '' : '').trim() === safeBaseUid) || null;
-            const selectedItem = findItemByUniqueId(safeSelectedUid);
-            if (input) {
-                input.dataset.selectedUid = safeSelectedUid;
-                input.dataset.domId = String(firstNonEmptyValue(selectedItem && selectedItem.DOM_ID, selectedItem && selectedItem.dom_id, '') || '').trim();
-            }
-            renderShearListModalRows(shearListModalItems, collectShearListModalDraftState());
-            return false;
-        }
 
         async function loadShearListData(force = false) {
             if (typeof shouldUseProductionLiveSyncSideLoad === 'function' && shouldUseProductionLiveSyncSideLoad()) return ensureProductionLiveSyncSideData('shear', force, { state: shearListState }).then(() => shearListState);
@@ -68782,12 +62876,6 @@ function toggleDriveQuickRequestItem(domId) {
             return Array.from(present).sort((left, right) => left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' }));
         }
 
-        function getShearDriveReserveRowsForItem(item = null) {
-            const rows = Array.isArray(reservesInventory) ? reservesInventory : [];
-            if (!item || !rows.length) return [];
-            const itemRows = rows.filter((row) => isDriveCustomerOutreachSameItemCode(row, item));
-            return preferDriveCustomerOutreachSeasonRows(itemRows, item);
-        }
 
         function getShearDriveDemandCodeKeys(row = null) {
             if (!row) return [];
@@ -69294,129 +63382,11 @@ function toggleDriveQuickRequestItem(domId) {
             </details>`;
         }
 
-        function getShearListPlannedQty(row = null) {
-            const ptr = getShearDecisionNumber(getShearListValue(row, 'ptravailable', 0), 0);
-            const percent = Math.max(0, getShearDecisionNumber(getShearListValue(row, 'percent_to_shear', 0), 0));
-            if (!ptr || !percent) return 0;
-            return Math.min(ptr, Math.max(1, Math.round(ptr * (percent / 100))));
-        }
 
-        function updateShearListRowPercent(uniqueId = '', inputId = '') {
-            showToast('Legacy Row', 'Historical Shear percentages are read-only.', true);
-            return false;
-        }
 
-        function getShearLocationCompleteEmailKey(locationCode = '', latestAt = '') {
-            const key = String(`${locationCode}|${latestAt || new Date().toISOString().slice(0, 10)}`)
-                .replace(/[^a-zA-Z0-9_-]+/g, '-')
-                .replace(/-+/g, '-')
-                .replace(/^-+|-+$/g, '');
-            return `gnc_shear_location_complete_email_${key}`;
-        }
 
-        function buildShearLocationCompleteSummaryRows(rows = []) {
-            const groups = new Map();
-            (Array.isArray(rows) ? rows : []).forEach((row) => {
-                if (!row) return;
-                const itemcode = String(getShearListValue(row, 'itemcode', '-') || '-').trim();
-                const commonname = String(getShearListValue(row, 'commonname', 'Unknown') || 'Unknown').trim();
-                const percent = Math.max(0, getShearDecisionNumber(getShearListValue(row, 'percent_to_shear', 0), 0));
-                const key = `${itemcode}|${commonname}|${percent}`;
-                if (!groups.has(key)) {
-                    groups.set(key, { itemcode, commonname, percent, rows: 0, plants: 0 });
-                }
-                const group = groups.get(key);
-                group.rows += 1;
-                group.plants += getShearListPlannedQty(row);
-            });
-            return Array.from(groups.values()).sort((left, right) => left.commonname.localeCompare(right.commonname, undefined, { sensitivity: 'base' })
-                || left.itemcode.localeCompare(right.itemcode, undefined, { numeric: true, sensitivity: 'base' })
-                || left.percent - right.percent);
-        }
 
-        async function sendShearLocationCompleteEmail(locationCode = '', rows = [], completedBy = '') {
-            const safeLocation = String(locationCode || '').trim();
-            const summaryRows = buildShearLocationCompleteSummaryRows(rows);
-            if (!safeLocation || !summaryRows.length) return null;
-            const recipientEmails = dedupeRequestEmailRecipients([NCR_APPROVAL_EMAIL_BY_USER[NCR_APPROVAL_DYLAN_USER]]);
-            if (!recipientEmails.length) return null;
-            const htmlRows = summaryRows.map((row) => `<tr>
-                <td style="padding:8px;border-bottom:1px solid #d9efe4;font-weight:700;">${esc(row.itemcode)}</td>
-                <td style="padding:8px;border-bottom:1px solid #d9efe4;font-weight:700;">${esc(row.commonname)}</td>
-                <td style="padding:8px;border-bottom:1px solid #d9efe4;text-align:right;">${esc(String(row.plants))}</td>
-                <td style="padding:8px;border-bottom:1px solid #d9efe4;text-align:right;">${esc(String(row.percent))}%</td>
-            </tr>`).join('');
-            const formattedItemsHtml = `<div style="font-family:Arial,sans-serif;">
-                <h2 style="margin:0 0 10px;color:#007a4d;">Shear Location Complete: ${esc(safeLocation)}</h2>
-                <p style="margin:0 0 12px;color:#334155;">Completed by ${esc(completedBy || 'Sam')}.</p>
-                <table style="border-collapse:collapse;width:100%;font-size:14px;">
-                    <thead><tr style="background:#eaf8f1;color:#007a4d;text-transform:uppercase;font-size:12px;letter-spacing:0.08em;">
-                        <th style="padding:8px;text-align:left;">Item Code</th>
-                        <th style="padding:8px;text-align:left;">Common Name</th>
-                        <th style="padding:8px;text-align:right;">Plants Sheared</th>
-                        <th style="padding:8px;text-align:right;">Percent</th>
-                    </tr></thead>
-                    <tbody>${htmlRows}</tbody>
-                </table>
-            </div>`;
-            const formattedItemsText = [
-                `Shear Location Complete: ${safeLocation}`,
-                `Completed by ${completedBy || 'Sam'}`,
-                '',
-                ...summaryRows.map((row) => `${row.itemcode} | ${row.commonname} | ${row.plants} plants | ${row.percent}%`)
-            ].join('\n');
-            const requestItems = summaryRows.map((row) => ({
-                ITEMCODE: row.itemcode,
-                COMMONNAME: row.commonname,
-                LOCATIONCODE: safeLocation,
-                QTY: row.plants,
-                SHEAR_PERCENT: row.percent
-            }));
-            return postGoogleScriptEmailPayload({
-                type: 'email',
-                emailType: 'shear_location_complete',
-                subject: `Shear Location Complete: ${safeLocation}`,
-                fromName: 'Ag Data Shear List',
-                brandLabel: 'Ag Data Shear List',
-                sourceLabel: 'Shear List',
-                customer: 'Shear List',
-                requestCustomer: 'Shear List',
-                folderId: `shear-location-${safeLocation}`,
-                requestFolder: `Shear Location ${safeLocation}`,
-                itemsCount: summaryRows.length,
-                completedBy: completedBy || String(firstNonEmptyValue(currentUserDisplay, currentUser, 'Unknown') || 'Unknown').trim(),
-                internalRecipients: recipientEmails,
-                recipientEmails,
-                recipients: recipientEmails.map((email) => ({ email, role: 'internal' })),
-                dylanEmail: NCR_APPROVAL_EMAIL_BY_USER[NCR_APPROVAL_DYLAN_USER],
-                formattedItemsHtml,
-                formattedItemsText,
-                requestItems,
-                requestRows: requestItems,
-                forceImmediate: true
-            }, REQUEST_EMAIL_SCRIPT_TIMEOUT_MS, 'Shear Location Complete Email');
-        }
 
-        async function maybeSendShearLocationCompleteEmail(completedRow = null) {
-            if (!completedRow) return false;
-            const locationCode = String(getShearListValue(completedRow, 'locationcode', '') || '').trim();
-            if (!locationCode || navigator.onLine === false) return false;
-            const openRows = await supabaseFetch(SHEAR_LIST_TABLE, 'GET', null, `select=unique_id&status=eq.open&locationcode=eq.${encodeURIComponent(locationCode)}&limit=1`);
-            if (Array.isArray(openRows) && openRows.length) return false;
-            const start = new Date();
-            start.setHours(0, 0, 0, 0);
-            const completedRows = await supabaseFetch(SHEAR_LIST_TABLE, 'GET', null, `select=${SHEAR_LIST_SELECT_FIELDS}&status=eq.complete&locationcode=eq.${encodeURIComponent(locationCode)}&completed_at=gte.${encodeURIComponent(start.toISOString())}&order=completed_at.desc`);
-            const rows = Array.isArray(completedRows) && completedRows.length ? completedRows : [completedRow];
-            const latestAt = rows.reduce((latest, row) => {
-                const value = String(getShearListValue(row, 'completed_at', getShearListValue(row, 'updated_at', '')) || '').trim();
-                return value > latest ? value : latest;
-            }, String(getShearListValue(completedRow, 'completed_at', getShearListValue(completedRow, 'updated_at', '')) || '').trim());
-            const emailKey = getShearLocationCompleteEmailKey(locationCode, latestAt);
-            if (localStorage.getItem(emailKey)) return false;
-            await sendShearLocationCompleteEmail(locationCode, rows, String(firstNonEmptyValue(currentUserDisplay, currentUser, getShearListValue(completedRow, 'completed_by_display', ''), 'Unknown') || 'Unknown').trim());
-            localStorage.setItem(emailKey, new Date().toISOString());
-            return true;
-        }
 
         function renderShearListCard(row = null) {
             const uniqueId = getShearListRowId(row);
@@ -69427,7 +63397,6 @@ function toggleDriveQuickRequestItem(domId) {
             const lotCode = getShearListValue(row, 'lotcode', '-');
             const season = getShearListValue(row, 'season', '-');
             const blockAlpha = getShearListValue(row, 'blockalpha', '-');
-            const ptr = getShearListValue(row, 'ptravailable', '0');
             const percent = getShearListValue(row, 'percent_to_shear', '0');
             const rawShearType = String(getShearListValue(row, 'shear_type', '') || '').trim();
             const shearType = rawShearType ? normalizeShearListType(rawShearType) : '';
@@ -69435,7 +63404,6 @@ function toggleDriveQuickRequestItem(domId) {
             const createdAt = formatWeatherHoldDate(getShearListValue(row, 'created_at', ''));
             const instructions = String(getShearListValue(row, 'instructions', '') || '').trim();
             const moveTestHtml = renderShearMoveTestPlanHtml(row, percent || 100);
-            const safeUniqueId = escJsAttrValue(uniqueId);
             const percentInputId = `shear-percent-${String(uniqueId || 'row').replace(/[^a-zA-Z0-9_-]+/g, '-')}`;
             const shearTypeChipHtml = shearType
                 ? `<span class="rounded-full bg-lime-50 px-2.5 py-1 text-lime-700">${escapeHtml(shearType)}</span>`
@@ -70506,27 +64474,7 @@ function toggleDriveQuickRequestItem(domId) {
         /* @runtime-fragment assets/global-back-surfaces-1.js */
         /* @runtime-fragment assets/global-back-surfaces-2.js */
 
-        function reRenderCurrentView() {
-            const visibleViewIds = getVisibleTrackedViewIds();
-            if (!visibleViewIds.length) return;
-            internalPerfStats.forcedRerenders = (Number(internalPerfStats.forcedRerenders) || 0) + visibleViewIds.length;
-            const rerenderDelay = shouldDeferInteractiveBackgroundWork() ? 60 : 0;
-            visibleViewIds.forEach((viewId) => markViewDirty(viewId));
-            visibleViewIds.forEach((viewId) => queueInteractiveViewRender(viewId, false, true, rerenderDelay, 180));
-            markHiddenViewsDirty(visibleViewIds);
-        }
 
-        function resetTaskSharedHeaderFilters() {
-            taskLocationDetailSearchTerm = '';
-            selectedTaskLocationDetailGenus = '';
-            selectedTaskLocationDetailLotCode = '';
-            selectedTaskContSizes = new Set();
-            selectedTaskGenusNames = new Set();
-            taskGenusSearchTerm = '';
-            taskContSizeSearchTerm = '';
-            taskGenusFilterOpen = false;
-            taskContSizeDropdownOpen = false;
-        }
 
         function setTaskView(view) {
             const previousTaskView = activeTaskView;
@@ -70742,10 +64690,6 @@ function toggleDriveQuickRequestItem(domId) {
             return false;
         }
 
-        function setTaskReserveCustomerFilter(value = '') {
-            const normalizedValue = getNormalizedTaskReserveCustomerValueForRep(value, activeTaskReserveRepFilter);
-            return commitTaskReserveCustomerSelection(normalizedValue === 'all' ? [] : [normalizedValue]);
-        }
 
         function toggleTaskReserveCustomerDropdown() {
             if (openIosTaskFilterSheet('reserve-customer') || shouldUseIosStandaloneTaskFilterSheet()) return false;
@@ -70810,13 +64754,6 @@ function toggleDriveQuickRequestItem(domId) {
             return false;
         }
 
-        function clearTaskReserveCustomerDraft() {
-            taskReserveCustomerDraftFilters = new Set();
-            taskReserveCustomerSearchTerm = '';
-            const container = document.getElementById('task-reserves-customer-filters');
-            if (container) updateTaskReserveCustomerFilterUi(buildTaskReserveCustomerSearchState(), container);
-            return false;
-        }
 
         function selectAllTaskReserveCustomerDraft() {
             const state = buildTaskReserveCustomerSearchState();
@@ -70858,12 +64795,6 @@ function toggleDriveQuickRequestItem(domId) {
             if (driveModeTab) driveModeTab.classList.toggle('active', activeDriveMode === 'ok');
         }
 
-        function getDriveViewLabel(tab = activeDriveTab) {
-            if (tab === 'name') return 'Common Name';
-            if (tab === 'loc') return 'Location';
-            if (tab === 'hold') return 'Reports';
-            return 'Cards';
-        }
 
         function syncDriveTabPills() {
             const tabMap = {
@@ -70930,10 +64861,6 @@ function toggleDriveQuickRequestItem(domId) {
                 && DRIVE_SEASON_OPTIONS.every((season) => driveSelectedSeasons.has(season));
         }
 
-        function getDriveSeasonSummaryLabel() {
-            normalizeDriveSelectedSeasons();
-            return areAllDriveSeasonsSelected() ? 'All Seasons' : `${driveSelectedSeasons.size} selected`;
-        }
 
         function closeDriveTopControlDropdowns(syncUi = true) {
             const hadOpen = driveSeasonDropdownOpen || driveGenusFilterOpen || driveContSizeFilterOpen || driveLocationFilterOpen || driveLotFilterOpen || driveColumnFilterDropdownOpen;
@@ -70960,149 +64887,15 @@ function toggleDriveQuickRequestItem(domId) {
             return false;
         }
 
-        function toggleDriveViewDropdown() {
-            return false;
-        }
 
-        function closeDriveViewDropdown() {
-            return false;
-        }
 
-        function toggleDriveSeasonDropdown() {
-            driveSeasonDropdownOpen = !driveSeasonDropdownOpen;
-            if (driveSeasonDropdownOpen) {
-                driveViewDropdownOpen = false;
-                driveGenusFilterOpen = false;
-                driveContSizeFilterOpen = false;
-                driveLocationFilterOpen = false;
-                driveLotFilterOpen = false;
-                driveColumnFilterDropdownOpen = false;
-            }
-            renderDriveTopControls(drivePlantFilterItemsCache);
-            return false;
-        }
 
-        function closeDriveSeasonDropdown() {
-            if (!driveSeasonDropdownOpen) return false;
-            driveSeasonDropdownOpen = false;
-            renderDriveTopControls(drivePlantFilterItemsCache);
-            return false;
-        }
 
-        function selectAllDriveSeasons() {
-            beginDirectNavigationActivity();
-            driveSelectedSeasons = new Set(DRIVE_SEASON_OPTIONS);
-            driveSeasonDropdownOpen = true;
-            invalidateDriveResolvedCardState();
-            scheduleDriveFilterRender();
-            return false;
-        }
 
-        function deselectAllDriveSeasons() {
-            beginDirectNavigationActivity();
-            driveSelectedSeasons = new Set();
-            driveSeasonSearchTerm = '';
-            driveSeasonDropdownOpen = true;
-            setDriveSearchManualSelectionLock(shouldDriveSearchLockForCurrentTab());
-            invalidateDriveResolvedCardState();
-            scheduleDriveFilterRender();
-            return false;
-        }
 
-        function setDriveSeasonSearchTerm(value = '') {
-            driveSeasonSearchTerm = String(value || '');
-            const input = document.getElementById('drive-season-search');
-            if (input && document.activeElement === input && updateDriveTopFilterOptionsOnly('season')) return false;
-            const cursorPos = input && typeof input.selectionStart === 'number' ? input.selectionStart : null;
-            scheduleUiRender('drive-season-search-ui', () => {
-                renderDriveTopControls(drivePlantFilterItemsCache);
-                requestAnimationFrame(() => {
-                    const current = document.getElementById('drive-season-search');
-                    if (!current) return;
-                    if (document.activeElement !== current) current.focus();
-                    if (cursorPos !== null && typeof current.setSelectionRange === 'function') {
-                        current.setSelectionRange(cursorPos, cursorPos);
-                    }
-                });
-            });
-            return false;
-        }
 
-        function applyVisibleDriveSeasonResults() {
-            const filtered = filterExcelOptionValues(DRIVE_SEASON_OPTIONS, driveSeasonSearchTerm);
-            if (!filtered.length) return false;
-            beginDirectNavigationActivity();
-            driveSelectedSeasons = new Set(filtered);
-            driveSeasonSearchTerm = '';
-            driveSeasonDropdownOpen = false;
-            setDriveSearchManualSelectionLock(shouldDriveSearchLockForCurrentTab());
-            invalidateDriveResolvedCardState();
-            scheduleDriveFilterRender();
-            return true;
-        }
 
-        function handleDriveSeasonSearchKeydown(event) {
-            if (!isEnterKeypress(event)) return;
-            handleSearchEnterApply(event, applyVisibleDriveSeasonResults);
-        }
 
-        function setDriveMode(mode) {
-            closeDriveQuickFiltersModal();
-            lastViewSwitchAt = Date.now();
-            cancelDriveSearchRenderWork();
-            activeDriveMode = mode;
-            resetDriveQuickCardViewState();
-            syncDriveModeTabs();
-            activeDriveTab = 'name';
-            activeDriveHoldStopReport = 'hold-stop';
-            driveReportEvalUserFilter = 'all';
-            resetDriveDrillSelectionState();
-            selectedDriveCommonNames = new Set();
-            driveCommonNameSearchTerm = '';
-            driveCommonNameFilterOpen = false;
-            selectedDriveGenusNames = new Set();
-            driveGenusSelectionMode = 'all';
-            driveGenusSearchTerm = '';
-            driveGenusFilterOpen = false;
-            selectedDriveContSizes = new Set();
-            driveContSizeSelectionMode = 'all';
-            driveContSizeSearchTerm = '';
-            driveContSizeFilterOpen = false;
-            selectedDriveLocationCodes = new Set();
-            driveLocationSelectionMode = 'all';
-            driveLocationSearchTerm = '';
-            driveLocationFilterOpen = false;
-            selectedDriveLotCodes = new Set();
-            driveLotSelectionMode = 'all';
-            driveLotSearchTerm = '';
-            driveLotFilterOpen = false;
-            driveColumnFilters = {};
-            driveColumnFilterDrafts = {};
-            driveColumnFilterSelectedHeaders = new Set();
-            driveColumnFilterDropdownOpen = false;
-            driveColumnFilterStep = 'select';
-            driveColumnFilterFieldKey = '';
-            driveColumnFilterMode = 'values';
-            driveColumnFilterValueSearchTerm = '';
-            driveColumnFilterFieldSearchTerm = '';
-            driveColumnFilterHeaderFieldsCache = [];
-            driveStandardColumnFilters = {};
-            driveSeasonSalesNoteColumnFilters = {};
-            drivePlantFilterItemsCache = [];
-            drivePlantFilterGenusOptions = [];
-            drivePlantFilterContSizeOptions = [];
-            drivePlantFilterLocationOptions = [];
-            drivePlantFilterLotOptions = [];
-            driveViewDropdownOpen = false;
-            driveSeasonDropdownOpen = false;
-            driveSeasonSearchTerm = '';
-            driveSelectedSeasons = new Set(DRIVE_SEASON_OPTIONS);
-            driveQuickHoldStopOnly = false;
-            setDriveSearchManualSelectionLock(hasActiveDriveSearchTerm());
-            invalidateDriveResolvedCardState();
-            scheduleDriveRender();
-            queueScrollMainAreaToTop(`drive-mode:${mode}`);
-        }
 
         function selectDriveBlock(block) {
             cancelDriveSearchRenderWork();
@@ -71134,7 +64927,7 @@ function toggleDriveQuickRequestItem(domId) {
             activeDriveHoldStopReport = 'hold-stop';
             driveReportEvalUserFilter = 'all';
             resetDriveDrillSelectionState();
-            selectedDriveCommonNames = new Set(); driveCommonNameSearchTerm = ''; driveCommonNameFilterOpen = false; selectedDriveGenusNames = new Set(); driveGenusSelectionMode = 'all'; driveGenusSearchTerm = ''; driveGenusFilterOpen = false; selectedDriveContSizes = new Set(); driveContSizeSelectionMode = 'all'; driveContSizeSearchTerm = ''; driveContSizeFilterOpen = false; selectedDriveLocationCodes = new Set(); driveLocationSelectionMode = 'all'; driveLocationSearchTerm = ''; driveLocationFilterOpen = false; selectedDriveLotCodes = new Set(); driveLotSelectionMode = 'all'; driveLotSearchTerm = ''; driveLotFilterOpen = false; driveColumnFilters = {}; driveColumnFilterDrafts = {}; driveColumnFilterSelectedHeaders = new Set(); driveColumnFilterDropdownOpen = false; driveColumnFilterStep = 'select'; driveColumnFilterFieldKey = ''; driveColumnFilterMode = 'values'; driveColumnFilterValueSearchTerm = ''; driveColumnFilterFieldSearchTerm = ''; driveColumnFilterHeaderFieldsCache = []; drivePlantFilterItemsCache = []; drivePlantFilterGenusOptions = []; drivePlantFilterContSizeOptions = []; drivePlantFilterLocationOptions = []; drivePlantFilterLotOptions = [];
+            selectedDriveCommonNames = new Set(); driveCommonNameSearchTerm = ''; selectedDriveGenusNames = new Set(); driveGenusSelectionMode = 'all'; driveGenusSearchTerm = ''; driveGenusFilterOpen = false; selectedDriveContSizes = new Set(); driveContSizeSelectionMode = 'all'; driveContSizeSearchTerm = ''; driveContSizeFilterOpen = false; selectedDriveLocationCodes = new Set(); driveLocationSelectionMode = 'all'; driveLocationSearchTerm = ''; driveLocationFilterOpen = false; selectedDriveLotCodes = new Set(); driveLotSelectionMode = 'all'; driveLotSearchTerm = ''; driveLotFilterOpen = false; driveColumnFilters = {}; driveColumnFilterDrafts = {}; driveColumnFilterSelectedHeaders = new Set(); driveColumnFilterDropdownOpen = false; driveColumnFilterStep = 'select'; driveColumnFilterFieldKey = ''; driveColumnFilterMode = 'values'; driveColumnFilterValueSearchTerm = ''; driveColumnFilterFieldSearchTerm = ''; driveColumnFilterHeaderFieldsCache = []; drivePlantFilterItemsCache = []; drivePlantFilterGenusOptions = []; drivePlantFilterContSizeOptions = []; drivePlantFilterLocationOptions = []; drivePlantFilterLotOptions = [];
             driveViewDropdownOpen = false; driveSeasonDropdownOpen = false; driveSeasonSearchTerm = '';
             document.getElementById('drive-search').value = ""; document.getElementById('drive-search-clear').classList.add('hidden');
             setDriveSearchManualSelectionLock(false);
@@ -72169,9 +65962,6 @@ function toggleDriveQuickRequestItem(domId) {
 
         
 
-        function getRequestEmailChainSelectedEmails() {
-            return dedupeRequestEmailRecipients(getRequestEmailChainSelectedRecipients().map((rep) => rep.email));
-        }
 
         
 
@@ -72207,14 +65997,6 @@ function toggleDriveQuickRequestItem(domId) {
             return String(firstNonEmptyValue(source && source.messageId, source && source.message_id, source && source.messageID, source && source.gmailMessageId, '')).trim();
         }
 
-        const REQUEST_CREATOR_AUDIT_FIELDS = Object.freeze([
-            'request_created_by_username',
-            'request_created_by_display',
-            'request_created_by_email',
-            'request_selected_rep_username',
-            'request_selected_rep_display',
-            'request_selected_rep_email'
-        ]);
 
         function buildRequestCreatorAuditInfo(selectedRepName = '') {
             const creatorUsername = normalizePushUsername(firstNonEmptyValue(currentUser, currentUserDisplay, ''));
@@ -72234,12 +66016,6 @@ function toggleDriveQuickRequestItem(domId) {
             };
         }
 
-        function getRequestCreatorExtraRecipientEmails(auditInfo = null) {
-            if (!auditInfo || !auditInfo.isSalesAssistant) return [];
-            const creatorEmail = normalizeRequestEmailAddress(auditInfo.creatorEmail);
-            const repEmail = normalizeRequestEmailAddress(auditInfo.selectedRepEmail);
-            return creatorEmail && creatorEmail !== repEmail ? [creatorEmail] : [];
-        }
 
         function applyRequestCreatorAuditFields(payload = null, auditInfo = null) {
             if (!payload || typeof payload !== 'object' || !auditInfo) return payload;
@@ -72252,35 +66028,8 @@ function toggleDriveQuickRequestItem(domId) {
             return payload;
         }
 
-        function applyRequestCreatorAuditAliases(row = null, auditInfo = null) {
-            if (!row || typeof row !== 'object' || !auditInfo) return row;
-            row.REQUEST_CREATED_BY_USERNAME = auditInfo.creatorUsername || '';
-            row.request_created_by_username = auditInfo.creatorUsername || '';
-            row.REQUEST_CREATED_BY_DISPLAY = auditInfo.creatorDisplay || '';
-            row.request_created_by_display = auditInfo.creatorDisplay || '';
-            row.REQUEST_CREATED_BY_EMAIL = auditInfo.creatorEmail || '';
-            row.request_created_by_email = auditInfo.creatorEmail || '';
-            row.REQUEST_SELECTED_REP_USERNAME = auditInfo.selectedRepUsername || '';
-            row.request_selected_rep_username = auditInfo.selectedRepUsername || '';
-            row.REQUEST_SELECTED_REP_DISPLAY = auditInfo.selectedRepDisplay || '';
-            row.request_selected_rep_display = auditInfo.selectedRepDisplay || '';
-            row.REQUEST_SELECTED_REP_EMAIL = auditInfo.selectedRepEmail || '';
-            row.request_selected_rep_email = auditInfo.selectedRepEmail || '';
-            return row;
-        }
 
-        function isRequestAuditColumnMissingError(error = null) {
-            const message = String(error && error.message ? error.message : error || '').toLowerCase();
-            return REQUEST_CREATOR_AUDIT_FIELDS.some((field) => message.includes(field)) && (message.includes('column') || message.includes('schema cache') || message.includes('could not find') || message.includes('pgrst204') || message.includes('42703'));
-        }
 
-        function stripRequestAuditFields(payload = null) {
-            if (!payload || typeof payload !== 'object') return payload;
-            REQUEST_CREATOR_AUDIT_FIELDS.forEach((field) => {
-                delete payload[field];
-            });
-            return payload;
-        }
 
         function buildRequestEmailRecipients(repName = '', details = null) {
             const safeDetails = details || {};
@@ -72518,7 +66267,6 @@ function toggleDriveQuickRequestItem(domId) {
             }
             const parsed = responseData && typeof responseData === 'object' ? responseData : {};
             const parsedJson = !!responseData;
-            const responseText = '';
             const parsedStatus = Object.prototype.hasOwnProperty.call(parsed, 'status') ? parsed.status : '';
             const normalizedParsedStatus = String(parsedStatus || '').trim().toLowerCase();
             const bodySaysError = parsed && (
@@ -73105,11 +66853,19 @@ function toggleDriveQuickRequestItem(domId) {
             supabaseFetch('ph_labor_hours', 'POST', payload).then(() => { showToast("Success", "Hours submitted successfully!"); document.getElementById('hours-amount').value = ""; }).catch(err => { showToast("Error", "Failed to submit hours.", true); });
         }
 
-        const debouncedReservesSearch=debounce((term='')=>{ scheduleTrackedSearchViewRender('reserves', 'reserves', term, { skipDebounce: true }); },80);
-        function clearReservesSearch() { document.getElementById('reserves-search').value=""; document.getElementById('reserves-search-clear').classList.add('hidden'); reservesViewLevel=0; scheduleTrackedSearchViewRender('reserves', 'reserves', '', { force: true, debounceDelay: 0 }); }
-        function handleReservesSearch() { const term=document.getElementById('reserves-search').value.toLowerCase(); const clearBtn=document.getElementById('reserves-search-clear'); if(term.length>0){clearBtn.classList.remove('hidden');reservesViewLevel=0;} else{clearBtn.classList.add('hidden');reservesViewLevel=0;} if (typeof renderReserves === 'function') scheduleTrackedSearchViewRender('reserves', 'reserves', term); }
+        function clearReservesSearch() {
+            document.getElementById('reserves-search').value = '';
+            document.getElementById('reserves-search-clear').classList.add('hidden');
+            scheduleTrackedSearchViewRender('reserves', 'reserves', '', { force: true, debounceDelay: 0 });
+        }
+        function handleReservesSearch() {
+            const term = document.getElementById('reserves-search').value.toLowerCase();
+            const clearButton = document.getElementById('reserves-search-clear');
+            if (term.length > 0) clearButton.classList.remove('hidden');
+            else clearButton.classList.add('hidden');
+            if (typeof renderReserves === 'function') scheduleTrackedSearchViewRender('reserves', 'reserves', term);
+        }
 
-        const debouncedAVSearch=debounce((term='')=>{ scheduleTrackedSearchViewRender('av', 'av', term, { skipDebounce: true }); },80);
 
         function resetAVReserveSearchInput() {
             const searchInput = document.getElementById('av-search');
@@ -73134,98 +66890,20 @@ function toggleDriveQuickRequestItem(domId) {
             return firstNonEmptyValue(item && item.SALESREPNAME, item && item.SALESREP, item && item.SALES_REP, item && item.SALESREPID, 'Unknown Rep');
         }
 
-        function canSelectAvReserveRep() {
-            const tokens = getProtectedUserTokens();
-            return hasPrivilegedManagerAccess(tokens);
-        }
 
-        function canUseAvReserveCardsMode() {
-            const tokens = getProtectedUserTokens();
-            return !!getRoleAccessState().isAdmin || hasPrivilegedManagerAccess(tokens);
-        }
 
-        function setAvReserveMode(mode = 'current') {
-            beginDirectNavigationActivity();
-            activeAvReserveMode = mode === 'cards' || mode === 'photos' ? 'photos' : 'all';
-            selectedAvResRep = null;
-            resetSelectedAvReserveItemState();
-            activeAvReserveDetailTab = 'customer';
-            selectedAvReserveDetailCustomerKey = null;
-            avResLevel = 0;
-            resetAVReserveSearchInput();
-            syncAvSecondaryTabs();
-            scheduleAVRender(0);
-            return false;
-        }
 
-        function setAvReserveCardsRepFilter(repName = '') {
-            beginDirectNavigationActivity();
-            selectedAvResRep = String(repName || '').trim() || null;
-            selectedAvResDriveUid = null;
-            clearSelectedAvReserveCustomerCardState();
-            activeAvReserveDetailTab = 'customer';
-            avResLevel = selectedAvResItemCode && selectedAvResName && selectedAvResSize ? 1 : 0;
-            scheduleAVRender(0);
-            return false;
-        }
 
-        function clearAvReserveCardsRepFilter() {
-            return setAvReserveCardsRepFilter('');
-        }
 
-        function getAvReserveCardsRepFilterHtml(items = []) {
-            if (activeAVTab !== 'reserves') return '';
-            return '';
-        }
 
-        function getAvReserveModeTabsHtml() {
-            return '';
-        }
 
         function isSelectedAvReserveRep(item, repName = selectedAvResRep) {
             if (!repName) return true;
             return normalizeRepMatchToken(getReserveSalesRepLabel(item)) === normalizeRepMatchToken(repName);
         }
 
-        function getAVReserveRepOptions(items = []) {
-            const repMap = new Map();
-            items.forEach(item => {
-                const label = getReserveSalesRepLabel(item);
-                const key = normalizeRepMatchToken(label);
-                if (!key) return;
-                const entry = repMap.get(key) || { label, count: 0 };
-                if (!repMap.has(key) || String(label).length < String(entry.label).length) entry.label = label;
-                entry.count += 1;
-                repMap.set(key, entry);
-            });
-            return [...repMap.values()].sort((a, b) => String(a.label || '').localeCompare(String(b.label || '')));
-        }
 
-        function getAvReserveGroupFields(item) {
-            return {
-                itemCode: firstNonEmptyValue(item && item.ITEMCODE, 'Unknown Item'),
-                commonName: firstNonEmptyValue(item && item.COMMONNAME, item && item.ITEMCODE, 'Unknown'),
-                contSize: firstNonEmptyValue(item && item.CONTSIZE, '-')
-            };
-        }
 
-        function getAVReserveGroups(items = []) {
-            const groupMap = new Map();
-            items.forEach(item => {
-                const group = getAvReserveGroupFields(item);
-                const key = `${group.itemCode}|||${group.commonName}|||${group.contSize}`;
-                const existing = groupMap.get(key) || { ...group, count: 0 };
-                existing.count += 1;
-                groupMap.set(key, existing);
-            });
-            return [...groupMap.values()].sort((a, b) => {
-                const nameCompare = String(a.commonName || '').localeCompare(String(b.commonName || ''));
-                if (nameCompare !== 0) return nameCompare;
-                const sizeCompare = String(a.contSize || '').localeCompare(String(b.contSize || ''), undefined, { numeric: true });
-                if (sizeCompare !== 0) return sizeCompare;
-                return String(a.itemCode || '').localeCompare(String(b.itemCode || ''), undefined, { numeric: true });
-            });
-        }
 
         function getAvReserveResolvedCustomerName(item) {
             return firstNonEmptyValue(item && item.CUSTOMERNAME, item && item.CUSTOMER, 'Unknown Customer');
@@ -73289,115 +66967,12 @@ function toggleDriveQuickRequestItem(domId) {
             };
         }
 
-        function getAvReserveNormalizedLotCode(value = '') {
-            return String(value || '').trim().toUpperCase();
-        }
 
-        function buildAvReserveDriveRowsByLotCode(driveRows = getAvReserveDriveRowsForSelection()) {
-            const lotMap = new Map();
-            (driveRows || []).forEach((row) => {
-                const lotKey = getAvReserveNormalizedLotCode(firstNonEmptyValue(row && row.LOTCODE, row && row.LOT, ''));
-                if (!lotKey) return;
-                if (!lotMap.has(lotKey)) lotMap.set(lotKey, []);
-                lotMap.get(lotKey).push(row);
-            });
-            return lotMap;
-        }
 
-        function getAvReserveLinkedDriveRowsForRows(rows = [], driveRowsByLot = buildAvReserveDriveRowsByLotCode()) {
-            const uniqueRows = new Map();
-            (rows || []).forEach((row) => {
-                const lotKey = getAvReserveNormalizedLotCode(firstNonEmptyValue(row && row.LOTCODE, row && row.LOT, ''));
-                if (!lotKey) return;
-                (driveRowsByLot.get(lotKey) || []).forEach((driveRow) => {
-                    const uniqueKey = String(firstNonEmptyValue(driveRow && driveRow.UNIQUE_ID, driveRow && driveRow.DOM_ID, `${driveRow && driveRow.ITEMCODE || ''}|${driveRow && driveRow.LOCATIONCODE || ''}|${driveRow && driveRow.LOTCODE || ''}`));
-                    if (!uniqueRows.has(uniqueKey)) uniqueRows.set(uniqueKey, driveRow);
-                });
-            });
-            return sortDriveCardItems([...uniqueRows.values()]);
-        }
 
-        function getSelectedAvReserveCustomerCards(items = []) {
-            const driveRowsByLot = buildAvReserveDriveRowsByLotCode();
-            const cardMap = new Map();
-            getSelectedAvReserveGroupRows(items).forEach((item) => {
-                const customerName = getAvReserveResolvedCustomerName(item);
-                const key = getAvReserveCustomerKey(customerName);
-                if (!key) return;
-                const entry = cardMap.get(key) || { key, customerName, rows: [], lotCodes: new Set(), consigneeNames: new Set(), salesRepNames: new Set(), reservePhotoCount: 0 };
-                entry.rows.push(item);
-                const lotKey = getAvReserveNormalizedLotCode(firstNonEmptyValue(item && item.LOTCODE, item && item.LOT, ''));
-                if (lotKey) entry.lotCodes.add(lotKey);
-                const consigneeName = String(firstNonEmptyValue(item && item.CONSIGNEENAME, item && item.CONSIGNEE, '') || '').trim();
-                if (consigneeName) entry.consigneeNames.add(consigneeName);
-                const salesRepName = String(getReserveSalesRepLabel(item) || '').trim();
-                if (salesRepName) entry.salesRepNames.add(salesRepName);
-                entry.reservePhotoCount += getPhotoUrlList(getRowPhotoLink(item, 'av')).length;
-                cardMap.set(key, entry);
-            });
-            return [...cardMap.values()].map((entry) => {
-                const linkedDriveRows = getAvReserveLinkedDriveRowsForRows(entry.rows, driveRowsByLot);
-                const linkedDrivePhotoCount = linkedDriveRows.reduce((sum, row) => sum + getPhotoUrlList(getRowPhotoLink(row, 'drive')).length, 0);
-                const consigneeNames = [...entry.consigneeNames];
-                const salesRepNames = [...entry.salesRepNames];
-                return {
-                    key: entry.key,
-                    customerName: entry.customerName || 'Unknown Customer',
-                    rows: entry.rows,
-                    rowCount: entry.rows.length,
-                    lotCount: entry.lotCodes.size,
-                    lotCodes: [...entry.lotCodes].sort(),
-                    linkedDriveRows,
-                    linkedDriveCount: linkedDriveRows.length,
-                    reservePhotoCount: entry.reservePhotoCount,
-                    linkedDrivePhotoCount,
-                    totalPhotoCount: entry.reservePhotoCount + linkedDrivePhotoCount,
-                    consigneePreview: consigneeNames.length === 1 ? consigneeNames[0] : (consigneeNames.length > 1 ? `${consigneeNames.length} consignees` : '-'),
-                    salesRepPreview: salesRepNames.length === 1 ? salesRepNames[0] : (salesRepNames.length > 1 ? `${salesRepNames.length} reps` : firstNonEmptyValue(selectedAvResRep, 'Unknown Rep'))
-                };
-            }).sort((a, b) => String(a.customerName || '').localeCompare(String(b.customerName || '')));
-        }
 
-        function getAvReserveCustomerShareRows(customerCard = null) {
-            if (!customerCard) return [];
-            return [...(customerCard.rows || []), ...(customerCard.linkedDriveRows || [])];
-        }
 
-        function getAvReserveCustomerShareSubject(customerCard = null) {
-            if (!customerCard) return 'My Reserves Customer Card';
-            const parts = [
-                'My Reserves Customer Card',
-                customerCard.customerName || '',
-                [selectedAvResName || '', selectedAvResSize || ''].filter(Boolean).join(' ')
-            ].filter((part) => String(part || '').trim());
-            return parts.join(' - ').replace(/\s+/g, ' ').trim();
-        }
 
-        async function shareAvReserveCustomerCard(action, customerKey = selectedAvResCustomerKey) {
-            const items = (getCurrentAVBaseItems().items || []);
-            const customerCard = getSelectedAvReserveCustomerCards(items).find((card) => card.key === customerKey);
-            if (!customerCard) {
-                showToast('Error', 'Could not find that customer card.', true);
-                return false;
-            }
-            const shareRows = getAvReserveCustomerShareRows(customerCard);
-            if (!shareRows.length) {
-                showToast('Nothing To Send', 'No rows are attached to that customer card yet.', true);
-                return false;
-            }
-            const subject = getAvReserveCustomerShareSubject(customerCard);
-            try {
-                await shareInventoryItems(action, shareRows, subject);
-            } catch (err) {
-                try {
-                    await copyTextWithFallback(formatInventoryItemsText(shareRows, subject.toUpperCase()));
-                    showToast('Copied', `${action === 'email' ? 'Email' : action === 'text' ? 'Text' : 'Share'} text copied so you can paste it without leaving the app.`);
-                } catch (copyErr) {
-                    showToast('Error', `Could not prepare ${action}.`, true);
-                }
-            }
-            return false;
-        }
 
         function getReserveRepQueryPatterns() {
             if (!getRoleAccessState().isRep) return [];
@@ -73460,9 +67035,6 @@ function toggleDriveQuickRequestItem(domId) {
             return (isIOSDevice() || isStandaloneApp() || isTouchConstrainedDevice()) ? 900 : 1000;
         }
 
-        function getAvReserveOpenStockBaseItems() {
-            return getAvOpenRowsForView();
-        }
 
         function getNormalizedAvReserveItemCode(value = '') {
             return String(value || '').trim().toUpperCase();
@@ -73486,17 +67058,6 @@ function toggleDriveQuickRequestItem(domId) {
             return Array.isArray(nextItems) ? nextItems : [];
         }
 
-        function getAvReserveMatchedRowsForLocation(row = null, reserveRowsByExactKey = new Map(), reserveRowsByItemCode = new Map(), itemCodeOnlyMatches = new Set()) {
-            const itemCode = getNormalizedAvReserveItemCode(firstNonEmptyValue(row && row.ITEMCODE, row && row.itemcode, ''));
-            if (!itemCode) return [];
-            const lotCode = getNormalizedAvReserveLotCode(firstNonEmptyValue(row && row.LOTCODE, row && row.lotcode, ''));
-            const exactKey = buildAvReserveItemLotKey(itemCode, lotCode);
-            let matchedReserveRows = exactKey ? reserveRowsByExactKey.get(exactKey) || [] : [];
-            if (!matchedReserveRows.length && itemCodeOnlyMatches.has(itemCode)) {
-                matchedReserveRows = reserveRowsByItemCode.get(itemCode) || [];
-            }
-            return matchedReserveRows;
-        }
 
         function getAvReserveLocationUniqueKey(row = null) {
             const itemCode = getNormalizedAvReserveItemCode(firstNonEmptyValue(row && row.ITEMCODE, row && row.itemcode, ''));
@@ -73521,86 +67082,7 @@ function toggleDriveQuickRequestItem(domId) {
             return row;
         }
 
-        function findAvReserveLinkedDriveModeRow(row = null) {
-            if (!row) return null;
-            const linkedRow = findLinkedMasterRow(row);
-            if (linkedRow) return linkedRow;
-            const itemCode = getNormalizedAvReserveItemCode(firstNonEmptyValue(row && row.ITEMCODE, row && row.itemcode, ''));
-            if (!itemCode) return null;
-            const lotCode = getNormalizedAvReserveLotCode(firstNonEmptyValue(row && row.LOTCODE, row && row.lotcode, row && row.LOT, ''));
-            const locationCode = String(firstNonEmptyValue(row && row.LOCATIONCODE, row && row.locationcode, row && row.LOCATION, '') || '').trim().toUpperCase();
-            const sourceRows = Array.isArray(fullInventory) ? fullInventory : [];
-            const candidates = sourceRows.filter((item) => {
-                if (getNormalizedAvReserveItemCode(firstNonEmptyValue(item && item.ITEMCODE, item && item.itemcode, '')) !== itemCode) return false;
-                if (lotCode && getNormalizedAvReserveLotCode(firstNonEmptyValue(item && item.LOTCODE, item && item.lotcode, item && item.LOT, '')) !== lotCode) return false;
-                if (locationCode && String(firstNonEmptyValue(item && item.LOCATIONCODE, item && item.locationcode, item && item.LOCATION, '') || '').trim().toUpperCase() !== locationCode) return false;
-                return true;
-            });
-            return candidates[0] || null;
-        }
 
-        function getAvReserveLocationRows(items = null) {
-            const useDefaultItems = arguments.length === 0 || items == null;
-            const reserveRows = Array.isArray(items) ? items : getScopedAvReserveDemandItems();
-            if (!reserveRows.length) return [];
-            const cacheKey = useDefaultItems ? [
-                resolvedViewStateEpoch,
-                getDatasetLoadSignature('master'),
-                getDatasetLoadSignature('avOpen'),
-                getDatasetLoadSignature('reserves'),
-                safeRole,
-                currentUser || '',
-                currentUserDisplay || '',
-                selectedAvResRep || '',
-                selectedAvRepCustomerKey || '',
-                reserveRows.length
-            ].join('|') : '';
-            if (useDefaultItems && avReserveLocationRowsCacheKey === cacheKey && Array.isArray(avReserveLocationRowsCache)) {
-                incrementInternalPerfCounter('avReserveLocationCacheHits');
-                return avReserveLocationRowsCache.slice();
-            }
-            const reserveRowsByExactKey = new Map();
-            const reserveRowsByItemCode = new Map();
-            const itemCodeOnlyMatches = new Set();
-            reserveRows.forEach((row) => {
-                const itemCode = getNormalizedAvReserveItemCode(firstNonEmptyValue(row && row.ITEMCODE, row && row.itemcode, ''));
-                if (!itemCode) return;
-                if (!reserveRowsByItemCode.has(itemCode)) reserveRowsByItemCode.set(itemCode, []);
-                reserveRowsByItemCode.get(itemCode).push(row);
-                const lotCode = getNormalizedAvReserveLotCode(firstNonEmptyValue(row && row.LOTCODE, row && row.lotcode, ''));
-                if (!lotCode) {
-                    itemCodeOnlyMatches.add(itemCode);
-                    return;
-                }
-                const exactKey = buildAvReserveItemLotKey(itemCode, lotCode);
-                if (!reserveRowsByExactKey.has(exactKey)) reserveRowsByExactKey.set(exactKey, []);
-                reserveRowsByExactKey.get(exactKey).push(row);
-            });
-            const seen = new Set();
-            const locationRows = [];
-            getAvReserveOpenStockBaseItems().forEach((row) => {
-                const matchedReserveRows = getAvReserveMatchedRowsForLocation(row, reserveRowsByExactKey, reserveRowsByItemCode, itemCodeOnlyMatches);
-                if (!matchedReserveRows.length) return;
-                const uniqueKey = getAvReserveLocationUniqueKey(row);
-                if (!uniqueKey || seen.has(uniqueKey)) return;
-                seen.add(uniqueKey);
-                locationRows.push(decorateAvReserveLocationRow(row, matchedReserveRows));
-            });
-            reserveRows.forEach((reserveRow) => {
-                const locationRow = findAvReserveLinkedDriveModeRow(reserveRow) || reserveRow;
-                const uniqueKey = getAvReserveLocationUniqueKey(locationRow) || getAvReserveLocationUniqueKey(reserveRow);
-                if (!uniqueKey || seen.has(uniqueKey)) return;
-                const matchedReserveRows = getAvReserveMatchedRowsForLocation(reserveRow, reserveRowsByExactKey, reserveRowsByItemCode, itemCodeOnlyMatches);
-                seen.add(uniqueKey);
-                locationRows.push(decorateAvReserveLocationRow(locationRow, matchedReserveRows.length ? matchedReserveRows : [reserveRow]));
-            });
-            const sortedRows = sortAvOpenItems(locationRows, 'name');
-            if (useDefaultItems) {
-                avReserveLocationRowsCacheKey = cacheKey;
-                avReserveLocationRowsCache = sortedRows.slice();
-            }
-            return sortedRows;
-        }
 
         function getAvReserveRowsForLocationItem(item = activeItem, items = getScopedAvReserveDemandItems()) {
             const reserveRows = Array.isArray(items) ? items : [];
@@ -73731,22 +67213,7 @@ function toggleDriveQuickRequestItem(domId) {
             panel.innerHTML = `<div data-secondary-back="true" aria-hidden="true" class="back-btn mb-3" ${buildFastInvokeAttrs('backToAvReserveDetailCustomerList', [], 'Back to customer cards')}><i class="ph-bold ph-arrow-left"></i> Back to Customer Cards</div><div class="rounded-[22px] border border-emerald-200 bg-emerald-50/60 p-4 shadow-sm"><div class="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700">Selected Customer</div><div class="mt-2 font-black text-[22px] leading-tight text-slate-900 break-words">${esc(selectedCustomerCard.customerName || 'Unknown Customer')}</div><div class="mt-1 text-[12px] font-semibold text-slate-600">${selectedCustomerCard.rows.length} reserve row${selectedCustomerCard.rows.length === 1 ? '' : 's'} from ph_reserves are shown below with all source columns.</div></div>${selectedCustomerCard.rows.map((row) => generateAvReserveCustomerFieldCard(row)).join('')}`;
         }
 
-        function getAvReserveDriveRowsForSelection() {
-            if (!selectedAvResItemCode || !selectedAvResName || !selectedAvResSize) return [];
-            const searchTerm = getAvSearchTerm();
-            const baseOpenRows = getAvRawTabItems('open', { ignoreSecondaryTab: true });
-            const filteredOpenRows = buildAvSharedFilterState(baseOpenRows).filteredItems;
-            const searchedOpenRows = searchTerm ? filterBySearch(filteredOpenRows, searchTerm, 'av_open') : filteredOpenRows;
-            const driveRows = searchedOpenRows.filter(i => {
-                const group = getAvReserveGroupFields(i);
-                return group.itemCode === selectedAvResItemCode && group.commonName === selectedAvResName && group.contSize === selectedAvResSize;
-            });
-            return sortDriveCardItems(driveRows);
-        }
 
-        function getSelectedAvReserveDriveRow() {
-            return getAvReserveDriveRowsForSelection().find(i => String(i.UNIQUE_ID || '') === String(selectedAvResDriveUid || '')) || null;
-        }
 
         function sortAvReserveDemandRows(items = []) {
             return [...items].sort((a, b) => {
@@ -73758,24 +67225,6 @@ function toggleDriveQuickRequestItem(domId) {
             });
         }
 
-        function getAvReserveDemandRowsForDriveRow(items = []) {
-            const groupRows = (Array.isArray(items) ? items : []).filter(i => {
-                const group = getAvReserveGroupFields(i);
-                return group.itemCode === selectedAvResItemCode && group.commonName === selectedAvResName && group.contSize === selectedAvResSize;
-            });
-            const driveRow = getSelectedAvReserveDriveRow();
-            if (!driveRow) return sortAvReserveDemandRows(groupRows);
-            const driveLoc = String(firstNonEmptyValue(driveRow.LOCATIONCODE, '')).trim();
-            const driveLot = String(firstNonEmptyValue(driveRow.LOTCODE, '')).trim();
-            const exactRows = groupRows.filter(i => {
-                const rowLoc = String(firstNonEmptyValue(i.LOCATIONCODE, '')).trim();
-                const rowLot = String(firstNonEmptyValue(i.LOTCODE, '')).trim();
-                const locMatch = !driveLoc || rowLoc === driveLoc;
-                const lotMatch = !driveLot || rowLot === driveLot;
-                return locMatch && lotMatch;
-            });
-            return sortAvReserveDemandRows(exactRows.length ? exactRows : groupRows);
-        }
 
 
         function formatAvReserveRequestDate(value = '') {
@@ -73794,211 +67243,27 @@ function toggleDriveQuickRequestItem(domId) {
             return formatAvReserveRequestDate(firstNonEmptyValue(item && item.REQUESTDATE, item && item.REQUEST_DATE, item && item.DATE_REQUESTED, item && item.REQUESTED_DATE, item && item.CREATED_AT, item && item.created_at, ''));
         }
 
-        function getSelectedAvReserveGroupRows(items = []) {
-            return [...(Array.isArray(items) ? items : [])]
-                .filter(i => {
-                    const group = getAvReserveGroupFields(i);
-                    return group.itemCode === selectedAvResItemCode && group.commonName === selectedAvResName && group.contSize === selectedAvResSize;
-                })
-                .sort((a, b) => {
-                    const customerCompare = String(firstNonEmptyValue(a.CUSTOMERNAME, a.CUSTOMER, '')).localeCompare(String(firstNonEmptyValue(b.CUSTOMERNAME, b.CUSTOMER, '')));
-                    if (customerCompare !== 0) return customerCompare;
-                    const consigneeCompare = String(firstNonEmptyValue(a.CONSIGNEENAME, a.CONSIGNEE, '')).localeCompare(String(firstNonEmptyValue(b.CONSIGNEENAME, b.CONSIGNEE, '')));
-                    if (consigneeCompare !== 0) return consigneeCompare;
-                    const requestDateCompare = String(getAvReserveRequestDateLabel(a)).localeCompare(String(getAvReserveRequestDateLabel(b)));
-                    if (requestDateCompare !== 0) return requestDateCompare;
-                    return String(firstNonEmptyValue(a.LOTCODE, '-')).localeCompare(String(firstNonEmptyValue(b.LOTCODE, '-')), undefined, { numeric: true });
-                });
-        }
 
-        function getSelectedAvReserveCustomerRows(items = []) {
-            const customerKey = String(selectedAvResCustomerKey || '').trim();
-            if (!customerKey) return [];
-            return getSelectedAvReserveGroupRows(items).filter((item) => getAvReserveCustomerKey(item) === customerKey);
-        }
 
-        function getSelectedAvReserveCustomerCard(items = []) {
-            const customerKey = String(selectedAvResCustomerKey || '').trim();
-            if (!customerKey) return null;
-            return getSelectedAvReserveCustomerCards(items).find((card) => card.key === customerKey) || null;
-        }
 
-        function getCurrentAvReserveCustomerSelectionContext() {
-            if (activeAVTab !== 'reserves' || !selectedAvResItemCode || !selectedAvResName || !selectedAvResSize) return { rows: [], selectedRows: [], activeDetailTab: 'customer', customerCard: null };
-            const avState = getCurrentAVBaseItems();
-            const items = avState.items || [];
-            const showAdminDetailTabs = isAdminAvReserveDetailTabsEnabled() && activeAvReserveMode === 'cards';
-            const showRepDetailTab = showAdminDetailTabs && !!getRoleAccessState().isAdmin && canSeeAvReserveRepTab();
-            const activeDetailTab = showAdminDetailTabs
-                ? (activeAvReserveDetailTab === 'location' ? 'location' : (showRepDetailTab && activeAvReserveDetailTab === 'rep' ? 'rep' : 'customer'))
-                : 'customer';
-            if (activeDetailTab !== 'customer' || !selectedAvResCustomerKey) return { rows: [], selectedRows: [], activeDetailTab, customerCard: null };
-            const customerCard = getSelectedAvReserveCustomerCard(items);
-            const rows = customerCard ? customerCard.rows : [];
-            const selectedRows = rows.filter(row => row && row.DOM_ID && selectedItems.has(row.DOM_ID));
-            return { rows, selectedRows, activeDetailTab, customerCard };
-        }
 
-        function getAvReserveCustomerSelectionToolbar(rows = []) {
-            const selectedRows = (rows || []).filter(row => row && row.DOM_ID && selectedItems.has(row.DOM_ID));
-            const actionVisibility = getBloomPickerActionVisibility(selectedRows.length ? selectedRows : rows);
-            const hasRows = rows.length > 0;
-            const hasSelection = selectedRows.length > 0;
-            const helperText = hasSelection
-                ? `${selectedRows.length} selected. Use the checkboxes to keep only the rows you want.`
-                : 'Use Select All or tap the checkboxes on the cards to choose exactly which rows you want.';
-            const disabledClass = 'opacity-50 pointer-events-none';
-            return `<div class="mb-4 rounded-[20px] border border-indigo-200 bg-indigo-50/70 p-3 shadow-sm"><div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div><div class="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-700">Customer Card Actions</div><div class="mt-1 text-[12px] font-semibold text-slate-600">${helperText}</div></div><div class="flex flex-wrap gap-2"><button type="button" class="inline-flex items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-indigo-700 shadow-sm active:scale-[0.98] ${hasRows ? '' : disabledClass}" onclick="return selectAllAvReserveCustomerRows()"><i class="ph-bold ph-check-square-offset text-base"></i>Select All</button><button type="button" class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-slate-700 shadow-sm active:scale-[0.98] ${hasSelection ? '' : disabledClass}" onclick="return clearAvReserveCustomerSelection()"><i class="ph-bold ph-x-circle text-base"></i>Clear</button><button type="button" class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-slate-700 shadow-sm active:scale-[0.98] ${hasSelection ? '' : disabledClass}" onclick="return shareSelectedAvReserveRows('copy')"><i class="ph-bold ph-copy text-base"></i>Copy</button><button type="button" class="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-blue-700 shadow-sm active:scale-[0.98] ${hasSelection ? '' : disabledClass}" onclick="return shareSelectedAvReserveRows('email')"><i class="ph-bold ph-envelope-simple text-base"></i>Email</button>${actionVisibility.showText ? `<button type="button" class="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-700 shadow-sm active:scale-[0.98] ${hasSelection ? '' : disabledClass}" onclick="return shareSelectedAvReserveRows('text')"><i class="ph-bold ph-chat-circle-dots text-base"></i>Text</button>` : ''}</div></div></div>`;
-        }
 
-        function selectAllAvReserveCustomerRows() {
-            const context = getCurrentAvReserveCustomerSelectionContext();
-            if (!context.rows.length) {
-                showToast('Nothing To Select', 'No customer rows are visible in this My Reserves view.', true);
-                return false;
-            }
-            context.rows.forEach(row => { if (row && row.DOM_ID) selectedItems.add(row.DOM_ID); });
-            updateGlobalActionBar();
-            refreshCartButtons();
-            scheduleAVRender(0);
-            showToast('Selected', `${context.rows.length} My Reserves row${context.rows.length === 1 ? '' : 's'} selected.`);
-            return false;
-        }
 
-        function clearAvReserveCustomerSelection() {
-            const context = getCurrentAvReserveCustomerSelectionContext();
-            const clearRows = context.rows.filter(row => row && row.DOM_ID && selectedItems.has(row.DOM_ID));
-            if (!clearRows.length) {
-                showToast('Nothing Selected', 'Choose one or more My Reserves rows first.', true);
-                return false;
-            }
-            clearRows.forEach(row => selectedItems.delete(row.DOM_ID));
-            if (!selectedItems.size) {
-                cartPanelOpen = false;
-                bloomPickerActionsOpen = false;
-                bloomShareMenuOpen = false;
-            }
-            updateGlobalActionBar();
-            refreshCartButtons();
-            scheduleAVRender(0);
-            showToast('Cleared', `${clearRows.length} My Reserves row${clearRows.length === 1 ? '' : 's'} cleared.`);
-            return false;
-        }
 
-        async function shareSelectedAvReserveRows(action) {
-            const context = getCurrentAvReserveCustomerSelectionContext();
-            if (!context.selectedRows.length) {
-                showToast('Nothing Selected', 'Use Select All or tap the checkboxes on the cards first.', true);
-                return false;
-            }
-            try {
-                await shareInventoryItems(action, context.selectedRows, 'My Reserves Data');
-            } catch (err) {
-                try {
-                    await copyTextWithFallback(formatInventoryItemsText(context.selectedRows, 'MY RESERVES DATA'));
-                    showToast('Copied', `${action === 'email' ? 'Email' : action === 'text' ? 'Text' : 'Share'} text copied so you can paste it without leaving the app.`);
-                } catch (copyErr) {
-                    showToast('Error', `Could not prepare ${action}.`, true);
-                }
-            }
-            return false;
-        }
 
-        async function shareAvReserveRow(action, domId) {
-            const item = findItemByDomId(domId);
-            if (!item) {
-                showToast('Error', 'Could not find that reserve row.', true);
-                return false;
-            }
-            try {
-                await shareInventoryItems(action, [item], 'My Reserves Data');
-            } catch (err) {
-                try {
-                    await copyTextWithFallback(formatInventoryItemsText([item], 'MY RESERVES DATA'));
-                    showToast('Copied', `${action === 'email' ? 'Email' : action === 'text' ? 'Text' : 'Share'} text copied so you can paste it without leaving the app.`);
-                } catch (copyErr) {
-                    showToast('Error', `Could not prepare ${action}.`, true);
-                }
-            }
-            return false;
-        }
-        function isAdminAvReserveDetailTabsEnabled() {
-            const access = getRoleAccessState();
-            return !!(access.isAdmin || access.isRepLike);
-        }
 
-        function getSelectedAvReserveLocationRows() {
-            return getAvReserveDriveRowsForSelection();
-        }
 
-        function canSeeAvReserveRepTab() {
-            const tokens = getProtectedUserTokens();
-            return hasPrivilegedManagerAccess(tokens);
-        }
 
         function getAvOpenStockLocPhotoMatch(item = null) {
             if (!item) return '-';
             return formatLocPhotoMatchQtyValue(item, 'av');
         }
 
-        function avReserveNeedsCaliper(item = null) {
-            if (!item) return false;
-            const plantGroup = String(firstNonEmptyValue(item.PLANTGROUPCODE, '') || '').trim().toUpperCase();
-            const contSize = String(firstNonEmptyValue(item.CONTSIZE, '') || '').trim().toUpperCase();
-            return plantGroup.includes('330_TREES') && ['#7','#10','#15','#25','#45'].includes(contSize);
-        }
 
-        function getSelectedAvReserveRepGroups(items = []) {
-            const repMap = new Map();
-            getSelectedAvReserveGroupRows(items).forEach((item) => {
-                const label = getReserveSalesRepLabel(item);
-                const key = normalizeRepMatchToken(label) || String(label || '').trim();
-                if (!key) return;
-                const entry = repMap.get(key) || { label, count: 0 };
-                entry.count += 1;
-                repMap.set(key, entry);
-            });
-            return [...repMap.values()].sort((a, b) => String(a.label || '').localeCompare(String(b.label || '')));
-        }
 
-        function setAvReserveDetailTab(tab = 'customer') {
-            beginDirectNavigationActivity();
-            const nextTab = tab === 'location' ? 'location' : (tab === 'rep' ? 'rep' : 'customer');
-            activeAvReserveDetailTab = nextTab;
-            selectedAvResDriveUid = null;
-            if (nextTab !== 'customer') clearSelectedAvReserveCustomerCardState();
-            else if (!selectedAvResCustomerKey && selectedAvResItemCode && selectedAvResName && selectedAvResSize) avResLevel = 1;
-            scheduleAVRender(0);
-            return false;
-        }
 
-        function backToAvReserveCustomerCardList() {
-            selectedAvResDriveUid = null;
-            clearSelectedAvReserveCustomerCardState();
-            activeAvReserveDetailTab = 'customer';
-            avResLevel = selectedAvResItemCode && selectedAvResName && selectedAvResSize ? 1 : 0;
-            scheduleAVRender(0);
-            queueScrollMainAreaToTop('av-reserve-customer-cards');
-            return false;
-        }
 
-        function backToAvReserveGroupList() {
-            selectedAvResDriveUid = null;
-            clearSelectedAvReserveCustomerCardState();
-            activeAvReserveDetailTab = 'customer';
-            avResLevel = 0;
-            scheduleAVRender(0);
-            queueScrollMainAreaToTop('av-reserve-groups');
-            return false;
-        }
 
-        function generateAvReserveGroupCard(group) {
-            const safeItemCodeJs = esc(group.itemCode);
-            const safeCommonNameJs = esc(group.commonName);
-            const safeContSizeJs = esc(group.contSize);
-            const rowCount = Number(group.count || 0);
-            return `<div class="mb-3 rounded-[24px] border border-indigo-200 bg-white p-4 shadow-sm active:scale-[0.99] transition-transform cursor-pointer overflow-hidden" onclick="return selectAvReserveGroup('${safeItemCodeJs}', '${safeCommonNameJs}', '${safeContSizeJs}')"><div class="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-600">Item Code</div><div class="mt-1 font-mono font-black text-[17px] text-indigo-800 break-all">${esc(group.itemCode || 'Unknown Item')}</div><div class="mt-3 font-black text-[22px] leading-tight text-slate-900 break-words">${esc(group.commonName || 'Unknown')}</div><div class="mt-1 text-[15px] font-bold text-[#007a4d]">${esc(group.contSize || '-')}</div><div class="mt-3 inline-flex items-center rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-indigo-700">${rowCount} Row${rowCount === 1 ? '' : 's'}</div></div>`;
-        }
 
         function clearSelectedAvResRep() {
             selectedAvResRep = null;
@@ -74010,37 +67275,8 @@ function toggleDriveQuickRequestItem(domId) {
             queueScrollMainAreaToTop('av-reserve-reps');
         }
 
-        function selectAvReserveGroup(itemCode, commonName, contSize) {
-            selectedAvResDriveUid = null;
-            clearSelectedAvReserveCustomerCardState();
-            selectedAvResItemCode = itemCode;
-            selectedAvResName = commonName;
-            selectedAvResSize = contSize;
-            activeAvReserveDetailTab = 'customer';
-            avResLevel = 1;
-            scheduleAVRender(0);
-            queueScrollMainAreaToTop(`av-reserve-group:${itemCode}`);
-            return false;
-        }
 
-        function selectAvReserveCustomerCard(customerKey) {
-            if (!customerKey) return false;
-            selectedAvResCustomerKey = customerKey;
-            selectedAvResDriveUid = null;
-            activeAvReserveDetailTab = 'customer';
-            avResLevel = 2;
-            scheduleAVRender(0);
-            queueScrollMainAreaToTop(`av-reserve-customer:${customerKey}`);
-            return false;
-        }
 
-        function selectAvReserveDriveRow(uniqueId) {
-            selectedAvResDriveUid = uniqueId;
-            clearSelectedAvReserveCustomerCardState();
-            avResLevel = 2;
-            scheduleAVRender(0);
-            queueScrollMainAreaToTop(`av-reserve-drive:${uniqueId}`);
-        }
         function avItemHasPhotos(item) {
             return getAvRowPhotoUrls(item).length > 0;
         }
@@ -74452,10 +67688,6 @@ function toggleDriveQuickRequestItem(domId) {
             nextItem._search = (String(item && item._search || '').trim() + ' ' + hotPrice + ' ' + firstNonEmptyValue(match.cavItemcode, '')).trim().toLowerCase();
             return nextItem;
         }
-        function getAvOpenTabLabel(tab=activeAvOpenTab) {
-            if (tab === 'photos') return 'Photos';
-            return 'ALL Open Stock';
-        }
         function sortAvOpenItems(items, tab=activeAvOpenTab) {
             const collator = new Intl.Collator(undefined, { numeric: true });
             const compareText = (left, right) => collator.compare(left, right);
@@ -74636,12 +67868,12 @@ function toggleDriveQuickRequestItem(domId) {
         }
 
         function logAvHotPriceDiagnostics(summary = {}, level = 'log') {
+            if (level !== 'warn') return;
             try {
                 const signature = JSON.stringify(summary || {});
                 if (window.__avHotPriceKeysDebugSignature === signature) return;
                 window.__avHotPriceKeysDebugSignature = signature;
-                const logger = level === 'warn' ? console.warn : console.log;
-                logger('[AV HOT PRICE]', summary);
+                console.warn('[AV HOT PRICE]', summary);
             } catch (error) {
                 console.warn('[AV HOT PRICE] Diagnostics logging failed.', error);
             }
@@ -74805,36 +68037,8 @@ function toggleDriveQuickRequestItem(domId) {
             return selected.length <= 2 ? selected.join(', ') : `${selected.length} selected`;
         }
 
-        function getAvSeasonLotCodeValue(item = null) {
-            return String(firstNonEmptyValue(item && item.LOTCODE, item && item.lotcode, '') || '').trim().toUpperCase();
-        }
 
-        function buildAvSeasonOptionRows(items = avFilterItemsCache) {
-            const sourceItems = Array.isArray(items) ? items : [];
-            return getOrderedAvSeasonOptions().map((season) => {
-                const lotCodes = [...new Set(sourceItems
-                    .filter((item) => getAvFilterSeasonValue(item) === season)
-                    .map((item) => getAvSeasonLotCodeValue(item))
-                    .filter(Boolean))]
-                    .sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }));
-                const lotSummary = lotCodes.length
-                    ? `All ${season} lotcodes (${lotCodes.length})`
-                    : `All ${season} lotcodes`;
-                return {
-                    season,
-                    lotCodes,
-                    lotSummary,
-                    searchText: `${season} ${lotCodes.join(' ')} ${lotSummary}`.toLowerCase()
-                };
-            });
-        }
 
-        function filterAvSeasonOptionRows(rows = [], searchTerm = '') {
-            const term = String(searchTerm || '').trim().toLowerCase();
-            const safeRows = Array.isArray(rows) ? rows : [];
-            if (!term) return safeRows;
-            return safeRows.filter((row) => doesProgressiveSearchTextMatch(row && row.searchText, term));
-        }
 
         function getAvHoldFilterSummary() {
             if (avHoldFilterMode === 'hold') return 'Holdstop Only';
@@ -75079,35 +68283,7 @@ function toggleDriveQuickRequestItem(domId) {
             return sourceRows.filter((row) => getAvReserveRowCustomerOptionKey(row) === selectedAvRepCustomerKey);
         }
 
-        function buildAvReserveMatchPredicateForRows(reserveRows = []) {
-            const exactKeys = new Set();
-            const itemCodes = new Set();
-            const itemCodeOnlyMatches = new Set();
-            (Array.isArray(reserveRows) ? reserveRows : []).forEach((row) => {
-                const itemCode = getNormalizedAvReserveItemCode(firstNonEmptyValue(row && row.ITEMCODE, row && row.itemcode, ''));
-                if (!itemCode) return;
-                itemCodes.add(itemCode);
-                const lotCode = getNormalizedAvReserveLotCode(firstNonEmptyValue(row && row.LOTCODE, row && row.lotcode, ''));
-                if (lotCode) exactKeys.add(buildAvReserveItemLotKey(itemCode, lotCode));
-                else itemCodeOnlyMatches.add(itemCode);
-            });
-            return (row = null) => {
-                const itemCode = getNormalizedAvReserveItemCode(firstNonEmptyValue(row && row.ITEMCODE, row && row.itemcode, ''));
-                if (!itemCode || !itemCodes.has(itemCode)) return false;
-                const lotCode = getNormalizedAvReserveLotCode(firstNonEmptyValue(row && row.LOTCODE, row && row.lotcode, ''));
-                const exactKey = buildAvReserveItemLotKey(itemCode, lotCode);
-                return (!!exactKey && exactKeys.has(exactKey)) || itemCodeOnlyMatches.has(itemCode);
-            };
-        }
 
-        function filterAvOpenRowsBySelectedRepCustomer(rows = []) {
-            const sourceRows = Array.isArray(rows) ? rows : [];
-            if (!shouldShowRepAvCustomerFilter() || !selectedAvRepCustomerKey) return sourceRows;
-            const reserveRows = filterAvReserveRowsBySelectedRepCustomer(getScopedReservesItems(reservesInventory));
-            if (!reserveRows.length) return [];
-            const matchesSelectedCustomerReserve = buildAvReserveMatchPredicateForRows(reserveRows);
-            return sourceRows.filter(matchesSelectedCustomerReserve);
-        }
 
         function invalidateAvFilterSelectionCaches() {
             avResolvedBaseStateKey = '';
@@ -75391,12 +68567,6 @@ function toggleDriveQuickRequestItem(domId) {
             return invokeNamedFilterHandler(handlerName, ...args);
         }
 
-        function syncAvFilterStrip(container, html = '', signature = '') {
-            if (!container) return;
-            const nextSignature = String(signature || `av-filters:${String(html || '').length}`);
-            const didUpdate = setContainerHtmlWithSignature(container, html, nextSignature);
-            if (didUpdate) scheduleStickyRailOffsetSync('av-filter-strip');
-        }
 
         function renderAvTopControlsForDropdownStateChange() {
             lastAvTopControlsRenderSignature = '';
@@ -75436,33 +68606,13 @@ function toggleDriveQuickRequestItem(domId) {
             return `<div class="excel-filter-options" data-av-filter-options onwheel="event.stopPropagation()" ontouchmove="event.stopPropagation()">${optionsHtml || ''}</div>`;
         }
 
-        function buildAvExcelBulkFooterHtml(selectHandler = '', deselectHandler = '', doneHandler = '', allSelected = false, noneSelected = false) {
-            const safeSelectHandler = String(selectHandler || '').trim();
-            const safeDeselectHandler = String(deselectHandler || '').trim();
-            const safeDoneHandler = String(doneHandler || '').trim();
-            const disabledSelectClass = allSelected ? 'opacity-50 cursor-not-allowed pointer-events-none' : '';
-            const disabledDeselectClass = noneSelected ? 'opacity-50 cursor-not-allowed pointer-events-none' : '';
-            return `<div class="excel-filter-footer grid grid-cols-2 gap-2"><button type="button" class="rounded-xl border border-emerald-200 bg-white px-3 py-2.5 text-[10px] font-black uppercase tracking-[0.08em] text-emerald-700 shadow-sm ${disabledSelectClass}" ${buildExcelFilterFastAttrs(safeSelectHandler)}>Select All</button><button type="button" class="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[10px] font-black uppercase tracking-[0.08em] text-slate-700 shadow-sm ${disabledDeselectClass}" ${buildExcelFilterFastAttrs(safeDeselectHandler)}>Deselect All</button><button type="button" class="col-span-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.14em] text-white shadow-sm" ${buildExcelFilterFastAttrs(safeDoneHandler)}>Done</button></div>`;
-        }
 
         function buildAvFilterDoneFooterHtml(doneHandler = '') {
             const safeDoneHandler = String(doneHandler || '').trim();
             return `<div class="excel-filter-footer"><button type="button" class="w-full rounded-xl bg-emerald-600 px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.14em] text-white shadow-sm" ${buildExcelFilterFastAttrs(safeDoneHandler)}>Done</button></div>`;
         }
 
-        function buildExcelBulkFilterFooterHtml(selectHandler = '', deselectHandler = '', doneHandler = '', allSelected = false, noneSelected = false) {
-            const safeSelectHandler = String(selectHandler || '').trim();
-            const safeDeselectHandler = String(deselectHandler || '').trim();
-            const safeDoneHandler = String(doneHandler || '').trim();
-            const disabledSelectClass = allSelected ? 'opacity-50 cursor-not-allowed pointer-events-none' : '';
-            const disabledDeselectClass = noneSelected ? 'opacity-50 cursor-not-allowed pointer-events-none' : '';
-            return `<div class="excel-filter-footer grid grid-cols-2 gap-2"><button type="button" class="rounded-xl border border-emerald-200 bg-white px-3 py-2.5 text-[10px] font-black uppercase tracking-[0.08em] text-emerald-700 shadow-sm ${disabledSelectClass}" ${buildExcelFilterFastAttrs(safeSelectHandler)}>Select All</button><button type="button" class="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[10px] font-black uppercase tracking-[0.08em] text-slate-700 shadow-sm ${disabledDeselectClass}" ${buildExcelFilterFastAttrs(safeDeselectHandler)}>Deselect All</button><button type="button" class="col-span-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.14em] text-white shadow-sm" ${buildExcelFilterFastAttrs(safeDoneHandler)}>Done</button></div>`;
-        }
 
-        function getAvViewOption(value = '') {
-            const safeValue = String(value || '').trim().toLowerCase();
-            return AV_VIEW_OPTIONS.find((option) => option.value === safeValue) || AV_VIEW_OPTIONS[0];
-        }
 
         function getAvViewChoices() {
             return AV_SALES_BUCKET_OPTIONS.slice();
@@ -75472,23 +68622,12 @@ function toggleDriveQuickRequestItem(domId) {
             return normalizeAvSalesBucket(activeAvSalesBucket);
         }
 
-        function getLegacyAvViewModeKey() {
-            if (activeAVTab === 'reserves') return activeAvReserveMode === 'photos' ? 'reserves-photos' : 'reserves-all';
-            return activeAvOpenTab === 'photos' ? 'open-photos' : 'open-all';
-        }
 
-        function getAvViewModeLabel(viewKey = getAvViewModeKey()) {
-            return getAvSalesBucketLabel(viewKey);
-        }
 
         function getAvPhotoMode() {
             return ['valid_photos','photos','no_photos'].includes(activeAvPhotoMode) ? activeAvPhotoMode : 'all';
         }
 
-        function getLegacyAvPhotoMode() {
-            if (activeAVTab === 'reserves') return activeAvReserveMode === 'photos' ? 'photos' : 'all';
-            return activeAvOpenTab === 'photos' ? 'photos' : 'all';
-        }
 
         function isAvPhotoOutreachAvailable() {
             return false;
@@ -75739,34 +68878,13 @@ function toggleDriveQuickRequestItem(domId) {
             return false;
         }
 
-        function syncAvSeasonControlQuick() {
-            const container = document.getElementById('av-top-filters');
-            if (!container) return;
-            const shell = container.querySelector('[data-av-filter-shell="season"]');
-            if (!shell) return;
-            const summary = shell.querySelector('[data-role="summary"]');
-            if (summary) setNodeTextIfChanged(summary, getAvSeasonSummaryLabel());
-            shell.querySelectorAll('input[type="checkbox"][data-season]').forEach((input) => {
-                const value = String(input.getAttribute('data-season') || '').trim().toUpperCase();
-                input.checked = selectedAvSeasons.has(value);
-            });
-        }
 
         function getAvSearchBoxValue() {
             const input = document.getElementById('av-search');
             return input ? String(input.value || '').trim() : '';
         }
 
-        function getAvDropdownOptionRenderLimit() {
-            return isTouchConstrainedDevice() ? 120 : 240;
-        }
 
-        function buildAvDropdownOptionLimitNotice(totalCount = 0, visibleCount = 0) {
-            const total = Math.max(0, Number(totalCount) || 0);
-            const visible = Math.max(0, Number(visibleCount) || 0);
-            if (!total || visible >= total) return '';
-            return `<div class="border-t border-slate-100 bg-slate-50 px-3 py-2 text-[10px] font-black uppercase tracking-[0.1em] text-slate-500">Showing ${esc(String(visible))} of ${esc(String(total))} matches</div>`;
-        }
 
         function syncAvTopControlOpenStatesQuick() {
             const container = document.getElementById('av-top-filters');
@@ -75801,47 +68919,7 @@ function toggleDriveQuickRequestItem(domId) {
             return true;
         }
 
-        function scheduleAvTopControlsRender(items = avFilterItemsCache, options = {}) {
-            avFilterItemsCache = Array.isArray(items) ? items : avFilterItemsCache;
-            const opts = options && typeof options === 'object' ? options : {};
-            const token = ++avTopControlsRenderToken;
-            if (avTopControlsRenderTimer) {
-                clearTimeout(avTopControlsRenderTimer);
-                avTopControlsRenderTimer = null;
-            }
-            if (avTopControlsRenderFrame) {
-                cancelAnimationFrame(avTopControlsRenderFrame);
-                avTopControlsRenderFrame = null;
-            }
-            const delay = Math.max(0, Number(opts.delay) || 0);
-            avTopControlsRenderTimer = setTimeout(() => {
-                avTopControlsRenderTimer = null;
-                if (token !== avTopControlsRenderToken) return;
-                avTopControlsRenderFrame = requestAnimationFrame(() => {
-                    avTopControlsRenderFrame = null;
-                    if (token !== avTopControlsRenderToken) return;
-                    renderAvTopControls(avFilterItemsCache);
-                    if (typeof opts.afterRender === 'function') opts.afterRender();
-                });
-            }, delay);
-            return false;
-        }
 
-        function scheduleAvTopControlsSearchRender(inputId = '', cursorPos = null, searchKey = 'av-filter-search') {
-            const delay = isTouchConstrainedDevice() ? 72 : 0;
-            return scheduleAvTopControlsRender(avFilterItemsCache, {
-                delay,
-                afterRender: () => {
-                    requestAnimationFrame(() => {
-                        const current = document.getElementById(inputId);
-                        if (!current) return;
-                        if (document.activeElement !== current) current.focus();
-                        if (cursorPos !== null && typeof current.setSelectionRange === 'function') current.setSelectionRange(cursorPos, cursorPos);
-                    });
-                },
-                searchKey
-            });
-        }
 
         function toggleAvSourceDropdown() {
             const nextState = !avSourceDropdownOpen;
@@ -75856,45 +68934,6 @@ function toggleDriveQuickRequestItem(domId) {
             return renderAvTopControlsForDropdownStateChange();
         }
 
-        function setAvViewMode(viewKey = 'open-all') {
-            lastViewSwitchAt = Date.now();
-            const nextOption = getAvViewOption(viewKey);
-            return runDirectTrackedNavigation('av', `av-view:${nextOption.value}`, () => {
-                activeAVTab = nextOption.tab;
-                if (nextOption.tab === 'open') {
-                    activeAvOpenTab = nextOption.photo ? 'photos' : 'name';
-                } else if (nextOption.tab === 'reserves') {
-                    activeAvReserveMode = nextOption.photo ? 'photos' : 'all';
-                }
-                if (nextOption.tab !== 'reserves') {
-                    selectedAvRepCustomerKey = '';
-                    avRepCustomerSearchTerm = '';
-                }
-                avResLevel = 0;
-                selectedAvResRep = null;
-                selectedAvResDriveUid = null;
-                selectedAvResItemCode = null;
-                selectedAvResName = null;
-                selectedAvResSize = null;
-                selectedAvResCustomerKey = null;
-                activeAvReserveDetailTab = 'customer';
-                selectedAvReserveDetailCustomerKey = null;
-                avOpenLevel = 0;
-                selectedAvOpenName = null;
-                selectedAvOpenSize = null;
-                selectedAvOpenSeason = null;
-                selectedAvOpenLot = null;
-                closeAvTopControlDropdowns(false);
-                avResolvedBaseStateKey = '';
-                avResolvedBaseStateCache = null;
-                invalidateAvFilterSelectionCaches();
-                const openTab = document.getElementById('tab-av-open');
-                const reservesTab = document.getElementById('tab-av-reserves');
-                if (openTab) openTab.classList.toggle('active', nextOption.tab === 'open');
-                if (reservesTab) reservesTab.classList.toggle('active', nextOption.tab === 'reserves');
-                syncAvSecondaryTabs();
-            }, { delay: 0, typingDelay: 32, forceRender: true, resetScrollTopAfterRender: true, scrollResetKey: `av-view:${nextOption.value}`, touchDelayMs: 8, interactionDelayMs: 8, scrollDelayMs: 48 });
-        }
 
         function setAvSourceFilter(tab = 'open-all') {
             avSourceDropdownOpen = false;
@@ -75949,447 +68988,44 @@ function toggleDriveQuickRequestItem(domId) {
             }, { delay: 0, typingDelay: 32, forceRender: true, resetScrollTopAfterRender: true, scrollResetKey: `av-sales-bucket:${nextBucket}`, touchDelayMs: 8, interactionDelayMs: 8, scrollDelayMs: 48 });
         }
 
-        function toggleAvSalesRepDropdown() {
-            if (!canUseAvSalesRepFilter()) return false;
-            const nextState = !avSalesRepDropdownOpen;
-            closeAvTopControlDropdowns(false);
-            avSalesRepDropdownOpen = nextState;
-            return renderAvTopControlsForDropdownStateChange();
-        }
 
-        function closeAvSalesRepDropdown() {
-            if (!avSalesRepDropdownOpen) return false;
-            avSalesRepDropdownOpen = false;
-            return renderAvTopControlsForDropdownStateChange();
-        }
 
-        function setAvSalesRepFilter(repName = '') {
-            beginDirectNavigationActivity();
-            selectedAvSalesRepName = canUseAvSalesRepFilter() ? String(repName || '').trim() : '';
-            if (selectedAvSalesRepName && !isAvCustomerSalesBucket(activeAvSalesBucket)) {
-                activeAvSalesBucket = 'customer-open';
-                activeAVTab = 'open';
-                activeAvOpenTab = activeAvPhotoMode === 'photos' ? 'photos' : 'name';
-                activeAvHotPriceTab = 'all';
-            }
-            avSalesRepDropdownOpen = false;
-            avSalesRepSearchTerm = '';
-            selectedAvRepCustomerKey = '';
-            avRepCustomerSearchTerm = '';
-            avResLevel = 0;
-            selectedAvResDriveUid = null;
-            selectedAvResItemCode = null;
-            selectedAvResName = null;
-            selectedAvResSize = null;
-            selectedAvResCustomerKey = null;
-            selectedAvReserveDetailCustomerKey = null;
-            avOpenLevel = 0;
-            selectedAvOpenName = null;
-            selectedAvOpenSize = null;
-            selectedAvOpenSeason = null;
-            selectedAvOpenLot = null;
-            invalidateAvFilterSelectionCaches();
-            scheduleAVRender(0);
-            return false;
-        }
 
-        function setAvSalesRepSearchTerm(value = '') {
-            avSalesRepSearchTerm = String(value || '');
-            const input = document.getElementById('av-salesrep-search');
-            const cursorPos = input && typeof input.selectionStart === 'number' ? input.selectionStart : null;
-            scheduleAvTopControlsSearchRender('av-salesrep-search', cursorPos, 'av-salesrep-search-ui');
-            return false;
-        }
 
-        function applyVisibleAvSalesRepResults() {
-            const options = getAvSalesRepOptions();
-            const searchToken = normalizeRepMatchToken(avSalesRepSearchTerm || '');
-            const filtered = searchToken ? options.filter((option) => doesProgressiveSearchTextMatch(option.searchToken, searchToken)) : options;
-            if (!filtered.length) return false;
-            return setAvSalesRepFilter(filtered[0].label);
-        }
 
-        function handleAvSalesRepSearchKeydown(event) {
-            if (!isEnterKeypress(event)) return;
-            handleSearchEnterApply(event, applyVisibleAvSalesRepResults);
-        }
 
-        function toggleAvRepCustomerDropdown() {
-            const nextState = !avRepCustomerDropdownOpen;
-            closeAvTopControlDropdowns(false);
-            avRepCustomerDropdownOpen = nextState;
-            if (nextState) {
-                if (!isDatasetLoaded('reserves', 'full')) queueDatasetLoad('reserves', 'full', isTouchConstrainedDevice() ? 220 : 80);
-                if (!isDatasetLoaded('customerRepMap', 'full')) queueDatasetLoad('customerRepMap', 'full', isTouchConstrainedDevice() ? 320 : 120);
-            }
-            return renderAvTopControlsForDropdownStateChange();
-        }
 
-        function closeAvRepCustomerDropdown() {
-            if (!avRepCustomerDropdownOpen) return false;
-            avRepCustomerDropdownOpen = false;
-            return renderAvTopControlsForDropdownStateChange();
-        }
 
-        function setAvRepCustomerFilter(customerKey = '') {
-            beginDirectNavigationActivity();
-            selectedAvRepCustomerKey = String(customerKey || '').trim();
-            if (selectedAvRepCustomerKey && !isAvCustomerSalesBucket(activeAvSalesBucket)) {
-                activeAvSalesBucket = 'customer-open';
-                activeAVTab = 'open';
-                activeAvOpenTab = activeAvPhotoMode === 'photos' ? 'photos' : 'name';
-                activeAvHotPriceTab = 'all';
-            }
-            avRepCustomerDropdownOpen = false;
-            avRepCustomerSearchTerm = '';
-            avResLevel = 0;
-            selectedAvResRep = null;
-            selectedAvResDriveUid = null;
-            selectedAvResItemCode = null;
-            selectedAvResName = null;
-            selectedAvResSize = null;
-            selectedAvResCustomerKey = null;
-            selectedAvReserveDetailCustomerKey = null;
-            avOpenLevel = 0;
-            selectedAvOpenName = null;
-            selectedAvOpenSize = null;
-            selectedAvOpenSeason = null;
-            selectedAvOpenLot = null;
-            invalidateAvFilterSelectionCaches();
-            scheduleAVRender(0);
-            return false;
-        }
 
-        function setAvRepCustomerSearchTerm(value = '') {
-            avRepCustomerSearchTerm = String(value || '');
-            const input = document.getElementById('av-rep-customer-search');
-            const cursorPos = input && typeof input.selectionStart === 'number' ? input.selectionStart : null;
-            scheduleAvTopControlsSearchRender('av-rep-customer-search', cursorPos, 'av-rep-customer-search-ui');
-            return false;
-        }
 
-        function applyVisibleAvRepCustomerResults() {
-            const options = getAvRepCustomerOptions();
-            const searchToken = normalizeRepMatchToken(avRepCustomerSearchTerm || '');
-            const filtered = searchToken ? options.filter((option) => doesProgressiveSearchTextMatch(option.searchToken, searchToken)) : options;
-            if (!filtered.length) return false;
-            return setAvRepCustomerFilter(filtered[0].key);
-        }
 
-        function handleAvRepCustomerSearchKeydown(event) {
-            if (!isEnterKeypress(event)) return;
-            handleSearchEnterApply(event, applyVisibleAvRepCustomerResults);
-        }
 
-        function toggleAvPhotoDropdown() {
-            const nextState = !avPhotoDropdownOpen;
-            closeAvTopControlDropdowns(false);
-            avPhotoDropdownOpen = nextState;
-            syncAvTopControlOpenStatesQuick();
-            scheduleAvTopControlsRender(avFilterItemsCache, { delay: isTouchConstrainedDevice() ? 16 : 0 });
-            return false;
-        }
 
-        function setAvHoldFilterMode(mode = 'all') {
-            beginDirectNavigationActivity();
-            const normalized = ['all', 'hold', 'clear'].includes(String(mode || '').trim()) ? String(mode || '').trim() : 'all';
-            avHoldFilterMode = normalized;
-            avHoldStopOnly = normalized === 'hold';
-            avHoldDropdownOpen = false;
-            avResolvedBaseStateKey = '';
-            avResolvedBaseStateCache = null;
-            scheduleAVRender(0);
-            return false;
-        }
 
-        function toggleAvSeasonDropdown() {
-            const nextState = !avSeasonDropdownOpen;
-            closeAvTopControlDropdowns(false);
-            avSeasonDropdownOpen = nextState;
-            return renderAvTopControlsForDropdownStateChange();
-        }
 
-        function closeAvSeasonDropdown() {
-            if (!avSeasonDropdownOpen) return false;
-            avSeasonDropdownOpen = false;
-            return renderAvTopControlsForDropdownStateChange();
-        }
 
-        function toggleAvGenusDropdown() {
-            const nextState = !avGenusFilterOpen;
-            closeAvTopControlDropdowns(false);
-            avGenusFilterOpen = nextState;
-            return renderAvTopControlsForDropdownStateChange();
-        }
 
-        function closeAvGenusDropdown() {
-            if (!avGenusFilterOpen) return false;
-            avGenusFilterOpen = false;
-            return renderAvTopControlsForDropdownStateChange();
-        }
 
-        function toggleAvContSizeDropdown() {
-            const nextState = !avContSizeFilterOpen;
-            closeAvTopControlDropdowns(false);
-            avContSizeFilterOpen = nextState;
-            return renderAvTopControlsForDropdownStateChange();
-        }
 
-        function closeAvContSizeDropdown() {
-            if (!avContSizeFilterOpen) return false;
-            avContSizeFilterOpen = false;
-            return renderAvTopControlsForDropdownStateChange();
-        }
 
-        function toggleAvSeason(season = '') {
-            const value = String(season || '').trim().toUpperCase();
-            if (!AV_FILTER_SEASON_OPTIONS.includes(value)) return false;
-            beginDirectNavigationActivity();
-            normalizeAvSelectedSeasons();
-            if (selectedAvSeasons.has(value)) selectedAvSeasons.delete(value);
-            else selectedAvSeasons.add(value);
-            avSeasonDefaultsInitialized = true;
-            avSeasonDropdownOpen = true;
-            avSourceDropdownOpen = false;
-            avGenusFilterOpen = false;
-            avContSizeFilterOpen = false;
-            avHoldDropdownOpen = false;
-            avPhotoDropdownOpen = false;
-            avRepCustomerDropdownOpen = false;
-            invalidateAvFilterSelectionCaches();
-            scheduleAVRender(0);
-            return false;
-        }
 
-        function selectAllAvSeasons() {
-            beginDirectNavigationActivity();
-            selectedAvSeasons = new Set(AV_FILTER_SEASON_OPTIONS);
-            avSeasonDefaultsInitialized = true;
-            avSeasonDropdownOpen = true;
-            avSeasonSearchTerm = '';
-            avSourceDropdownOpen = false;
-            avGenusFilterOpen = false;
-            avContSizeFilterOpen = false;
-            avHoldDropdownOpen = false;
-            avPhotoDropdownOpen = false;
-            avRepCustomerDropdownOpen = false;
-            syncAvSeasonControlQuick();
-            invalidateAvFilterSelectionCaches();
-            renderAvTopControls(avFilterItemsCache);
-            scheduleAVRender(42, 96);
-            return false;
-        }
 
-        function deselectAllAvSeasons() {
-            beginDirectNavigationActivity();
-            selectedAvSeasons = new Set();
-            avSeasonDefaultsInitialized = true;
-            avSeasonDropdownOpen = true;
-            avSeasonSearchTerm = '';
-            avSourceDropdownOpen = false;
-            avGenusFilterOpen = false;
-            avContSizeFilterOpen = false;
-            avHoldDropdownOpen = false;
-            avPhotoDropdownOpen = false;
-            avRepCustomerDropdownOpen = false;
-            syncAvSeasonControlQuick();
-            invalidateAvFilterSelectionCaches();
-            renderAvTopControls(avFilterItemsCache);
-            scheduleAVRender(42, 96);
-            return false;
-        }
 
-        function setAvSeasonSearchTerm(value = '') {
-            avSeasonSearchTerm = String(value || '');
-            const input = document.getElementById('av-season-search');
-            const cursorPos = input && typeof input.selectionStart === 'number' ? input.selectionStart : null;
-            scheduleAvTopControlsSearchRender('av-season-search', cursorPos, 'av-season-search-ui');
-            return false;
-        }
 
-        function applyVisibleAvSeasonResults() {
-            const filtered = filterAvSeasonOptionRows(buildAvSeasonOptionRows(avFilterItemsCache), avSeasonSearchTerm).map((row) => row.season);
-            if (!filtered.length) return false;
-            beginDirectNavigationActivity();
-            selectedAvSeasons = new Set(filtered);
-            avSeasonDefaultsInitialized = true;
-            avSeasonSearchTerm = '';
-            avSeasonDropdownOpen = false;
-            invalidateAvFilterSelectionCaches();
-            scheduleAVRender(0);
-            return true;
-        }
 
-        function handleAvSeasonSearchKeydown(event) {
-            if (!isEnterKeypress(event)) return;
-            handleSearchEnterApply(event, applyVisibleAvSeasonResults);
-        }
 
-        function setAvGenusSearchTerm(value = '') {
-            avGenusSearchTerm = String(value || '');
-            const input = document.getElementById('av-genus-search');
-            const cursorPos = input && typeof input.selectionStart === 'number' ? input.selectionStart : null;
-            scheduleAvTopControlsSearchRender('av-genus-search', cursorPos, 'av-genus-search-ui');
-            return false;
-        }
 
-        function setAvContSizeSearchTerm(value = '') {
-            avContSizeSearchTerm = String(value || '');
-            const input = document.getElementById('av-contsize-search');
-            const cursorPos = input && typeof input.selectionStart === 'number' ? input.selectionStart : null;
-            scheduleAvTopControlsSearchRender('av-contsize-search', cursorPos, 'av-contsize-search-ui');
-            return false;
-        }
 
-        function applyVisibleAvGenusResults() {
-            const state = buildAvSharedFilterState(avFilterItemsCache);
-            const visibleSelection = buildVisibleExcelFilterSelection(state.genusOptions, state.filteredGenusOptions);
-            if (!visibleSelection) return false;
-            beginDirectNavigationActivity();
-            selectedAvGenusNames = visibleSelection.selectedSet;
-            avGenusSelectionMode = visibleSelection.selectionMode;
-            avGenusSearchTerm = '';
-            closeAvTopControlDropdowns(false);
-            invalidateAvFilterSelectionCaches();
-            scheduleAVRender(0);
-            return true;
-        }
 
-        function applyVisibleAvContSizeResults() {
-            const state = buildAvSharedFilterState(avFilterItemsCache);
-            const visibleSelection = buildVisibleExcelFilterSelection(state.sizeOptions, state.filteredSizeOptions);
-            if (!visibleSelection) return false;
-            beginDirectNavigationActivity();
-            selectedAvContSizes = visibleSelection.selectedSet;
-            avContSizeSelectionMode = visibleSelection.selectionMode;
-            avContSizeSearchTerm = '';
-            closeAvTopControlDropdowns(false);
-            invalidateAvFilterSelectionCaches();
-            scheduleAVRender(0);
-            return true;
-        }
 
-        function handleAvGenusSearchKeydown(event) {
-            if (!isEnterKeypress(event)) return;
-            handleSearchEnterApply(event, applyVisibleAvGenusResults);
-        }
 
-        function handleAvContSizeSearchKeydown(event) {
-            if (!isEnterKeypress(event)) return;
-            handleSearchEnterApply(event, applyVisibleAvContSizeResults);
-        }
 
-        function toggleAvGenusSelection(genus = '') {
-            const value = String(genus || '').trim();
-            if (!value) return false;
-            beginDirectNavigationActivity();
-            syncAvGenusSelectionState(avFilterGenusOptions);
-            if (selectedAvGenusNames.has(value)) selectedAvGenusNames.delete(value);
-            else selectedAvGenusNames.add(value);
-            avGenusSelectionMode = 'custom';
-            avSourceDropdownOpen = false;
-            avSeasonDropdownOpen = false;
-            avGenusFilterOpen = true;
-            avContSizeFilterOpen = false;
-            avHoldDropdownOpen = false;
-            avPhotoDropdownOpen = false;
-            avRepCustomerDropdownOpen = false;
-            invalidateAvFilterSelectionCaches();
-            scheduleAVRender(0);
-            return false;
-        }
 
-        function toggleAvContSizeSelection(contSize = '') {
-            const value = String(contSize || '').trim();
-            if (!value) return false;
-            beginDirectNavigationActivity();
-            syncAvContSizeSelectionState(avFilterContSizeOptions);
-            if (selectedAvContSizes.has(value)) selectedAvContSizes.delete(value);
-            else selectedAvContSizes.add(value);
-            avContSizeSelectionMode = 'custom';
-            avSourceDropdownOpen = false;
-            avSeasonDropdownOpen = false;
-            avGenusFilterOpen = false;
-            avContSizeFilterOpen = true;
-            avHoldDropdownOpen = false;
-            avPhotoDropdownOpen = false;
-            avRepCustomerDropdownOpen = false;
-            invalidateAvFilterSelectionCaches();
-            scheduleAVRender(0);
-            return false;
-        }
 
-        function selectAllAvGenus() {
-            beginDirectNavigationActivity();
-            avGenusSelectionMode = 'all';
-            selectedAvGenusNames = new Set(avFilterGenusOptions);
-            avSourceDropdownOpen = false;
-            avSeasonDropdownOpen = false;
-            avGenusFilterOpen = true;
-            avContSizeFilterOpen = false;
-            avHoldDropdownOpen = false;
-            avPhotoDropdownOpen = false;
-            avRepCustomerDropdownOpen = false;
-            invalidateAvFilterSelectionCaches();
-            renderAvTopControls(avFilterItemsCache);
-            scheduleAVRender(42, 96);
-            return false;
-        }
 
-        function deselectAllAvGenus() {
-            beginDirectNavigationActivity();
-            avGenusSelectionMode = 'custom';
-            selectedAvGenusNames = new Set();
-            avSourceDropdownOpen = false;
-            avSeasonDropdownOpen = false;
-            avGenusFilterOpen = true;
-            avContSizeFilterOpen = false;
-            avHoldDropdownOpen = false;
-            avPhotoDropdownOpen = false;
-            avRepCustomerDropdownOpen = false;
-            invalidateAvFilterSelectionCaches();
-            renderAvTopControls(avFilterItemsCache);
-            scheduleAVRender(42, 96);
-            return false;
-        }
 
-        function selectAllAvContSizes() {
-            beginDirectNavigationActivity();
-            avContSizeSelectionMode = 'all';
-            selectedAvContSizes = new Set(avFilterContSizeOptions);
-            avSourceDropdownOpen = false;
-            avSeasonDropdownOpen = false;
-            avGenusFilterOpen = false;
-            avContSizeFilterOpen = true;
-            avHoldDropdownOpen = false;
-            avPhotoDropdownOpen = false;
-            avRepCustomerDropdownOpen = false;
-            invalidateAvFilterSelectionCaches();
-            renderAvTopControls(avFilterItemsCache);
-            scheduleAVRender(42, 96);
-            return false;
-        }
 
-        function deselectAllAvContSizes() {
-            beginDirectNavigationActivity();
-            avContSizeSelectionMode = 'custom';
-            selectedAvContSizes = new Set();
-            avSourceDropdownOpen = false;
-            avSeasonDropdownOpen = false;
-            avGenusFilterOpen = false;
-            avContSizeFilterOpen = true;
-            avHoldDropdownOpen = false;
-            avPhotoDropdownOpen = false;
-            avRepCustomerDropdownOpen = false;
-            invalidateAvFilterSelectionCaches();
-            renderAvTopControls(avFilterItemsCache);
-            scheduleAVRender(42, 96);
-            return false;
-        }
 
-        function toggleAvHoldStopOnly() {
-            return setAvHoldFilterMode(avHoldFilterMode === 'hold' ? 'all' : 'hold');
-        }
 
 
         function isTaskHotPriceSubview(tab = activeTaskTab, subview = activeTaskSubview) {
@@ -78058,139 +70694,6 @@ function toggleDriveQuickRequestItem(domId) {
             }
         }
 
-        function renderAVMarkupChunked(container, crumb, rows, crumbText, renderRow, options = {}) {
-            if (!container || !crumb) return;
-            const renderStartedAt = beginInternalPerfMeasure();
-            const total = Array.isArray(rows) ? rows.length : 0;
-            const renderSignature = normalizeRenderSignature(options.renderSignature || buildRowsRenderSignature(`av-generic|${String(crumbText || '')}`, rows));
-            if (renderInventoryCardWindow(container, rows, renderRow, {
-                view:'av', signature:renderSignature, estimatedHeight:Number(options.approxCardHeight)||185,
-                footerHtml:rows.length ? '' : (options.emptyHtml || '<div class="p-6 text-center text-gray-400">No rows found.</div>')
-            })) { crumb.innerText=crumbText; return; }
-            if (retainAvChunk(container, renderSignature)) return;
-            avRenderChunkToken += 1;
-            clearChunkRenderTimersByKey('av');
-            const token = avRenderChunkToken;
-            const adaptiveConstrained = isAdaptivePerformanceMode();
-            const adaptiveLevel = getAdaptivePerformanceLevel();
-            const touchOptimized = adaptiveConstrained || isIOSDevice() || isStandaloneApp() || !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
-            const iosConstrained = isIOSDevice();
-            const viewportHeight = Math.max(640, Math.round((window.visualViewport && window.visualViewport.height) || window.innerHeight || document.documentElement.clientHeight || 640));
-            const approxCardHeight = Math.max(120, Number(options.approxCardHeight) || 185);
-            const emptyHtml = options.emptyHtml || `<div class="p-6 text-center text-gray-400">No rows found.</div>`;
-            const chunkSize = adaptiveLevel >= 2
-                ? (total > 800 ? 8 : 12)
-                : (adaptiveConstrained
-                    ? (total > 1200 ? 12 : (total > 600 ? 16 : 20))
-                    : (iosConstrained
-                        ? (total > 1600 ? 16 : (total > 800 ? 20 : 24))
-                        : (touchOptimized
-                            ? (total > 1600 ? 32 : (total > 800 ? 42 : 54))
-                            : (total > 1200 ? 52 : (total > 600 ? 68 : 88)))));
-            const initialScreens = adaptiveLevel >= 2 ? 1.25 : (adaptiveConstrained ? 1.6 : (iosConstrained ? 2.2 : (touchOptimized ? 4.0 : 3.2)));
-            const initialTarget = Math.min(total, Math.max(touchOptimized ? Math.max(iosConstrained || adaptiveConstrained ? 12 : 22, chunkSize * (iosConstrained || adaptiveConstrained ? 1 : 2)) : Math.max(32, chunkSize), Math.ceil((viewportHeight * initialScreens) / approxCardHeight)));
-            const perFrameLimit = adaptiveLevel >= 2
-                ? Math.max(chunkSize, 8)
-                : (adaptiveConstrained ? Math.max(chunkSize, 14) : (iosConstrained ? Math.max(chunkSize, 12) : (touchOptimized ? Math.max(chunkSize, 52) : Math.max(chunkSize, 96))));
-            const frameBudgetMs = adaptiveLevel >= 2 ? 2.4 : (adaptiveConstrained ? 3.0 : (iosConstrained ? IOS_CHUNK_FRAME_BUDGET_MS : (touchOptimized ? 5.0 : 5.5)));
-            const interactionHoldDeadline = Date.now() + CHUNK_RENDER_INTERACTION_HOLD_MAX_MS;
-            let index = 0;
-            container.classList.add('performance-windowed-list');
-            crumb.innerText = crumbText;
-            if (renderSignature && getContainerRenderSignature(container) === renderSignature) {
-                incrementInternalPerfCounter('chunkRenderSkips');
-                container.style.minHeight = '';
-                recordInternalPerfDuration('chunkRenderDurations', renderStartedAt, String(options.chunkKey || 'av-generic'));
-                return;
-            }
-            container.style.minHeight = '';
-            if (!total) {
-                container.style.minHeight = '';
-                setContainerHtmlWithSignature(container, emptyHtml, renderSignature);
-                recordInternalPerfDuration('chunkRenderDurations', renderStartedAt, String(options.chunkKey || 'av-generic'));
-                return;
-            }
-            if (iosConstrained && total <= IOS_CHUNK_SYNC_ROW_LIMIT) {
-                let fullHtml = '';
-                rows.forEach((row, rowIndex) => {
-                    fullHtml += renderRow(row, rowIndex);
-                });
-                setContainerHtmlWithSignature(container, fullHtml, renderSignature);
-                container.style.minHeight = '';
-                recordInternalPerfDuration('chunkRenderDurations', renderStartedAt, String(options.chunkKey || 'av-generic'));
-                return;
-            }
-            const renderBatch = (targetCount, useBudget) => {
-                let html = '';
-                let rendered = 0;
-                const pacing = getChunkRenderPacing(targetCount, frameBudgetMs, { minBatch: (iosConstrained || adaptiveConstrained) ? 4 : 10 });
-                const batchTarget = pacing.batchTarget;
-                const timeBudget = pacing.timeBudget;
-                const startTime = useBudget && typeof performance !== 'undefined' && performance.now ? performance.now() : 0;
-                while (index < total && rendered < batchTarget) {
-                    html += renderRow(rows[index], index);
-                    index += 1;
-                    rendered += 1;
-                    const minMeasuredRows = (iosConstrained || adaptiveConstrained) ? Math.max(3, Math.ceil(chunkSize / 3)) : Math.max(6, Math.ceil(chunkSize / 3));
-                    if (useBudget && rendered >= minMeasuredRows && typeof performance !== 'undefined' && performance.now && (performance.now() - startTime) >= timeBudget) break;
-                }
-                return html;
-            };
-            setContainerHtml(container, renderBatch(initialTarget, false));
-            const queueNextChunkFrame = () => {
-                if (token !== avRenderChunkToken) return;
-                const pacing = getChunkRenderPacing(perFrameLimit, frameBudgetMs, { minBatch: (iosConstrained || adaptiveConstrained) ? 4 : 10 });
-                const scheduleFrame = () => {
-                    if (token !== avRenderChunkToken) return;
-                    requestAnimationFrame(renderNextChunk);
-                };
-                if (index > initialTarget && shouldHoldFollowupChunkFramesForInteraction() && Date.now() < interactionHoldDeadline) {
-                    incrementInternalPerfCounter('interactionHeldChunkFrames');
-                    scheduleChunkRenderTimeout('av', queueNextChunkFrame, getFollowupChunkInteractionDelayMs());
-                    return;
-                }
-                if (iosConstrained || adaptiveLevel >= 2) {
-                    const iosFrameDelay = getIosChunkFrameDelay(pacing);
-                    if (iosFrameDelay > 0) {
-                        if (pacing.liveGestureActive) incrementInternalPerfCounter('scrollBlockedChunkFrames');
-                        scheduleChunkRenderTimeout('av', scheduleFrame, adaptiveLevel >= 2 ? Math.max(iosFrameDelay, 96) : iosFrameDelay);
-                    } else {
-                        scheduleFrame();
-                    }
-                    return;
-                }
-                if (pacing.frameDelayMs > 0) {
-                    if (pacing.liveGestureActive) incrementInternalPerfCounter('scrollBlockedChunkFrames');
-                    scheduleChunkRenderTimeout('av', scheduleFrame, pacing.frameDelayMs);
-                    return;
-                }
-                if (index > initialTarget && !isUserInLiveTouchScrollGesture()) {
-                    scheduleChunkRenderTimeout('av', scheduleFrame, adaptiveLevel >= 2 ? 110 : (iosConstrained ? 72 : (touchOptimized ? 40 : 18)));
-                    return;
-                }
-                scheduleFrame();
-            };
-            const renderNextChunk = () => {
-                if (token !== avRenderChunkToken) return;
-                const html = renderBatch(perFrameLimit, true);
-                if (html) appendHtmlFragment(container, html);
-                if (index < total) queueNextChunkFrame();
-                else {
-                    container.style.minHeight = '';
-                    delete container.__avPendingChunk;
-                    setContainerRenderSignature(container, renderSignature);
-                    recordInternalPerfDuration('chunkRenderDurations', renderStartedAt, String(options.chunkKey || 'av-generic'));
-                }
-            };
-            if (index < total) {
-                container.__avPendingChunk = { token, signature: renderSignature };
-                queueNextChunkFrame();
-            } else {
-                container.style.minHeight = '';
-                setContainerRenderSignature(container, renderSignature);
-                recordInternalPerfDuration('chunkRenderDurations', renderStartedAt, String(options.chunkKey || 'av-generic'));
-            }
-        }
 
         function buildAVBrowsePageKey(prefix = '', rows = []) {
             // Pagination depends on membership and order. Rich card fields are
@@ -78657,7 +71160,6 @@ function toggleDriveQuickRequestItem(domId) {
             const selectedBadge = selected
                 ? '<span class="rounded-full border border-emerald-200 bg-emerald-600 px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-white">Selected</span>'
                 : '<span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">Tap Select</span>';
-            const availableQty = Math.max(0, parseAppNumber(firstNonEmptyValue(row.PTRAVAILABLE, '0')) || 0);
             return `<button type="button" class="rounded-2xl border ${selectedClass} p-4 text-left active:scale-[.99]" ${buildExcelFilterFastAttrs('toggleDockMistakeCandidateSelection', masterUniqueId)}><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="text-[10px] font-black uppercase tracking-[0.16em] text-[#007a4d]">Drive Mode Row</div><div class="mt-1 text-lg font-black leading-tight text-slate-900">${esc(row.COMMONNAME || 'Dock Item')}</div><div class="mt-1 text-sm font-bold text-slate-500">${esc(row.CONTSIZE || '-')}</div></div>${selectedBadge}</div><div class="mt-3 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-[0.12em]"><span class="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-blue-700">Loc ${esc(row.LOCATIONCODE || '-')}</span><span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-700">Lot ${esc(row.LOTCODE || '-')}</span><span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-700">Item ${esc(row.ITEMCODE || '-')}</span>${buildInventoryQuantityChipsHtml(row, { compact: true })}${buildInventoryCardFieldChipsHtml(row, { compact: true })}</div></button>`;
         }
 
@@ -79202,40 +71704,6 @@ function toggleDriveQuickRequestItem(domId) {
             return `<div class="rounded-2xl border ${toneClasses.border} ${toneClasses.bg} p-4"><div class="mb-3 flex items-center justify-between gap-3"><div class="text-[10px] font-black uppercase tracking-[0.16em] ${toneClasses.title}">${esc(title)}</div><div class="rounded-full border ${toneClasses.border} bg-white px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${toneClasses.title}">${photoUrls.length} Photo${photoUrls.length === 1 ? '' : 's'}</div></div><div class="grid grid-cols-3 gap-2 sm:grid-cols-6">${tileHtml}</div></div>`;
         }
 
-        function buildDockMistakeIssueOverviewHtml(issue = null, sourceRow = null, options = {}) {
-            const safeIssue = normalizeDockIssueStatusRow(issue) || issue || {};
-            const row = sourceRow || {};
-            const selectedAllocation = options && options.selectedAllocation ? options.selectedAllocation : null;
-            const selectedRow = options && options.selectedRow ? options.selectedRow : null;
-            const sourceQty = Math.max(0, parseAppNumber(firstNonEmptyValue(options && options.sourceQty, safeIssue.sourceQty, getDockDisplayQty(row), '0')) || 0);
-            const locMatchQty = getDockIssueSourceLocMatchQtyValue(safeIssue, row);
-            const sourceSpec = getDockIssueSourceSpecValue(safeIssue, row);
-            const sourceCaliper = getDockIssueSourceCaliperValue(safeIssue, row);
-            const issuePhotoCsv = getDockIssueAttachedPhotoCsv(safeIssue);
-            const rowPhotoCsv = getDockIssueRowPhotoCsv(safeIssue, row);
-            const qaCode = getDockMistakeCustomerQaCode(safeIssue, row, selectedRow);
-            const customerName = firstNonEmptyValue(safeIssue.sourceCustomerName, row.CUSTOMERNAME, row.CUSTOMER, 'Unknown Customer');
-            const consigneeName = firstNonEmptyValue(safeIssue.sourceConsigneeName, row.CONSIGNEENAME, row.CONSIGNEE, '');
-            const dockDropLabel = `Dock ${firstNonEmptyValue(safeIssue.dockNum, row.DOCK_NUM, '-')}` + ` / Drop ${firstNonEmptyValue(safeIssue.stopNumber, getDockStopOrDropValue(row), '-')}`;
-            const locMatchChip = locMatchQty
-                ? `<span class="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-blue-700">Loc Match Qty ${esc(locMatchQty)}</span>`
-                : `<span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-500">Loc Match Qty -</span>`;
-            const selectedRowHtml = selectedAllocation
-                ? (() => {
-                    const rowForSelected = selectedRow || {};
-                    const selectedTitle = firstNonEmptyValue(rowForSelected.COMMONNAME, selectedAllocation.altCommonName, safeIssue.sourceCommonName, 'Selected Drive Mode Row');
-                    const selectedContSize = firstNonEmptyValue(rowForSelected.CONTSIZE, selectedAllocation.altContSize, safeIssue.sourceContSize, '-');
-                    const selectedLocation = firstNonEmptyValue(rowForSelected.LOCATIONCODE, selectedAllocation.altLocationCode, '-');
-                    const selectedLot = firstNonEmptyValue(rowForSelected.LOTCODE, selectedAllocation.altLotCode, '-');
-                    const selectedItemCode = firstNonEmptyValue(rowForSelected.ITEMCODE, selectedAllocation.altItemCode, '-');
-                    const selectedQty = Math.max(0, parseAppNumber(firstNonEmptyValue(selectedAllocation.allocatedQty, '0')) || 0);
-                    const selectedAvailable = Math.max(0, parseAppNumber(firstNonEmptyValue(rowForSelected.PTRAVAILABLE, selectedAllocation.altPtrAvailable, '0')) || 0);
-                    const selectedSeason = firstNonEmptyValue(rowForSelected.SEASON, rowForSelected.season, '');
-                    return `<div class="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/60 px-3 py-3"><div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"><div class="min-w-0"><div class="text-[10px] font-black uppercase tracking-[0.16em] text-[#007a4d]">Selected Drive Mode Row</div><div class="mt-1 text-base font-black leading-tight text-slate-900 break-words">${esc(selectedTitle)}</div><div class="mt-1 text-sm font-semibold text-slate-500">${esc(selectedContSize)}</div></div><div class="rounded-full border border-emerald-200 bg-white px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-700">Selected ${esc(selectedQty > 0 ? formatDockDisplayQty(selectedQty) : 'Option')}</div></div><div class="mt-3 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-[0.14em]"><span class="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-blue-700">Loc ${esc(selectedLocation)}</span><span class="rounded-full border border-slate-200 bg-white px-3 py-1 text-slate-700">Lot ${esc(selectedLot)}</span><span class="rounded-full border border-slate-200 bg-white px-3 py-1 text-slate-700">Item ${esc(selectedItemCode)}</span>${buildInventoryQuantityChipsHtml(rowForSelected, { compact: true })}${selectedSeason ? `<span class="rounded-full border border-emerald-200 bg-white px-3 py-1 text-emerald-700">Season ${esc(selectedSeason)}</span>` : ''}${buildInventoryCardFieldChipsHtml(rowForSelected, { compact: true })}</div></div>`;
-                })()
-                : '';
-            return `<div class="rounded-2xl border border-red-100 bg-white p-4 shadow-sm"><div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div class="min-w-0"><div class="text-[10px] font-black uppercase tracking-[0.16em] text-red-600">Dock Drop Issue</div><div class="mt-1 text-2xl font-black leading-tight text-slate-900">${esc(safeIssue.sourceCommonName || row.COMMONNAME || 'Dock Item')}</div><div class="mt-1 text-sm font-semibold text-slate-500">${esc(safeIssue.sourceContSize || row.CONTSIZE || '-')} &bull; Item ${esc(safeIssue.sourceItemCode || row.ITEMCODE || '-')}</div><div class="mt-2 text-[12px] font-black uppercase tracking-[0.12em] text-slate-500">${esc(dockDropLabel)}</div></div><div class="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-center text-red-700"><div class="text-[10px] font-black uppercase tracking-[0.14em]">Mistake Qty</div><div class="text-2xl font-black leading-none">${esc(formatDockDisplayQty(sourceQty))}</div></div></div><div class="mt-3 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-[0.14em]"><span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-700">Dock ${esc(safeIssue.dockNum || row.DOCK_NUM || '-')}</span><span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-700">Drop ${esc(safeIssue.stopNumber || getDockStopOrDropValue(row) || '-')}</span><span class="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-blue-700">Source Loc ${esc(safeIssue.sourceLocationCode || row.LOCATIONCODE || '-')}</span>${locMatchChip}${sourceSpec ? `<span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-700">Spec ${escapeQueueNoteText(sourceSpec)}</span>` : ''}${sourceCaliper ? `<span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-700">Caliper ${escapeQueueNoteText(sourceCaliper)}</span>` : ''}<span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-700">Customer QA ${esc(qaCode || '-')}</span><span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-700">Customer ${esc(customerName)}</span>${consigneeName ? `<span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-700">Consignee ${esc(consigneeName)}</span>` : ''}</div><div class="mt-3 rounded-xl border border-orange-200 bg-orange-50 px-3 py-3 text-[12px] font-semibold text-orange-800 whitespace-pre-wrap"><span class="font-black">Customer Issue:</span> ${esc(safeIssue.issueNote || 'No note provided')}</div>${selectedRowHtml}<div class="mt-4 grid gap-3 lg:grid-cols-2">${renderDockIssuePhotoStripHtml('Issue Photo', issuePhotoCsv, { tone: 'red', emptyText: 'No issue photo attached.' })}${renderDockIssuePhotoStripHtml('Row Photos', rowPhotoCsv, { emptyText: 'No row photos found for this dock row.' })}</div></div>`;
-        }
 
         function compareDockIssueQueueCards(a = null, b = null) {
                 const issueA = a && a.issue ? a.issue : {};
@@ -79328,91 +71796,12 @@ function toggleDriveQuickRequestItem(domId) {
             });
         }
 
-        function renderDockMistakeDetail(container, crumb, term = '') {
-            return renderDockMistakeDetailV3(container, crumb, term);
-            const issueView = getDockMistakeIssueViewByUniqueId(selectedDockIssueUid);
-            const issue = issueView || getDockIssueStatus(selectedDockIssueUid);
-            const sourceRow = issueView && issueView.sourceRow ? issueView.sourceRow : findDockMistakeSourceRowByUniqueId(selectedDockIssueUid, issue);
-            if (!issue || !sourceRow) {
-                selectedDockIssueUid = null;
-                selectedDockIssueAllocationId = '';
-                scheduleDocksRender(0);
-                return;
-            }
-            const allocations = issueView && Array.isArray(issueView.allocations) ? issueView.allocations : getDockIssueAllocationTotals(issue.issueSourceUniqueId).allocations;
-            const totalAllocatedQty = issueView ? issueView.totalAllocatedQty : getDockIssueAllocationTotals(issue.issueSourceUniqueId).totalAllocatedQty;
-            const sourceQty = issueView ? issueView.sourceQty : Math.max(0, parseAppNumber(firstNonEmptyValue(issue.sourceQty, getDockDisplayQty(sourceRow), '0')) || 0);
-            const remainingQty = issueView ? issueView.remainingQty : Math.max(0, sourceQty - totalAllocatedQty);
-            const safeIssueUid = esc(issue.issueSourceUniqueId || '');
-            const candidateEntries = getDockIssueCandidateRows(issue.issueSourceUniqueId);
-            const originalEntry = candidateEntries.find((entry) => entry && entry.isOriginal && entry.row) || null;
-            const driveEntries = candidateEntries.filter((entry) => entry && !entry.isOriginal && entry.row).filter((entry) => {
-                if (!term) return true;
-                return doesProgressiveSearchFieldsMatch([
-                    entry.row.COMMONNAME,
-                    entry.row.CONTSIZE,
-                    entry.row.LOCATIONCODE,
-                    entry.row.LOTCODE,
-                    entry.row.ITEMCODE,
-                    entry.row.SEASON
-                ], term);
-            });
-
-            const allocationSummaryHtml = `<div class="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 shadow-sm"><div class="flex items-center justify-between gap-3 mb-3"><div><div class="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Allocation Summary</div><div class="mt-1 text-base font-black text-slate-900">${esc(formatDockDisplayQty(totalAllocatedQty))} moved &bull; ${esc(formatDockDisplayQty(remainingQty))} remaining</div></div><button class="rounded-xl border border-green-200 bg-[#007a4d] px-4 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white shadow-sm active:scale-95" ${buildFastInvokeAttrs('resolveDockIssue', [safeIssueUid], 'Resolve Issue')}>Resolve Issue</button></div>${renderDockIssueAllocationSummary(issue.issueSourceUniqueId)}</div>`;
-            const candidateRowsHtml = candidates.length ? candidates.map((entry) => {
-                const row = entry.row;
-                const masterUniqueId = String(firstNonEmptyValue(row && row.UNIQUE_ID, '')).trim();
-                const existingAllocation = allocations.find((allocation) => allocation && allocation.altMasterUniqueId === masterUniqueId);
-                const isOriginal = !!entry.isOriginal;
-                const candidateQty = Math.max(0, parseAppNumber(firstNonEmptyValue(row && row.PTRAVAILABLE, '0')) || 0);
-                const buttonHtml = isOriginal
-                    ? `<button class="rounded-xl border border-slate-200 bg-slate-100 px-4 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-slate-500 cursor-default" disabled>Original Dock Location</button>`
-                    : `<button class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-700 shadow-sm active:scale-95" ${buildFastInvokeAttrs('openDockAllocationModal', [safeIssueUid, masterUniqueId], existingAllocation ? `Update Qty (${formatDockDisplayQty(existingAllocation.allocatedQty)})` : 'Use This Location')}>${existingAllocation ? `Update Qty (${esc(formatDockDisplayQty(existingAllocation.allocatedQty))})` : 'Use This Location'}</button>`;
-                return `<div class="rounded-2xl border ${isOriginal ? 'border-blue-200 bg-blue-50/70' : 'border-slate-200 bg-white'} p-4 shadow-sm"><div class="flex items-start justify-between gap-3"><div class="min-w-0 flex-1"><div class="text-[10px] font-black uppercase tracking-[0.16em] ${isOriginal ? 'text-blue-600' : 'text-slate-500'}">${isOriginal ? 'Original Row Reference' : 'Alternate Location'}</div><div class="mt-1 text-lg font-black text-slate-900 break-words">${esc(row.LOCATIONCODE || '-')}</div><div class="mt-1 text-sm font-semibold text-slate-500 break-words">${esc(row.LOTCODE || '-')} &bull; ${esc(row.ITEMCODE || '-')}</div></div><div class="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-700">Available ${esc(formatDockDisplayQty(candidateQty))}</div></div><div class="mt-3 text-sm font-semibold text-slate-600 break-words">${esc(row.COMMONNAME || issue.sourceCommonName || 'Dock Item')} &bull; ${esc(row.CONTSIZE || issue.sourceContSize || '-')}</div><div class="mt-3 flex justify-end">${buttonHtml}</div></div>`;
-            }).join('') : `<div class="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 p-6 text-center text-sm font-semibold text-slate-500">No matching alternate locations found for this search.</div>`;
-
+        function renderDockMistakeDetail(container, crumb) {
+            return renderDockMistakeDetailV3(container, crumb);
         }
 
-        function renderDockMistakeDetailV2(container, crumb, term = '') {
-            const issueView = getDockMistakeIssueViewByUniqueId(selectedDockIssueUid);
-            const issue = issueView || getDockIssueStatus(selectedDockIssueUid);
-            const sourceRow = issueView && issueView.sourceRow ? issueView.sourceRow : findDockMistakeSourceRowByUniqueId(selectedDockIssueUid, issue);
-            if (!issue || !sourceRow) {
-                selectedDockIssueUid = null;
-                selectedDockIssueAllocationId = '';
-                scheduleDocksRender(0);
-                return;
-            }
-            const allocations = issueView && Array.isArray(issueView.allocations) ? issueView.allocations : getDockIssueAllocationTotals(issue.issueSourceUniqueId).allocations;
-            const totalAllocatedQty = issueView ? issueView.totalAllocatedQty : getDockIssueAllocationTotals(issue.issueSourceUniqueId).totalAllocatedQty;
-            const sourceQty = issueView ? issueView.sourceQty : Math.max(0, parseAppNumber(firstNonEmptyValue(issue.sourceQty, getDockDisplayQty(sourceRow), '0')) || 0);
-            const remainingQty = issueView ? issueView.remainingQty : Math.max(0, sourceQty - totalAllocatedQty);
-            const safeIssueUid = esc(issue.issueSourceUniqueId || '');
-            const candidateEntries = getDockIssueCandidateRows(issue.issueSourceUniqueId);
-            const originalEntry = candidateEntries.find((entry) => entry && entry.isOriginal && entry.row) || null;
-            const driveEntries = candidateEntries.filter((entry) => entry && !entry.isOriginal && entry.row).filter((entry) => {
-                if (!term) return true;
-                return doesProgressiveSearchFieldsMatch([
-                    entry.row.COMMONNAME,
-                    entry.row.CONTSIZE,
-                    entry.row.LOCATIONCODE,
-                    entry.row.LOTCODE,
-                    entry.row.ITEMCODE,
-                    entry.row.SEASON
-                ], term);
-            });
-            crumb.innerText = `Mistake Queue > ${issue.sourceCommonName || sourceRow.COMMONNAME || 'Dock Item'}`;
-            const driveRowsSectionHtml = `<div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><div class="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500 mb-3">Drive Mode S1 ${esc(issue.sourceCommonName || sourceRow.COMMONNAME || 'Dock Item')} &bull; ${esc(issue.sourceContSize || sourceRow.CONTSIZE || '-')}</div><div class="space-y-3">${[
-                originalEntry ? buildDockMistakeDriveCandidateCardHtml(originalEntry, issue, allocations, { sourceQty, remainingQty }) : '',
-                driveEntries.length
-                    ? driveEntries.map((entry) => buildDockMistakeDriveCandidateCardHtml(entry, issue, allocations, { sourceQty, remainingQty })).join('')
-                    : `<div class="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 p-6 text-center text-sm font-semibold text-slate-500">No matching Drive Mode S1 rows found for this search.</div>`
-            ].filter(Boolean).join('')}</div></div>`;
-            const allocationSummaryHtml = `<div class="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 shadow-sm"><div class="flex items-center justify-between gap-3 mb-3"><div><div class="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Allocation Summary</div><div class="mt-1 text-base font-black text-slate-900">${esc(formatDockDisplayQty(totalAllocatedQty))} moved &bull; ${esc(formatDockDisplayQty(remainingQty))} remaining</div></div><button class="rounded-xl border border-green-200 bg-[#007a4d] px-4 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white shadow-sm active:scale-95" ${buildFastInvokeAttrs('resolveDockIssue', [safeIssueUid], 'Resolve Issue')}>Resolve Issue</button></div>${renderDockIssueAllocationSummary(issue.issueSourceUniqueId)}</div>`;
-            container.innerHTML = `<div data-secondary-back="true" aria-hidden="true" class="back-btn" ${buildFastInvokeAttrs('backToDockMistakeQueue', [], 'Back to Mistake Queue')}><i class="ph-bold ph-arrow-left"></i> Back to Mistake Queue</div><div class="space-y-4">${driveRowsSectionHtml}${allocationSummaryHtml}</div>`;
-        }
 
-        function renderDockMistakeDetailV3(container, crumb, term = '') {
+        function renderDockMistakeDetailV3(container, crumb) {
             {
                 const detailIssueView = getDockMistakeIssueViewByUniqueId(selectedDockIssueUid);
                 const detailIssue = detailIssueView || getDockIssueStatus(selectedDockIssueUid);
@@ -79455,66 +71844,6 @@ function toggleDriveQuickRequestItem(domId) {
                 prepareIosNativeDetailMeasurementInputs(container);
                 return;
             }
-            const issueView = getDockMistakeIssueViewByUniqueId(selectedDockIssueUid);
-            const issue = issueView || getDockIssueStatus(selectedDockIssueUid);
-            const sourceRow = issueView && issueView.sourceRow ? issueView.sourceRow : findDockMistakeSourceRowByUniqueId(selectedDockIssueUid, issue);
-            if (!issue || !sourceRow) {
-                selectedDockIssueUid = null;
-                selectedDockIssueAllocationId = '';
-                scheduleDocksRender(0);
-                return;
-            }
-            const allocationTotals = issueView
-                ? { allocations: issueView.allocations || [], totalAllocatedQty: issueView.totalAllocatedQty || 0 }
-                : getDockIssueAllocationTotals(issue.issueSourceUniqueId);
-            const allocations = Array.isArray(allocationTotals.allocations) ? allocationTotals.allocations : [];
-            const selectedAllocation = selectedDockIssueAllocationId
-                ? allocations.find((allocation) => allocation && allocation.allocationUniqueId === selectedDockIssueAllocationId)
-                : null;
-            if (selectedDockIssueAllocationId && !selectedAllocation) selectedDockIssueAllocationId = '';
-            const selectedRow = selectedAllocation ? findDockIssueAllocationMasterRow(selectedAllocation) : null;
-            const totalAllocatedQty = Math.max(0, parseAppNumber(firstNonEmptyValue(allocationTotals.totalAllocatedQty, '0')) || 0);
-            const sourceQty = issueView
-                ? Math.max(0, parseAppNumber(firstNonEmptyValue(issueView.sourceQty, '0')) || 0)
-                : Math.max(0, parseAppNumber(firstNonEmptyValue(issue.sourceQty, getDockDisplayQty(sourceRow), '0')) || 0);
-            const remainingQty = issueView
-                ? Math.max(0, parseAppNumber(firstNonEmptyValue(issueView.remainingQty, sourceQty - totalAllocatedQty, '0')) || 0)
-                : Math.max(0, sourceQty - totalAllocatedQty);
-            const safeIssueUid = esc(issue.issueSourceUniqueId || '');
-            const candidateEntries = getDockIssueCandidateRows(issue.issueSourceUniqueId);
-            const originalEntry = candidateEntries.find((entry) => entry && entry.isOriginal && entry.row) || null;
-            const driveEntries = candidateEntries
-                .filter((entry) => entry && !entry.isOriginal && entry.row)
-                .filter((entry) => {
-                    if (!term) return true;
-                    return doesProgressiveSearchFieldsMatch([
-                        entry.row.COMMONNAME,
-                        entry.row.CONTSIZE,
-                        entry.row.LOCATIONCODE,
-                        entry.row.LOTCODE,
-                        entry.row.ITEMCODE,
-                        entry.row.SEASON
-                    ], term);
-                });
-            crumb.innerText = selectedAllocation
-                ? `Mistake Queue > ${firstNonEmptyValue(selectedRow && selectedRow.LOCATIONCODE, selectedAllocation.altLocationCode, 'Selected Row')}`
-                : `Mistake Queue > ${issue.sourceCommonName || sourceRow.COMMONNAME || 'Dock Item'}`;
-            const driveRowsHtml = [
-                originalEntry ? buildDockMistakeDriveCandidateCardHtml(originalEntry, issue, allocations, { sourceQty, remainingQty }) : '',
-                driveEntries.length
-                    ? driveEntries.map((entry) => buildDockMistakeDriveCandidateCardHtml(entry, issue, allocations, { sourceQty, remainingQty })).join('')
-                    : `<div class="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 p-6 text-center text-sm font-semibold text-slate-500">No matching Drive Mode rows found by lot code or season for this search.</div>`
-            ].filter(Boolean).join('');
-            const driveRowsSectionHtml = `<div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><div class="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500 mb-3">Drive Mode Lot/Season Match ${esc(issue.sourceCommonName || sourceRow.COMMONNAME || 'Dock Item')} | ${esc(issue.sourceContSize || sourceRow.CONTSIZE || '-')}</div><div class="space-y-3">${driveRowsHtml}</div></div>`;
-            const allocationSummaryLabel = totalAllocatedQty > 0
-                ? `${formatDockDisplayQty(totalAllocatedQty)} moved | ${formatDockDisplayQty(remainingQty)} remaining`
-                : `${allocations.length} selected option${allocations.length === 1 ? '' : 's'} | Mistake qty ${formatDockDisplayQty(sourceQty)}`;
-            const cantResolveAttrs = selectedAllocation
-                ? buildFastInvokeAttrs('cantResolveDockMistakeCard', [safeIssueUid, selectedAllocation.allocationUniqueId], 'Can Not Resolve Selected Row')
-                : buildFastInvokeAttrs('cantResolveDockIssue', [safeIssueUid], 'Can Not Resolve');
-            const allocationSummaryHtml = `<div class="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 shadow-sm"><div class="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><div class="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Selected Drive Mode Rows</div><div class="mt-1 text-base font-black text-slate-900">${esc(allocationSummaryLabel)}</div></div><div class="grid grid-cols-2 gap-2 sm:min-w-[16rem]"><button class="rounded-xl border border-green-200 bg-[#007a4d] px-4 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white shadow-sm active:scale-95" ${buildFastInvokeAttrs('resolveDockIssue', [safeIssueUid], 'Resolve')}>Resolve</button><button class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-slate-600 shadow-sm active:scale-95" ${cantResolveAttrs}>Can't Resolve</button></div></div>${renderDockIssueAllocationSummary(issue.issueSourceUniqueId)}</div>`;
-            const issueOverviewHtml = buildDockMistakeIssueOverviewHtml(issue, sourceRow, { sourceQty, remainingQty, totalAllocatedQty, selectedAllocation, selectedRow });
-            container.innerHTML = `<div data-secondary-back="true" aria-hidden="true" class="back-btn" ${buildFastInvokeAttrs('backToDockMistakeQueue', [], 'Back to Mistake Queue')}><i class="ph-bold ph-arrow-left"></i> Back to Mistake Queue</div><div class="space-y-4">${issueOverviewHtml}${driveRowsSectionHtml}${allocationSummaryHtml}</div>`;
         }
 
         const DOCK_CARD_PLANSTART_ALIASES = Object.freeze([
@@ -79819,11 +72148,6 @@ function toggleDriveQuickRequestItem(domId) {
                 && (location === 'C.05' || location === '0.00.111' || /^(C\.12|B\.10|C\.14)\..+/.test(location));
         }
 
-        function getHlOrderSourceSignature(source = {}) {
-            const row = getHlOrderSource(source);
-            return JSON.stringify(['unique_id','itemcode','contsize','locationcode','lotcode','quantityordered','dock','planstartdate',
-                'stopnumber','transactionnumber','purchaseordernumber','customername','consigneename','invoicedate'].map((key) => row[key]));
-        }
 
         function getHlOrderQuantity(value) {
             const raw = String(value ?? '').trim();
@@ -79890,16 +72214,6 @@ function toggleDriveQuickRequestItem(domId) {
             });
         }
 
-        function getHlOrderMasterMatches() {
-            const matches = new Map();
-            getHlOrderDriveMatches((Array.isArray(socInventory) ? socInventory : []).map(getHlOrderSource)).forEach((row) => {
-                const key = getHlOrderInventoryKey(row);
-                const id = String(row.UNIQUE_ID ?? row.unique_id ?? '').trim();
-                if (!matches.has(key)) matches.set(key, new Set());
-                matches.get(key).add(id);
-            });
-            return matches;
-        }
 
         function normalizeHlAvailabilityValue(value) {
             return String(value ?? '').trim().toUpperCase();
@@ -80036,9 +72350,6 @@ function toggleDriveQuickRequestItem(domId) {
             return committed;
         }
 
-        function isHlOrderSourceCommitted(sourceId, state = hlOrderStateData) {
-            return getHlOrderCommittedDraftSourceIds(state).has(String(sourceId || '').trim());
-        }
 
         function groupHlOrderRows(rows = []) {
             const groups = new Map();
@@ -81013,7 +73324,6 @@ function toggleDriveQuickRequestItem(domId) {
             return false;
         }
 
-        function orderHlGroup(key) { toggleHlOrderCard(key); return false; }
 
         async function removeHlSelectedRows() {
             try {
@@ -81992,26 +74302,8 @@ function toggleDriveQuickRequestItem(domId) {
             return null;
         }
 
-        function getMovesCompletedStorageKey() {
-            const userKey = String(currentUser || currentUserDisplay || 'global').trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '_') || 'global';
-            return `${MOVES_COMPLETED_STORAGE_PREFIX}:${userKey}`;
-        }
 
-        function getCompletedMoveIds() {
-            try {
-                const raw = localStorage.getItem(getMovesCompletedStorageKey()) || '[]';
-                const parsed = JSON.parse(raw);
-                return new Set(Array.isArray(parsed) ? parsed.map((value) => String(value || '').trim()).filter(Boolean) : []);
-            } catch (error) {
-                return new Set();
-            }
-        }
 
-        function saveCompletedMoveIds(completedIds = new Set()) {
-            try {
-                localStorage.setItem(getMovesCompletedStorageKey(), JSON.stringify(Array.from(completedIds || []).filter(Boolean)));
-            } catch (error) { globalThis.safeIgnoreProbeError?.("saveCompletedMoveIds"); }
-        }
 
         function getMovesActualMovedStorageKey() {
             const userKey = String(currentUser || currentUserDisplay || 'global').trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '_') || 'global';
@@ -82264,23 +74556,7 @@ function toggleDriveQuickRequestItem(domId) {
             };
         }
 
-        function considerMovesDestination(group, candidate) {
-            if (!group || !candidate) return;
-            const top = group.topDestinations || (group.topDestinations = []);
-            const existingIndex = top.findIndex((entry) => entry.locationKey === candidate.locationKey);
-            if (existingIndex > -1) {
-                if (candidate.ptravailable <= top[existingIndex].ptravailable) return;
-                top.splice(existingIndex, 1);
-            }
-            top.push(candidate);
-            top.sort((left, right) => right.ptravailable - left.ptravailable);
-            if (top.length > 3) top.length = 3;
-        }
 
-        function getMovesDestinationForSource(group, sourceLocationKey = '') {
-            const normalizedSourceLocation = String(sourceLocationKey || '').trim().toUpperCase();
-            return (group && Array.isArray(group.topDestinations) ? group.topDestinations : []).find((candidate) => candidate.locationKey !== normalizedSourceLocation) || null;
-        }
 
         function evaluateMovesFromInventory(rows = []) {
             const safeRows = Array.isArray(rows) ? rows : [];
@@ -82502,11 +74778,6 @@ function toggleDriveQuickRequestItem(domId) {
             return String(firstNonEmptyValue(record && record.move_batch_id, record && record.MOVE_BATCH_ID, '') || '').trim();
         }
 
-        function getMoveRecordsForBatch(batchId = '') {
-            const safeBatchId = String(batchId || '').trim();
-            if (!safeBatchId) return [];
-            return getMovesRecords().filter((record) => getMoveRecordBatchId(record) === safeBatchId);
-        }
 
         function hasActiveMoveRequestForMove(record = null) {
             if (!record) return false;
@@ -83751,7 +76022,6 @@ function toggleDriveQuickRequestItem(domId) {
                     firstNonEmptyValue(row.LOTCODE, row.lotcode, '')
                 ].map((value) => String(value || '').trim()).filter(Boolean).join(' | ')).filter(Boolean)));
                 const existingInstructions = Array.from(new Set(batchRows.map(getMoveRequestCommentText).filter(Boolean)));
-                const instructionInputId = getMoveApprovalInstructionsInputId(batchId, stage);
                 const instructionsHtml = existingInstructions.length
                     ? `<div class="mt-3 rounded-xl border border-blue-100 bg-white px-3 py-2 text-[11px] font-bold leading-5 text-slate-600"><div class="mb-1 text-[9px] font-black uppercase tracking-[0.14em] text-blue-700">Instructions</div>${existingInstructions.map((text) => `<div class="whitespace-pre-wrap">${esc(text)}</div>`).join('<div class="my-2 border-t border-blue-50"></div>')}</div>`
                     : '';
@@ -84647,46 +76917,17 @@ function toggleDriveQuickRequestItem(domId) {
             const canUseFlyerFromBloom = ((typeof resolveUserAccessMatrix === 'function' && resolveUserAccessMatrix()?.flyer_folder_access === 'Y') || canUseDriveQuickRequest() || canUseFullDriveActions) && items.some((item) => item && !isRequestLikeItem(item) && !isDockLikeItem(item) && !isSalesOfficeLikeItem(item));
             const canUseEvalTaskAction = canUseEvalTaskAssignment() && getEvalTaskSelectionItems(items).length > 0;
             const canUseMoveQueue = canUseInventoryActions && canCreateLocationWorkJob();
-            const canUseGroupedNcrAction = canUseInventoryActions && (access.isAdmin || canUseGroupedBloomNcr());
             if (access.isForeman) {
                 const canUseForemanTakeBack = canUseInventoryActions && items.every((item) => hasPriorityColumnData(item));
-                return {
-                    showCopy: false,
-                    showEmail: false,
-                    showText: false,
-                    showAssign: false,
-                    showEvalTask: false,
-                    showNcr: false,
-                    showRequest: false,
-                    showMove: false,
-                    showFlyer: false,
-                    showTakeBack: canUseForemanTakeBack,
-                    showEndCap: false,
-                    showShear: false,
-                    showBloomOrder: false,
-                    canUseInventoryActions: canUseForemanTakeBack,
-                    canUseBloomOrders: false
-                };
+                return getForemanBloomPickerActionVisibility(canUseForemanTakeBack);
             }
             if (access.isRepLike) {
-                return {
-                    showCopy: true,
-                    showEmail: true,
-                    showText: true,
-                    showAssign: false,
-                    showEvalTask: false,
-                    showNcr: false,
-                    showRequest: canUseFullDriveActions ? canUseInventoryActions : (hasRepBloomOnlySelection ? false : canUseInventoryActions),
-                    showMove: false,
-                    showFlyer: access.isRep && (typeof resolveUserAccessMatrix !== 'function' || resolveUserAccessMatrix()?.flyer_folder_access !== 'Y') ? false : (canUseFullDriveActions ? canUseFlyerFromBloom : (hasRepBloomOnlySelection ? false : canUseFlyerFromBloom)),
-                    showTakeBack: access.isRep ? false : canUseFullDriveActions && canUseInventoryActions,
-                    showEndCap: access.isRep ? false : canUseFullDriveActions && canUseInventoryActions,
-                    showShear: false,
-                    showBloomOrder: access.isRep ? false : canUseBloomOrders,
+                return getRepBloomPickerActionVisibility(access, {
+                    canUseFullDriveActions, hasRepBloomOnlySelection, canUseFlyerFromBloom,
                     showProject,
                     canUseInventoryActions,
                     canUseBloomOrders
-                };
+                });
             }
             return {
                 showCopy: true,
@@ -84770,19 +77011,6 @@ function toggleDriveQuickRequestItem(domId) {
             });
         }
 
-        function handleCartTogglePress(event, domId) {
-            if (event) {
-                event.preventDefault();
-                event.stopPropagation();
-                if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
-            }
-            const now = Date.now();
-            if (lastCartToggleDomId === domId && (now - lastCartToggleAt) < 350) return false;
-            lastCartToggleDomId = domId;
-            lastCartToggleAt = now;
-            toggleGlobalItem(domId);
-            return false;
-        }
 
         function stopNestedCardActionPress(event = null) {
             if (event) {
@@ -84793,34 +77021,10 @@ function toggleDriveQuickRequestItem(domId) {
             return true;
         }
 
-        function stopNestedCardActionEvent(event = null) {
-            if (event) {
-                if (typeof event.preventDefault === 'function') event.preventDefault();
-                if (typeof event.stopPropagation === 'function') event.stopPropagation();
-                if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
-            }
-            if (typeof clearActiveFastPress === 'function') clearActiveFastPress();
-            return false;
-        }
 
-        function handleDockSuspendDcDonePress(event = null, uniqueId = '', button = null) {
-            stopNestedCardActionEvent(event);
-            return completeDockSuspendDcRequestFromCard(uniqueId, button);
-        }
 
-        function handleDockSuspendDcUpdatePress(event = null, uniqueId = '', options = {}) {
-            stopNestedCardActionEvent(event);
-            return openDockSuspendDcRequestUpdate(uniqueId, options);
-        }
 
-        function handleDockSuspendDcNotFoundRecountPress(event = null, uniqueId = '', button = null) {
-            stopNestedCardActionEvent(event);
-            return openDockSuspendDcNotFoundRecount(uniqueId, button);
-        }
 
-        function decorateCartRows() {
-            return;
-        }
 
         let bloomPickerTraySwipeState = { row: null, surface: null, startX: 0, startY: 0, deltaX: 0, startOffset: 0, dragging: false };
         let bloomPickerTraySwipeMoveBound = false;
@@ -85023,34 +77227,7 @@ function toggleDriveQuickRequestItem(domId) {
             return `<button type="button" class="app-card-bottom-btn ${inBag ? 'app-card-bottom-btn--secondary' : ''}" data-cart-dom-id="${esc(safeDomId)}" aria-pressed="${inBag ? 'true' : 'false'}" onclick="return handleInventoryCardBottomCartAction(event, '${esc(safeDomId)}', '${safeSourceViewKey}')"><i class="ph-bold ${inBag ? 'ph-check' : 'ph-package'} text-base"></i><span data-cart-label>${inBag ? 'In Bloom Picker' : 'Add To Bloom Picker'}</span></button>`;
         }
 
-        function showAvReserveBookedSummary(event, customerPreview = '', consigneePreview = '', qtyTotal = '', rowCount = '') {
-            if (event) {
-                event.preventDefault();
-                event.stopPropagation();
-                if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
-            }
-            const customerText = String(customerPreview || 'Reserve Customer').trim();
-            const consigneeText = String(consigneePreview || '').trim();
-            const qtyText = String(qtyTotal || '').trim();
-            const rowText = String(rowCount || '').trim();
-            const parts = [];
-            if (customerText) parts.push(customerText);
-            if (consigneeText) parts.push(consigneeText);
-            if (qtyText && qtyText !== '0') parts.push(`Qty ${qtyText}`);
-            if (rowText && rowText !== '0') parts.push(`${rowText} reserve row${rowText === '1' ? '' : 's'}`);
-            showToast('Booked', parts.join(' | ') || 'Reserve details are attached to this row.');
-            return false;
-        }
 
-        function buildAvReserveBookedButtonHtml(item = null) {
-            const rowCount = Number(item && item.AV_RESERVE_ROW_COUNT || 0);
-            if (!rowCount) return '';
-            const qtyTotal = Number(item && item.AV_RESERVE_QTY_TOTAL || 0);
-            const customerPreview = String(firstNonEmptyValue(item && item.AV_RESERVE_CUSTOMER_PREVIEW, 'Reserve Customer') || '').trim();
-            const consigneePreview = String(firstNonEmptyValue(item && item.AV_RESERVE_CONSIGNEE_PREVIEW, '') || '').trim();
-            const label = qtyTotal > 0 ? `Booked ${qtyTotal}` : 'Booked';
-            return `<button type="button" class="app-card-bottom-btn app-card-bottom-btn--reserve" onclick="return showAvReserveBookedSummary(event, '${escJsAttrValue(customerPreview)}', '${escJsAttrValue(consigneePreview)}', '${escJsAttrValue(String(qtyTotal || ''))}', '${escJsAttrValue(String(rowCount || ''))}')"><i class="ph-bold ph-bookmark-simple text-base"></i><span>${esc(label)}</span></button>`;
-        }
 
         function getInventoryCardBottomRailHtml(domId = '', extraButtonsHtml = '', options = {}) {
             const safeDomId = String(domId || '').trim();
@@ -85588,27 +77765,7 @@ function toggleDriveQuickRequestItem(domId) {
             syncBloomCropUpdateGroupControls();
         }
 
-        function setBloomCropUpdateGroupSelection(groupKey = '', selected = true) {
-            const safeGroupKey = String(groupKey || '').trim();
-            bloomCropUpdateRecipientMode = 'reps';
-            resetBloomCropUpdateReserveState();
-            document.querySelectorAll('[data-bloom-crop-rep="true"]').forEach((input) => {
-                if (String(input.getAttribute('data-bloom-crop-group') || '').trim() !== safeGroupKey) return;
-                input.checked = !!selected;
-            });
-            syncBloomCropUpdateSendButton();
-            return false;
-        }
 
-        function setBloomCropUpdateAllSelection(selected = true) {
-            bloomCropUpdateRecipientMode = 'reps';
-            resetBloomCropUpdateReserveState();
-            document.querySelectorAll('[data-bloom-crop-rep="true"]').forEach((input) => {
-                input.checked = !!selected;
-            });
-            syncBloomCropUpdateSendButton();
-            return false;
-        }
 
         function applyBloomCropUpdateRecipientPreset(preset = '') {
             const safePreset = String(preset || '').trim().toUpperCase();
@@ -86467,21 +78624,7 @@ function toggleDriveQuickRequestItem(domId) {
             closeBloomShareMenu();
         }, true);
 
-        function startPress(e,domId) {
-            isLongPress=false;
-            cancelPress();
-            const point = e && e.touches && e.touches[0] ? e.touches[0] : e;
-            touchStartX = point && Number.isFinite(point.clientX) ? point.clientX : 0;
-            touchStartY = point && Number.isFinite(point.clientY) ? point.clientY : 0;
-        }
 
-        function checkMove(e) {
-            const point = e && e.touches && e.touches[0] ? e.touches[0] : e;
-            if (!point) return;
-            const moveX = Math.abs((Number.isFinite(point.clientX) ? point.clientX : 0) - touchStartX);
-            const moveY = Math.abs((Number.isFinite(point.clientY) ? point.clientY : 0) - touchStartY);
-            if (moveX > 8 || moveY > 8) cancelPress();
-        }
 
         function cancelPress() { if(pressTimer){clearTimeout(pressTimer); pressTimer=null;} }
 
@@ -86494,9 +78637,6 @@ function toggleDriveQuickRequestItem(domId) {
             return false;
         }
 
-        function enableMultiSelect(firstDomId) {
-            return false;
-        }
 
 
 
@@ -86995,9 +79135,6 @@ function toggleDriveQuickRequestItem(domId) {
             return false;
         }
 
-        function getAllSalesRepOutreachRecipientEmails() {
-            return dedupeRequestEmailRecipients((salesRepList || []).map((repName) => resolveRequestRecipientEmail(repName)).filter(Boolean));
-        }
 
         function buildCustomerConsigneeOutreachCardAction(item = null, sourceView = '') {
             if (!item || !canUseCustomerConsigneeOutreach()) return '';
@@ -87060,9 +79197,6 @@ function toggleDriveQuickRequestItem(domId) {
             return normalizeDriveCustomerOutreachSeasonValue(getDriveCustomerOutreachSeason(row)) === targetSeason;
         }
 
-        function isDriveCustomerOutreachSameItemSeason(row = null, item = activeItem) {
-            return isDriveCustomerOutreachSameItemCode(row, item) && isDriveCustomerOutreachSameSeason(row, item);
-        }
 
         function getDriveCustomerOutreachReserveRowsKey(item = activeItem) {
             const itemCode = getDriveCustomerOutreachItemCode(item);
@@ -87729,11 +79863,6 @@ function toggleDriveQuickRequestItem(domId) {
             scheduleDeferredCardPhotoHydration(panel);
         }
 
-        function toggleDriveCustomerOutreachPanel() {
-            driveCustomerOutreachOpen = !driveCustomerOutreachOpen;
-            renderDriveCustomerOutreachPanel(activeItem);
-            return false;
-        }
 
         function toggleDriveCustomerOutreachCustomer(key = '') {
             const safeKey = String(key || '').trim();
@@ -89851,81 +81980,15 @@ function toggleDriveQuickRequestItem(domId) {
             try {
                 const rawRows = [];
                 const localRowsPromise = collectRequestItemCodeOptionRowsFromLocalCache(item, safeStateKey).catch(() => []);
-                let primaryLookupError = null;
-                let primaryLookupSucceeded = false;
-                if (canFetchRemoteRows) {
-                    try {
-                        const itemRows = await fetchRequestItemCodeOptionRowsFromSupabase(itemCode, { pageSize: 100, maxRows: 2500 });
-                        rawRows.push(...itemRows);
-                        primaryLookupSucceeded = true;
-                    } catch (lookupError) {
-                        if (isSupabaseReadTerminalDenial(lookupError)) throw lookupError;
-                        primaryLookupError = lookupError;
-                        console.warn('Request AV option itemcode lookup failed', lookupError);
-                    }
-                }
+                const primaryLookupSucceeded = canFetchRemoteRows && await appendRequestItemCodeOptionRemoteRows(itemCode, rawRows);
                 const localRows = await localRowsPromise;
                 rawRows.push(...(Array.isArray(localRows) ? localRows : []));
                 if (requestItemCodeOptionState.key !== safeStateKey || owner !== getSupabaseReadIdentityScope()) return false;
-                state.cachedRows = [];
-                state.cachedSignature = '';
-                const retainedRows = forceRefresh ? sharedRows : [...sharedRows, ...(Array.isArray(state.rows) ? state.rows : [])];
-                const formattedRows = formatFetchedRows(forceRefresh ? [...rawRows, ...retainedRows] : [...retainedRows, ...rawRows], 'ph_master_inventory').map((row, index) => {
-                    const uid = String(firstNonEmptyValue(row && row.UNIQUE_ID, row && row.unique_id, '') || '').trim();
-                    row.DOM_ID = row.DOM_ID || `reqopt_${uid || index}`;
-                    return buildSearchIndex(normalizeRowPhotoFields(row));
-                });
-                const mergedRows = new Map();
-                const currentPermission = String(appAccessSnapshotState.snapshot?.dataPermissionVersion || '');
-                const acceptedMetricRevision = (row) => {
-                    const scope = String(firstNonEmptyValue(row?.LOC_ON_HAND_RECEIPT_SCOPE, row?.loc_on_hand_receipt_scope, '') || '');
-                    const permission = String(firstNonEmptyValue(row?.LOC_ON_HAND_RECEIPT_PERMISSION, row?.loc_on_hand_receipt_permission, '') || '');
-                    const revision = String(firstNonEmptyValue(row?.LOC_ON_HAND_RECEIPT_REVISION, row?.loc_on_hand_receipt_revision, '') || '').trim();
-                    const aggregateRevision = String(firstNonEmptyValue(row?.LOC_ON_HAND_REVISION, row?.loc_on_hand_revision, '') || '').trim();
-                    if (scope !== owner || permission !== currentPermission || !/^\d+$/.test(revision) || revision !== aggregateRevision) return null;
-                    return BigInt(revision);
-                };
-                formattedRows.forEach((row) => {
-                    const identity = getRequestItemCodeOptionMasterId(row) || getRequestItemCodeOptionExactKey(row);
-                    if (!identity) return;
-                    const existing = mergedRows.get(identity);
-                    if (!existing) { mergedRows.set(identity, row); return; }
-                    const incomingRevision = acceptedMetricRevision(row);
-                    const existingRevision = acceptedMetricRevision(existing);
-                    if (incomingRevision !== null && (existingRevision === null || incomingRevision > existingRevision)) mergedRows.set(identity, row);
-                });
-                if (mergedRows.size || !retainedRows.length && (!forceRefresh || primaryLookupSucceeded)
-                    || forceRefresh && primaryLookupSucceeded) state.rows = Array.from(mergedRows.values());
-                state.rowsRevision = (Number(state.rowsRevision) || 0) + 1;
-                state.loaded = true;
-                state.error = '';
+                applyScopedRequestItemCodeOptions(state, { rawRows, sharedRows, forceRefresh, primaryLookupSucceeded, owner });
             } catch (error) {
-                if (requestItemCodeOptionState.key === safeStateKey && owner === getSupabaseReadIdentityScope()) {
-                    state.denied = isSupabaseReadTerminalDenial(error);
-                    if (state.denied) { state.rows = []; state.cachedRows = []; state.cachedSignature = ''; }
-                    state.error = state.denied ? 'AV option access is unavailable for this account.'
-                        : getRequestItemCodeOptionRows(item).length ? '' : 'AV options are temporarily unavailable. Reopen to retry.';
-                    state.loaded = true;
-                }
+                recordScopedRequestItemCodeOptionError(state, { item, safeStateKey, owner, error });
             } finally {
-                if (requestItemCodeOptionState.key === safeStateKey && owner === getSupabaseReadIdentityScope()) {
-                    state.loading = false;
-                    if (forceRefresh && acceptedLocOnHandAggregateReceipt?.valid === true
-                        && acceptedLocOnHandAggregateReceipt.scope === getSupabaseReadIdentityScope()
-                        && acceptedLocOnHandAggregateReceipt.permission === String(appAccessSnapshotState.snapshot?.dataPermissionVersion || '')) {
-                        state.metricRefreshRevision = String(acceptedLocOnHandAggregateReceipt.revision || state.metricRefreshRevision || '');
-                    }
-                    const pendingMetricRevision = String(state.metricRefreshPendingRevision || '').trim();
-                    state.metricRefreshPendingRevision = '';
-                    if (pendingMetricRevision && requestItemCodeOptionState === state) {
-                        scheduleStaleRequestOptionMetricRefresh(activeItem, state, pendingMetricRevision);
-                    }
-                    if (String(activeDetailTab || '').trim().toLowerCase() === 'this-location') {
-                        renderRequestThisLocationPanel(activeItem, activeDetailSourceView || lastView || '', { skipLoad: true });
-                    } else {
-                        renderRequestMatchingInventoryOptions(activeItem, activeDetailSourceView || lastView || '', { skipLoad: true });
-                    }
-                }
+                settleRequestItemCodeOptionLoad(state, safeStateKey, owner, forceRefresh);
             }
             return false;
         }
@@ -90432,9 +82495,6 @@ function toggleDriveQuickRequestItem(domId) {
             return String(firstNonEmptyValue(item && item.ITEMCODE, item && item.itemcode, item && item.ITEM, '') || '').trim().toUpperCase();
         }
 
-        function hasDriveAltLocRows(item = activeItem) {
-            return !!getDriveAltLocItemCode(item);
-        }
 
         function getDriveAltLocStateKey(item = activeItem) {
             return getDriveAltLocItemCode(item);
@@ -90841,26 +82901,6 @@ function toggleDriveQuickRequestItem(domId) {
             return amount.toLocaleString(undefined, { maximumFractionDigits: 2 });
         }
 
-        function groupItemInquiryRowsByLocation(rows = []) {
-            const groups = new Map();
-            (Array.isArray(rows) ? rows : []).forEach((row) => {
-                const locationCode = getItemInquiryRowValue(row, ['LOCATIONCODE', 'locationcode', 'LOCATION'], 'Unassigned');
-                const groupKey = String(locationCode || 'Unassigned').trim() || 'Unassigned';
-                if (!groups.has(groupKey)) {
-                    groups.set(groupKey, {
-                        locationCode: groupKey,
-                        rows: [],
-                        ptrOnHand: 0,
-                        ptrReviewed: 0
-                    });
-                }
-                const group = groups.get(groupKey);
-                group.rows.push(row);
-                group.ptrOnHand += parseItemInquiryQuantity(getCardPtrOnHandValue(row));
-                group.ptrReviewed += parseItemInquiryQuantity(getCardPtrReviewedValue(row));
-            });
-            return Array.from(groups.values());
-        }
 
         function renderItemInquiryMobileWorkspace(model = {}, groups = new Map(), currentKey = '', displayIdentity = {}) {
             const safeModel = model && typeof model === 'object' ? model : { identity: {}, seasons: [], locationRows: [] };
@@ -93169,17 +85209,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             };
         }
 
-        function getSalesOfficeOrderRepFolders(items = []) {
-            const groups = new Map();
-            (items || []).forEach((item) => {
-                const label = getSalesOfficeOrderRepName(item);
-                const key = normalizeSalesOfficeOrderFolderKey(label);
-                if (!groups.has(key)) groups.set(key, { type: 'rep', key, label, rows: [] });
-                groups.get(key).rows.push(item);
-            });
-            return Array.from(groups.values()).map((folder) => Object.assign(folder, summarizeSalesOfficeOrderFolderRows(folder.rows)))
-                .sort((a, b) => String(a.label || '').localeCompare(String(b.label || '')));
-        }
 
         function getSalesOfficeOrderCustomerFolders(items = [], repKey = salesOfficeOrderSelectedRepKey) {
             const safeRepKey = String(repKey || '').trim();
@@ -93857,7 +85886,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             applySalesOfficeRenderMarkup(container, crumb, crumbText, html, renderKey);
         }
         function resetLowStockView(shouldRender = true) {
-            lowStockViewLevel = 0;
             if (shouldRender) scheduleLowStockRender();
         }
 
@@ -93964,18 +85992,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             ].some((value) => doesCurrentUserMatchRequestCreatorValue(value));
         }
 
-        function doesCurrentUserOwnOrHaveAssignmentForRequestItem(item = null) {
-            if (!item || typeof item !== 'object') return false;
-            if (doesCurrentUserOwnCreatedRequestItem(item)) return true;
-            return [
-                item.REQUEST_SELECTED_REP_USERNAME,
-                item.request_selected_rep_username,
-                item.REQUEST_SELECTED_REP_DISPLAY,
-                item.request_selected_rep_display,
-                item.REQUESTED_BY,
-                item.requested_by
-            ].some((value) => doesCurrentUserMatchRequestCreatorValue(value));
-        }
 
         function parseRequestCustomerFolderParts(value = '', item = null) {
             const clean = (entry = '') => String(entry || '').trim();
@@ -94420,9 +86436,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return getDockSuspendDcRequestPlanstartInfo(item).weekday;
         }
 
-        function getDockSuspendDcRequestPlanstartToneClass(item = null) {
-            return getDockSuspendDcRequestPlanstartInfo(item).className;
-        }
 
         function applyDockSuspendDcPlanstartToneToCardElement(card = null, item = null) {
             if (!card || !item) return false;
@@ -94594,60 +86607,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
                 && dockSuspendDcRequestMirrorRowsPreparation.owner === getDockSuspendDcRequestMirrorRowsOwner());
         }
 
-        function scheduleDockSuspendDcRequestMirrorRowsPreparation(sourceRows, revision, owner) {
-            const prior = dockSuspendDcRequestMirrorRowsPreparation;
-            if (prior && prior.timer != null) clearTimeout(prior.timer);
-            const job = { sourceRows, revision, owner, cursor: 0, rows: [], seen: new Set(), timer: null };
-            dockSuspendDcRequestMirrorRowsPreparation = job;
-            const isCurrent = () => dockSuspendDcRequestMirrorRowsPreparation === job
-                && canReadSuspendQueue()
-                && getDockSuspendDcRequestMirrorRowsOwner() === owner
-                && getDockSuspendDcSourceRows() === sourceRows
-                && getDockSuspendDcSourceRowLookupRevision(sourceRows) === revision;
-            const runSlice = () => {
-                job.timer = null;
-                if (!isCurrent()) {
-                    const wasCurrentJob = dockSuspendDcRequestMirrorRowsPreparation === job;
-                    if (wasCurrentJob) dockSuspendDcRequestMirrorRowsPreparation = null;
-                    if (wasCurrentJob && activeReqTab === 'suspend-tag' && isViewVisible('request')
-                        && canReadSuspendQueue()) scheduleRequestRender(0, 0, true);
-                    return;
-                }
-                const end = Math.min(sourceRows.length, job.cursor + DOCK_SUSPEND_MIRROR_PREPARATION_CHUNK_SIZE);
-                for (; job.cursor < end; job.cursor += 1) {
-                    const sourceRow = sourceRows[job.cursor];
-                    if (!isDockSuspendDcRequestSource(sourceRow)) continue;
-                    const row = buildDockSuspendDcRequestMirrorRow(sourceRow, job.cursor);
-                    if (!row) continue;
-                    const id = String(firstNonEmptyValue(row.UNIQUE_ID, row.unique_id, '') || '').trim();
-                    if (!id || job.seen.has(id)) continue;
-                    job.seen.add(id);
-                    job.rows.push(row);
-                }
-                if (job.cursor < sourceRows.length) {
-                    job.timer = setTimeout(runSlice, 0);
-                    return;
-                }
-                if (!isCurrent()) {
-                    const wasCurrentJob = dockSuspendDcRequestMirrorRowsPreparation === job;
-                    if (wasCurrentJob) dockSuspendDcRequestMirrorRowsPreparation = null;
-                    if (wasCurrentJob && activeReqTab === 'suspend-tag' && isViewVisible('request')
-                        && canReadSuspendQueue()) scheduleRequestRender(0, 0, true);
-                    return;
-                }
-                dockSuspendDcRequestMirrorRowsCacheKey = revision;
-                dockSuspendDcRequestMirrorRowsCacheSource = sourceRows;
-                dockSuspendDcRequestMirrorRowsCacheOwner = owner;
-                dockSuspendDcRequestMirrorRowsCache = job.rows;
-                dockSuspendDcRequestMirrorRowsByIdCache = null;
-                dockSuspendDcRequestMirrorRowsByDomIdCache = null;
-                requestScopedItemsCacheKey = '';
-                requestScopedItemsCache = null;
-                dockSuspendDcRequestMirrorRowsPreparation = null;
-                if (activeReqTab === 'suspend-tag' && isViewVisible('request')) scheduleRequestRender(0, 0, true);
-            };
-            job.timer = setTimeout(runSlice, 0);
-        }
 
         function getDockSuspendDcRequestMirrorRows() {
             if (!canReadSuspendQueue()) return [];
@@ -94755,21 +86714,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return uniqueId.indexOf('dock_suspend_dc_') === 0 ? uniqueId : `dock_suspend_dc_${uniqueId}`;
         }
 
-        function setDockSuspendDcRequestMirrorHidden(itemOrUid = null, hidden = true) {
-            const rawUid = typeof itemOrUid === 'string'
-                ? String(itemOrUid || '').trim()
-                : getDockSuspendDcRequestMirrorUidForRow(itemOrUid);
-            if (!rawUid) return;
-            const mirrorUid = rawUid.indexOf('dock_suspend_dc_') === 0 ? rawUid : `dock_suspend_dc_${rawUid}`;
-            if (!(hiddenCompletedDockSuspendDcRequestMirrorIds instanceof Set)) hiddenCompletedDockSuspendDcRequestMirrorIds = new Set();
-            if (hidden) hiddenCompletedDockSuspendDcRequestMirrorIds.add(mirrorUid);
-            else hiddenCompletedDockSuspendDcRequestMirrorIds.delete(mirrorUid);
-            requestScopedItemsCacheKey = '';
-        }
 
-        function isDockSuspendDcRequestMirrorHidden(item = null) {
-            return false;
-        }
 
         function isRegularRequestQueueItem(item = null) {
             const exact = typeof queueAccessScope === 'function' && queueAccessScope('pending').exact;
@@ -95327,20 +87272,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return false;
         }
 
-        function clearRequestSuspendTagFilters(event = null) {
-            if (typeof getInventoryExcelState === 'function') { const filters = getInventoryExcelState('suspend'); filters.filters = {}; filters.open = null; filters.revision++; }
-            if (event && typeof event.preventDefault === 'function') event.preventDefault();
-            requestSuspendTagCommonNameSearchTerm = '';
-            suspendEvalFilterScope = '';
-            getSuspendEvalUserFilter();
-            requestSuspendTagContSizeFilter = 'all';
-            requestSuspendTagDockFilter = 'all';
-            clearSelection();
-            markViewDirty('request');
-            renderRequest();
-            schedulePersistAppFilterState(120);
-            return false;
-        }
 
         function buildDockSuspendDcRequestMirrorSignature(rows = []) {
             return (Array.isArray(rows) ? rows : [])
@@ -95417,10 +87348,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             });
         }
 
-        function serializeRequestDylanFilterValues(values = []) {
-            const normalizedValues = normalizeRequestDylanFilterValues(values);
-            return normalizedValues.length ? JSON.stringify(normalizedValues) : '';
-        }
 
         function getRequestDylanLocationKey(value = '') {
             const rawValue = String(value || '').trim();
@@ -95455,10 +87382,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             });
         }
 
-        function serializeRequestDylanLocationValues(values = []) {
-            const normalizedValues = normalizeRequestDylanLocationValues(values);
-            return normalizedValues.length ? JSON.stringify(normalizedValues) : '';
-        }
 
         function getRequestDylanViewerFilter() {
             if (!canUseRequestDylanViewerFilter() || !['pending', 'reps'].includes(activeReqTab)) return { mode: 'all', value: '', values: [], salesRepValues: [], locationValues: [] };
@@ -95484,17 +87407,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return explicitAssignee || getEvalTaskRuleAssigneeForItem(record);
         }
 
-        function getRequestEvalAssigneeLabelFromShearRecord(record = null) {
-            const snapshot = record && record.snapshot ? record.snapshot : {};
-            const explicitAssignee = String(firstNonEmptyValue(
-                record && record.assignedto,
-                record && record.ASSIGNEDTO,
-                snapshot.assignedto,
-                snapshot.ASSIGNEDTO,
-                ''
-            ) || '').trim();
-            return explicitAssignee || getEvalTaskRuleAssigneeForItem(record);
-        }
 
         function getRequestSalesRepLabelFromInventoryEditRecord(record = null) {
             const snapshot = record && record.snapshot ? record.snapshot : {};
@@ -95517,21 +87429,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return resolveCanonicalRequestRepName(rawRep) || rawRep;
         }
 
-        function getRequestSalesRepLabelFromShearRecord(record = null) {
-            const snapshot = record && record.snapshot ? record.snapshot : {};
-            const rawRep = String(firstNonEmptyValue(
-                record && record.salesrep,
-                record && record.SALESREP,
-                record && record.salesrepname,
-                record && record.SALESREPNAME,
-                snapshot.salesrep,
-                snapshot.SALESREP,
-                snapshot.salesrepname,
-                snapshot.SALESREPNAME,
-                ''
-            ) || '').trim();
-            return resolveCanonicalRequestRepName(rawRep) || rawRep;
-        }
 
         function getRequestEvalAssigneeLabelFromItem(item = null) {
             const explicitAssignee = String(firstNonEmptyValue(
@@ -95570,17 +87467,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             ) || 'No Loc').trim() || 'No Loc';
         }
 
-        function getRequestDylanLocationLabelFromShearRecord(record = null) {
-            const snapshot = record && record.snapshot ? record.snapshot : {};
-            return String(firstNonEmptyValue(
-                record && record.locationcode,
-                record && record.LOCATIONCODE,
-                snapshot.locationcode,
-                snapshot.LOCATIONCODE,
-                snapshot.LOCATION,
-                'No Loc'
-            ) || 'No Loc').trim() || 'No Loc';
-        }
 
         function doesRequestEvalAssigneeMatchValue(assignee = '', selectedEval = '') {
             const assigneeKey = normalizeEvalAccessUserKey(assignee);
@@ -95613,114 +87499,11 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
                 : source.slice();
         }
 
-        function getRequestDylanRequestItemCacheId(item = null) {
-            return String(firstNonEmptyValue(
-                item && item.UNIQUE_ID,
-                item && item.unique_id,
-                item && item.DOM_ID,
-                item && item.dom_id,
-                item && item.MASTER_ID,
-                item && item.master_id,
-                ''
-            ) || '').trim();
-        }
 
-        function getRequestDylanPendingEntriesCacheKey(items = []) {
-            const source = Array.isArray(items) ? items : [];
-            const firstItem = source[0] || null;
-            const lastItem = source.length ? source[source.length - 1] : null;
-            return [
-                resolvedViewStateEpoch,
-                typeof getDatasetLoadSignature === 'function' ? getDatasetLoadSignature('requests') : '',
-                typeof getDatasetLoadSignature === 'function' ? getDatasetLoadSignature('master') : '',
-                safeRole,
-                currentUser,
-                currentUserDisplay,
-                source.length,
-                getRequestDylanRequestItemCacheId(firstItem),
-                getRequestDylanRequestItemCacheId(lastItem)
-            ].join('|');
-        }
 
-        function getRequestDylanPendingEntries(items = []) {
-            const source = Array.isArray(items) ? items : [];
-            const cacheKey = getRequestDylanPendingEntriesCacheKey(source);
-            if (requestDylanPendingEntriesCacheKey === cacheKey && Array.isArray(requestDylanPendingEntriesCache)) {
-                incrementInternalPerfCounter('viewStateCacheHits');
-                return requestDylanPendingEntriesCache.slice();
-            }
-            const entries = [];
-            source.forEach((item) => {
-                if (!isRequestPendingVisible(item)) return;
-                const rawRep = getRequestAssignedRep(item);
-                const repLabel = resolveCanonicalRequestRepName(rawRep) || String(rawRep || '').trim();
-                const evalLabel = String(getRequestEvalAssigneeLabelFromItem(item) || '').trim();
-                const locationLabel = getRequestDylanLocationLabelFromItem(item);
-                entries.push({
-                    item,
-                    repLabel,
-                    repKey: normalizeRepMatchToken(repLabel),
-                    evalLabel,
-                    evalKey: normalizeEvalAccessUserKey(evalLabel),
-                    locationLabel,
-                    locationKey: getRequestDylanLocationKey(locationLabel)
-                });
-            });
-            requestDylanPendingEntriesCacheKey = cacheKey;
-            requestDylanPendingEntriesCache = entries.slice();
-            return entries;
-        }
 
-        function getRequestDylanFilteredPendingEntries(items = [], options = {}) {
-            const safeOptions = options && typeof options === 'object' ? options : {};
-            const filter = safeOptions.filter || getRequestDylanViewerFilter();
-            let entries = getRequestDylanPendingEntries(items);
-            if (filter.mode === 'salesrep') {
-                if (!safeOptions.skipModeValue && filter.values.length) {
-                    entries = entries.filter((entry) => doesRequestRepMatchAnyValue(entry.repLabel, filter.values));
-                }
-            } else if (filter.mode === 'eval') {
-                entries = entries.filter((entry) => !!entry.evalKey);
-                if (!safeOptions.skipModeValue && filter.values.length) {
-                    entries = entries.filter((entry) => doesRequestEvalAssigneeMatchAnyValue(entry.evalLabel, filter.values));
-                }
-                if (!safeOptions.skipSalesRep && filter.salesRepValues.length) {
-                    entries = entries.filter((entry) => doesRequestRepMatchAnyValue(entry.repLabel, filter.salesRepValues));
-                }
-            }
-            if (!safeOptions.skipLocation && filter.locationValues.length) {
-                entries = entries.filter((entry) => doesRequestDylanLocationMatchAnyValue(entry.locationLabel, filter.locationValues));
-            }
-            return entries;
-        }
 
-        function getRequestDylanAssigneeFilteredRequestItems(items = []) {
-            const source = Array.isArray(items) ? items : [];
-            const filter = getRequestDylanViewerFilter();
-            if (['pending', 'reps'].includes(normalizeRequestTabValue(activeReqTab))) {
-                return getRequestDylanFilteredPendingEntries(source, { skipLocation: true }).map((entry) => entry.item);
-            }
-            if (filter.mode === 'salesrep') {
-                return filter.values.length
-                    ? source.filter((item) => doesRequestRepMatchAnyValue(getRequestAssignedRep(item), filter.values))
-                    : source.slice();
-            }
-            if (filter.mode === 'eval') {
-                const evalRows = source.filter((item) => getRequestEvalAssigneeLabelFromItem(item));
-                return filter.values.length
-                    ? evalRows.filter((item) => doesRequestEvalAssigneeMatchAnyValue(getRequestEvalAssigneeLabelFromItem(item), filter.values))
-                    : evalRows;
-            }
-            return source.slice();
-        }
 
-        function getRequestDylanFilteredRequestItems(items = []) {
-            const filter = getRequestDylanViewerFilter();
-            if (['pending', 'reps'].includes(normalizeRequestTabValue(activeReqTab))) {
-                return getRequestDylanFilteredPendingEntries(items, { filter }).map((entry) => entry.item);
-            }
-            return applyRequestDylanLocationFilterToItems(getRequestDylanAssigneeFilteredRequestItems(items), filter.locationValues);
-        }
 
         function getRequestDylanFilteredInventoryEditRecords(records = [], options = {}) {
             const source = Array.isArray(records) ? records : [];
@@ -95740,454 +87523,29 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return nextRecords;
         }
 
-        function getRequestDylanFilteredShearRecords(records = [], options = {}) {
-            const source = Array.isArray(records) ? records : [];
-            const safeOptions = options && typeof options === 'object' ? options : {};
-            const filter = getRequestDylanViewerFilter();
-            if (filter.mode === 'salesrep') return [];
-            let nextRecords = source.slice();
-            if (!safeOptions.skipAssignee && filter.mode === 'eval' && filter.values.length) {
-                nextRecords = nextRecords.filter((record) => doesRequestEvalAssigneeMatchAnyValue(getRequestEvalAssigneeLabelFromShearRecord(record), filter.values));
-            }
-            if (!safeOptions.skipSalesRep && filter.mode === 'eval' && filter.salesRepValues.length) {
-                nextRecords = nextRecords.filter((record) => doesRequestRepMatchAnyValue(getRequestSalesRepLabelFromShearRecord(record), filter.salesRepValues));
-            }
-            if (!safeOptions.skipLocation && filter.locationValues.length) {
-                nextRecords = nextRecords.filter((record) => doesRequestDylanLocationMatchAnyValue(getRequestDylanLocationLabelFromShearRecord(record), filter.locationValues));
-            }
-            return nextRecords;
-        }
 
-        function getRequestDylanPendingRequestItems(items = []) {
-            return (Array.isArray(items) ? items : []).filter(isRequestPendingVisible);
-        }
 
-        function getRequestDylanSalesRepFilterOptions(items = []) {
-            const filter = getRequestDylanViewerFilter();
-            const repMap = new Map();
-            const entries = getRequestDylanFilteredPendingEntries(items, {
-                filter,
-                skipModeValue: filter.mode === 'salesrep',
-                skipSalesRep: true
-            });
-            entries.forEach((entry) => {
-                const label = String(entry.repLabel || '').trim();
-                if (!label || !canCurrentUserSeeRequestRepFolder(label)) return;
-                const key = entry.repKey || normalizeRepMatchToken(label);
-                if (!key) return;
-                const existing = repMap.get(key) || { value: label, label, count: 0 };
-                existing.count += 1;
-                repMap.set(key, existing);
-            });
-            return Array.from(repMap.values()).sort((a, b) => String(a.label || '').localeCompare(String(b.label || ''), undefined, { numeric: true, sensitivity: 'base' }));
-        }
 
-        function appendRequestDylanLocationOption(optionMap, locationValue = '', count = 1) {
-            const label = String(locationValue || '').trim() || 'No Loc';
-            const key = getRequestDylanLocationKey(label);
-            if (!key) return;
-            const existing = optionMap.get(key) || { value: label, label, count: 0 };
-            existing.count += Math.max(0, Number(count) || 0);
-            optionMap.set(key, existing);
-        }
 
-        function getRequestDylanLocationFilterOptions(items = []) {
-            const optionMap = new Map();
-            getRequestDylanFilteredPendingEntries(items, { skipLocation: true }).forEach((entry) => appendRequestDylanLocationOption(optionMap, entry.locationLabel));
-            getRequestDylanFilteredInventoryEditRecords(getInventoryEditMockRequestRecordsForCurrentUser(), { skipLocation: true }).forEach((record) => appendRequestDylanLocationOption(optionMap, getRequestDylanLocationLabelFromInventoryEditRecord(record)));
-            return Array.from(optionMap.values()).sort((a, b) => compareLocationCodeValues(a.label, b.label));
-        }
 
-        function appendRequestDylanEvalOption(optionMap, assignee = '', count = 1) {
-            const label = String(assignee || '').trim();
-            const key = normalizeEvalAccessUserKey(label);
-            if (!key) return;
-            const existing = optionMap.get(key) || { value: label, label, count: 0 };
-            existing.count += Math.max(0, Number(count) || 0);
-            if (!existing.label && label) existing.label = label;
-            optionMap.set(key, existing);
-        }
 
-        function getRequestDylanEvalFilterOptions() {
-            const filter = getRequestDylanViewerFilter();
-            const optionMap = new Map();
-            getRequestDylanFilteredInventoryEditRecords(getInventoryEditMockRequestRecordsForCurrentUser(), { skipAssignee: true }).forEach((record) => appendRequestDylanEvalOption(optionMap, getRequestEvalAssigneeLabelFromInventoryEditRecord(record)));
-            getRequestDylanFilteredPendingEntries(getScopedRequestItems(requestsInventory), {
-                filter,
-                skipModeValue: true
-            }).forEach((entry) => {
-                if (entry.evalKey) appendRequestDylanEvalOption(optionMap, entry.evalLabel);
-            });
-            return Array.from(optionMap.values()).sort((a, b) => String(a.label || '').localeCompare(String(b.label || ''), undefined, { numeric: true, sensitivity: 'base' }));
-        }
 
-        function resetRequestDylanViewerFilterDrillState() {
-            requestViewLevel = 0;
-            selectedReqFolder = null;
-            selectedReqRepView = null;
-            selectedReqCustView = null;
-            selectedReqConsigneeView = null;
-            selectedReqFolderView = null;
-            requestFolderSearchTerm = '';
-            requestRepSearchTerm = '';
-            requestCustomerSearchTerm = '';
-            requestConsigneeSearchTerm = '';
-            requestFolderDateFilter = '';
-        }
 
-        function getRequestDylanModeLabel(mode = 'all') {
-            const safeMode = normalizeRequestDylanFilterMode(mode);
-            if (safeMode === 'salesrep') return 'Sales Rep';
-            if (safeMode === 'eval') return 'Eval User';
-            return 'All';
-        }
 
-        function getRequestDylanSelectedSummary(mode = 'all', values = [], options = {}) {
-            const safeMode = normalizeRequestDylanFilterMode(mode);
-            const safeValues = normalizeRequestDylanFilterValues(values);
-            const safeOptions = options && typeof options === 'object' ? options : {};
-            if (safeMode === 'all') return 'All Que';
-            const allLabel = safeMode === 'eval' ? 'All Eval Users' : 'All Sales Reps';
-            if (!safeValues.length) return allLabel;
-            if (safeValues.length === 1) return safeValues[0];
-            return safeOptions.short ? 'Multiple Selected' : 'Multiple Selected';
-        }
 
-        function getRequestDylanLocationSelectedSummary(values = []) {
-            const safeValues = normalizeRequestDylanLocationValues(values);
-            if (!safeValues.length) return 'All Locations';
-            if (safeValues.length === 1) return safeValues[0];
-            return 'Multiple Locations';
-        }
 
-        function openRequestDylanFilterMenu(menu = '') {
-            const safeMenu = String(menu || '').trim().toLowerCase();
-            if (!canUseRequestDylanViewerFilter() || !['mode', 'value', 'salesrep', 'location'].includes(safeMenu)) return false;
-            if (safeMenu === 'value' && normalizeRequestDylanFilterMode(requestDylanFilterMode) === 'all') return false;
-            if (safeMenu === 'salesrep' && normalizeRequestDylanFilterMode(requestDylanFilterMode) !== 'eval') return false;
-            requestDylanFilterMenuOpen = requestDylanFilterMenuOpen === safeMenu ? '' : safeMenu;
-            renderRequestDylanViewerFilterPanel(getScopedRequestItems(requestsInventory));
-            return false;
-        }
 
-        function closeRequestDylanFilterMenu() {
-            requestDylanFilterMenuOpen = '';
-            syncRequestTabButtons();
-            markViewDirty('request');
-            renderRequest();
-            return false;
-        }
 
-        function setRequestDylanViewerFilterMode(mode = 'all') {
-            if (!canUseRequestDylanViewerFilter()) return false;
-            requestDylanFilterMode = normalizeRequestDylanFilterMode(mode);
-            requestDylanFilterValue = '';
-            requestDylanSalesRepValue = '';
-            requestDylanFilterMenuOpen = requestDylanFilterMode === 'all' ? '' : 'value';
-            if (requestDylanFilterMode === 'eval' && activeReqTab === 'reps') activeReqTab = 'pending';
-            resetRequestDylanViewerFilterDrillState();
-            syncRequestTabButtons();
-            markViewDirty('request');
-            renderRequestDylanViewerFilterPanel(getScopedRequestItems(requestsInventory));
-            schedulePersistAppFilterState(120);
-            return false;
-        }
 
-        function setRequestDylanViewerFilterValue(value = '') {
-            if (!canUseRequestDylanViewerFilter()) return false;
-            requestDylanFilterMode = normalizeRequestDylanFilterMode(requestDylanFilterMode);
-            requestDylanFilterValue = serializeRequestDylanFilterValues(value ? [value] : []);
-            requestDylanFilterMenuOpen = requestDylanFilterMode === 'all' ? '' : 'value';
-            if (requestDylanFilterMode === 'eval' && activeReqTab === 'reps') activeReqTab = 'pending';
-            resetRequestDylanViewerFilterDrillState();
-            syncRequestTabButtons();
-            markViewDirty('request');
-            renderRequest();
-            schedulePersistAppFilterState(120);
-            return false;
-        }
 
-        function toggleRequestDylanViewerFilterValue(value = '') {
-            if (!canUseRequestDylanViewerFilter()) return false;
-            requestDylanFilterMode = normalizeRequestDylanFilterMode(requestDylanFilterMode);
-            if (requestDylanFilterMode === 'all') return false;
-            const safeValue = String(value || '').trim();
-            const safeKey = getRequestDylanFilterValueKey(safeValue);
-            if (!safeKey) return false;
-            const currentValues = normalizeRequestDylanFilterValues(requestDylanFilterValue);
-            const hasValue = currentValues.some((entry) => getRequestDylanFilterValueKey(entry) === safeKey);
-            const nextValues = hasValue
-                ? currentValues.filter((entry) => getRequestDylanFilterValueKey(entry) !== safeKey)
-                : currentValues.concat(safeValue);
-            requestDylanFilterValue = serializeRequestDylanFilterValues(nextValues);
-            requestDylanFilterMenuOpen = 'value';
-            if (requestDylanFilterMode === 'eval' && activeReqTab === 'reps') activeReqTab = 'pending';
-            resetRequestDylanViewerFilterDrillState();
-            syncRequestTabButtons();
-            markViewDirty('request');
-            renderRequestDylanViewerFilterPanel(getScopedRequestItems(requestsInventory));
-            schedulePersistAppFilterState(120);
-            return false;
-        }
 
-        function clearRequestDylanViewerFilterValues() {
-            if (!canUseRequestDylanViewerFilter()) return false;
-            requestDylanFilterMode = normalizeRequestDylanFilterMode(requestDylanFilterMode);
-            requestDylanFilterValue = '';
-            requestDylanFilterMenuOpen = requestDylanFilterMode === 'all' ? '' : 'value';
-            resetRequestDylanViewerFilterDrillState();
-            syncRequestTabButtons();
-            markViewDirty('request');
-            renderRequestDylanViewerFilterPanel(getScopedRequestItems(requestsInventory));
-            schedulePersistAppFilterState(120);
-            return false;
-        }
 
-        function toggleRequestDylanViewerSalesRepValue(value = '') {
-            if (!canUseRequestDylanViewerFilter()) return false;
-            requestDylanFilterMode = normalizeRequestDylanFilterMode(requestDylanFilterMode);
-            if (requestDylanFilterMode !== 'eval') return false;
-            const safeValue = String(value || '').trim();
-            const safeKey = getRequestDylanFilterValueKey(safeValue);
-            if (!safeKey) return false;
-            const currentValues = normalizeRequestDylanFilterValues(requestDylanSalesRepValue);
-            const hasValue = currentValues.some((entry) => getRequestDylanFilterValueKey(entry) === safeKey);
-            const nextValues = hasValue
-                ? currentValues.filter((entry) => getRequestDylanFilterValueKey(entry) !== safeKey)
-                : currentValues.concat(safeValue);
-            requestDylanSalesRepValue = serializeRequestDylanFilterValues(nextValues);
-            requestDylanFilterMenuOpen = 'salesrep';
-            resetRequestDylanViewerFilterDrillState();
-            syncRequestTabButtons();
-            markViewDirty('request');
-            renderRequestDylanViewerFilterPanel(getScopedRequestItems(requestsInventory));
-            schedulePersistAppFilterState(120);
-            return false;
-        }
 
-        function clearRequestDylanViewerSalesRepValues() {
-            if (!canUseRequestDylanViewerFilter()) return false;
-            requestDylanSalesRepValue = '';
-            requestDylanFilterMenuOpen = normalizeRequestDylanFilterMode(requestDylanFilterMode) === 'eval' ? 'salesrep' : '';
-            resetRequestDylanViewerFilterDrillState();
-            syncRequestTabButtons();
-            markViewDirty('request');
-            renderRequestDylanViewerFilterPanel(getScopedRequestItems(requestsInventory));
-            schedulePersistAppFilterState(120);
-            return false;
-        }
 
-        function toggleRequestDylanViewerLocationValue(value = '') {
-            if (!canUseRequestDylanViewerFilter()) return false;
-            const safeValue = String(value || '').trim();
-            const safeKey = getRequestDylanLocationKey(safeValue);
-            if (!safeKey) return false;
-            const currentValues = normalizeRequestDylanLocationValues(requestDylanLocationValue);
-            const hasValue = currentValues.some((entry) => getRequestDylanLocationKey(entry) === safeKey);
-            const nextValues = hasValue
-                ? currentValues.filter((entry) => getRequestDylanLocationKey(entry) !== safeKey)
-                : currentValues.concat(safeValue);
-            requestDylanLocationValue = serializeRequestDylanLocationValues(nextValues);
-            requestDylanFilterMenuOpen = 'location';
-            resetRequestDylanViewerFilterDrillState();
-            syncRequestTabButtons();
-            markViewDirty('request');
-            renderRequest();
-            schedulePersistAppFilterState(120);
-            return false;
-        }
 
-        function clearRequestDylanViewerLocationValues() {
-            if (!canUseRequestDylanViewerFilter()) return false;
-            requestDylanLocationValue = '';
-            requestDylanFilterMenuOpen = 'location';
-            resetRequestDylanViewerFilterDrillState();
-            syncRequestTabButtons();
-            markViewDirty('request');
-            renderRequestDylanViewerFilterPanel(getScopedRequestItems(requestsInventory));
-            schedulePersistAppFilterState(120);
-            return false;
-        }
 
-        function clearRequestDylanViewerFilter() {
-            if (!canUseRequestDylanViewerFilter()) return false;
-            requestDylanFilterMode = 'all';
-            requestDylanFilterValue = '';
-            requestDylanSalesRepValue = '';
-            requestDylanLocationValue = '';
-            requestDylanFilterMenuOpen = '';
-            resetRequestDylanViewerFilterDrillState();
-            syncRequestTabButtons();
-            markViewDirty('request');
-            renderRequest();
-            schedulePersistAppFilterState(120);
-            return false;
-        }
 
-        function renderRequestDylanViewerFilterPanel(baseItems = []) {
-            const panel = document.getElementById('request-dylan-filter-panel');
-            if (!panel) return;
-            if (!canUseRequestDylanViewerFilter()) {
-                requestDylanFilterMode = 'all';
-                requestDylanFilterValue = '';
-                requestDylanSalesRepValue = '';
-                requestDylanLocationValue = '';
-                requestDylanFilterMenuOpen = '';
-                panel.classList.add('hidden');
-                panel.innerHTML = '';
-                return;
-            }
-            const filter = getRequestDylanViewerFilter();
-            const salesRepOptions = getRequestDylanSalesRepFilterOptions(baseItems);
-            const evalOptions = getRequestDylanEvalFilterOptions();
-            const locationOptions = getRequestDylanLocationFilterOptions(baseItems);
-            const activeOptions = filter.mode === 'eval' ? evalOptions : salesRepOptions;
-            const selectedValues = filter.mode === 'all' ? [] : filter.values;
-            const selectedSalesRepValues = filter.mode === 'eval' ? filter.salesRepValues : [];
-            const selectedLocationValues = filter.locationValues;
-            const selectedKeySet = new Set(selectedValues.map((value) => getRequestDylanFilterValueKey(value)).filter(Boolean));
-            const selectedSalesRepKeySet = new Set(selectedSalesRepValues.map((value) => getRequestDylanFilterValueKey(value)).filter(Boolean));
-            const activeOptionKeySet = new Set(activeOptions.map((entry) => getRequestDylanFilterValueKey(entry.value)).filter(Boolean));
-            if (filter.mode !== 'all' && selectedValues.some((value) => !activeOptionKeySet.has(getRequestDylanFilterValueKey(value)))) {
-                const nextSelectedValues = selectedValues.filter((value) => activeOptionKeySet.has(getRequestDylanFilterValueKey(value)));
-                requestDylanFilterValue = serializeRequestDylanFilterValues(nextSelectedValues);
-                schedulePersistAppFilterState(120);
-                return renderRequestDylanViewerFilterPanel(baseItems);
-            }
-            const salesRepOptionKeySet = new Set(salesRepOptions.map((entry) => getRequestDylanFilterValueKey(entry.value)).filter(Boolean));
-            if (filter.mode !== 'eval' && requestDylanSalesRepValue) {
-                requestDylanSalesRepValue = '';
-                schedulePersistAppFilterState(120);
-                return renderRequestDylanViewerFilterPanel(baseItems);
-            }
-            if (filter.mode === 'eval' && selectedSalesRepValues.some((value) => !salesRepOptionKeySet.has(getRequestDylanFilterValueKey(value)))) {
-                const nextSalesRepValues = selectedSalesRepValues.filter((value) => salesRepOptionKeySet.has(getRequestDylanFilterValueKey(value)));
-                requestDylanSalesRepValue = serializeRequestDylanFilterValues(nextSalesRepValues);
-                schedulePersistAppFilterState(120);
-                return renderRequestDylanViewerFilterPanel(baseItems);
-            }
-            const selectedLocationKeySet = new Set(selectedLocationValues.map((value) => getRequestDylanLocationKey(value)).filter(Boolean));
-            const locationOptionKeySet = new Set(locationOptions.map((entry) => getRequestDylanLocationKey(entry.value)).filter(Boolean));
-            if (selectedLocationValues.some((value) => !locationOptionKeySet.has(getRequestDylanLocationKey(value)))) {
-                const nextLocationValues = selectedLocationValues.filter((value) => locationOptionKeySet.has(getRequestDylanLocationKey(value)));
-                requestDylanLocationValue = serializeRequestDylanLocationValues(nextLocationValues);
-                schedulePersistAppFilterState(120);
-                return renderRequestDylanViewerFilterPanel(baseItems);
-            }
-            const visibleOptions = activeOptions;
-            const modeEntries = [
-                { value: 'all', label: 'All Que' },
-                { value: 'salesrep', label: 'Sales Rep' },
-                { value: 'eval', label: 'Eval User' }
-            ];
-            const modeMenuOpen = requestDylanFilterMenuOpen === 'mode';
-            const valueMenuOpen = requestDylanFilterMenuOpen === 'value' && filter.mode !== 'all';
-            const salesRepMenuOpen = requestDylanFilterMenuOpen === 'salesrep' && filter.mode === 'eval';
-            const locationMenuOpen = requestDylanFilterMenuOpen === 'location';
-            const modeMenuHtml = modeMenuOpen ? `<div class="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-[10040] w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-emerald-100 bg-white p-1.5 shadow-2xl" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation()">${modeEntries.map((entry) => `<button type="button" class="flex min-h-[42px] w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left text-[12px] font-black uppercase tracking-[0.1em] ${filter.mode === entry.value ? 'bg-emerald-50 text-[#007a4d]' : 'text-slate-700'}" onclick="return setRequestDylanViewerFilterMode('${escJsAttrValue(entry.value)}')"><span class="truncate">${escapeHtml(entry.label)}</span>${filter.mode === entry.value ? '<i class="ph-bold ph-check text-base"></i>' : ''}</button>`).join('')}</div>` : '';
-            const valueEmptyText = filter.mode === 'eval' ? 'No eval users found.' : 'No sales reps found.';
-            const valueRowsHtml = visibleOptions.length
-                ? visibleOptions.map((entry) => {
-                    const optionKey = getRequestDylanFilterValueKey(entry.value);
-                    const checked = selectedKeySet.has(optionKey);
-                    return `<label class="flex min-h-[44px] items-center gap-3 rounded-xl px-3 py-2 ${checked ? 'bg-emerald-50 text-[#007a4d]' : 'bg-white text-slate-700'}" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation()"><input type="checkbox" class="h-5 w-5 shrink-0 accent-[#007a4d]" ${checked ? 'checked' : ''} onclick="event.stopPropagation(); return toggleRequestDylanViewerFilterValue('${escJsAttrValue(entry.value)}')"><span class="min-w-0 flex-1 truncate text-[12px] font-black">${escapeHtml(entry.label)}</span></label>`;
-                }).join('')
-                : `<div class="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-center text-[11px] font-bold text-slate-400">${escapeHtml(valueEmptyText)}</div>`;
-            const valueMenuHtml = valueMenuOpen ? `<div class="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-[10040] w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-emerald-100 bg-white p-2 shadow-2xl" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation()">
-                <div class="mb-2 flex items-center justify-between gap-2 px-1">
-                    <div class="min-w-0 text-[10px] font-black uppercase tracking-[0.12em] text-[#007a4d]">${filter.mode === 'eval' ? 'Eval Users' : 'Sales Reps'}</div>
-                    <button type="button" class="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#007a4d]" onclick="return clearRequestDylanViewerFilterValues()">All</button>
-                </div>
-                <div class="max-h-[42vh] space-y-1 overflow-y-auto pr-1">${valueRowsHtml}</div>
-                <button type="button" class="mt-2 w-full rounded-xl bg-[#007a4d] px-3 py-2.5 text-[10px] font-black uppercase tracking-[0.14em] text-white shadow-sm active:scale-[.98]" onclick="return closeRequestDylanFilterMenu()">Done</button>
-            </div>` : '';
-            const salesRepRowsHtml = salesRepOptions.length
-                ? salesRepOptions.map((entry) => {
-                    const optionKey = getRequestDylanFilterValueKey(entry.value);
-                    const checked = selectedSalesRepKeySet.has(optionKey);
-                    return `<label class="flex min-h-[44px] items-center gap-3 rounded-xl px-3 py-2 ${checked ? 'bg-emerald-50 text-[#007a4d]' : 'bg-white text-slate-700'}" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation()"><input type="checkbox" class="h-5 w-5 shrink-0 accent-[#007a4d]" ${checked ? 'checked' : ''} onclick="event.stopPropagation(); return toggleRequestDylanViewerSalesRepValue('${escJsAttrValue(entry.value)}')"><span class="min-w-0 flex-1 truncate text-[12px] font-black">${escapeHtml(entry.label)}</span></label>`;
-                }).join('')
-                : `<div class="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-center text-[11px] font-bold text-slate-400">No sales reps found.</div>`;
-            const salesRepMenuHtml = salesRepMenuOpen ? `<div class="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-[10040] w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-emerald-100 bg-white p-2 shadow-2xl" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation()">
-                <div class="mb-2 flex items-center justify-between gap-2 px-1">
-                    <div class="min-w-0 text-[10px] font-black uppercase tracking-[0.12em] text-[#007a4d]">Sales Reps</div>
-                    <button type="button" class="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#007a4d]" onclick="return clearRequestDylanViewerSalesRepValues()">All</button>
-                </div>
-                <div class="max-h-[42vh] space-y-1 overflow-y-auto pr-1">${salesRepRowsHtml}</div>
-                <button type="button" class="mt-2 w-full rounded-xl bg-[#007a4d] px-3 py-2.5 text-[10px] font-black uppercase tracking-[0.14em] text-white shadow-sm active:scale-[.98]" onclick="return closeRequestDylanFilterMenu()">Done</button>
-            </div>` : '';
-            const locationRowsHtml = locationOptions.length
-                ? locationOptions.map((entry) => {
-                    const optionKey = getRequestDylanLocationKey(entry.value);
-                    const checked = selectedLocationKeySet.has(optionKey);
-                    return `<label class="flex min-h-[44px] items-center gap-3 rounded-xl px-3 py-2 ${checked ? 'bg-emerald-50 text-[#007a4d]' : 'bg-white text-slate-700'}" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation()"><input type="checkbox" class="h-5 w-5 shrink-0 accent-[#007a4d]" ${checked ? 'checked' : ''} onclick="event.stopPropagation(); return toggleRequestDylanViewerLocationValue('${escJsAttrValue(entry.value)}')"><span class="min-w-0 flex-1 truncate text-[12px] font-black">${escapeHtml(entry.label)}</span></label>`;
-                }).join('')
-                : '<div class="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-center text-[11px] font-bold text-slate-400">No pending locations.</div>';
-            const locationMenuHtml = locationMenuOpen ? `<div class="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-[10040] w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-emerald-100 bg-white p-2 shadow-2xl" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation()">
-                <div class="mb-2 flex items-center justify-between gap-2 px-1">
-                    <div class="min-w-0 text-[10px] font-black uppercase tracking-[0.12em] text-[#007a4d]">Locations</div>
-                    <button type="button" class="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#007a4d]" onclick="return clearRequestDylanViewerLocationValues()">All</button>
-                </div>
-                <div class="max-h-[42vh] space-y-1 overflow-y-auto pr-1">${locationRowsHtml}</div>
-                <button type="button" class="mt-2 w-full rounded-xl bg-[#007a4d] px-3 py-2.5 text-[10px] font-black uppercase tracking-[0.14em] text-white shadow-sm active:scale-[.98]" onclick="return closeRequestDylanFilterMenu()">Done</button>
-            </div>` : '';
-            const valueDisabled = filter.mode === 'all';
-            const selectedSummary = getRequestDylanSelectedSummary(filter.mode, selectedValues, { short: true });
-            const selectedSalesRepSummary = getRequestDylanSelectedSummary('salesrep', selectedSalesRepValues, { short: true });
-            const selectedLocationSummary = getRequestDylanLocationSelectedSummary(selectedLocationValues);
-            const activeChipParts = [];
-            if (filter.mode !== 'all') activeChipParts.push(`${filter.mode === 'eval' ? 'Eval' : 'Sales Rep'}: ${selectedSummary}`);
-            if (filter.mode === 'eval' && selectedSalesRepValues.length) activeChipParts.push(`Sales Rep: ${selectedSalesRepSummary}`);
-            if (selectedLocationValues.length) activeChipParts.push(`Loc: ${selectedLocationSummary}`);
-            const chipText = activeChipParts.join(' | ');
-            const showSalesRepSubfilter = filter.mode === 'eval';
-            const gridClass = showSalesRepSubfilter ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-3';
-            const valueControlTitle = filter.mode === 'eval' ? 'Eval User' : (filter.mode === 'salesrep' ? 'Sales Rep' : 'Filter');
-            panel.classList.remove('hidden');
-            panel.innerHTML = `<div class="overflow-visible rounded-2xl border border-emerald-100 bg-white px-2.5 py-2.5 shadow-sm">
-                <div class="grid ${gridClass} gap-2">
-                    <div class="relative min-w-0">
-                        <button type="button" class="flex min-h-[52px] w-full items-center justify-between gap-2 rounded-2xl border border-emerald-200 bg-white px-3 py-2 text-left shadow-sm active:scale-[.98]" onclick="event.stopPropagation(); return openRequestDylanFilterMenu('mode')">
-                            <span class="min-w-0"><span class="block text-[9px] font-black uppercase tracking-[0.12em] text-[#007a4d]">View</span><span class="mt-0.5 block truncate text-[12px] font-black text-slate-800">${escapeHtml(getRequestDylanModeLabel(filter.mode))}</span></span>
-                            <i class="ph-bold ${modeMenuOpen ? 'ph-caret-up' : 'ph-caret-down'} shrink-0 text-sm text-[#007a4d]"></i>
-                        </button>
-                        ${modeMenuHtml}
-                    </div>
-                    <div class="relative min-w-0">
-                        <button type="button" class="flex min-h-[52px] w-full items-center justify-between gap-2 rounded-2xl border border-emerald-200 ${valueDisabled ? 'bg-slate-50 text-slate-400' : 'bg-white text-slate-800'} px-3 py-2 text-left shadow-sm active:scale-[.98]" ${valueDisabled ? 'disabled' : ''} onclick="event.stopPropagation(); return openRequestDylanFilterMenu('value')">
-                            <span class="min-w-0"><span class="block text-[9px] font-black uppercase tracking-[0.12em] ${valueDisabled ? 'text-slate-400' : 'text-[#007a4d]'}">${escapeHtml(valueControlTitle)}</span><span class="mt-0.5 block truncate text-[12px] font-black">${escapeHtml(selectedSummary)}</span></span>
-                            <i class="ph-bold ${valueMenuOpen ? 'ph-caret-up' : 'ph-caret-down'} shrink-0 text-sm ${valueDisabled ? 'text-slate-300' : 'text-[#007a4d]'}"></i>
-                        </button>
-                        ${valueMenuHtml}
-                    </div>
-                    ${showSalesRepSubfilter ? `<div class="relative min-w-0">
-                        <button type="button" class="flex min-h-[52px] w-full items-center justify-between gap-2 rounded-2xl border border-emerald-200 bg-white px-3 py-2 text-left text-slate-800 shadow-sm active:scale-[.98]" onclick="event.stopPropagation(); return openRequestDylanFilterMenu('salesrep')">
-                            <span class="min-w-0"><span class="block text-[9px] font-black uppercase tracking-[0.12em] text-[#007a4d]">Sales Rep</span><span class="mt-0.5 block truncate text-[12px] font-black">${escapeHtml(selectedSalesRepSummary)}</span></span>
-                            <i class="ph-bold ${salesRepMenuOpen ? 'ph-caret-up' : 'ph-caret-down'} shrink-0 text-sm text-[#007a4d]"></i>
-                        </button>
-                        ${salesRepMenuHtml}
-                    </div>` : ''}
-                    <div class="relative min-w-0">
-                        <button type="button" class="flex min-h-[52px] w-full items-center justify-between gap-2 rounded-2xl border border-emerald-200 bg-white px-3 py-2 text-left text-slate-800 shadow-sm active:scale-[.98]" onclick="event.stopPropagation(); return openRequestDylanFilterMenu('location')">
-                            <span class="min-w-0"><span class="block text-[9px] font-black uppercase tracking-[0.12em] text-[#007a4d]">Location</span><span class="mt-0.5 block truncate text-[12px] font-black">${escapeHtml(selectedLocationSummary)}</span></span>
-                            <i class="ph-bold ${locationMenuOpen ? 'ph-caret-up' : 'ph-caret-down'} shrink-0 text-sm text-[#007a4d]"></i>
-                        </button>
-                        ${locationMenuHtml}
-                    </div>
-                </div>
-                ${activeChipParts.length ? `<div class="mt-2 flex items-center justify-between gap-2"><div class="inline-flex min-w-0 items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-[#007a4d]"><i class="ph-bold ph-funnel shrink-0"></i><span class="truncate">${escapeHtml(chipText)}</span></div><button type="button" class="shrink-0 rounded-full border border-emerald-100 bg-white px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#007a4d] shadow-sm active:scale-[.98]" onclick="return clearRequestDylanViewerFilter()">Clear</button></div>` : ''}
-            </div>`;
-        }
 
-        function getRequestDylanViewerFilterCrumbSuffix() {
-            const filter = getRequestDylanViewerFilter();
-            const parts = [];
-            if (filter.mode === 'salesrep') parts.push(getRequestDylanSelectedSummary(filter.mode, filter.values));
-            if (filter.mode === 'eval') parts.push(filter.values.length ? `Eval ${getRequestDylanSelectedSummary(filter.mode, filter.values)}` : 'All Eval Users');
-            if (filter.mode === 'eval' && filter.salesRepValues.length) parts.push(`Sales Rep ${getRequestDylanSelectedSummary('salesrep', filter.salesRepValues)}`);
-            if (filter.locationValues.length) parts.push(`Loc ${getRequestDylanLocationSelectedSummary(filter.locationValues)}`);
-            return parts.length ? ` > ${parts.join(' > ')}` : '';
-        }
 
         function getScopedReservesItems(items = reservesInventory) {
             const sourceItems = Array.isArray(items) ? items : [];
@@ -96215,10 +87573,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return items === reservesInventory && !shouldScopeToCurrentRep ? nextItems.slice() : nextItems;
         }
 
-        function getRequestCustomerConsigneeFolder(item) {
-            const parts = parseRequestCustomerFolderParts('', item || {});
-            return parts.consigneeName ? `${parts.customerName}-${parts.consigneeName}` : parts.customerName;
-        }
 
         const REQUEST_COMPLETED_FOLDER_READ_STORAGE_KEY = 'gnc_completed_request_folders_opened_v1';
 
@@ -96442,10 +87796,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return false;
         }
 
-        function getRequestResponseFolderName(item) {
-            const repName = String(getRequestAssignedRep(item) || '').trim() || 'Unknown Rep';
-            return repName.replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, ' ').trim() || 'Unknown Rep';
-        }
 
         function openRequestRepView(repName) {
             const safeRepName = String(repName || '').trim() || 'Unknown Rep';
@@ -96505,21 +87855,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             });
         }
 
-        function openRequestStatusView(status) {
-            const safeStatus = status === 'Complete' ? 'Complete' : 'Pending';
-            return runDirectTrackedNavigation('request', 'request:status', () => {
-                selectedReqStatus = safeStatus;
-                selectedReqConsigneeView = null;
-                selectedReqFolderView = null;
-                requestFolderSearchTerm = '';
-                requestConsigneeSearchTerm = '';
-                requestFolderDateFilter = '';
-                requestViewLevel = 2;
-            }, {
-                resetScrollTopAfterRender: true,
-                scrollResetKey: `request-status:${safeStatus}`
-            });
-        }
 
         function openRequestFolderView(folderName) {
             const safeFolderName = String(folderName || '').trim() || 'Unassigned';
@@ -96934,14 +88269,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
                 || String(firstNonEmptyValue(a.COMMONNAME, a.commonname, '') || '').localeCompare(String(firstNonEmptyValue(b.COMMONNAME, b.commonname, '') || ''), undefined, { sensitivity: 'base' }));
         }
 
-        function hasAssignedApprovedMoveRequestsForCurrentUser(items = requestsInventory) {
-            return (Array.isArray(items) ? items : []).some((item) => {
-                if (!isMoveRequestRow(item) || isCompletedMoveRequestRow(item) || (item && item.REQ_ARCHIVED)) return false;
-                if (getMoveRequestRowStage(item) !== MOVE_APPROVAL_STAGE_APPROVED) return false;
-                const assignedTo = String(firstNonEmptyValue(item && item.ASSIGNEDTO, item && item.assignedto, '') || '').trim();
-                return !!assignedTo && isAssignedToCurrentUser(assignedTo);
-            });
-        }
 
         function getMoveRequestActualInputId(uniqueId = '') {
             const safePart = String(uniqueId || '').trim().toUpperCase().replace(/[^A-Z0-9_-]+/g, '_').slice(0, 90) || 'ROW';
@@ -97147,7 +88474,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
         }
 
         function renderApprovedMoveRequestDetailPage(item = {}) {
-            const uid = String(firstNonEmptyValue(item.UNIQUE_ID, item.unique_id, '') || '').trim();
             return `<div class="space-y-3">
                 <button data-secondary-back="true" aria-hidden="true" type="button" class="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-white px-4 py-3 text-[11px] font-black uppercase tracking-[0.14em] text-[#007a4d] shadow-sm active:scale-[0.99]" onclick="return closeApprovedMoveRequestCard()">
                     <i class="ph-bold ph-arrow-left text-base"></i><span>Back to Location Move Que</span>
@@ -99037,15 +90363,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             }
         }
 
-        function dashboardFilenameTimestamp(fileName = '', modifiedTime = '') {
-            const match = String(fileName || '').match(/(\d{6})(20\d{6})(\d{6})/);
-            if (match) return match[2] + match[1];
-            const legacy = String(fileName || '').match(/(?:19|20)\d{12}/g);
-            if (legacy?.length) return legacy[legacy.length - 1];
-            const fallback = Date.parse(modifiedTime);
-            return Number.isFinite(fallback) ? new Date(fallback).toISOString().replace(/\D/g, '').slice(0,14) : '';
-        }
-
         function selectDashboardSyncFilename(fileNames = []) {
             const clean = [...new Set((Array.isArray(fileNames) ? fileNames : []).map(name => String(name || '').trim()).filter(Boolean))];
             clean.sort((left, right) => {
@@ -99108,33 +90425,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
         }
 
         function mergeDashboardSyncSummaries(summaries = []) {
-            const byLabel = new Map();
-            (Array.isArray(summaries) ? summaries : []).forEach((entry) => {
-                if (!entry || !entry.label || (!entry.iso && !(entry.files && entry.files.length))) return;
-                const existing = byLabel.get(entry.label);
-                const entryRevision = /^\d+$/.test(String(entry.revision ?? '')) ? BigInt(entry.revision) : null;
-                const existingRevision = /^\d+$/.test(String(existing?.revision ?? '')) ? BigInt(existing.revision) : null;
-                const newerRevision = entryRevision !== null && (existingRevision === null || entryRevision > existingRevision);
-                const sameRevision = entryRevision === existingRevision;
-                if (!existing || (entry.authoritative && !existing.authoritative)
-                    || (!!entry.authoritative === !!existing.authoritative && (newerRevision
-                        || (sameRevision && Number(entry.ms || -1) > Number(existing.ms || -1))))) {
-                    byLabel.set(entry.label, {
-                        label: entry.label,
-                        iso: entry.iso || '',
-                        ms: Number(entry.ms || -1),
-                        revision: entryRevision === null ? '' : String(entry.revision),
-                        authoritative: entry.authoritative === true,
-                        files: selectDashboardSyncFilename(entry.files || []) ? [selectDashboardSyncFilename(entry.files)] : (existing?.files || [])
-                    });
-                } else if (existing && !(existing.files || []).length && (entry.files || []).length) {
-                    existing.files = [selectDashboardSyncFilename(entry.files)];
-                } else if (existing && !!entry.authoritative === !!existing.authoritative && Number(entry.ms || -1) === Number(existing.ms || -1) && Array.isArray(entry.files)) {
-                    const selected = selectDashboardSyncFilename([...(existing.files || []), ...entry.files]);
-                    existing.files = selected ? [selected] : [];
-                }
-            });
-            return Array.from(byLabel.values());
+            return mergeHomeSyncRevisionSummaries(summaries, selectDashboardSyncFilename);
         }
 
         /* @runtime-fragment assets/erp-foreground-recovery.js */
@@ -99295,9 +90586,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return getCurrentVisibleViewId() === 'home' && canViewProductivityHome() && activeHomeTab === 'productivity' && !!selectedProductivityUser;
         }
 
-        function shouldShowManagersProductivityBackButton() {
-            return getCurrentVisibleViewId() === 'managers' && canViewProductivityHome() && activeHomeTab === 'productivity' && !!selectedProductivityUser;
-        }
 
         function scheduleHomeRender(forceRender = true) {
             markViewDirty('home');
@@ -100835,9 +92123,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return false;
         }
 
-        function normalizeMlStatus(value = '') {
-            return String(value || '').trim().toLowerCase().replace(/\s+/g, '_') || 'retired';
-        }
 
         function normalizeMlImageJobRow(row = null, idx = 0) {
             return null;
@@ -100845,9 +92130,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
 
 
 
-        function getMlJobsByStatus(statuses = []) {
-            return [];
-        }
 
         function getMlJobImageUrl(row = null) {
             return '';
@@ -100861,13 +92143,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return '';
         }
 
-        function isGenericMlTitle(value = '') {
-            return true;
-        }
 
-        function findMlJobSourceRow(row = null) {
-            return null;
-        }
 
         function getMlJobDisplayCommonName(row = null) {
             return '';
@@ -100877,17 +92153,8 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return '';
         }
 
-        function getMlJobDriveModeMeta(row = null) {
-            return { itemcode: '', contsize: '', loc: '', lot: '', block: '', season: '', sourceRow: null };
-        }
 
-        function getDiagnosticIssueCardTab(uid = '') {
-            return 'diagnostic';
-        }
 
-        function setDiagnosticIssueCardTab(uid = '', tab = 'diagnostic') {
-            return false;
-        }
         function canUseGrowerScoutView() {
             const access = getRoleAccessState();
             return !!(access.isAdmin || access.isForeman || access.isGrower || isExecutiveAccessUser());
@@ -101427,9 +92694,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             });
         }
 
-        function getGrowerOnHand(row = null) {
-            return getShearListNumericValue(firstNonEmptyValue(row && row.PTRONHAND, row && row.ptronhand, 0));
-        }
 
         function updateGrowerScoutDraft(input) {
             const card = input && input.closest('[data-grower-row-uid]');
@@ -101761,143 +93025,39 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return '';
         }
 
-        function getMlJobSourceTableForRowPhoto(item = null, prefix = '') {
-            return '';
-        }
 
-        function buildMlImageJobPayloadFromRowPhoto(item = null, prefix = '', photoMeta = {}) {
-            return null;
-        }
 
-        async function queueMlImageJobForUploadedRowPhoto(item = null, prefix = '', photoMeta = {}) {
-            return false;
-        }
 
-        function getMlCaptureBlockOptions() {
-            return [];
-        }
 
-        function renderMlHomeTabs(activeTab = 'dashboard', canViewProductivity = false, canViewCapture = false, canViewGrading = false, options = {}) {
-            return '';
-        }
 
-        function renderMlCaptureHomePanel() {
-            return '';
-        }
 
-        function getMlApprovalDefaultQuantities(row = null) {
-            return {};
-        }
 
-        function getMlApprovalInputId(uniqueId = '', key = '') {
-            return `ml-retired-${String(uniqueId || '').replace(/[^a-z0-9_-]/gi, '_')}-${String(key || '').replace(/[^a-z0-9_-]/gi, '_')}`;
-        }
 
-        function renderMlApprovalQuantityInput(uniqueId = '', key = '', label = '', value = '') {
-            return '';
-        }
 
-        function renderMlApprovalCard(row = null) {
-            return '';
-        }
 
-        async function prepareMlCaptureBlob(file) {
-            return null;
-        }
 
-        async function submitMlCaptureJob(event = null) {
-            if (event && typeof event.preventDefault === 'function') event.preventDefault();
-            return false;
-        }
 
-        function readMlApprovalQuantity(uniqueId = '', key = '') {
-            return 0;
-        }
 
-        async function refreshMlJobsNow() {
-            return false;
-        }
 
-        async function runDiagnosticsMlWorkerNow(button = null) {
-            return false;
-        }
 
-        async function approveMlImageJob(uniqueId = '', button = null) {
-            return false;
-        }
 
-        function isMlDiagnosticIssueRow(row = null) {
-            return false;
-        }
 
-        function getTaskDiagnosticIssueRows() {
-            return [];
-        }
 
-        function sanitizeDiagnosticCaseSegment(value = '', fallback = 'NA') {
-            const text = String(value || '').trim().replace(/[^a-z0-9_-]+/gi, '-').replace(/^-+|-+$/g, '');
-            return text || fallback;
-        }
 
-        function buildDiagnosticLabCaseId(item = null) {
-            return '';
-        }
 
-        function getDiagnosticLabCaseId(item = null) {
-            return '';
-        }
 
-        function getDiagnosticReviewLabel(item = null, fallback = 'Diagnostic review') {
-            return fallback;
-        }
 
-        function getDiagnosticReviewMetadata(item = null) {
-            return {};
-        }
 
-        async function upsertDiagnosticLearningReference(item = null, decision = '', metadata = {}) {
-            return false;
-        }
 
-        async function upsertDiagnosticLabCase(item = null, options = {}) {
-            return false;
-        }
 
-        function refreshDiagnosticReviewViews() {
-            return false;
-        }
 
-        async function saveDiagnosticReviewDecision(item = null, decision = '', options = {}) {
-            return false;
-        }
 
-        async function agreeMlDiagnostic(uniqueId = '', button = null) {
-            return false;
-        }
 
-        async function disagreeMlDiagnostic(uniqueId = '', button = null) {
-            return false;
-        }
 
-        async function sendMlDiagnosticToLab(uniqueId = '', button = null) {
-            return false;
-        }
 
-        async function printDiagnosticLabLabel(uniqueId = '', button = null) {
-            return false;
-        }
 
-        function uploadDiagnosticLabReport(uniqueId = '') {
-            return false;
-        }
 
-        async function saveDiagnosticLabReportUpload(uniqueId = '', file = null) {
-            return false;
-        }
 
-        function renderTaskDiagnosticIssueCard(row = null) {
-            return '';
-        }
 
         function renderTaskDiagnosticsReview(options = {}) {
             const container = document.getElementById('task-content');
@@ -101907,13 +93067,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return false;
         }
 
-        async function markMlDiagnosticReviewed(uniqueId = '', button = null) {
-            return false;
-        }
 
-        function renderDiagnosticCard(row = null) {
-            return '';
-        }
 
         function renderDiagnostics() {
             switchView('home');
@@ -102013,20 +93167,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return 'Manager Review';
         }
 
-        function refreshManagerApprovalRows(tab = activeHomeTab) {
-            const safeTab = String(tab || activeHomeTab || '').trim().toLowerCase();
-            if (isInventoryChecksApprovalTaskView(safeTab) || isShearApprovalTaskView(safeTab)) {
-                ensureInventoryEditRequestsLoadedForShearListCatchup(true).then(() => {
-                    markViewDirty('managers');
-                    if (isViewVisible('managers')) scheduleManagersRender(true);
-                }).catch((error) => console.warn('Inventory checks approval refresh failed', error));
-            }
-            if (isNcrApprovalTaskView(safeTab)) scheduleNcrApprovalTaskRowsRefresh(safeTab, { force: true });
-            if (isNotOnInventoryApprovalTaskView(safeTab)) scheduleNotOnInventoryApprovalTaskRowsRefresh(safeTab, { force: true });
-            markViewDirty('managers');
-            if (isViewVisible('managers')) scheduleManagersRender(true);
-            return false;
-        }
 
         function getInventoryEditManagerApprovalRecords(options = {}) {
             const opts = options && typeof options === 'object' ? options : {};
@@ -103501,22 +94641,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
                 ? html.replace('</article>', `<div class="border-t border-amber-100 px-4 py-2 text-[10px] font-semibold text-slate-500">Showing the first ${group.rows.length} inventory rows. Open this card for the complete item inquiry.</div></article>`)
                 : html;
         }
-        function mountPagedManagerEval2CardRows(host, parentPage = null) {
-            const parentRevision = String(parentPage?.sourceRevision || '').trim();
-            if (!parentRevision) return;
-            host.querySelectorAll('[data-paged-eval2-item-rows]').forEach(element => {
-                const itemCode = element.getAttribute('data-paged-eval2-item-rows');
-                const query = buildManagerReportPageQuery('eval2', 'rows', { filters:{ itemCode, cardRows:true } });
-                query.sourceRevision = parentRevision;
-                mountPagedManagerReport(element, query, value => {
-                    const row = normalizePagedManagerRow(value);
-                    const group = { key:'item:' + itemCode, itemCode, commonName:'', representativeRow:row, rows:[row], containerSizes:[], assignedToUsers:[], rowCount:1, locationCount:1 };
-                    const template = document.createElement('template'); template.innerHTML = renderManagerEvalReport2SelectableCard(group);
-                    return template.content.querySelector('.manager-eval2-inventory-row')?.outerHTML || '';
-                }, { isolated:true, parentPinnedRevision:parentRevision, onRevisionChanged:() => getManagerReportPageController().refresh('eval2'),
-                    estimateSize:40, getKey:row => String(row?.unique_id || '') });
-            });
-        }
         function normalizePagedManagerRow(row) {
             const normalized = { ...row };
             Object.entries(row || {}).forEach(([key, value]) => { normalized[key.toUpperCase()] = value; });
@@ -104735,24 +95859,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return false;
         }
 
-        function getManagerEvalReport2CommonNameGroups(rows = null) {
-            if (!activeManagerEvalReport2) return [];
-            const groups = new Map();
-            getManagerEvalReport2RowsBeforeCommonName(rows).forEach((row) => {
-                const commonName = getManagerEvalReportRowCommonName(row);
-                if (!groups.has(commonName)) groups.set(commonName, []);
-                groups.get(commonName).push(row);
-            });
-            return Array.from(groups.entries())
-                .map(([commonName, groupRows]) => ({
-                    commonName,
-                    rows: groupRows,
-                    itemCount: new Set(groupRows.map(getManagerEvalReport2ItemCode).filter(Boolean)).size,
-                    rowCount: groupRows.length,
-                    locationCount: new Set(groupRows.map(getManagerEvalReportRowLocation)).size
-                }))
-                .sort((left, right) => String(left.commonName).localeCompare(String(right.commonName), undefined, { numeric: true, sensitivity: 'base' }));
-        }
 
         function getManagerEvalReport2DrillGroups(rows = null) {
             // Callers often pass the complete report rows. Apply the same verified
@@ -104798,9 +95904,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return openManagerEvalReport2DrillValue('commonname', encodeURIComponent(String(commonName || '').trim()));
         }
 
-        function backManagerEvalReport2CommonNames() {
-            return backManagerEvalReport2Drill();
-        }
 
         function getManagerEvalReport2VisibleItemGroups() {
             if (useManagerReportPages('eval2')) {
@@ -105430,9 +96533,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return false;
         }
 
-        function toggleManagerEvalReport2RowSelection(encodedKey = '') {
-            return toggleManagerEvalReport2ItemSelection(encodedKey, null);
-        }
 
         async function toggleAllShownManagerEvalReport2Items() {
             if (useManagerReportPages('eval2')) {
@@ -105775,7 +96875,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return false;
         }
 
-        function renderManagerEvalReport2SelectableCard(itemGroup = null, index = 0) {
+        function renderManagerEvalReport2SelectableCard(itemGroup = null) {
             const safeGroup = itemGroup && itemGroup.representativeRow ? itemGroup : {
                 key: getManagerEvalReport2ItemKey(itemGroup), itemCode: getManagerEvalReport2ItemCode(itemGroup),
                 commonName: getManagerEvalReportRowCommonName(itemGroup), rows: itemGroup ? [itemGroup] : [], representativeRow: itemGroup,
@@ -105793,11 +96893,8 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
                 const location = String(getDriveColumnItemValue(row, 'LOCATIONCODE') || '—').trim() || '—';
                 const lot = String(getDriveColumnItemValue(row, 'LOTCODE') || '—').trim() || '—';
                 const priorityValue = getDriveColumnItemValue(row, 'PRIORITY');
-                const openStockValue = getDriveColumnItemValue(row, 'S_LTS');
                 const priority = String(priorityValue == null ? '' : priorityValue).trim() || '—';
                 const openStock = getManagerEvalReport2DetailValue(row, 'S_LTS');
-                const onHandValue = getDriveColumnItemValue(row, 'PTRONHAND');
-                const availableValue = getDriveColumnItemValue(row, 'PTRAVAILABLE');
                 const onHand = getManagerEvalReport2DetailValue(row, 'PTRONHAND');
                 const available = getManagerEvalReport2DetailValue(row, 'PTRAVAILABLE');
                 const encodedOriginUid = encodeURIComponent(String(sourceRow.UNIQUE_ID || sourceRow.unique_id || ''));
@@ -105893,14 +96990,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return false;
         }
 
-        function resetManagerEvalReport2InquiryFilters() {
-            managerEvalReport2InquiryAssignedTo = '';
-            managerEvalReport2InquiryLocationCode = '';
-            managerEvalReport2InquiryCommonName = '';
-            managerEvalReport2InquiryContSize = '';
-            scheduleManagersRender(true);
-            return false;
-        }
 
         function buildManagerEvalReport2Select(label = '', kind = '', currentValue = 'all', options = [], includeAll = true, disabled = false) {
             const assignedToSelect = String(kind || '').trim().toLowerCase() === 'assignedto';
@@ -105963,20 +97052,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return model;
         }
 
-        function renderManagerEvalReport2InquirySection(title = '', fields = [], rows = []) {
-            const sourceRows = Array.isArray(rows) ? rows : [];
-            const rowsHtml = sourceRows.map((row, index) => `<div class="rounded-2xl border border-emerald-100 bg-white p-3 shadow-sm"><div class="mb-2 text-[9px] font-black uppercase tracking-[0.14em] text-emerald-700">Record ${index + 1}</div><div class="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">${fields.map((field) => `<div class="min-w-0 rounded-xl bg-slate-50 px-3 py-2"><div class="text-[8px] font-black uppercase tracking-[0.12em] text-slate-400">${escapeHtml(field)}</div><div class="mt-1 break-words text-[12px] font-bold text-slate-800">${escapeHtml(String(row && row[field] != null && row[field] !== '' ? row[field] : '-'))}</div></div>`).join('')}</div></div>`).join('');
-            return `<details class="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-3" open><summary class="cursor-pointer text-[11px] font-black uppercase tracking-[0.14em] text-[#007a4d]">${escapeHtml(title)} <span class="ml-1 text-slate-400">${sourceRows.length}</span></summary><div class="mt-3 max-h-[68vh] space-y-3 overflow-y-auto pr-1">${rowsHtml || '<div class="rounded-xl border border-dashed border-slate-200 bg-white p-6 text-center text-sm font-bold text-slate-400">No data matches these filters.</div>'}</div></details>`;
-        }
 
-        function renderManagerEvalReport2InquiryPanel() {
-            const api = getManagerEvalReports2Api();
-            const model = getManagerEvalReport2InquiryModel();
-            if (!api || !model) return '';
-            const reportOptions = api.REPORT_IDS.map((reportId) => ({ id: reportId, label: getManagerEvalReport2Meta(reportId).label }));
-            const reportSelect = `<label class="block"><span class="mb-1 block text-[9px] font-black uppercase tracking-[0.14em] text-slate-500">Report</span><select class="min-h-[46px] w-full rounded-xl border border-emerald-100 bg-white px-3 py-2.5 text-[12px] font-black text-slate-800" onchange="return setManagerEvalReport2InquiryFilter('report', this.value)">${reportOptions.map((option) => `<option value="${escapeHtml(option.id)}" ${activeManagerEvalReport2 === option.id ? 'selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}</select></label>`;
-            return `<div class="space-y-4"><div class="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm"><div class="mb-3 text-[10px] font-black uppercase tracking-[0.13em] text-[#007a4d]">1. AssignedTo &rarr; 2. Report &rarr; 3. Locationcode</div><div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1fr_1fr_auto]">${buildManagerEvalReport2Select('AssignedTo', 'assignedto', managerEvalReport2InquiryAssignedTo, model.options.assignedTo, false)}${reportSelect}${buildManagerEvalReport2Select('Locationcode', 'locationcode', managerEvalReport2InquiryLocationCode, model.options.locationCodes, false)}${buildManagerEvalReport2Select('Common Name', 'commonname', managerEvalReport2InquiryCommonName, model.options.commonNames, false)}${buildManagerEvalReport2Select('Container Size', 'contsize', managerEvalReport2InquiryContSize, model.options.contSizes, false)}<button type="button" class="min-h-[46px] self-end rounded-xl border border-slate-200 bg-white px-4 py-3 text-[10px] font-black uppercase tracking-[0.12em] text-slate-600" onclick="return resetManagerEvalReport2InquiryFilters()">Reset</button></div><div class="mt-3 text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">${escapeHtml(String(model.matchedRows.length))} matching source rows</div></div>${renderManagerEvalReport2InquirySection('Item Information', api.ITEM_INQUIRY_FIELD_GROUPS.item, model.sections.item)}${renderManagerEvalReport2InquirySection('Season Information', api.ITEM_INQUIRY_FIELD_GROUPS.season, model.sections.season)}${renderManagerEvalReport2InquirySection('Location & Hold Information', api.ITEM_INQUIRY_FIELD_GROUPS.location, model.sections.location)}</div>`;
-        }
 
         function renderManagerEvalReport2SelectionTray() {
             const selectedItems = getManagerEvalReport2SelectedItems();
@@ -107227,31 +98303,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return false;
         }
 
-        function backManagerHistoricalReportDrill() {
-            const state = managerHistoricalReportState;
-            state.requestToken += 1;
-            state.loading = false;
-            state.loadingMore = false;
-            state.error = '';
-            managersSearchTerm = '';
-            if (state.level === 'rows') {
-                state.level = 'sizes';
-                state.selectedContSize = '';
-                resetManagerHistoricalRows();
-            } else if (state.level === 'sizes') {
-                state.level = 'names';
-                state.selectedCommonName = '';
-                state.containerSizes = [];
-                managersSearchTerm = state.lastSearch || '';
-            }
-            if (activeHomeTab === MANAGER_ACCESS_CONTROL_VIEW && document.getElementById('effective-user-access-editor')) renderNavigationPreferencesEditor('access', document.getElementById('effective-user-access-editor'));
-            GncMobileWorkspace.syncHub('managers');
-            syncManagersHeaderChrome();
-            scheduleManagersRender(true);
-            queueScrollMainAreaToTop('manager-historical-back');
-            updateGlobalBackButton();
-            return false;
-        }
 
         function getFilteredManagerHistoricalRows() {
             const rows = Array.isArray(managerHistoricalReportState.rows) ? managerHistoricalReportState.rows : [];
@@ -107636,13 +98687,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             throw new Error('Low-stock summary exceeded the supported item-code page limit.');
         }
 
-        function areManagerAssignedItemTargetsHistoryReady() {
-            const state = getManagerItemLowStockTargetsState();
-            const rows = Array.isArray(warehouseAssignedItemsInventory) ? warehouseAssignedItemsInventory : [];
-            const codes = new Set(rows.map(row => normalizeManagerItemLowStockTargetCode(row && (row.ITEMCODE || row.itemcode))).filter(Boolean));
-            if (!codes.size || state.key !== getManagerAssignedItemTargetKey(rows)) return false;
-            return Array.from(codes).every(code => state.rowsByCode.get(code)?.history_ready === true);
-        }
 
         function isManagerAssignedItemHistoryProcessing() {
             const state = getManagerItemLowStockTargetsState();
@@ -108071,10 +99115,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return closeManagerAssignedColumnFilter();
         }
 
-        function clearManagerAssignedColumnSort() {
-            getManagerAssignedColumnState().sort = null;
-            return closeManagerAssignedColumnFilter();
-        }
 
         function clearAllManagerAssignedColumnFilters() {
             getManagerAssignedColumnState().filters = {};
@@ -108724,7 +99764,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             if (!managerBlockClearingDraftState.decisions.has(key)) managerBlockClearingDraftState.decisions.set(key, { action: '', quantity: '', destinationMode: 'itemcode', destinationLocationcode: '', destinationSearch: '', instructions: '' });
             return managerBlockClearingDraftState.decisions.get(key);
         }
-        function getManagerBlockClearingInstruction(itemcode = '') { return getManagerBlockClearingDecision(itemcode).instructions; }
 
         function getManagerBlockClearingViewKey() { return [managerBlockClearingLevel, managerBlockClearingSelectedBlock || '', managerBlockClearingSelectedLocation || '', managerBlockClearingInstructionMode ? 'instructions' : 'browse'].join('|'); }
         function saveManagerBlockClearingNavigation() {
@@ -108781,8 +99820,8 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             restoreManagerBlockClearingNavigation(); return false;
         }
         function resetManagerBlockClearingSelection() {
-            managerBlockClearingSelectedIds = new Set(); managerBlockClearingDraftState.decisions = new Map(); managerBlockClearingInstructionsByItemcode = new Map();
-            managerBlockClearingInstructionMode = false; managerBlockClearingSelectionMode = false;
+            managerBlockClearingSelectedIds = new Set(); managerBlockClearingDraftState.decisions = new Map();
+            managerBlockClearingInstructionMode = false;
             managerBlockClearingReportTitle = getDefaultManagerBlockClearingTitle(); managerBlockClearingDraftState.prepared = null; managerBlockClearingDraftState.error = '';
             if (managerBlockClearingSelectedLocation) managerBlockClearingDraftState.locations.delete(managerBlockClearingSelectedLocation);
         }
@@ -108792,7 +99831,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             if (!getManagerBlockClearingItemGroupsForSelectedLocation().some((group) => group.key === key)) return false;
             const next = selected === null ? !managerBlockClearingSelectedIds.has(key) : !!selected;
             if (next) managerBlockClearingSelectedIds.add(key); else managerBlockClearingSelectedIds.delete(key);
-            managerBlockClearingSelectionMode = managerBlockClearingSelectedIds.size > 0;
             managerBlockClearingDraftState.prepared = null;
             saveManagerBlockClearingNavigation();
             const card = document.querySelector(`[data-block-clearing-itemcode="${CSS.escape(key)}"]`);
@@ -110166,12 +101204,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return false;
         }
 
-        function backManagerSeasonPriority() {
-            const state = getManagerSeasonPriorityState();
-            if (state.location) return drillManagerSeasonPriority(state.block);
-            if (state.block) return drillManagerSeasonPriority();
-            return openManagersModules();
-        }
 
         function getManagerSeasonPriorityRequest(row, state = getManagerSeasonPriorityState()) {
             return state.requests.find(request => request.selectedLineageHash === row.lineageHash
@@ -110769,9 +101801,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return Number(String(firstNonEmptyValue(row && row.PTRAVAILABLE, row && row.ptravailable, '0') || '0').replace(/,/g, '')) || 0;
         }
 
-        function getManagerMoveCardSearchTokens() {
-            return String(managerMoveCardSearchTerm || '').trim().toLowerCase().split(/\s+/).filter(Boolean);
-        }
 
         function managerMoveCardTextMatches(parts = []) {
             const term = normalizeSearchValue(managerMoveCardSearchTerm || '');
@@ -110855,13 +101884,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return String((a && a.salesYear) || '').localeCompare(String((b && b.salesYear) || ''), undefined, { numeric: true, sensitivity: 'base' });
         }
 
-        function sortManagerMoveCardSeasonGroups(a, b) {
-            const order = ['F1', 'S1', 'U1', 'U2', 'U3', 'X', 'Y', 'Z', 'Unknown'];
-            const ia = order.indexOf((a && a.season) || '');
-            const ib = order.indexOf((b && b.season) || '');
-            if (ia !== -1 || ib !== -1) return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
-            return String((a && a.season) || '').localeCompare(String((b && b.season) || ''), undefined, { numeric: true, sensitivity: 'base' });
-        }
 
         function buildManagerMoveCardSalesYearGroups() {
             const groups = new Map();
@@ -110883,30 +101905,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return Array.from(groups.values()).sort(sortManagerMoveCardSalesYearGroups);
         }
 
-        function getManagerMoveCardRowsForSelectedSalesYear() {
-            const salesYearKey = normalizeManagerMoveCardLookupKey(managerMoveCardSelectedSalesYear);
-            if (!salesYearKey) return [];
-            return getManagerMoveCardRowsForSelectedCommonSize().filter((row) => normalizeManagerMoveCardLookupKey(getManagerMoveCardSalesYear(row)) === salesYearKey);
-        }
 
-        function buildManagerMoveCardSeasonGroups() {
-            const groups = new Map();
-            getManagerMoveCardRowsForSelectedSalesYear().forEach((row) => {
-                if (!row) return;
-                const season = getManagerMoveCardSeason(row) || 'Unknown';
-                const key = normalizeManagerMoveCardLookupKey(season);
-                if (!key) return;
-                if (!groups.has(key)) {
-                    groups.set(key, { key, season, rows: [], itemcodes: new Set(), locations: new Set(), available: 0 });
-                }
-                const group = groups.get(key);
-                group.rows.push(row);
-                group.itemcodes.add(getManagerMoveItemCode(row));
-                group.locations.add(getManagerMoveLocation(row));
-                group.available += getManagerMoveAvailableNumber(row);
-            });
-            return Array.from(groups.values()).sort(sortManagerMoveCardSeasonGroups);
-        }
 
         function getManagerMoveCardRowsForSelectedCardContext() {
             let rows = getManagerMoveCardRowsForSelectedCommonSize();
@@ -111065,31 +102064,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return false;
         }
 
-        function backManagerMoveCardView() {
-            if (managerMoveCardSelectedSalesYear) {
-                managerMoveCardSelectedSalesYear = '';
-            } else if (managerMoveCardSelectedContSize) {
-                managerMoveCardSelectedContSize = '';
-            } else if (managerMoveCardSelectedCommonName) {
-                managerMoveCardSelectedCommonName = '';
-            } else {
-                managerMoveCardSearchTerm = '';
-            }
-            clearManagerMoveSelection();
-            if (!renderManagerMovePlannerNow(false)) scheduleManagersRender(true);
-            return false;
-        }
 
-        function continueManagerMoveDestinations() {
-            const selectedRows = getManagerMoveSelectedRows();
-            if (!selectedRows.length) {
-                showToast('Select Rows', 'Select the rows you want to move first.', true);
-                return false;
-            }
-            managerMoveDestinationStage = 'destinations';
-            if (!renderManagerMovePlannerNow(false)) scheduleManagersRender(true);
-            return false;
-        }
 
         function getManagerMoveRowsForSelectedLocation() {
             const safeBlock = normalizeMovesDrillValue(managerMoveSelectedBlock);
@@ -111176,17 +102151,8 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             ].map((value) => String(value || '').trim().toUpperCase()).filter(Boolean).join('||') || 'UNKNOWN';
         }
 
-        function getManagerMoveRowPriority(row = null) {
-            return String(firstNonEmptyValue(row && row.PRIORITY, row && row.priority, '') || '').trim() || '-';
-        }
 
-        function getManagerMoveHoldCode(row = null) {
-            return String(firstNonEmptyValue(row && row.HOLDSTOPCODE, row && row.holdstopcode, '') || '').trim() || '-';
-        }
 
-        function getManagerMoveHoldReason(row = null) {
-            return String(firstNonEmptyValue(row && row.HOLDSTOPREASON, row && row.holdstopreason, '') || '').trim() || '-';
-        }
 
         function buildManagerMoveItemGroups(rows = []) {
             const groups = new Map();
@@ -111349,129 +102315,18 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return false;
         }
 
-        function toggleManagerMoveReviewer(username = '', checked = false) {
-            const user = normalizePushUsername(username);
-            if (!user) return false;
-            if (!(managerMoveReviewerUsers instanceof Set)) managerMoveReviewerUsers = new Set();
-            if (checked) managerMoveReviewerUsers.add(user);
-            else managerMoveReviewerUsers.delete(user);
-            if (!renderManagerMovePlannerNow(false)) scheduleManagersRender(true);
-            return false;
-        }
 
-        function setManagerMoveReviewerSearch(value = '') {
-            managerMoveReviewerSearchTerm = String(value || '');
-            if (!renderManagerMovePlannerNow(false)) scheduleManagersRender(true);
-            return false;
-        }
 
-        function isManagerMoveReviewerOption(entry = null) {
-            const username = normalizePushUsername(entry && entry.username);
-            if (!username) return false;
-            if (PRIVILEGED_MANAGER_USER_KEYS.includes(username)) return true;
-            const roleToken = normalizeRoleAccessToken(firstNonEmptyValue(entry && entry.role, ''));
-            return roleToken.includes('ADMIN') || roleToken.includes('MANAGER');
-        }
 
-        function getManagerMoveReviewerOptions() {
-            const users = getAssignableAppUserOptions([...Array.from(managerMoveReviewerUsers || []), ...PRIVILEGED_MANAGER_USER_KEYS]);
-            const filtered = users.filter(isManagerMoveReviewerOption);
-            return (filtered.length ? filtered : users).sort((a, b) => String(a.display || a.username).localeCompare(String(b.display || b.username), undefined, { sensitivity: 'base' }));
-        }
 
         function getGreenleafEmailForUsername(username = '') {
             const user = normalizePushUsername(username);
             return user ? `${user}@greenleafnursery.com` : '';
         }
 
-        function buildManagerManualMoveBatchId() {
-            const safeLoc = [managerMoveSelectedBlock, managerMoveSelectedLocation].map((value) => String(value || '').trim().toUpperCase()).join('_').replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 70) || 'MANUAL';
-            return `manual_move_${safeLoc}_${Date.now()}`;
-        }
 
-        function buildManagerManualMoveRecord(sourceRow = null, batchId = '') {
-            const uid = getManagerMoveRowId(sourceRow);
-            const destination = getManagerMoveDestinationInfo(sourceRow);
-            if (!sourceRow || !uid || !destination || !destination.location) return null;
-            const itemcode = String(firstNonEmptyValue(sourceRow.ITEMCODE, sourceRow.itemcode, '') || '').trim();
-            const commonname = String(firstNonEmptyValue(sourceRow.COMMONNAME, sourceRow.commonname, '') || '').trim();
-            const contsize = String(firstNonEmptyValue(sourceRow.CONTSIZE, sourceRow.contsize, '') || '').trim();
-            const lotcode = String(firstNonEmptyValue(sourceRow.LOTCODE, sourceRow.lotcode, '') || '').trim();
-            const fromLoc = getManagerMoveLocation(sourceRow);
-            const plannedQty = String(firstNonEmptyValue(sourceRow.PTRAVAILABLE, sourceRow.ptravailable, sourceRow.S_LTS, sourceRow.s_lts, '0') || '0').trim() || '0';
-            const record = {
-                source_unique_id: uid,
-                id: '',
-                move_batch_id: batchId,
-                move_group_key: `manual||${fromLoc}||${destination.location}`,
-                itemcode,
-                commonname,
-                genusname: String(firstNonEmptyValue(sourceRow.GENUSNAME, sourceRow.genusname, sourceRow.GENUS, sourceRow.genus, commonname) || commonname).trim(),
-                lotcode,
-                contsize,
-                from_blockalpha: getManagerMoveBlock(sourceRow),
-                from_locationcode: fromLoc,
-                to_locationcode: destination.location,
-                ptravailable: plannedQty,
-                quantity_available: plannedQty,
-                move_planned_qty: plannedQty,
-                to_ptravailable: destination.destinationRow ? String(firstNonEmptyValue(destination.destinationRow.PTRAVAILABLE, destination.destinationRow.ptravailable, '') || '').trim() : '',
-                threshold: 0,
-                move_destination_needs_row: !!destination.needsRow,
-                move_instructions: `Manual location move plan created from Managers > Move by ${String(firstNonEmptyValue(currentUserDisplay, currentUser, 'Unknown User') || 'Unknown User').trim()}.`
-            };
-            record.id = buildMoveRecordId(record);
-            return record;
-        }
 
-        function buildManagerMoveNotificationRows(records = []) {
-            const headers = ['Item Code', 'Common Name', 'Size', 'Lot', 'From', 'To', 'Planned Qty', 'Needs Row'];
-            const rows = (Array.isArray(records) ? records : []).map((record) => headers.map((header) => {
-                if (header === 'Item Code') return record.itemcode || '';
-                if (header === 'Common Name') return record.commonname || '';
-                if (header === 'Size') return record.contsize || '';
-                if (header === 'Lot') return record.lotcode || '';
-                if (header === 'From') return record.from_locationcode || '';
-                if (header === 'To') return record.to_locationcode || '';
-                if (header === 'Planned Qty') return record.move_planned_qty || record.ptravailable || '';
-                if (header === 'Needs Row') return record.move_destination_needs_row ? 'YES' : 'NO';
-                return '';
-            }));
-            return { headers, rows };
-        }
 
-        async function sendManagerMoveBatchNotificationEmail(records = [], reviewerUsers = [], batchId = '') {
-            const emails = dedupeRequestEmailRecipients((Array.isArray(reviewerUsers) ? reviewerUsers : []).map(getGreenleafEmailForUsername).filter(Boolean));
-            if (!emails.length || typeof postGoogleScriptJsonPayload !== 'function') return false;
-            const table = buildManagerMoveNotificationRows(records);
-            const htmlRows = table.rows.map((row) => `<tr>${row.map((cell) => `<td style="border-bottom:1px solid #d1d5db;padding:8px 10px;">${escapeHtml(cell)}</td>`).join('')}</tr>`).join('');
-            const html = `<div><h2 style="color:#007a4d;">Move Session Ready For Review</h2><p><strong>Session:</strong> ${escapeHtml(batchId)}</p><p>${records.length} row${records.length === 1 ? '' : 's'} assigned for manager review. Open Managers &gt; Move to select the foreman and send the session forward.</p><table style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif;font-size:13px;"><thead><tr>${table.headers.map((header) => `<th style="background:#4b5563;color:#fff;text-align:left;padding:8px 10px;">${escapeHtml(header)}</th>`).join('')}</tr></thead><tbody>${htmlRows}</tbody></table></div>`;
-            const text = [`Move Session Ready For Review`, `Session: ${batchId}`, `${records.length} rows assigned.`, table.headers.join('\t')].concat(table.rows.map((row) => row.join('\t'))).join('\n');
-            const payload = {
-                type: 'email',
-                emailType: 'drive_shift_report',
-                subject: `Move Session Ready - ${records.length} Row${records.length === 1 ? '' : 's'}`,
-                brandLabel: 'GNC PH Location Move',
-                fromName: 'GNC PH Location Move',
-                sourceLabel: 'Managers > Move',
-                itemsCount: records.length,
-                recipientEmails: emails,
-                emailRecipients: emails,
-                internalRecipients: [],
-                sendToAllSalesReps: true,
-                repName: '',
-                salesRepName: '',
-                shiftReportFormat: 'report',
-                shiftReportColumns: table.headers.map((label) => ({ key: label, label })),
-                shiftReportRows: table.rows,
-                formattedItemsHtml: html,
-                formattedItemsText: text,
-                requestedBy: String(currentUser || '').trim(),
-                requestedByDisplay: String(currentUserDisplay || currentUser || '').trim()
-            };
-            await postGoogleScriptJsonPayload(payload, REQUEST_EMAIL_SCRIPT_TIMEOUT_MS, 'Move Batch Email');
-            return true;
-        }
 
         function renderManagerMoveSourceCard(row = null) {
             const uid = getManagerMoveRowId(row);
@@ -111919,132 +102774,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return `<div class="space-y-4">${approvalHtml}<div class="manager-move-selection-rail space-y-4"><div class="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3"><div class="text-[10px] font-black uppercase tracking-[0.16em] text-[#007a4d]">Card View Selection</div><div class="mt-1 text-xl font-black text-slate-900">${esc(managerMoveCardSelectedCommonName)} | ${esc(managerMoveCardSelectedContSize)} | SY ${esc(managerMoveCardSelectedSalesYear)}</div><div class="mt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-emerald-700">${cardRows.length} row${cardRows.length === 1 ? '' : 's'} | Available ${esc(normalizeCardQuantityValue(totalAvailable))} | ${selectedCount} selected</div></div>${summaryHtml}<div class="manager-move-selection-actions"><button type="button" class="rounded-xl border border-emerald-200 bg-white px-4 py-3 text-[10px] font-black uppercase tracking-[0.12em] text-[#007a4d] shadow-sm active:scale-95" onclick="return setManagerMoveLocationSelection(true)">Select All</button><button type="button" class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-[10px] font-black uppercase tracking-[0.12em] text-slate-600 shadow-sm active:scale-95" onclick="return setManagerMoveLocationSelection(false)">Clear</button></div>${destinationHtml}</div><div class="space-y-3">${cardsHtml}</div></div>`;
         }
 
-        function renderManagerMoveReviewerPanel() {
-            const selectedRows = getManagerMoveSelectedRows();
-            if (!selectedRows.length) return '';
-            const search = String(managerMoveReviewerSearchTerm || '').trim().toLowerCase();
-            const reviewerOptions = getManagerMoveReviewerOptions().filter((entry) => {
-                if (!search) return true;
-                return doesProgressiveSearchFieldsMatch([entry.username, entry.display, entry.role], search);
-            });
-            const reviewerHtml = reviewerOptions.map((entry) => {
-                const username = normalizePushUsername(entry.username);
-                const checked = managerMoveReviewerUsers.has(username);
-                return `<label class="flex items-center gap-3 rounded-xl border ${checked ? 'border-[#007a4d] bg-emerald-50' : 'border-slate-200 bg-white'} px-3 py-2 shadow-sm">
-                    <input type="checkbox" class="h-5 w-5 rounded border-emerald-300 text-[#007a4d] focus:ring-[#007a4d]" ${checked ? 'checked' : ''} onchange="return toggleManagerMoveReviewer('${escJsAttrValue(username)}', this.checked)">
-                    <span class="min-w-0 flex-1">
-                        <span class="block truncate text-sm font-black text-slate-900">${esc(entry.display || username)}</span>
-                        <span class="block truncate text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">${esc(username)}${entry.role ? ` | ${esc(entry.role)}` : ''}</span>
-                    </span>
-                </label>`;
-            }).join('');
-            const readyCount = selectedRows.filter((row) => getManagerMoveDestinationInfo(row)).length;
-            const canSubmit = selectedRows.length && readyCount === selectedRows.length && managerMoveReviewerUsers.size && !managerMoveSubmitting;
-            return `<div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm">
-                <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div class="min-w-0">
-                        <div class="text-[10px] font-black uppercase tracking-[0.16em] text-[#007a4d]">Move Session Review</div>
-                        <div class="mt-1 text-xl font-black text-slate-900">${selectedRows.length} selected | ${readyCount} destinations set</div>
-                        <div class="mt-1 text-[11px] font-semibold text-slate-600">Assigned admin reviewers get this session in Managers > Move, then choose the foreman.</div>
-                    </div>
-                    <button type="button" class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-[10px] font-black uppercase tracking-[0.14em] text-slate-600 shadow-sm active:scale-95" onclick="return setManagerMoveLocationSelection(false)">Clear Session</button>
-                </div>
-                <label class="mt-3 block text-[9px] font-black uppercase tracking-[0.14em] text-slate-500">Admin Reviewers
-                    <input type="search" value="${esc(managerMoveReviewerSearchTerm)}" class="mt-1 w-full rounded-xl border border-emerald-100 bg-white px-3 py-3 text-sm font-bold text-slate-800 outline-none focus:border-[#007a4d] focus:ring-2 focus:ring-emerald-100" placeholder="Search admins..." oninput="return setManagerMoveReviewerSearch(this.value)">
-                </label>
-                <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">${reviewerHtml || '<div class="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-6 text-center text-[12px] font-semibold text-slate-400">No matching reviewers.</div>'}</div>
-                <button type="button" class="mt-4 w-full rounded-2xl px-4 py-4 text-[12px] font-black uppercase tracking-[0.14em] shadow-sm ${canSubmit ? 'bg-[#007a4d] text-white active:scale-[0.99]' : 'pointer-events-none bg-slate-200 text-slate-400'}" onclick="return submitManagerMoveBatch(this)">${managerMoveSubmitting ? 'Creating Session...' : 'Create Move Session'}</button>
-            </div>`;
-        }
 
-        async function submitManagerMoveBatch(button = null) {
-            const selectedRows = getManagerMoveSelectedRows();
-            if (!selectedRows.length) {
-                showToast('No Rows', 'Select at least one row for the move session.', true);
-                return false;
-            }
-            const missingDestination = selectedRows.find((row) => !getManagerMoveDestinationInfo(row));
-            if (missingDestination) {
-                showToast('Destination Needed', 'Choose a destination for every selected row.', true);
-                return false;
-            }
-            const reviewers = Array.from(managerMoveReviewerUsers || []).map(normalizePushUsername).filter(Boolean);
-            if (!reviewers.length) {
-                showToast('Reviewer Needed', 'Select at least one admin reviewer.', true);
-                return false;
-            }
-            const batchId = buildManagerManualMoveBatchId();
-            const assignedTo = reviewers.join(', ');
-            const records = selectedRows.map((row) => buildManagerManualMoveRecord(row, batchId)).filter(Boolean);
-            const createdAt = new Date().toISOString();
-            const entries = records.map((record) => {
-                const payload = buildMoveApprovalRequestPayload(record);
-                if (!payload) return null;
-                const folderMoveLabel = records.length === 1
-                    ? `${record.from_locationcode || 'Source'} to ${record.to_locationcode || 'Destination'}`
-                    : `${records.length} Rows`;
-                payload.request_folder = `Manual Location Move ${folderMoveLabel} ${new Date().toLocaleDateString()}`;
-                payload.req_comments = [
-                    record.move_instructions,
-                    record.move_destination_needs_row ? 'Destination location does not currently have this itemcode.' : '',
-                    `Assigned manager reviewer(s): ${assignedTo}`
-                ].filter(Boolean).join('\n');
-                payload.assignedto = assignedTo;
-                payload.move_approval_stage = MOVE_APPROVAL_STAGE_JD;
-                payload.move_status = MOVE_STATUS_PENDING_JD;
-                payload.move_dylan_approved_at = createdAt;
-                payload.updated_at = createdAt;
-                const clone = buildMoveApprovalRequestClone(record, payload);
-                return payload && clone ? { payload, clone } : null;
-            }).filter(Boolean);
-            if (!entries.length) {
-                showToast('No Rows', 'Could not build the move session.', true);
-                return false;
-            }
-            const requestIds = entries.map((entry) => String(firstNonEmptyValue(entry && entry.payload && entry.payload.unique_id, '') || '').trim()).filter(Boolean);
-            if (button) {
-                button.disabled = true;
-                button.classList.add('opacity-70', 'pointer-events-none');
-            }
-            managerMoveSubmitting = true;
-            try {
-                entries.forEach((entry) => requestsInventory.push(entry.clone));
-                rebuildRequestInventoryIndexes();
-                syncRealtimeRequestRows();
-                trackOptimisticRequestIds(requestIds);
-                refreshLocalRequestViewState('manual-move-batch-created', { renderHiddenRequest: true, renderVisible: true, forceRender: true });
-                for (const entry of entries) {
-                        await supabaseFetch(ACTIVE_REQUEST_TABLE, 'POST', sanitizeMoveRequestWritePayload(entry.payload));
-                }
-                queueAppLiveEventForWrite(ACTIVE_REQUEST_TABLE, 'POST', entries.map((entry) => ({ unique_id: entry.payload.unique_id })), '');
-                flushQueuedAppLiveEvents().catch(() => {});
-                let emailSent = true;
-                try {
-                    await sendManagerMoveBatchNotificationEmail(records, reviewers, batchId);
-                } catch (emailError) {
-                    emailSent = false;
-                    console.warn('Manual move session email failed', emailError);
-                }
-                clearManagerMoveSelection();
-                markViewDirty('request');
-                markViewDirty('moves');
-                scheduleManagersRender(true);
-                showToast('Move Session Created', emailSent
-                    ? `${entries.length} row${entries.length === 1 ? '' : 's'} assigned to ${reviewers.length} reviewer${reviewers.length === 1 ? '' : 's'}.`
-                    : 'The session was assigned, but the email notification did not send.', !emailSent);
-            } catch (error) {
-                console.error('Manual move session create failed', error);
-                rollbackOptimisticRequestIds(requestIds);
-                showToast('Could Not Create', 'The move session was not saved.', true);
-            } finally {
-                managerMoveSubmitting = false;
-                if (button) {
-                    button.disabled = false;
-                    button.classList.remove('opacity-70', 'pointer-events-none');
-                }
-            }
-            return false;
-        }
 
         function renderManagerManualMovePlanner(options = {}) {
             const includeApprovals = !(options && options.includeApprovals === false);
@@ -112189,9 +102919,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return parts.includes('H') || code.includes('H');
         }
 
-        function isBuildingCurrentSeasonRow(item = null) {
-            return getBuildingSeasonCode(item) === getConfiguredCurrentSeasonCode() && getBuildingSalesYearCode(item) === getConfiguredCurrentSalesYearCode();
-        }
 
         function isBuildingCurrentOpenStockRow(item = null) {
             const salesYear = getBuildingSalesYearCode(item);
@@ -112414,34 +103141,8 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             if (clear) clear.classList.toggle('hidden', !String(buildingSearchTerm || '').trim());
         }
 
-        function handleBuildingSearch() {
-            const input = document.getElementById('building-search');
-            return setBuildingSearch(input ? input.value : '');
-        }
 
-        function setBuildingSearch(value = '') {
-            buildingSearchTerm = String(value || '');
-            selectedBuildingGroupKey = '';
-            selectedBuildingSeasonTab = '';
-            const clear = document.getElementById('building-search-clear');
-            if (clear) clear.classList.toggle('hidden', !buildingSearchTerm.trim());
-            markViewDirty('building');
-            renderBuilding();
-            return false;
-        }
 
-        function clearBuildingSearch() {
-            buildingSearchTerm = '';
-            selectedBuildingGroupKey = '';
-            selectedBuildingSeasonTab = '';
-            const input = document.getElementById('building-search');
-            if (input) input.value = '';
-            syncBuildingSearchInput();
-            markViewDirty('building');
-            renderBuilding();
-            if (input) input.focus();
-            return false;
-        }
 
         function openBuildingGroup(key = '') {
             selectedBuildingGroupKey = String(key || '');
@@ -112686,7 +103387,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
         /* @runtime-fragment assets/bloomscapes-farm-access.js */
         /* @runtime-fragment assets/bloomscapes-dock-save.js */
         /* @runtime-fragment assets/bloomscapes-field-work.js */
-        /* @runtime-fragment assets/bloomscapes-work-browser.js */
+        /* @runtime-fragment assets/bloomscapes-work-browser-cards.js */ /* @runtime-fragment assets/bloomscapes-work-browser.js */
         /* @runtime-fragment assets/bloomscapes-work-types.js */ /* @runtime-fragment assets/bloomscapes-work-siblings.js */ /* @runtime-fragment assets/bloomscapes-work-scope.js */ /* @runtime-fragment assets/bloomscapes-work-creator.js */
         /* @runtime-fragment assets/bloomscapes-field-queue.js */ /* @runtime-fragment assets/bloomscapes-work-queue-cards.js */
         /* @runtime-fragment assets/bloomscapes-operations.js */ /* @runtime-fragment assets/bloomscapes-architecture.js */
@@ -113679,19 +104380,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return false;
         }
 
-        async function undoRequestArchive(uid = '') {
-            if (String(uid || '').trim() !== requestArchiveUndo.uid || requestArchiveUndo.expiresAt < Date.now()
-                || !requestArchiveUndo.identityScope || requestArchiveUndo.identityScope !== getSupabaseReadIdentityScope()) return false;
-            const inFlight = requestArchiveInFlightByUid.get(String(uid || '').trim());
-            if (inFlight) {
-                const result = await inFlight;
-                if (!result || !result.ok) return false;
-            }
-            const item = findRequestInventoryRowByUniqueId(uid);
-            if (!item || !item.REQ_ARCHIVED) return false;
-            clearRequestArchiveUndo();
-            return restoreArchivedRequestRow(uid, true);
-        }
 
         function ensureFlyerSwipeMoveListener() {
             const container = document.getElementById('task-content');
@@ -114121,44 +104809,8 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
                     || String(firstNonEmptyValue(a && a.LOTCODE, a && a.lotcode, '') || '').localeCompare(String(firstNonEmptyValue(b && b.LOTCODE, b && b.lotcode, '') || ''), undefined, { numeric: true, sensitivity: 'base' }));
         }
 
-        function getLocationMoveDestinationForSource(sourceRow = null) {
-            const sourceUid = getSelectedMoveSourceUid(sourceRow);
-            const selectedUid = String(selectedLocationMoveDestinationBySourceId.get(sourceUid) || '').trim();
-            if (!selectedUid) return null;
-            const candidates = getLocationMoveDestinationRowsForSource(sourceRow);
-            return candidates.find((row) => getSelectedMoveSourceUid(row) === selectedUid)
-                || findItemByUniqueId(selectedUid)
-                || findItemByDomId(selectedUid)
-                || null;
-        }
 
-        function selectLocationMoveDestination(sourceUid = '', destinationUid = '') {
-            const safeSourceUid = String(sourceUid || '').trim();
-            const safeDestinationUid = String(destinationUid || '').trim();
-            if (!safeSourceUid || !safeDestinationUid) return false;
-            selectedLocationMoveDestinationBySourceId.set(safeSourceUid, safeDestinationUid);
-            renderSelectedMoveModalRows(selectedLocationMoveItems);
-            return false;
-        }
 
-        function renderLocationMoveDestinationChoice(sourceRow = null, destinationRow = null) {
-            const sourceUid = getSelectedMoveSourceUid(sourceRow);
-            const destinationUid = getSelectedMoveSourceUid(destinationRow);
-            const selected = !!destinationUid && selectedLocationMoveDestinationBySourceId.get(sourceUid) === destinationUid;
-            const destinationLocation = getSelectedMoveLocation(destinationRow) || '-';
-            const destinationPtr = getSelectedMoveAvailableQty(destinationRow);
-            const salesYear = getLocationMoveSalesYear(destinationRow);
-            const cardHtml = typeof generateCard === 'function'
-                ? generateCard(destinationRow, 'drive', selected ? 'status-green' : 'status-blue')
-                : '';
-            return `<button type="button" class="block w-full rounded-2xl border p-2 text-left shadow-sm active:scale-[.99] ${selected ? 'border-[#007a4d] bg-emerald-50 ring-2 ring-emerald-200' : 'border-slate-200 bg-white'}" onclick="return selectLocationMoveDestination('${escJsAttrValue(sourceUid)}', '${escJsAttrValue(destinationUid)}')">
-                <div class="mb-2 flex flex-wrap items-center justify-between gap-2 px-1">
-                    <span class="rounded-full border ${selected ? 'border-[#007a4d] bg-white text-[#007a4d]' : 'border-slate-200 bg-slate-50 text-slate-500'} px-3 py-1 text-[9px] font-black uppercase tracking-[0.13em]">${selected ? 'Selected Destination' : 'Tap To Select'}</span>
-                    <span class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">To ${esc(destinationLocation)} | Available ${esc(destinationPtr)} | SY ${esc(String(salesYear || '-'))}</span>
-                </div>
-                <div style="pointer-events:none">${cardHtml}</div>
-            </button>`;
-        }
 
         function findDirectMoveDestinationRow(sourceRow = null, destinationLocation = '') {
             const itemcode = getSelectedMoveItemCode(sourceRow);
@@ -114522,16 +105174,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
 
         let requestPublishPromptResolver = null;
 
-        function getRequestPublishModalRowLabel(item) {
-            if (!item) return '';
-            const commonName = String(firstNonEmptyValue(item.COMMONNAME, item.commonname, 'Unknown Item')).trim() || 'Unknown Item';
-            const contSize = String(firstNonEmptyValue(item.CONTSIZE, item.contsize, '')).trim();
-            const locationCode = String(firstNonEmptyValue(item.LOCATIONCODE, item.locationcode, '')).trim();
-            const parts = [commonName];
-            if (contSize) parts.push(contSize);
-            if (locationCode) parts.push(locationCode);
-            return parts.join(' - ');
-        }
 
         function closeRequestPublishModal(choice = 'cancel') {
             const modal = document.getElementById('request-publish-modal');
@@ -114541,31 +105183,11 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             if (resolver) resolver(String(choice || 'cancel').trim().toLowerCase() || 'cancel');
         }
 
-        function openRequestPublishModal(item) {
-            const modal = document.getElementById('request-publish-modal');
-            if (!modal) return Promise.resolve('cancel');
-            const label = document.getElementById('request-publish-modal-label');
-            if (label) label.textContent = getRequestPublishModalRowLabel(item);
-            if (requestPublishPromptResolver) {
-                const previousResolver = requestPublishPromptResolver;
-                requestPublishPromptResolver = null;
-                previousResolver('cancel');
-            }
-            modal.classList.remove('hidden');
-            return new Promise((resolve) => {
-                requestPublishPromptResolver = resolve;
-                const publishBtn = document.getElementById('request-publish-yes-btn');
-                if (publishBtn) setTimeout(() => publishBtn.focus(), 0);
-            });
-        }
 
         function normalizeRequestSeasonOverrideValue(value = '') {
             return String(value == null ? '' : value).trim().toUpperCase();
         }
 
-        function normalizeRequestSeasonOverrideLot(value = '') {
-            return normalizeRequestSeasonOverrideValue(value).replace(/\s+/g, '');
-        }
 
         function getRequestSeasonOverridePtr(row = null) {
             const parsed = parseAppNumber(firstNonEmptyValue(row && row.PTRAVAILABLE, row && row.ptravailable, row && row.PRTAVAILABLE, row && row.prtavailable, '0'));
@@ -114619,13 +105241,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return { targetItem, previousSeasonItem, targetPtr, previousSeasonPtr, requestQty };
         }
 
-        function getRequestSeasonOverrideCandidate(requestItem = null, linkedMasterItem = null) {
-            if (!requestItem) return null;
-            return getSeasonSalesNoteOverrideCandidate(requestItem, {
-                linkedMasterItem,
-                requestItem
-            });
-        }
 
         function getSeasonSalesNoteOverrideRowLabel(row = null) {
             if (!row) return '';
@@ -114650,9 +105265,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return `Make this row the Season Sales Note?\n\n${commonName}${requestQtyText}\n\nCurrent Season Sales Note row:\n${previousLabel || 'Current season row'}\nPTRAVAILABLE: ${fromPtr}\n\nThis row:\n${targetLabel || 'Selected row'}\nPTRAVAILABLE: ${toPtr}\n\nSelect OK to move the Season Sales Note to this larger PTRAVAILABLE row and send it to Sales Office.`;
         }
 
-        function getRequestSeasonOverridePrompt(candidate = null) {
-            return getSeasonSalesNoteOverridePrompt(candidate);
-        }
 
         async function saveSalesOfficeAvNote() {
             const uidField = document.getElementById('sales-office-av-uid');
@@ -116367,101 +106979,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             document.getElementById('tab-select-modal').classList.remove('hidden')
         }
 
-        async function sendGroupedBloomNcrReportEmailOnly(rows = [], options = {}) {
-            const safeRows = (Array.isArray(rows) ? rows : []).filter(Boolean);
-            const safeOptions = options || {};
-            const safeType = normalizeNcrApprovalType(firstNonEmptyValue(safeOptions.approvalType, safeOptions.type, 'new-crop'));
-            const typeLabel = getNcrApprovalTypeLabel(safeType);
-            if (!safeRows.length) {
-                showToast(`${typeLabel} Empty`, `No ${typeLabel} rows were selected.`, true);
-                return false;
-            }
-            const requester = safeOptions.requester || getCurrentNcrApprovalRequesterEntry() || {
-                username: String(currentUser || '').trim(),
-                display: String(firstNonEmptyValue(currentUserDisplay, currentUser, '') || '').trim(),
-                email: resolveRequestRecipientEmail(currentUser || currentUserDisplay || '')
-            };
-            const defaultRecipientEmails = dedupeRequestEmailRecipients([
-                ...getInventoryTransactionRequiredRecipientEmails(),
-                requester && requester.email,
-                resolveRequestRecipientEmail(currentUser || currentUserDisplay || '')
-            ]);
-            const optionRecipientEmails = dedupeRequestEmailRecipients([
-                safeOptions.recipientEmails,
-                safeOptions.emailRecipients,
-                safeOptions.recipients
-            ]);
-            const selectedRecipientEmails = safeOptions.skipRecipientModal === true && optionRecipientEmails.length
-                ? optionRecipientEmails
-                : await openGroupedBloomNcrRecipientModal(safeRows, optionRecipientEmails.length ? optionRecipientEmails : defaultRecipientEmails);
-            const safeRecipientEmails = dedupeRequestEmailRecipients([
-                selectedRecipientEmails,
-                defaultRecipientEmails
-            ]);
-            if (!safeRecipientEmails.length) return false;
-            const plural = safeRows.length === 1 ? 'row' : 'rows';
-            showToast('Sending...', `Sending ${safeRows.length} ${typeLabel} ${plural} by email.`, false);
-            try {
-                await sendGroupedBloomNcrApprovalEmail(safeRows, safeType, {
-                    requester,
-                    requestedByEmail: firstNonEmptyValue(safeOptions.requestedByEmail, requester && requester.email, resolveRequestRecipientEmail(currentUser || currentUserDisplay || '')),
-                    requestedByUsername: firstNonEmptyValue(safeOptions.requestedByUsername, requester && requester.username, currentUser, ''),
-                    requestedByDisplay: firstNonEmptyValue(safeOptions.requestedByDisplay, requester && requester.display, currentUserDisplay, ''),
-                    approvalMessage: String(safeOptions.approvalMessage || '').trim(),
-                    rowOptionsByUid: safeOptions.rowOptionsByUid || null,
-                    recipientEmails: safeRecipientEmails,
-                    reportStyle: true,
-                    emailOnly: true
-                });
-                if (safeOptions.clearSelection === true) clearSelection();
-                showToast('Email Sent', `${typeLabel} report sent for ${safeRows.length} ${plural}.`);
-                return true;
-            } catch (error) {
-                console.error(`Grouped Bloom Picker ${typeLabel} email failed`, error);
-                showToast('Send Failed', error && error.message ? error.message : `Could not send the ${typeLabel} email.`, true);
-                return false;
-            }
-        }
 
-        async function sendSelectedRowsToGroupedNcr(options = {}) {
-            const safeOptions = options || {};
-            const access = getRoleAccessState();
-            if (!(access.isAdmin || canUseGroupedBloomNcr())) {
-                showToast('Restricted', 'Only Dylan, JD, and admin users can send NCR rows.', true);
-                return false;
-            }
-            const selectedRows = getCartSelectedItems();
-            const eligibleRows = getGroupedBloomNcrEligibleItems(selectedRows);
-            if (!selectedRows.length) {
-                showToast('Bloom Picker Empty', 'Add one or more rows to Bloom Picker first.', true);
-                return false;
-            }
-            if (eligibleRows.length !== selectedRows.length) {
-                const blockedCount = selectedRows.length - eligibleRows.length;
-                showToast('Check Selection', `${blockedCount} selected row${blockedCount === 1 ? '' : 's'} cannot be sent as New Crop Release.`, true);
-                return false;
-            }
-            const allowMissingPhotoData = canBypassGroupedBloomNcrPhotoDataRequirement();
-            if (!allowMissingPhotoData) {
-                const noPhotoRows = eligibleRows.filter((item) => !getNcrApprovalPhotoUrls(item).length);
-            }
-            const plural = eligibleRows.length === 1 ? 'row' : 'rows';
-            showToast('Opening NCR...', `Preparing ${eligibleRows.length} NCR ${plural}.`, false);
-            await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
-            let approvalMessage = String(safeOptions.approvalMessage || '').trim();
-            if (safeOptions.skipApprovalPrompt !== true) {
-                const promptResult = await openNcrEmailModal(eligibleRows[0], 'new-crop', { noChoice: 'cancel' });
-                const choice = getApprovalPromptChoice(promptResult, 'cancel');
-                if (choice !== 'email') return false;
-                approvalMessage = getApprovalPromptMessage(promptResult);
-            }
-            openPaperNcrPackageModal(eligibleRows, {
-                approvalMessage,
-                selectionKind: getBloomDirectShareSelectionKind(eligibleRows) || 'inventory',
-                clearSelection: true
-            });
-            return false;
-        }
 
         function openEndCapModal() {
             toggleCartPanel(false);
@@ -116617,58 +107135,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return false;
         }
 
-        function setRepRequestAction(uid, action) {
-            let item = requestsInventory.find(i => i.UNIQUE_ID === uid);
-            if(!item) return;
 
-            const previousRepAction = item.REQ_REP_ACTION;
-            const previousArchived = item.REQ_ARCHIVED;
-            let folderId = getRequestFolderName(item);
-            const changedDatasetKeys = getDatasetKeysForTable(ACTIVE_REQUEST_TABLE);
-            const visibleAffectedViews = getVisibleAffectedViewIds(changedDatasetKeys);
-            item.REQ_REP_ACTION = action;
-            item.REQ_ARCHIVED = true;
-            propagateCommittedEdit(ACTIVE_REQUEST_TABLE, item, changedDatasetKeys, visibleAffectedViews, { delay: 0, typingDelay: 140, requestUiDelay: REQUEST_REALTIME_UI_DELAY_MS });
-            showToast("Saving...", `Marked as ${action}`, false);
-
-            supabaseFetch(ACTIVE_REQUEST_TABLE, 'PATCH', { req_rep_action: action, req_archived: true }, `unique_id=eq.${uid}`)
-            .then(() => {
-                upsertRequestHistoryRows([item], String(action || '').toLowerCase() || 'reviewed').catch(() => {});
-                showToast("Saved", `Item ${action}`);
-                scheduleUiRender(`request-folder-complete:${folderId}`, () => checkFolderCompletion(folderId), 24);
-            }).catch(() => {
-                item.REQ_REP_ACTION = previousRepAction;
-                item.REQ_ARCHIVED = previousArchived;
-                propagateCommittedEdit(ACTIVE_REQUEST_TABLE, item, changedDatasetKeys, visibleAffectedViews, { delay: 0, typingDelay: 140, requestUiDelay: REQUEST_REALTIME_UI_DELAY_MS });
-                showToast("Error", "Network Error", true);
-            });
-        }
-
-        function checkFolderCompletion(folderId) {
-            const safeFolderId = String(folderId || '').trim();
-            if (!safeFolderId) return;
-            let fItems = requestsInventory.filter(i => getRequestFolderName(i) === safeFolderId);
-            if (!fItems.length) return;
-            let remainingToReview = fItems.filter(i => isRequestComplete(i) && !i.REQ_ARCHIVED);
-
-            if (remainingToReview.length === 0) {
-                let approvedItems = fItems.filter(i => i.REQ_REP_ACTION === 'Approved');
-                let payload = {
-                    type: "email",
-                    emailType: "request_rep_reviewed",
-                    folderId: safeFolderId,
-                    repName: fItems[0].REQUESTED_BY,
-                    customer: fItems[0].REQ_CUSTOMER,
-                    dylanEmail: "dylan_collyge@greenleafnursery.com",
-                    approvedItems: approvedItems.map(i => ({
-                        unique_id: i.UNIQUE_ID,
-                        commonname: i.COMMONNAME, contsize: i.CONTSIZE, itemcode: i.ITEMCODE,
-                        qty: i.REQ_QTY, loc: i.LOCATIONCODE, photo: getRequestPhotoLinkCsv(i, { includePending: false })
-                    }))
-                };
-                void postGoogleScriptJsonPayload(payload, REQUEST_EMAIL_SCRIPT_TIMEOUT_MS, 'Request Rep Reviewed Email').catch(() => {});
-            }
-        }
 
         async function openRequestModal(sourceMode = 'detail') {
             if (requestSubmitInFlight) return false;
@@ -116754,17 +107221,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             customBtn.classList.add('hidden');
         }
 
-        function getExistingRequestFolderCustomerLabel(item = null) {
-            return String(firstNonEmptyValue(
-                item && item.REQ_CUSTOMER,
-                item && item.req_customer,
-                item && item.CUSTOMERNAME,
-                item && item.customername,
-                item && item.CONSIGNEENAME,
-                item && item.consigneename,
-                'Unknown'
-            ) || 'Unknown').trim() || 'Unknown';
-        }
 
         function getExistingRequestFolderRepRows(repName = '') {
             const safeRep = resolveCanonicalRequestRepName(repName || tempSelectedReqRep || '');
@@ -117138,29 +107594,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
 
         /* @runtime-fragment assets/request-folder-choice.js */
 
-        function createNewRequestConsigneeForSelectedExistingCustomer() {
-            const selected = getSelectedExistingRequestFolderGroups();
-            if (!selected.customerGroup) return showRequestCustomerStep('step-1.5-folder');
-            tempReqFolder = null;
-            tempReqCust = null;
-            tempReqAppendToExistingFolder = false;
-            tempRequestCustomerSelectedCustomerKey = String(selected.customerGroup.key || '');
-            tempRequestCustomerSelectedCustomerName = String(selected.customerGroup.label || '').trim();
-            tempRequestCustomerSelectedFinalLabel = '';
-            previousReqStep = 'step-1.5-folder';
-            document.getElementById('step-1-rep').classList.add('hidden');
-            document.getElementById('step-1.5-folder').classList.add('hidden');
-            document.getElementById('step-2-cust').classList.remove('hidden');
-            const input = document.getElementById('cust-search-input');
-            if (input) input.value = '';
-            const consigneeInput = document.getElementById('quick-consignee-input');
-            if (consigneeInput) consigneeInput.value = '';
-            configureRequestCustomerStep();
-            buildRequestModalCustomerOptionsCache();
-            ensureRequestModalCustomerOptionsReady();
-            scheduleRequestModalSearchRender('customer', '', () => populateCustomerList(''), { force: true, skipDebounce: true });
-            return false;
-        }
 
         function retryExistingRequestFolderPicker() {
             requestExistingFolderGroupsCacheKey = '';
@@ -117840,127 +108273,11 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return Number.isFinite(qty) ? Math.max(0, qty) : 0;
         }
 
-        function getRequestReplacementMatchValues(item = null) {
-            return {
-                uniqueId: String(firstNonEmptyValue(item && item.UNIQUE_ID, item && item.unique_id, '') || '').trim(),
-                itemCode: String(firstNonEmptyValue(item && item.ITEMCODE, item && item.itemcode, '') || '').trim().toUpperCase(),
-                contSize: normalizeSearchValue(firstNonEmptyValue(item && item.CONTSIZE, item && item.contsize, '')),
-                commonName: normalizeSearchValue(firstNonEmptyValue(item && item.COMMONNAME, item && item.commonname, item && item.DESCRIPTION, item && item.description, ''))
-            };
-        }
 
-        function isRequestReplacementCandidate(candidate = null, source = null) {
-            if (!candidate || !source) return false;
-            const sourceValues = getRequestReplacementMatchValues(source);
-            const candidateValues = getRequestReplacementMatchValues(candidate);
-            if (!candidateValues.uniqueId || candidateValues.uniqueId === sourceValues.uniqueId) return false;
-            if (hasCompletionDateValue(candidate) || isOptimisticallyCompletedRow(candidate)) return false;
-            if (getRequestAvailableQty(candidate) <= 0) return false;
-            if (sourceValues.itemCode) {
-                if (candidateValues.itemCode !== sourceValues.itemCode) return false;
-            } else if (candidateValues.commonName !== sourceValues.commonName) {
-                return false;
-            }
-            if (sourceValues.contSize && candidateValues.contSize !== sourceValues.contSize) return false;
-            return true;
-        }
 
-        function getRequestReplacementCandidates(source = null) {
-            const rows = Array.isArray(fullInventory) ? fullInventory : [];
-            return rows
-                .filter((row) => isRequestReplacementCandidate(row, source))
-                .sort((left, right) => {
-                    const ptrDiff = getRequestAvailableQty(right) - getRequestAvailableQty(left);
-                    if (ptrDiff !== 0) return ptrDiff;
-                    const blockDiff = String(firstNonEmptyValue(left && left.BLOCKALPHA, left && left.blockalpha, '')).localeCompare(String(firstNonEmptyValue(right && right.BLOCKALPHA, right && right.blockalpha, '')), undefined, { numeric: true, sensitivity: 'base' });
-                    if (blockDiff !== 0) return blockDiff;
-                    return String(firstNonEmptyValue(left && left.LOCATIONCODE, left && left.locationcode, '')).localeCompare(String(firstNonEmptyValue(right && right.LOCATIONCODE, right && right.locationcode, '')), undefined, { numeric: true, sensitivity: 'base' });
-                });
-        }
 
-        function getRequestOverQtyIssues(itemsData = {}) {
-            const issues = [];
-            getRequestSourceDomIds().forEach((domId) => {
-                const item = findItemByDomId(domId);
-                if (!item) return;
-                const uid = String(firstNonEmptyValue(item.UNIQUE_ID, item.unique_id, '') || '').trim();
-                const dataObj = itemsData[uid] || {};
-                const requestedQty = parseAppNumber(dataObj.qty);
-                const availableQty = getRequestAvailableQty(item);
-                if (!Number.isFinite(requestedQty) || requestedQty <= 0 || requestedQty <= availableQty) return;
-                const candidates = getRequestReplacementCandidates(item);
-                issues.push({
-                    key: `overqty_${uid || domId}`.replace(/[^a-zA-Z0-9_-]+/g, '_'),
-                    sourceDomId: domId,
-                    sourceUid: uid,
-                    item,
-                    data: Object.assign({}, dataObj),
-                    requestedQty,
-                    availableQty,
-                    candidates
-                });
-            });
-            return issues;
-        }
 
-        function buildRequestOverQtyCandidateHtml(issue, candidate, index, recommendedSelected = false) {
-            const uid = String(firstNonEmptyValue(candidate && candidate.UNIQUE_ID, candidate && candidate.unique_id, '') || '').trim();
-            const ptr = getRequestAvailableQty(candidate);
-            const locationCode = String(firstNonEmptyValue(candidate && candidate.LOCATIONCODE, candidate && candidate.locationcode, '-') || '-');
-            const lotCode = String(firstNonEmptyValue(candidate && candidate.LOTCODE, candidate && candidate.lotcode, '-') || '-');
-            const blockAlpha = String(firstNonEmptyValue(candidate && candidate.BLOCKALPHA, candidate && candidate.blockalpha, '-') || '-');
-            const sourceLabel = String(firstNonEmptyValue(candidate && candidate.SOURCE, candidate && candidate.source, '') || '').trim();
-            return `<label class="flex items-start gap-3 rounded-xl border border-emerald-100 bg-white px-3 py-3 shadow-sm active:scale-[.99]">
-                <input type="checkbox" class="mt-1 h-5 w-5 accent-[#007a4d]" data-request-overqty-candidate="true" data-issue-key="${esc(issue.key)}" data-candidate-uid="${esc(uid)}" ${recommendedSelected ? 'checked' : ''}>
-                <span class="min-w-0 flex-1">
-                    <span class="block text-sm font-black text-slate-900">${esc(candidate.COMMONNAME || issue.item.COMMONNAME || 'Replacement Row')}</span>
-                    <span class="mt-1 block text-[11px] font-bold text-slate-500">${esc(candidate.CONTSIZE || issue.item.CONTSIZE || '-')} | Block ${esc(blockAlpha)} | Loc ${esc(locationCode)} | Lot ${esc(lotCode)}${sourceLabel ? ' | ' + esc(sourceLabel) : ''}</span>
-                </span>
-                <span class="shrink-0 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-700">Available ${esc(String(ptr))}</span>
-            </label>`;
-        }
 
-        function renderRequestOverQtyResolution() {
-            const state = pendingRequestOverQtyResolution;
-            if (!state || !Array.isArray(state.issues)) return false;
-            const container = document.getElementById('qty-list-container');
-            const submitBtn = document.getElementById('request-submit-btn');
-            if (submitBtn) submitBtn.innerText = 'USE SELECTED ROWS';
-            if (!container) return false;
-            const issueHtml = state.issues.map((issue) => {
-                let runningRecommendedTotal = 0;
-                const sourceLabel = `${issue.item.COMMONNAME || 'Unknown'} ${issue.item.CONTSIZE || ''}`.trim();
-                const candidatesHtml = issue.candidates.length
-                    ? issue.candidates.map((candidate, index) => {
-                        const shouldRecommend = runningRecommendedTotal < issue.requestedQty;
-                        if (shouldRecommend) runningRecommendedTotal += getRequestAvailableQty(candidate);
-                        return buildRequestOverQtyCandidateHtml(issue, candidate, index, shouldRecommend);
-                    }).join('')
-                    : '<div class="rounded-xl border border-dashed border-red-200 bg-red-50 px-4 py-5 text-center text-[12px] font-bold text-red-700">No alternate rows with positive Available qty were found for this exact item.</div>';
-                const totalCandidateQty = issue.candidates.reduce((sum, row) => sum + getRequestAvailableQty(row), 0);
-                return `<section class="rounded-2xl border border-orange-200 bg-orange-50/70 p-4 shadow-sm">
-                    <div class="flex items-start justify-between gap-3">
-                        <div class="min-w-0">
-                            <div class="text-[10px] font-black uppercase tracking-[0.16em] text-orange-700">Requested Qty Exceeds Available</div>
-                            <div class="mt-1 text-base font-black text-slate-900 leading-tight">${esc(sourceLabel)}</div>
-                            <div class="mt-1 text-[12px] font-bold text-slate-600">Requested ${esc(String(issue.requestedQty))} | Selected row Available ${esc(String(issue.availableQty))}</div>
-                        </div>
-                        <div class="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-right shadow-sm">
-                            <div class="text-[9px] font-black uppercase tracking-[0.14em] text-slate-400">Alternates</div>
-                            <div class="text-sm font-black text-slate-900">${esc(String(issue.candidates.length))}</div>
-                        </div>
-                    </div>
-                    <div class="mt-3 rounded-xl border border-white/70 bg-white/70 px-3 py-2 text-[11px] font-bold text-slate-600">Choose one or more rows with a combined Available qty of at least ${esc(String(issue.requestedQty))}. Candidate total: ${esc(String(totalCandidateQty))}.</div>
-                    <div class="mt-3 space-y-2">${candidatesHtml}</div>
-                </section>`;
-            }).join('');
-            container.innerHTML = `<div class="space-y-3">
-                <div class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] font-bold text-amber-800">Some request quantities are higher than the selected row has available. The original over-qty rows will not be added to the Request tab; only the replacement rows you choose below will be submitted.</div>
-                ${issueHtml}
-                <button data-secondary-back="true" aria-hidden="true" type="button" class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-[11px] font-black uppercase tracking-[0.14em] text-slate-600 shadow-sm" onclick="return cancelRequestOverQtyResolution()">Back To Qty</button>
-            </div>`;
-            return false;
-        }
 
         function escapeRequestCssValue(value = '') {
             const text = String(value || '');
@@ -117968,83 +108285,8 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return text.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\]/g, '\\]');
         }
 
-        function cancelRequestOverQtyResolution() {
-            const state = pendingRequestOverQtyResolution;
-            pendingRequestOverQtyResolution = null;
-            const submitBtn = document.getElementById('request-submit-btn');
-            if (submitBtn) submitBtn.innerText = 'SUBMIT REQUEST';
-            goToQtyStep(tempReqAppendToExistingFolder ? tempReqFolder : null, tempReqCust, previousReqStep, tempReqAppendToExistingFolder, state && state.itemsData ? state.itemsData : {}, 0);
-            return false;
-        }
 
-        function getSelectedRequestOverQtyCandidateUids(issueKey = '') {
-            return Array.from(document.querySelectorAll(`[data-request-overqty-candidate="true"][data-issue-key="${escapeRequestCssValue(issueKey)}"]:checked`))
-                .map((input) => String(input.getAttribute('data-candidate-uid') || '').trim())
-                .filter(Boolean);
-        }
 
-        async function finalizeRequestOverQtyResolution() {
-            if (requestSubmitInFlight) return false;
-            const state = pendingRequestOverQtyResolution;
-            if (!state || !Array.isArray(state.issues)) return false;
-            const issueByUid = new Map(state.issues.map((issue) => [String(issue.sourceUid || '').trim(), issue]));
-            const issueByDomId = new Map(state.issues.map((issue) => [String(issue.sourceDomId || '').trim(), issue]));
-            const remainingByCandidateUid = new Map();
-            state.issues.forEach((issue) => {
-                issue.candidates.forEach((candidate) => {
-                    const uid = String(firstNonEmptyValue(candidate && candidate.UNIQUE_ID, candidate && candidate.unique_id, '') || '').trim();
-                    if (uid && !remainingByCandidateUid.has(uid)) remainingByCandidateUid.set(uid, getRequestAvailableQty(candidate));
-                });
-            });
-            const resolvedEntries = [];
-            for (const domId of state.sourceDomIds) {
-                const sourceItem = findItemByDomId(domId);
-                if (!sourceItem) continue;
-                const sourceUid = String(firstNonEmptyValue(sourceItem.UNIQUE_ID, sourceItem.unique_id, '') || '').trim();
-                const issue = issueByUid.get(sourceUid) || issueByDomId.get(domId);
-                if (!issue) {
-                    resolvedEntries.push({ domId, item: sourceItem, data: Object.assign({}, state.itemsData[sourceUid] || {}) });
-                    continue;
-                }
-                const selectedUids = getSelectedRequestOverQtyCandidateUids(issue.key);
-                const selectedCandidates = issue.candidates.filter((candidate) => selectedUids.includes(String(firstNonEmptyValue(candidate && candidate.UNIQUE_ID, candidate && candidate.unique_id, '') || '').trim()));
-                const selectedTotal = selectedCandidates.reduce((sum, candidate) => {
-                    const uid = String(firstNonEmptyValue(candidate && candidate.UNIQUE_ID, candidate && candidate.unique_id, '') || '').trim();
-                    return sum + Math.max(0, Number(remainingByCandidateUid.get(uid) || 0));
-                }, 0);
-                if (selectedTotal < issue.requestedQty) {
-                    showToast('Choose More Rows', `${issue.item.COMMONNAME || 'This item'} needs ${issue.requestedQty}; selected alternates only have ${selectedTotal}.`, true);
-                    return false;
-                }
-                let remainingRequestQty = issue.requestedQty;
-                selectedCandidates.forEach((candidate) => {
-                    if (remainingRequestQty <= 0) return;
-                    const candidateUid = String(firstNonEmptyValue(candidate && candidate.UNIQUE_ID, candidate && candidate.unique_id, '') || '').trim();
-                    const candidateRemaining = Math.max(0, Number(remainingByCandidateUid.get(candidateUid) || 0));
-                    const allocatedQty = Math.min(candidateRemaining, remainingRequestQty);
-                    if (allocatedQty <= 0) return;
-                    remainingByCandidateUid.set(candidateUid, candidateRemaining - allocatedQty);
-                    resolvedEntries.push({
-                        domId: candidate.DOM_ID,
-                        item: candidate,
-                        data: Object.assign({}, issue.data, { qty: String(allocatedQty) })
-                    });
-                    remainingRequestQty -= allocatedQty;
-                });
-            }
-            pendingRequestOverQtyResolution = null;
-            const submitBtn = document.getElementById('request-submit-btn');
-            if (submitBtn) submitBtn.innerText = 'SUBMIT REQUEST';
-            const generation = requestSubmissionGeneration;
-            requestSubmitInFlight = true;
-            updateRequestQtyStepSubmitButton();
-            try { return await finalizeRequestAction(tempReqAppendToExistingFolder ? tempReqFolder : null, tempReqCust, state.itemsData, resolvedEntries); }
-            catch (error) {
-                if (generation === requestSubmissionGeneration) showToast('Request Not Saved', 'Your cart and form remain here. ' + String(error?.message || 'Retry this Request.'), true);
-                return false;
-            }
-            finally { if (generation === requestSubmissionGeneration) { requestSubmitInFlight = false; updateRequestQtyStepSubmitButton(); } }
-        }
 
         function confirmAssign(user) {
             if (!getRoleAccessState().isAdmin) {
@@ -118332,65 +108574,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
             return requestSchemaCompatibilityPromise;
         }
 
-        async function confirmRequestInsertIds(requestIds = []) {
-            const ids = Array.isArray(requestIds) ? requestIds.map(id => String(id || '').trim()).filter(Boolean) : [];
-            if (!ids.length) return [];
-            try {
-                const encodedIds = ids.map(id => encodeURIComponent(id)).join(',');
-                const rows = await supabaseFetch(ACTIVE_REQUEST_LIVE_ROWS_TABLE, 'GET', null, `select=unique_id&unique_id=in.(${encodedIds})`);
-                return Array.isArray(rows) ? rows.map(row => String(row.unique_id || row.UNIQUE_ID || '').trim()).filter(Boolean) : [];
-            } catch (error) {
-                return [];
-            }
-        }
 
-        async function ensureSubmittedRequestRowsRenderedBeforeEmail(requestIds = [], reason = 'request-submit-before-email') {
-            const ids = normalizeRequestIdList(requestIds);
-            if (!ids.length) return false;
-            let mergedServerRows = false;
-            try {
-                const encodedIds = ids.map((id) => encodeURIComponent(id)).join(',');
-                const rows = await fetchSupabasePage(ACTIVE_REQUEST_LIVE_ROWS_TABLE, `select=*&unique_id=in.(${encodedIds})`, Math.max(50, ids.length), 0);
-                const formattedRows = formatFetchedRows(rows || [], ACTIVE_REQUEST_TABLE);
-                if (formattedRows.length) {
-                    const existingById = new Map((requestsInventory || []).map((item) => [String(firstNonEmptyValue(item && item.UNIQUE_ID, item && item.unique_id, '') || '').trim(), item]).filter(([id]) => id));
-                    formattedRows.forEach((row) => {
-                        const rowId = String(firstNonEmptyValue(row && row.UNIQUE_ID, row && row.unique_id, '') || '').trim();
-                        if (!rowId) return;
-                        const existing = existingById.get(rowId);
-                        const target = existing || row;
-                        if (existing) Object.assign(existing, row);
-                        else requestsInventory.push(row);
-                        if (!target.DOM_ID) target.DOM_ID = 'req_' + rowId;
-                        const masterItem = findLinkedMasterRow(target);
-                        if (masterItem) {
-                            syncMasterFieldsToRequestRow(masterItem, target);
-                            target.APP_TAB_ASSIGNMENT = firstNonEmptyValue(target.APP_TAB_ASSIGNMENT, target.app_tab_assignment, target.MASTER_APP_TAB_ASSIGNMENT, target.master_app_tab_assignment, masterItem.APP_TAB_ASSIGNMENT, masterItem.app_tab_assignment, '');
-                            target.app_tab_assignment = target.APP_TAB_ASSIGNMENT;
-                            target.MASTER_APP_TAB_ASSIGNMENT = firstNonEmptyValue(target.MASTER_APP_TAB_ASSIGNMENT, target.master_app_tab_assignment, masterItem.APP_TAB_ASSIGNMENT, masterItem.app_tab_assignment, '');
-                            target.master_app_tab_assignment = target.MASTER_APP_TAB_ASSIGNMENT;
-                            target.PRODUCTIVITY_ORIGIN_ASSIGNMENT = firstNonEmptyValue(target.PRODUCTIVITY_ORIGIN_ASSIGNMENT, target.productivity_origin_assignment, target.APP_TAB_ASSIGNMENT, '');
-                            target.productivity_origin_assignment = target.PRODUCTIVITY_ORIGIN_ASSIGNMENT;
-                        }
-                        buildSearchIndex(normalizeRowPhotoFields(target));
-                        existingById.set(rowId, target);
-                    });
-                    rebuildRequestInventoryIndexes();
-                    syncRealtimeRequestRows();
-                    mergedServerRows = true;
-                }
-            } catch (error) { globalThis.reportHandledRuntimeIssue?.("ensureSubmittedRequestRowsRenderedBeforeEmail", 'READ_FAILED'); }
-            refreshLocalRequestViewState(reason, {
-                renderVisible: true,
-                immediate: isViewVisible('request'),
-                forceRender: true,
-                renderHiddenRequest: true
-            });
-            triggerRequestRealtimeUiRefresh(0);
-            await yieldToUiFrame();
-            await new Promise((resolve) => setTimeout(resolve, 80));
-            return mergedServerRows;
-        }
         const requestArchiveDeniedIds = new Set();
         function makeRequestArchiveIdempotencyKey() {
             try { if (crypto && typeof crypto.randomUUID === 'function') return crypto.randomUUID(); } catch (error) { globalThis.reportHandledRuntimeIssue?.("makeRequestArchiveIdempotencyKey", 'HANDLED_OPERATION_FAILURE'); }
@@ -118955,7 +109139,6 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
 
         function formatRequestItemsText(items, headerLabel = '', options = {}) {
             const includeHeader = options.includeHeader !== false && !!headerLabel;
-            const includePhotoUrls = options.includePhotoUrls !== false;
             const omitFieldLabels = new Set(Array.isArray(options.omitFieldLabels) ? options.omitFieldLabels.map((label) => String(label || '').trim().toLowerCase()).filter(Boolean) : []);
             let returnText = includeHeader ? `${headerLabel}\n\n` : '';
             items.forEach((item, itemIndex) => {
@@ -118968,7 +109151,7 @@ if (detailSourceView === 'review' || detailSourceView === 'move-up' || (detailSo
                     if (omitFieldLabels.has(String(field.label || '').trim().toLowerCase())) return;
                     const rawValue = String(firstNonEmptyValue(field.value, '') || '').trim();
                     if (!rawValue && !field.force) return;
-                    const formattedValue = field.percent && rawValue ? (rawValue.includes('%') ? rawValue : `${rawValue}%`) : rawValue;
+                    const formattedValue = field.percent && rawValue && !rawValue.includes('%') ? `${rawValue}%` : rawValue;
                     returnText += `${field.label}: ${formattedValue}\n`;
                     if (isCaliperEmailField(field.label) && hasCaliperEmailValue(formattedValue)) returnText += `${CALIPER_MEASUREMENT_NOTE}\n`;
                 });
@@ -119327,80 +109510,14 @@ ${folderNote ? `Folder Note: ${folderNote}
             return formatPickNoteLocationCode(getRawPickNoteLocationCode(item, linkedItem));
         }
 
-        function normalizePickNoteSeasonCode(value = '') {
-            const text = String(value || '').trim().toUpperCase();
-            const match = text.match(/\b(S1|F1|U\d*)\b/);
-            return match ? match[1] : text;
-        }
 
-        function getPickNoteSeasonCandidate(item = null) {
-            return firstNonEmptyValue(
-                item && item.SEASON,
-                item && item.season,
-                item && item.SEASONCODE,
-                item && item.seasoncode,
-                ''
-            );
-        }
 
-        function getPickNoteSeasonCode(item = null) {
-            const explicitSeason = normalizePickNoteSeasonCode(getPickNoteSeasonCandidate(item));
-            return explicitSeason || getRequestUniversalSeasonCode(item, null);
-        }
 
-        function isPickNoteUniversalSeason(seasonCode = '') {
-            return /^U\d*$/i.test(String(seasonCode || '').trim());
-        }
 
-        function getPickNoteSalesYearCode(item = null) {
-            const ncrSalesYear = getNcrSalesYear(item);
-            if (ncrSalesYear != null) return ncrSalesYear;
-            const combinedSeasonYear = normalizeNcrSalesYearValue(String(getPickNoteSeasonCandidate(item) || '').match(/\b(\d{2,4})\s*\.\s*(?:S1|F1|U\d*)\b/i)?.[1] || '');
-            if (combinedSeasonYear != null) return combinedSeasonYear;
-            return normalizeNcrSalesYearValue(firstNonEmptyValue(
-                item && item.SALEYEAR,
-                item && item.SALESYEAR,
-                item && item.salesyear,
-                item && item.sale_year,
-                item && item.SALE_YEAR,
-                item && item.SALES_YEAR,
-                ''
-            ));
-        }
 
-        function getPickNoteSeasonListQty(item = null) {
-            return parseAppNumber(firstNonEmptyValue(
-                item && item.S_LTS,
-                item && item.s_lts,
-                item && item.SEASON_LTS,
-                item && item.season_lts,
-                item && item.SEASONSUPPLY,
-                item && item.seasonsupply,
-                item && item.SEASON_SUPPLY,
-                item && item.season_supply,
-                ''
-            ));
-        }
 
-        function isPickNoteCurrentSeasonSalesYear(item = null) {
-            if (getPickNoteSeasonCode(item) !== getConfiguredCurrentSeasonCode()) return false;
-            const salesYear = getPickNoteSalesYearCode(item);
-            if (salesYear === getConfiguredCurrentSalesYearCode()) return true;
-            const seasonListQty = getPickNoteSeasonListQty(item);
-            return seasonListQty != null && seasonListQty > 0 && (salesYear == null || salesYear <= getConfiguredCurrentSalesYearCode());
-        }
 
-        function isPickNoteHoldRow(item = null) {
-            const holdTokens = getHoldStopBlockTokens(getHoldStopSnapshotFromItem(item));
-            return holdTokens.has('H');
-        }
 
-        function isPickNotePriorityOne(item = null) {
-            const priorityText = String(firstNonEmptyValue(item && item.PRIORITY, item && item.priority, '') || '').trim();
-            if (!priorityText) return false;
-            const priorityNumber = parseAppNumber(priorityText);
-            return priorityNumber === 1 || priorityText.toUpperCase() === '1';
-        }
 
         function buildStandardPickNoteForLocation(item, locationCode = '') {
             return '';
@@ -119536,46 +109653,9 @@ ${folderNote ? `Folder Note: ${folderNote}
             return '';
         }
 
-        function getRequestQtyForPickNote(item = null) {
-            return parseAppNumber(firstNonEmptyValue(
-                item && item.REQ_QTY,
-                item && item.req_qty,
-                item && item.REQUEST_QTY,
-                item && item.request_qty,
-                item && item.QTY,
-                item && item.qty,
-                ''
-            ));
-        }
 
-        function getRequestSeasonListQtyForPickNote(item = null, linkedItem = null) {
-            return parseAppNumber(firstNonEmptyValue(
-                item && item.S_LTS,
-                item && item.s_lts,
-                item && item.SEASON_LTS,
-                item && item.season_lts,
-                linkedItem && linkedItem.S_LTS,
-                linkedItem && linkedItem.s_lts,
-                linkedItem && linkedItem.SEASON_LTS,
-                linkedItem && linkedItem.season_lts,
-                ''
-            ));
-        }
 
-        function isRequestReserveNoForPickNote(item = null) {
-            const reserveValue = String(firstNonEmptyValue(
-                item && item.REQ_RESERVE,
-                item && item.req_reserve,
-                item && item.RESERVE,
-                item && item.reserve,
-                'NO'
-            ) || 'NO').trim().toUpperCase();
-            return reserveValue !== 'YES';
-        }
 
-        function getRequestOverSeasonNoReservePickNote(item = null, linkedItem = null) {
-            return '';
-        }
 
         function getRequestPickNoteWithOverSeasonRule(item = null, linkedItem = null, currentNote = '') {
             const text = collapseDuplicatedPickNoteLocationText(currentNote);
@@ -120163,22 +110243,6 @@ ${folderNote ? `Folder Note: ${folderNote}
             window.location.href=`sms:?&body=${encodeURIComponent(text)}`;
         }
 
-        async function shareActiveInventoryItem(action) {
-            if (!activeItem) {
-                showToast('Error', 'No row selected.', true);
-                return;
-            }
-            try {
-                await shareInventoryItems(action, [activeItem], 'Drive Mode Data');
-            } catch (err) {
-                try {
-                    await copyTextWithFallback(formatInventoryItemsText([activeItem], 'DRIVE MODE DATA'));
-                    showToast('Copied', `${action === 'email' ? 'Email' : action === 'text' ? 'Text' : 'Share'} text copied so you can paste it without leaving the app.`);
-                } catch (copyErr) {
-                    showToast('Error', `Could not prepare ${action}.`, true);
-                }
-            }
-        }
         async function executeBatchAction(action,tabType, options = {}) {
             const isInventoryLikeTab = tabType !== 'request' && tabType !== 'docks';
             const isRequestTab = tabType === 'request';
@@ -120588,7 +110652,6 @@ ${folderNote ? `Folder Note: ${folderNote}
             activeDriveTab = 'name';
             selectedDriveCommonNames = new Set();
             driveCommonNameSearchTerm = '';
-            driveCommonNameFilterOpen = false;
             delete driveColumnFilters.COMMONNAME;
             delete driveColumnFilters.commonname;
             const filtersDiv = document.getElementById('drive-season-filters');
@@ -120664,25 +110727,6 @@ ${folderNote ? `Folder Note: ${folderNote}
             return roots;
         }
 
-        function buildDriveItemProgramGroups(items = []) {
-            const rows = Array.isArray(items) ? items : [];
-            const pairedRoots = getDrivePairedPromoRoots(rows);
-            if (!pairedRoots.size) return [];
-            return DRIVE_ITEM_PROGRAM_OPTIONS.map((config) => {
-                const matchedRows = rows.filter((item) => {
-                    const parts = getDriveItemCodeProgramParts(item);
-                    return pairedRoots.has(parts.root) && parts.suffix === config.suffix;
-                });
-                const itemCodes = new Set(matchedRows.map((item) => getDriveItemCodeProgramParts(item).itemCode).filter(Boolean));
-                return {
-                    program: config.value,
-                    label: config.label,
-                    rowCount: matchedRows.length,
-                    itemCodeCount: itemCodes.size,
-                    __driveRenderKeyValue: `${config.value}|${matchedRows.length}|${itemCodes.size}`
-                };
-            }).filter((group) => group.rowCount > 0);
-        }
 
         function filterDriveItemsByProgram(items = [], program = '') {
             const rows = Array.isArray(items) ? items : [];
@@ -120991,7 +111035,6 @@ ${folderNote ? `Folder Note: ${folderNote}
                     driveOpenStockReportSalesYear = normalizeDriveOpenStockReportSalesYearInput(driveOpenStockReportSalesYear || getConfiguredCurrentSalesYearCode());
                     driveOpenStockReportMaxSLts = normalizeDriveOpenStockReportMaxSLtsInput(driveOpenStockReportMaxSLts || '0');
                 }
-                driveQuickRequestCardMode = false;
                 driveViewDropdownOpen = false;
                 driveSeasonDropdownOpen = false;
                 driveGenusFilterOpen = false;
@@ -121113,68 +111156,15 @@ ${folderNote ? `Folder Note: ${folderNote}
             return nextState;
         }
 
-        function areAllDriveGenusSelected(options = []) {
-            const state = syncDriveGenusSelectionState(options);
-            return !!state.options.length && state.selected.size === state.options.length;
-        }
 
-        function areAllDriveContSizesSelected(options = []) {
-            const state = syncDriveContSizeSelectionState(options);
-            return !!state.options.length && state.selected.size === state.options.length;
-        }
 
-        function areAllDriveLocationsSelected(options = []) {
-            const state = syncDriveLocationSelectionState(options);
-            return !!state.options.length && state.selected.size === state.options.length;
-        }
 
-        function areAllDriveLotsSelected(options = []) {
-            const state = syncDriveLotSelectionState(options);
-            return !!state.options.length && state.selected.size === state.options.length;
-        }
 
-        function getDriveGenusSummaryLabel(options = []) {
-            const state = syncDriveGenusSelectionState(options);
-            if (!state.options.length) return 'No Genus';
-            return state.selected.size === state.options.length ? 'All Genus' : `${state.selected.size} selected`;
-        }
 
-        function getDriveContSizeSummaryLabel(options = []) {
-            const state = syncDriveContSizeSelectionState(options);
-            if (!state.options.length) return 'No Sizes';
-            return state.selected.size === state.options.length ? 'All Sizes' : `${state.selected.size} selected`;
-        }
 
-        function getDriveLocationSummaryLabel(options = []) {
-            const state = syncDriveLocationSelectionState(options);
-            if (!state.options.length) return 'No Locations';
-            return state.selected.size === state.options.length ? 'All Locations' : `${state.selected.size} selected`;
-        }
 
-        function getDriveLotSummaryLabel(options = []) {
-            const state = syncDriveLotSelectionState(options);
-            if (!state.options.length) return 'No Lots';
-            return state.selected.size === state.options.length ? 'All Lots' : `${state.selected.size} selected`;
-        }
 
-        function buildDrivePlantMultiSelectChipsHtml(values = [], dataAttr = '', toggleHandler = '', sortFn = null) {
-            const items = Array.isArray(values) ? [...values] : [];
-            if (!items.length) return '';
-            if (typeof sortFn === 'function') items.sort(sortFn);
-            else items.sort((a, b) => String(a || '').localeCompare(String(b || '')));
-            return '<div class="flex flex-wrap gap-1.5 mt-1.5">' + items.map((value) =>
-                `<button type="button" class="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700 shadow-sm" data-${dataAttr}="${esc(value)}" onclick="return ${toggleHandler}(this.dataset.${dataAttr})">${esc(value)}<i class="ph-bold ph-x text-[10px]"></i></button>`).join('') + '</div>';
-        }
 
-        function buildDrivePlantMultiSelectOptionsHtml(options = [], selectedSet = new Set(), dataAttr = '', toggleHandler = '', emptyText = 'No matches') {
-            if (!Array.isArray(options) || !options.length) {
-                return `<div class="px-3 py-4 text-center text-[11px] font-semibold text-gray-400">${esc(emptyText)}</div>`;
-            }
-            return options.map((value) => {
-                const checked = selectedSet.has(value) ? 'checked' : '';
-                return `<label class="excel-filter-option flex items-center justify-between gap-3 px-3 py-2.5 hover:bg-emerald-50" ${buildExcelFilterFastAttrs(toggleHandler, value)}><span class="min-w-0 break-words text-[12px] font-bold text-slate-700">${esc(value)}</span><input type="checkbox" class="h-4 w-4 shrink-0 accent-emerald-600" data-${dataAttr}="${esc(value)}" ${checked} onclick="event.stopPropagation(); return handleExcelFilterButtonClick(event, '${escJsAttrValue(toggleHandler)}', this.dataset.${dataAttr})"></label>`;
-            }).join('');
-        }
 
         const DRIVE_COLUMN_FILTER_ALLOWED_HEADER_LABELS = Object.freeze([
             'WAREHOUSEI', 'PLANTGROUPCODE', 'ITEMCODE', 'QUALITYCODE', 'CONTSIZE', 'COMMONNAME', 'LOTCODE', 'LOCATIONCODE', 'SOURCE',
@@ -121951,37 +111941,6 @@ ${folderNote ? `Folder Note: ${folderNote}
             }).join('');
         }
 
-        function buildDriveColumnFilterBodyHtml(state = {}) {
-            const sourceItems = Array.isArray(state.filteredItems) ? state.filteredItems : drivePlantFilterItemsCache;
-            const fieldItems = Array.isArray(state.baseItems) ? state.baseItems : sourceItems;
-            const fields = getDriveColumnFilterFields(fieldItems);
-            const selectedField = ensureDriveColumnFilterFieldSelection(fields);
-            if (!selectedField) return '<div class="px-3 py-4 text-center text-[11px] font-semibold text-gray-400">No Drive Mode column data available.</div>';
-            const activeFilter = driveColumnFilterDropdownOpen ? getDriveColumnDraftFilterForField(selectedField.key) : getDriveColumnFilterForField(selectedField.key);
-            const selectedMode = normalizeDriveColumnFilterMode(activeFilter ? activeFilter.mode : driveColumnFilterMode || 'values');
-            driveColumnFilterMode = selectedMode;
-            const selectedValues = new Set(activeFilter && Array.isArray(activeFilter.values) ? activeFilter.values.map(normalizeDriveColumnValue) : []);
-            const valueSearch = normalizeExcelFilterSearchTerm(driveColumnFilterValueSearchTerm);
-            const valueOptions = getDriveColumnValueOptions(sourceItems, selectedField.key);
-            const filteredValueOptions = valueSearch
-                ? valueOptions.filter((value) => doesExcelFilterSearchMatchStart(formatDriveColumnValueLabel(value), valueSearch))
-                : valueOptions;
-            const fieldOptionsHtml = fields.map((field) => `<option value="${esc(field.key)}" ${field.key === selectedField.key ? 'selected' : ''}>${esc(field.label)}</option>`).join('');
-            const modeHtml = DRIVE_COLUMN_FILTER_MODES.map((entry) => {
-                const activeClass = entry.value === selectedMode ? 'border-emerald-600 bg-emerald-600 text-white shadow-sm' : 'border-emerald-200 bg-white text-emerald-700';
-                return `<button type="button" class="min-h-[2.55rem] rounded-xl border px-2 py-2 text-[9px] font-black uppercase leading-tight tracking-[0.04em] ${activeClass}" onclick="return setDriveColumnFilterMode('${escJsAttrValue(entry.value)}')">${esc(entry.label)}</button>`;
-            }).join('');
-            const textValue = activeFilter ? activeFilter.text || '' : '';
-            const compareInputHtml = (selectedMode !== 'values' && selectedMode !== 'blank' && selectedMode !== 'notblank')
-                ? `<div class="border-t border-emerald-50 p-2"><input id="drive-column-filter-text" type="text" class="excel-filter-search !pr-3" value="${esc(textValue)}" placeholder="${selectedMode === 'contains' ? 'Text to find...' : 'Compare value...'}" oninput="return setDriveColumnFilterTextValue(this.value)" onkeydown="return handleDriveColumnFilterTextKeydown(event)"></div>`
-                : '';
-            const valuesHtml = selectedMode === 'values'
-                ? `${buildExcelFilterSearchHtml('drive-column-value-search', driveColumnFilterValueSearchTerm, 'Search values...', 'setDriveColumnFilterValueSearchTerm', 'handleDriveColumnValueSearchKeydown')}<div class="excel-filter-options">${buildDriveColumnValueOptionsHtml(filteredValueOptions, selectedValues)}</div>`
-                : '';
-            const clearFieldDisabled = isDriveColumnFilterActive(activeFilter) ? '' : ' opacity-50 pointer-events-none';
-            const clearAllDisabled = (driveColumnFilterDropdownOpen ? getDriveColumnFilterActiveCountFromMap(driveColumnFilterDrafts) : getDriveColumnFilterActiveCount()) ? '' : ' opacity-50 pointer-events-none';
-            return `<div class="border-b border-emerald-50 p-2"><label class="block text-[10px] font-black uppercase tracking-[0.14em] text-emerald-700">Column Header</label><select class="mt-1 w-full rounded-xl border border-emerald-200 bg-white px-3 py-2.5 text-[13px] font-black text-slate-800 outline-none" onchange="return setDriveColumnFilterFieldKey(this.value)">${fieldOptionsHtml}</select><div class="mt-2 grid grid-cols-3 gap-1.5">${modeHtml}</div></div>${compareInputHtml}${valuesHtml}<div class="excel-filter-footer grid grid-cols-3 gap-2"><button type="button" class="rounded-xl border border-slate-200 bg-white px-2 py-2.5 text-[10px] font-black uppercase tracking-[0.08em] text-slate-700 shadow-sm${clearFieldDisabled}" ${buildExcelFilterFastAttrs('clearDriveColumnFilterField', selectedField.key)}>Clear Column</button><button type="button" class="rounded-xl border border-emerald-200 bg-white px-2 py-2.5 text-[10px] font-black uppercase tracking-[0.08em] text-emerald-700 shadow-sm${clearAllDisabled}" ${buildExcelFilterFastAttrs('clearAllDriveColumnFilters')}>Clear All</button><button type="button" class="rounded-xl bg-emerald-600 px-3 py-2.5 text-[11px] font-black uppercase tracking-[0.14em] text-white shadow-sm" ${buildExcelFilterFastAttrs('closeDriveColumnFilterDropdown')}>Done</button></div>`;
-        }
 
         function ensureDriveColumnFilterWindowHost() {
             let host = document.getElementById('drive-column-filter-window-host');
@@ -122551,17 +112510,6 @@ ${folderNote ? `Folder Note: ${folderNote}
             }).join('');
         }
 
-        function setDrivePlantFilterTriggerState(container, triggerKey = '', isOpen = false) {
-            const trigger = container ? container.querySelector(`[data-drive-filter-trigger="${triggerKey}"]`) : null;
-            if (!trigger) return;
-            trigger.classList.toggle('bg-emerald-600', isOpen);
-            trigger.classList.toggle('border-emerald-600', isOpen);
-            trigger.classList.toggle('text-white', isOpen);
-            trigger.classList.toggle('shadow-md', isOpen);
-            trigger.classList.toggle('bg-white', !isOpen);
-            trigger.classList.toggle('border-emerald-200', !isOpen);
-            trigger.classList.toggle('text-emerald-700', !isOpen);
-        }
 
         function clearRemovedDriveTopFilterState() {
             driveSelectedSeasons = new Set(DRIVE_SEASON_OPTIONS);
@@ -122836,142 +112784,15 @@ ${folderNote ? `Folder Note: ${folderNote}
             return state;
         }
 
-        function buildDriveSeasonFilterOptionsHtml() {
-            const filteredSeasonOptions = filterExcelOptionValues(DRIVE_SEASON_OPTIONS, driveSeasonSearchTerm);
-            return filteredSeasonOptions.map((season) => {
-                const checked = driveSelectedSeasons.has(season) ? 'checked' : '';
-                return `<label class="excel-filter-option flex items-center justify-between gap-3 px-3 py-2.5 hover:bg-emerald-50" ${buildExcelFilterFastAttrs('toggleDriveSeason', season)}><span class="min-w-0 break-words text-[12px] font-bold text-slate-700">${esc(season)}</span><input type="checkbox" class="h-4 w-4 shrink-0 accent-emerald-600" data-season="${esc(season)}" ${checked} onclick="event.stopPropagation(); return handleExcelFilterButtonClick(event, 'toggleDriveSeason', this.dataset.season)"></label>`;
-            }).join('') || '<div class="px-3 py-4 text-center text-[11px] font-semibold text-gray-400">No matching seasons.</div>';
-        }
 
-        function updateDriveTopFilterOptionsOnly(kind = '') {
-            const safeKind = String(kind || '').trim().toLowerCase();
-            const container = document.getElementById('drive-season-filters');
-            const shell = container ? container.querySelector(`[data-drive-filter-shell="${safeKind}"]`) : null;
-            if (safeKind === 'columns') {
-                return renderDriveColumnFilterWindow(buildDrivePlantFilterState(drivePlantFilterItemsCache));
-            }
-            const optionsEl = shell ? shell.querySelector('.excel-filter-options') : null;
-            if (!optionsEl) return false;
-            if (safeKind === 'season') {
-                optionsEl.innerHTML = buildDriveSeasonFilterOptionsHtml();
-                return true;
-            }
-            const state = buildDrivePlantFilterState(drivePlantFilterItemsCache);
-            if (safeKind === 'genus') {
-                optionsEl.innerHTML = state.genusOptions.length
-                    ? buildDrivePlantMultiSelectOptionsHtml(state.filteredGenusOptions, selectedDriveGenusNames, 'genus', 'toggleDriveGenusSelection', 'No matching genus names.')
-                    : '<div class="px-3 py-4 text-center text-[11px] font-semibold text-gray-400">No GENUSNAME data available.</div>';
-                return true;
-            }
-            if (safeKind === 'contsize') {
-                optionsEl.innerHTML = state.sizeOptions.length
-                    ? buildDrivePlantMultiSelectOptionsHtml(state.filteredSizeOptions, selectedDriveContSizes, 'contsize', 'toggleDriveContSizeSelection', 'No matching container sizes.')
-                    : '<div class="px-3 py-4 text-center text-[11px] font-semibold text-gray-400">No CONTSIZE data available.</div>';
-                return true;
-            }
-            if (safeKind === 'location') {
-                optionsEl.innerHTML = state.locationOptions.length
-                    ? buildDrivePlantMultiSelectOptionsHtml(state.filteredLocationOptions, selectedDriveLocationCodes, 'location', 'toggleDriveLocationSelection', 'No matching locations.')
-                    : '<div class="px-3 py-4 text-center text-[11px] font-semibold text-gray-400">No LOCATIONCODE data available.</div>';
-                return true;
-            }
-            if (safeKind === 'lot') {
-                optionsEl.innerHTML = state.lotOptions.length
-                    ? buildDrivePlantMultiSelectOptionsHtml(state.filteredLotOptions, selectedDriveLotCodes, 'lot', 'toggleDriveLotSelection', 'No matching lot codes.')
-                    : '<div class="px-3 py-4 text-center text-[11px] font-semibold text-gray-400">No LOTCODE data available.</div>';
-                return true;
-            }
-            return false;
-        }
 
-        function toggleDriveGenusDropdown() {
-            const nextState = !driveGenusFilterOpen;
-            driveGenusFilterOpen = nextState;
-            if (nextState) {
-                driveViewDropdownOpen = false;
-                driveSeasonDropdownOpen = false;
-                driveContSizeFilterOpen = false;
-                driveLocationFilterOpen = false;
-                driveLotFilterOpen = false;
-                driveColumnFilterDropdownOpen = false;
-            }
-            renderDriveTopControls(drivePlantFilterItemsCache);
-            return false;
-        }
 
-        function closeDriveGenusDropdown() {
-            if (!driveGenusFilterOpen) return false;
-            driveGenusFilterOpen = false;
-            renderDriveTopControls(drivePlantFilterItemsCache);
-            return false;
-        }
 
-        function toggleDriveContSizeDropdown() {
-            const nextState = !driveContSizeFilterOpen;
-            driveContSizeFilterOpen = nextState;
-            if (nextState) {
-                driveViewDropdownOpen = false;
-                driveSeasonDropdownOpen = false;
-                driveGenusFilterOpen = false;
-                driveLocationFilterOpen = false;
-                driveLotFilterOpen = false;
-                driveColumnFilterDropdownOpen = false;
-            }
-            renderDriveTopControls(drivePlantFilterItemsCache);
-            return false;
-        }
 
-        function closeDriveContSizeDropdown() {
-            if (!driveContSizeFilterOpen) return false;
-            driveContSizeFilterOpen = false;
-            renderDriveTopControls(drivePlantFilterItemsCache);
-            return false;
-        }
 
-        function toggleDriveLocationDropdown() {
-            const nextState = !driveLocationFilterOpen;
-            driveLocationFilterOpen = nextState;
-            if (nextState) {
-                driveViewDropdownOpen = false;
-                driveSeasonDropdownOpen = false;
-                driveGenusFilterOpen = false;
-                driveContSizeFilterOpen = false;
-                driveLotFilterOpen = false;
-                driveColumnFilterDropdownOpen = false;
-            }
-            renderDriveTopControls(drivePlantFilterItemsCache);
-            return false;
-        }
 
-        function closeDriveLocationDropdown() {
-            if (!driveLocationFilterOpen) return false;
-            driveLocationFilterOpen = false;
-            renderDriveTopControls(drivePlantFilterItemsCache);
-            return false;
-        }
 
-        function toggleDriveLotDropdown() {
-            const nextState = !driveLotFilterOpen;
-            driveLotFilterOpen = nextState;
-            if (nextState) {
-                driveViewDropdownOpen = false;
-                driveSeasonDropdownOpen = false;
-                driveGenusFilterOpen = false;
-                driveContSizeFilterOpen = false;
-                driveLocationFilterOpen = false;
-                driveColumnFilterDropdownOpen = false;
-            }
-            renderDriveTopControls(drivePlantFilterItemsCache);
-            return false;
-        }
 
-        function closeDriveLotDropdown() {
-            if (!driveLotFilterOpen) return false;
-            driveLotFilterOpen = false;
-            renderDriveTopControls(drivePlantFilterItemsCache);
-            return false;
-        }
 
         function toggleDriveColumnFilterDropdown() {
             if (driveColumnFilterDropdownOpen) return cancelDriveColumnFilterWindow();
@@ -123092,14 +112913,6 @@ ${folderNote ? `Folder Note: ${folderNote}
             return false;
         }
 
-        function updateDriveColumnFilter(fieldKey = '', patch = {}, options = {}) {
-            const key = normalizeDriveColumnFilterKey(fieldKey);
-            if (!key) return false;
-            driveColumnFilters = setDriveColumnFilterInMap(driveColumnFilters, key, patch);
-            invalidateDriveResolvedCardState();
-            if (options && options.render === true) scheduleDriveFilterRender(0, Number(options.typingDelay) || 32, !!options.forceRender);
-            return true;
-        }
 
         function setDriveColumnFilterFieldKey(fieldKey = '') {
             const key = normalizeDriveColumnFilterKey(fieldKey);
@@ -123261,22 +113074,6 @@ ${folderNote ? `Folder Note: ${folderNote}
             return false;
         }
 
-        function toggleAvColumnFilterDropdown() {
-            if (avColumnFilterDropdownOpen) return cancelAvColumnFilterWindow();
-            closeAvTopControlDropdowns(false);
-            avColumnFilterDrafts = cloneAvColumnFilters(avColumnFilters);
-            avColumnFilterSelectedHeaders = new Set();
-            avColumnFilterDropdownOpen = true;
-            avColumnFilterStep = 'select';
-            avColumnFilterValueSearchTerm = '';
-            avColumnFilterFieldSearchTerm = '';
-            avColumnFilterHeaderFieldsCache = [];
-            const fields = getAvColumnFilterFields(avFilterItemsCache);
-            syncAvColumnSelectedHeaders(fields, { seedFromFilters: true });
-            ensureAvColumnFilterFieldSelection(fields);
-            renderAvTopControls(avFilterItemsCache);
-            return false;
-        }
 
         function closeAvColumnFilterDropdown() {
             if (!avColumnFilterDropdownOpen) return false;
@@ -123532,178 +113329,17 @@ ${folderNote ? `Folder Note: ${folderNote}
             return false;
         }
 
-        function setDriveGenusSearchTerm(value = '') {
-            driveGenusSearchTerm = String(value || '');
-            const input = document.getElementById('drive-genus-search');
-            if (input && document.activeElement === input && updateDriveTopFilterOptionsOnly('genus')) return false;
-            const cursorPos = input && typeof input.selectionStart === 'number' ? input.selectionStart : null;
-            scheduleUiRender('drive-genus-search-ui', () => {
-                renderDriveTopControls(drivePlantFilterItemsCache);
-                requestAnimationFrame(() => {
-                    const current = document.getElementById('drive-genus-search');
-                    if (!current) return;
-                    if (document.activeElement !== current) current.focus();
-                    if (cursorPos !== null && typeof current.setSelectionRange === 'function') {
-                        current.setSelectionRange(cursorPos, cursorPos);
-                    }
-                });
-            });
-            return false;
-        }
 
-        function setDriveContSizeSearchTerm(value = '') {
-            driveContSizeSearchTerm = String(value || '');
-            const input = document.getElementById('drive-contsize-search');
-            if (input && document.activeElement === input && updateDriveTopFilterOptionsOnly('contsize')) return false;
-            const cursorPos = input && typeof input.selectionStart === 'number' ? input.selectionStart : null;
-            scheduleUiRender('drive-contsize-search-ui', () => {
-                renderDriveTopControls(drivePlantFilterItemsCache);
-                requestAnimationFrame(() => {
-                    const current = document.getElementById('drive-contsize-search');
-                    if (!current) return;
-                    if (document.activeElement !== current) current.focus();
-                    if (cursorPos !== null && typeof current.setSelectionRange === 'function') {
-                        current.setSelectionRange(cursorPos, cursorPos);
-                    }
-                });
-            });
-            return false;
-        }
 
-        function setDriveLocationSearchTerm(value = '') {
-            driveLocationSearchTerm = String(value || '');
-            const input = document.getElementById('drive-location-search');
-            if (input && document.activeElement === input && updateDriveTopFilterOptionsOnly('location')) return false;
-            const cursorPos = input && typeof input.selectionStart === 'number' ? input.selectionStart : null;
-            scheduleUiRender('drive-location-search-ui', () => {
-                renderDriveTopControls(drivePlantFilterItemsCache);
-                requestAnimationFrame(() => {
-                    const current = document.getElementById('drive-location-search');
-                    if (!current) return;
-                    if (document.activeElement !== current) current.focus();
-                    if (cursorPos !== null && typeof current.setSelectionRange === 'function') {
-                        current.setSelectionRange(cursorPos, cursorPos);
-                    }
-                });
-            });
-            return false;
-        }
 
-        function setDriveLotSearchTerm(value = '') {
-            driveLotSearchTerm = String(value || '');
-            const input = document.getElementById('drive-lot-search');
-            if (input && document.activeElement === input && updateDriveTopFilterOptionsOnly('lot')) return false;
-            const cursorPos = input && typeof input.selectionStart === 'number' ? input.selectionStart : null;
-            scheduleUiRender('drive-lot-search-ui', () => {
-                renderDriveTopControls(drivePlantFilterItemsCache);
-                requestAnimationFrame(() => {
-                    const current = document.getElementById('drive-lot-search');
-                    if (!current) return;
-                    if (document.activeElement !== current) current.focus();
-                    if (cursorPos !== null && typeof current.setSelectionRange === 'function') {
-                        current.setSelectionRange(cursorPos, cursorPos);
-                    }
-                });
-            });
-            return false;
-        }
 
-        function applyVisibleDriveGenusResults() {
-            const state = buildDrivePlantFilterState(drivePlantFilterItemsCache);
-            const visibleSelection = buildVisibleExcelFilterSelection(state.genusOptions, state.filteredGenusOptions);
-            if (!visibleSelection) return false;
-            beginDirectNavigationActivity();
-            selectedDriveGenusNames = visibleSelection.selectedSet;
-            driveGenusSelectionMode = visibleSelection.selectionMode;
-            driveGenusSearchTerm = '';
-            setDriveSearchManualSelectionLock(shouldDriveSearchLockForCurrentTab());
-            driveViewDropdownOpen = false;
-            driveSeasonDropdownOpen = false;
-            driveGenusFilterOpen = false;
-            driveContSizeFilterOpen = false;
-            driveLocationFilterOpen = false;
-            driveLotFilterOpen = false;
-            invalidateDriveResolvedCardState();
-            scheduleDriveFilterRender();
-            return true;
-        }
 
-        function applyVisibleDriveContSizeResults() {
-            const state = buildDrivePlantFilterState(drivePlantFilterItemsCache);
-            if (!state.filteredSizeOptions.length) return false;
-            beginDirectNavigationActivity();
-            selectedDriveContSizes = new Set(state.filteredSizeOptions);
-            driveContSizeSelectionMode = state.filteredSizeOptions.length === state.sizeOptions.length ? 'all' : 'custom';
-            driveContSizeSearchTerm = '';
-            setDriveSearchManualSelectionLock(shouldDriveSearchLockForCurrentTab());
-            driveViewDropdownOpen = false;
-            driveSeasonDropdownOpen = false;
-            driveGenusFilterOpen = false;
-            driveContSizeFilterOpen = false;
-            driveLocationFilterOpen = false;
-            driveLotFilterOpen = false;
-            invalidateDriveResolvedCardState();
-            scheduleDriveFilterRender();
-            return true;
-        }
 
-        function applyVisibleDriveLocationResults() {
-            const state = buildDrivePlantFilterState(drivePlantFilterItemsCache);
-            if (!state.filteredLocationOptions.length) return false;
-            beginDirectNavigationActivity();
-            selectedDriveLocationCodes = new Set(state.filteredLocationOptions);
-            driveLocationSelectionMode = state.filteredLocationOptions.length === state.locationOptions.length ? 'all' : 'custom';
-            driveLocationSearchTerm = '';
-            setDriveSearchManualSelectionLock(shouldDriveSearchLockForCurrentTab());
-            driveViewDropdownOpen = false;
-            driveSeasonDropdownOpen = false;
-            driveGenusFilterOpen = false;
-            driveContSizeFilterOpen = false;
-            driveLocationFilterOpen = false;
-            driveLotFilterOpen = false;
-            invalidateDriveResolvedCardState();
-            scheduleDriveFilterRender();
-            return true;
-        }
 
-        function applyVisibleDriveLotResults() {
-            const state = buildDrivePlantFilterState(drivePlantFilterItemsCache);
-            if (!state.filteredLotOptions.length) return false;
-            beginDirectNavigationActivity();
-            selectedDriveLotCodes = new Set(state.filteredLotOptions);
-            driveLotSelectionMode = state.filteredLotOptions.length === state.lotOptions.length ? 'all' : 'custom';
-            driveLotSearchTerm = '';
-            setDriveSearchManualSelectionLock(shouldDriveSearchLockForCurrentTab());
-            driveViewDropdownOpen = false;
-            driveSeasonDropdownOpen = false;
-            driveGenusFilterOpen = false;
-            driveContSizeFilterOpen = false;
-            driveLocationFilterOpen = false;
-            driveLotFilterOpen = false;
-            invalidateDriveResolvedCardState();
-            scheduleDriveFilterRender();
-            return true;
-        }
 
-        function handleDriveGenusSearchKeydown(event) {
-            if (!isEnterKeypress(event)) return;
-            handleSearchEnterApply(event, applyVisibleDriveGenusResults);
-        }
 
-        function handleDriveContSizeSearchKeydown(event) {
-            if (!isEnterKeypress(event)) return;
-            handleSearchEnterApply(event, applyVisibleDriveContSizeResults);
-        }
 
-        function handleDriveLocationSearchKeydown(event) {
-            if (!isEnterKeypress(event)) return;
-            handleSearchEnterApply(event, applyVisibleDriveLocationResults);
-        }
 
-        function handleDriveLotSearchKeydown(event) {
-            if (!isEnterKeypress(event)) return;
-            handleSearchEnterApply(event, applyVisibleDriveLotResults);
-        }
 
         function toggleDriveGenusSelection(genus = '') {
             const value = String(genus || '').trim();
@@ -123727,272 +113363,22 @@ ${folderNote ? `Folder Note: ${folderNote}
 
         globalThis.toggleDriveGenusSelection = toggleDriveGenusSelection;
 
-        function toggleDriveContSizeSelection(contSize = '') {
-            const value = String(contSize || '').trim();
-            if (!value) return false;
-            beginDirectNavigationActivity();
-            syncDriveContSizeSelectionState(drivePlantFilterContSizeOptions);
-            if (selectedDriveContSizes.has(value)) selectedDriveContSizes.delete(value);
-            else selectedDriveContSizes.add(value);
-            driveContSizeSelectionMode = 'custom';
-            setDriveSearchManualSelectionLock(shouldDriveSearchLockForCurrentTab());
-            driveViewDropdownOpen = false;
-            driveSeasonDropdownOpen = false;
-            driveGenusFilterOpen = false;
-            driveContSizeFilterOpen = true;
-            driveLocationFilterOpen = false;
-            driveLotFilterOpen = false;
-            invalidateDriveResolvedCardState();
-            scheduleDriveFilterRender();
-            return false;
-        }
 
-        function toggleDriveLocationSelection(locationCode = '') {
-            const value = String(locationCode || '').trim();
-            if (!value) return false;
-            beginDirectNavigationActivity();
-            syncDriveLocationSelectionState(drivePlantFilterLocationOptions);
-            if (selectedDriveLocationCodes.has(value)) selectedDriveLocationCodes.delete(value);
-            else selectedDriveLocationCodes.add(value);
-            driveLocationSelectionMode = 'custom';
-            setDriveSearchManualSelectionLock(shouldDriveSearchLockForCurrentTab());
-            driveViewDropdownOpen = false;
-            driveSeasonDropdownOpen = false;
-            driveGenusFilterOpen = false;
-            driveContSizeFilterOpen = false;
-            driveLocationFilterOpen = true;
-            driveLotFilterOpen = false;
-            invalidateDriveResolvedCardState();
-            scheduleDriveFilterRender();
-            return false;
-        }
 
-        function toggleDriveLotSelection(lotCode = '') {
-            const value = String(lotCode || '').trim();
-            if (!value) return false;
-            beginDirectNavigationActivity();
-            syncDriveLotSelectionState(drivePlantFilterLotOptions);
-            if (selectedDriveLotCodes.has(value)) selectedDriveLotCodes.delete(value);
-            else selectedDriveLotCodes.add(value);
-            driveLotSelectionMode = 'custom';
-            setDriveSearchManualSelectionLock(shouldDriveSearchLockForCurrentTab());
-            driveViewDropdownOpen = false;
-            driveSeasonDropdownOpen = false;
-            driveGenusFilterOpen = false;
-            driveContSizeFilterOpen = false;
-            driveLocationFilterOpen = false;
-            driveLotFilterOpen = true;
-            invalidateDriveResolvedCardState();
-            scheduleDriveFilterRender();
-            return false;
-        }
 
-        function selectAllDriveGenus() {
-            if (areAllDriveGenusSelected(drivePlantFilterGenusOptions)) return false;
-            beginDirectNavigationActivity();
-            driveGenusSelectionMode = 'all';
-            selectedDriveGenusNames = new Set(drivePlantFilterGenusOptions);
-            invalidateDriveResolvedCardState();
-            scheduleDriveFilterRender();
-            return false;
-        }
 
-        function deselectAllDriveGenus() {
-            beginDirectNavigationActivity();
-            driveGenusSelectionMode = 'custom';
-            selectedDriveGenusNames = new Set();
-            driveGenusSearchTerm = '';
-            driveViewDropdownOpen = false;
-            driveSeasonDropdownOpen = false;
-            driveGenusFilterOpen = true;
-            driveContSizeFilterOpen = false;
-            driveLocationFilterOpen = false;
-            driveLotFilterOpen = false;
-            setDriveSearchManualSelectionLock(shouldDriveSearchLockForCurrentTab());
-            invalidateDriveResolvedCardState();
-            scheduleDriveFilterRender();
-            return false;
-        }
 
-        function selectAllDriveContSizes() {
-            if (areAllDriveContSizesSelected(drivePlantFilterContSizeOptions)) return false;
-            beginDirectNavigationActivity();
-            driveContSizeSelectionMode = 'all';
-            selectedDriveContSizes = new Set(drivePlantFilterContSizeOptions);
-            invalidateDriveResolvedCardState();
-            scheduleDriveFilterRender();
-            return false;
-        }
 
-        function deselectAllDriveContSizes() {
-            beginDirectNavigationActivity();
-            driveContSizeSelectionMode = 'custom';
-            selectedDriveContSizes = new Set();
-            driveContSizeSearchTerm = '';
-            driveViewDropdownOpen = false;
-            driveSeasonDropdownOpen = false;
-            driveGenusFilterOpen = false;
-            driveContSizeFilterOpen = true;
-            driveLocationFilterOpen = false;
-            driveLotFilterOpen = false;
-            setDriveSearchManualSelectionLock(shouldDriveSearchLockForCurrentTab());
-            invalidateDriveResolvedCardState();
-            scheduleDriveFilterRender();
-            return false;
-        }
 
-        function selectAllDriveLocations() {
-            if (areAllDriveLocationsSelected(drivePlantFilterLocationOptions)) return false;
-            beginDirectNavigationActivity();
-            driveLocationSelectionMode = 'all';
-            selectedDriveLocationCodes = new Set(drivePlantFilterLocationOptions);
-            invalidateDriveResolvedCardState();
-            scheduleDriveFilterRender();
-            return false;
-        }
 
-        function deselectAllDriveLocations() {
-            beginDirectNavigationActivity();
-            driveLocationSelectionMode = 'custom';
-            selectedDriveLocationCodes = new Set();
-            driveLocationSearchTerm = '';
-            driveViewDropdownOpen = false;
-            driveSeasonDropdownOpen = false;
-            driveGenusFilterOpen = false;
-            driveContSizeFilterOpen = false;
-            driveLocationFilterOpen = true;
-            driveLotFilterOpen = false;
-            setDriveSearchManualSelectionLock(shouldDriveSearchLockForCurrentTab());
-            invalidateDriveResolvedCardState();
-            scheduleDriveFilterRender();
-            return false;
-        }
 
-        function selectAllDriveLots() {
-            if (areAllDriveLotsSelected(drivePlantFilterLotOptions)) return false;
-            beginDirectNavigationActivity();
-            driveLotSelectionMode = 'all';
-            selectedDriveLotCodes = new Set(drivePlantFilterLotOptions);
-            invalidateDriveResolvedCardState();
-            scheduleDriveFilterRender();
-            return false;
-        }
 
-        function deselectAllDriveLots() {
-            beginDirectNavigationActivity();
-            driveLotSelectionMode = 'custom';
-            selectedDriveLotCodes = new Set();
-            driveLotSearchTerm = '';
-            driveViewDropdownOpen = false;
-            driveSeasonDropdownOpen = false;
-            driveGenusFilterOpen = false;
-            driveContSizeFilterOpen = false;
-            driveLocationFilterOpen = false;
-            driveLotFilterOpen = true;
-            setDriveSearchManualSelectionLock(shouldDriveSearchLockForCurrentTab());
-            invalidateDriveResolvedCardState();
-            scheduleDriveFilterRender();
-            return false;
-        }
 
-        function clearDriveGenusFilters() {
-            if (driveGenusSelectionMode === 'all' && !String(driveGenusSearchTerm || '').trim()) return false;
-            beginDirectNavigationActivity();
-            driveGenusSelectionMode = 'all';
-            selectedDriveGenusNames = new Set(drivePlantFilterGenusOptions);
-            driveGenusSearchTerm = '';
-            driveGenusFilterOpen = false;
-            setDriveSearchManualSelectionLock(shouldDriveSearchLockForCurrentTab());
-            invalidateDriveResolvedCardState();
-            scheduleDriveFilterRender();
-            return false;
-        }
 
-        function clearDriveContSizeFilters() {
-            if (driveContSizeSelectionMode === 'all' && !String(driveContSizeSearchTerm || '').trim()) return false;
-            beginDirectNavigationActivity();
-            driveContSizeSelectionMode = 'all';
-            selectedDriveContSizes = new Set(drivePlantFilterContSizeOptions);
-            driveContSizeSearchTerm = '';
-            driveContSizeFilterOpen = false;
-            setDriveSearchManualSelectionLock(shouldDriveSearchLockForCurrentTab());
-            invalidateDriveResolvedCardState();
-            scheduleDriveFilterRender();
-            return false;
-        }
 
-        function clearDriveLocationFilters() {
-            if (driveLocationSelectionMode === 'all' && !String(driveLocationSearchTerm || '').trim()) return false;
-            beginDirectNavigationActivity();
-            driveLocationSelectionMode = 'all';
-            selectedDriveLocationCodes = new Set(drivePlantFilterLocationOptions);
-            driveLocationSearchTerm = '';
-            driveLocationFilterOpen = false;
-            setDriveSearchManualSelectionLock(shouldDriveSearchLockForCurrentTab());
-            invalidateDriveResolvedCardState();
-            scheduleDriveFilterRender();
-            return false;
-        }
 
-        function clearDriveLotFilters() {
-            if (driveLotSelectionMode === 'all' && !String(driveLotSearchTerm || '').trim()) return false;
-            beginDirectNavigationActivity();
-            driveLotSelectionMode = 'all';
-            selectedDriveLotCodes = new Set(drivePlantFilterLotOptions);
-            driveLotSearchTerm = '';
-            driveLotFilterOpen = false;
-            setDriveSearchManualSelectionLock(shouldDriveSearchLockForCurrentTab());
-            invalidateDriveResolvedCardState();
-            scheduleDriveFilterRender();
-            return false;
-        }
 
-        function clearDrivePlantFilters() {
-            if (driveGenusSelectionMode === 'all' && driveContSizeSelectionMode === 'all' && driveLocationSelectionMode === 'all' && driveLotSelectionMode === 'all' && !String(driveGenusSearchTerm || '').trim() && !String(driveContSizeSearchTerm || '').trim() && !String(driveLocationSearchTerm || '').trim() && !String(driveLotSearchTerm || '').trim() && !getDriveColumnFilterActiveCount() && !String(driveColumnFilterValueSearchTerm || '').trim()) return false;
-            beginDirectNavigationActivity();
-            driveGenusSelectionMode = 'all';
-            selectedDriveGenusNames = new Set(drivePlantFilterGenusOptions);
-            driveGenusSearchTerm = '';
-            driveGenusFilterOpen = false;
-            driveContSizeSelectionMode = 'all';
-            selectedDriveContSizes = new Set(drivePlantFilterContSizeOptions);
-            driveContSizeSearchTerm = '';
-            driveContSizeFilterOpen = false;
-            driveLocationSelectionMode = 'all';
-            selectedDriveLocationCodes = new Set(drivePlantFilterLocationOptions);
-            driveLocationSearchTerm = '';
-            driveLocationFilterOpen = false;
-            driveLotSelectionMode = 'all';
-            selectedDriveLotCodes = new Set(drivePlantFilterLotOptions);
-            driveLotSearchTerm = '';
-            driveLotFilterOpen = false;
-            driveColumnFilters = {};
-            driveColumnFilterDrafts = {};
-            driveColumnFilterSelectedHeaders = new Set();
-            driveColumnFilterDropdownOpen = false;
-            driveColumnFilterStep = 'select';
-            driveColumnFilterFieldKey = '';
-            driveColumnFilterMode = 'values';
-            driveColumnFilterValueSearchTerm = '';
-            driveColumnFilterFieldSearchTerm = '';
-            driveColumnFilterHeaderFieldsCache = [];
-            if (activeDriveTab === 'season-sales-notes') {
-                driveSeasonSalesNoteColumnFilters = {};
-            } else {
-                driveStandardColumnFilters = {};
-            }
-            drivePlantFilterItemsCache = [];
-            setDriveSearchManualSelectionLock(shouldDriveSearchLockForCurrentTab());
-            invalidateDriveResolvedCardState();
-            scheduleDriveFilterRender();
-            return false;
-        }
 
-        function renderDrivePlantFilters(items = []) {
-            drivePlantFilterItemsCache = Array.isArray(items) ? items : [];
-            hideDrivePlantFilters();
-            return buildDrivePlantFilterState(drivePlantFilterItemsCache);
-        }
 
         function beginDriveSearchComposition() {
             driveSearchCompositionActive = true;
@@ -124672,12 +114058,6 @@ ${folderNote ? `Folder Note: ${folderNote}
             return `<div class="${toneClass} border rounded-xl shadow-sm mb-3 p-4 flex items-center justify-between gap-3 cursor-pointer active:scale-95 transition-transform" ${buildFastInvokeAttrs('selectDriveSeason', [group.season], `Open season ${label}`)}><div class="min-w-0"><div class="text-lg font-black text-[#007a4d] leading-tight truncate">${esc(label)}</div><div class="mt-1 text-[11px] font-bold uppercase tracking-[0.1em] text-slate-400">${group.rowCount} Rows</div></div><i class="ph-bold ph-caret-right text-lg text-emerald-500"></i></div>`;
         }
 
-        function renderDriveItemProgramGroupCard(group) {
-            const label = String(firstNonEmptyValue(group && group.label, '') || '').trim() || 'Item Code';
-            const rowCount = Number(group && group.rowCount) || 0;
-            const itemCodeCount = Number(group && group.itemCodeCount) || 0;
-            return `<div class="bg-white border border-green-200 rounded-xl shadow-sm mb-3 p-4 flex items-center justify-between gap-3 cursor-pointer active:scale-95 transition-transform" ${buildFastInvokeAttrs('selectDriveProgram', [group.program], `Open ${label}`)}><div class="min-w-0"><div class="text-lg font-black text-[#007a4d] leading-tight truncate">${esc(label)}</div><div class="mt-1 text-[11px] font-bold uppercase tracking-[0.1em] text-slate-400">${rowCount} Rows &bull; ${itemCodeCount} Item Code${itemCodeCount === 1 ? '' : 's'}</div></div><i class="ph-bold ph-caret-right text-lg text-emerald-500"></i></div>`;
-        }
 
         function renderDriveBlockGroupCard(group) {
             const label = getDriveBlockAlphaLabel(group.block);
@@ -124689,14 +114069,7 @@ ${folderNote ? `Folder Note: ${folderNote}
             return `<div class="bg-white border border-green-200 rounded-xl shadow-sm mb-3 p-4 flex items-center justify-between gap-3 cursor-pointer active:scale-95 transition-transform" ${buildFastInvokeAttrs(group.fieldAudit ? 'fieldAuditDrill' : 'selectDriveLoc', group.fieldAudit ? [group.block, group.location] : [group.location], `Open block number ${label}`)}><div class="min-w-0"><div class="text-lg font-black text-[#007a4d] leading-tight truncate">${esc(label)}</div><div class="mt-1 text-[11px] font-bold uppercase tracking-[0.1em] text-slate-400">${group.rowCount} Rows${group.fieldAuditDrive ? ' &bull; ' + Number(group.totalCans || 0).toLocaleString('en-US') + ' Total Cans' : ''}</div></div><i class="ph-bold ph-caret-right text-lg text-emerald-500"></i></div>`;
         }
 
-        function renderDriveLocationCommonNameGroupCard(group) {
-            return `<div class="bg-white border border-green-200 rounded-xl shadow-sm mb-3 p-4 flex items-center justify-between gap-3 cursor-pointer active:scale-95 transition-transform" ${buildFastInvokeAttrs('selectDriveBlock', [group.name], `Open ${normalizeEscapedDisplayText(group.name)}`)}><div class="min-w-0"><div class="text-lg font-black text-[#007a4d] leading-tight truncate">${esc(normalizeEscapedDisplayText(group.name))}</div><div class="mt-1 text-[11px] font-bold uppercase tracking-[0.1em] text-slate-400">${group.rowCount} Rows &bull; ${group.sizeCount} Sizes &bull; ${group.locationCount} Locations</div></div><i class="ph-bold ph-caret-right text-lg text-emerald-500"></i></div>`;
-        }
 
-        function renderDriveLocationContSizeGroupCard(group) {
-            const label = getDriveDrillDisplayValue(group.size, '-');
-            return `<div class="bg-white border border-green-200 rounded-xl shadow-sm mb-3 p-4 flex items-center justify-between gap-3 cursor-pointer active:scale-95 transition-transform" ${buildFastInvokeAttrs('selectDriveLoc', [group.size], `Show locations for ${label}`)}><div class="min-w-0"><div class="text-lg font-black text-[#007a4d] leading-tight truncate">${esc(label)}</div><div class="mt-1 text-[11px] font-bold uppercase tracking-[0.1em] text-slate-400">${group.rowCount} Rows &bull; ${group.locationCount} Locations</div></div><i class="ph-bold ph-caret-right text-lg text-emerald-500"></i></div>`;
-        }
 
         function renderDriveQuickCardResultsOnly() {
             ensureDriveToolbarControls();
@@ -124762,53 +114135,10 @@ ${folderNote ? `Folder Note: ${folderNote}
             });
         }
 
-        function renderDriveSeasonSalesNotesView(container, crumb, driveModeLabel = '', viewStateOverride = null) {
-            const resolvedDriveModeLabel = String(driveModeLabel || DRIVE_MODE_LABELS[activeDriveMode] || 'Drive Mode');
-            const driveViewState = viewStateOverride && typeof viewStateOverride === 'object'
-                ? viewStateOverride
-                : buildDriveVisibleItemsState();
-            const { visibleItems, resolvedStateKey } = driveViewState;
-            const finalItems = sortDriveCardItems(Array.isArray(visibleItems) ? visibleItems : []);
-            const crumbText = `${resolvedDriveModeLabel} > Season Sales Notes (${finalItems.length} items)`;
-            const renderKey = buildDriveRenderKey('drive:season-sales-notes', crumbText, finalItems);
-            if (!finalItems.length) {
-                applyDriveRenderMarkup(container, crumb, crumbText, `<div class="p-8 text-center text-gray-400">No Season Sales Notes rows match the current Drive filters.</div>`, `drive:season-sales-notes:empty:${resolvedStateKey || ''}`);
-                return;
-            }
-            if(renderInventoryCardWindow(container,finalItems,item=>generateCard(item,'drive',getDriveCardStatusClass(item)),{
-                view:'drive',signature:renderKey,estimatedHeight:310
-            })){if(getCurrentVisibleViewId()==='drive'){syncDriveCrumb(crumb,crumbText);container.dataset.driveRenderKey=renderKey;}return;}
-            if (shouldUseChunkedCardRender(finalItems.length, 90, 170)) {
-                syncDriveCrumb(crumb, crumbText);
-                if (container.dataset && container.dataset.driveRenderKey === renderKey) return;
-                if (container.dataset) container.dataset.driveRenderKey = renderKey;
-                renderMarkupChunkedByKey('drive-season-sales-notes-card', container, crumb, finalItems, crumbText, (item) => generateCard(item, 'drive', getDriveCardStatusClass(item)), {
-                    approxCardHeight: 310
-                });
-                return;
-            }
-            applyDriveRenderMarkup(container, crumb, crumbText, finalItems.map((item) => generateCard(item, 'drive', getDriveCardStatusClass(item))).join(''), renderKey);
-        }
 
         /* @runtime-fragment assets/drive-card-sort.js */ /* @runtime-fragment assets/drive-reports-v2-domain.js */ /* @runtime-fragment assets/drive-excel-filter-popover.js */ /* @runtime-fragment assets/drive-reports-v2-grid.js */ /* @runtime-fragment assets/drive-reports-v2-saved.js */ /* @runtime-fragment assets/drive-reports-v2-view.js */ /* @runtime-fragment assets/drive-saved-reports-service.js */
         /* @runtime-fragment assets/drive-saved-reports.js */ /* @runtime-fragment assets/drive-reports-v2-bridge.js */
 
-        function toggleDriveSeason(s) {
-            const value = String(s || '').trim().toUpperCase();
-            if (!DRIVE_SEASON_OPTIONS.includes(value)) return false;
-            beginDirectNavigationActivity();
-            normalizeDriveSelectedSeasons();
-            if (driveSelectedSeasons.has(value)) driveSelectedSeasons.delete(value);
-            else driveSelectedSeasons.add(value);
-            setDriveSearchManualSelectionLock(shouldDriveSearchLockForCurrentTab());
-            driveViewDropdownOpen = false;
-            driveSeasonDropdownOpen = true;
-            driveGenusFilterOpen = false;
-            driveContSizeFilterOpen = false;
-            invalidateDriveResolvedCardState();
-            scheduleDriveFilterRender();
-            return false;
-        }
 
         function renderTeamSelector() {
             const container = document.getElementById('task-content');
@@ -125562,11 +114892,6 @@ ${folderNote ? `Folder Note: ${folderNote}
             return '';
         }
 
-        function doesItemMatchTaskFilter(item, filter = activeTaskFilter) {
-            const expectedKind = getTaskOriginFilterKind(filter);
-            if (!expectedKind) return true;
-            return resolveProductivityOriginKind(item) === expectedKind;
-        }
 
         function doesItemMatchTaskFilterOrUnspecifiedOrigin(item, filter = activeTaskFilter) {
             const expectedKind = getTaskOriginFilterKind(filter);
@@ -125765,9 +115090,6 @@ ${folderNote ? `Folder Note: ${folderNote}
                 .filter(Boolean);
         }
 
-        function getNcrApprovalAssignmentForCurrentTaskUser(view = activeTaskTab) {
-            return getNcrApprovalAssignmentsForCurrentTaskUser(view)[0] || '';
-        }
 
         async function refreshNcrApprovalTaskRows(view = activeTaskTab, options = {}) {
             const safeView = normalizeTaskViewValue(view);
@@ -125884,9 +115206,6 @@ ${folderNote ? `Folder Note: ${folderNote}
                 .filter(Boolean);
         }
 
-        function getNotOnInventoryApprovalAssignmentForCurrentTaskUser(view = activeTaskTab) {
-            return getNotOnInventoryApprovalAssignmentsForCurrentTaskUser(view)[0] || '';
-        }
 
         async function refreshNotOnInventoryApprovalTaskRows(view = activeTaskTab, options = {}) {
             const safeView = normalizeTaskViewValue(view);
@@ -126062,13 +115381,7 @@ ${folderNote ? `Folder Note: ${folderNote}
             return 'ALL';
         }
 
-        function getTaskSubviewValues(tab = activeTaskView) {
-            return getTaskFilterValues(tab);
-        }
 
-        function getTaskSubviewControlValues(tab = activeTaskView) {
-            return getTaskSubviewValues(tab);
-        }
 
         function taskRowMatchesSubview(item, subview = activeTaskView) {
             const safeView = normalizeTaskViewValue(subview);
@@ -126370,11 +115683,6 @@ ${folderNote ? `Folder Note: ${folderNote}
             return !holdCode || holdCode === 'NULL' || holdCode === '-' || holdCode === 'N/A';
         }
 
-        function doesEvalSimpleTaskRowHaveHoldStop(item = null) {
-            const holdCode = getEvalSimpleTaskHoldStopCode(item);
-            if (isEvalSimpleTaskHoldStopBlank(item)) return false;
-            return holdCode.includes('H') || holdCode.includes('S');
-        }
 
         function doesEvalSimpleTaskRowHaveHoldStopCode(item = null, code = '') {
             const safeCode = String(code || '').trim().toUpperCase();
@@ -126974,62 +116282,10 @@ ${folderNote ? `Folder Note: ${folderNote}
             setContainerHtmlWithSignature(container, '', `task-eval-user:hidden:${String(tab || activeTaskTab || '').trim().toLowerCase()}`);
         }
 
-        function toggleTaskEvalUserDropdown() {
-            if (openIosTaskFilterSheet('eval-user') || shouldUseIosStandaloneTaskFilterSheet()) return false;
-            const container = document.getElementById('task-eval-user-filter');
-            if (!container || container.classList.contains('hidden')) return false;
-            taskEvalUserDropdownOpen = !taskEvalUserDropdownOpen;
-            if (taskEvalUserDropdownOpen) {
-                taskTabDropdownOpen = false;
-                taskSubviewDropdownOpen = false;
-                closeTaskReserveCustomerDropdown(true);
-                taskGenusFilterOpen = false;
-                taskContSizeDropdownOpen = false;
-                taskModeSearchTerm = '';
-                taskSubviewSearchTerm = '';
-                taskGenusSearchTerm = '';
-                taskContSizeSearchTerm = '';
-            }
-            syncTaskModeControls(activeTaskTab);
-            syncTaskEvalUserControls(activeTaskTab);
-            syncTaskSubviewControls(activeTaskTab);
-            renderTaskGenusFilter(taskGenusFilterItemsCache);
-            renderTaskContSizeFilter(taskContSizeFilterItemsCache);
-            syncTaskSharedFilterArea();
-            return false;
-        }
 
-        function closeTaskEvalUserDropdown() {
-            return closeTaskDropdowns(true);
-        }
 
-        function setTaskEvalUserSearchTerm(value = '') {
-            taskEvalUserSearchTerm = String(value || '');
-            const input = document.getElementById('task-eval-user-search');
-            const cursorPos = input && typeof input.selectionStart === 'number' ? input.selectionStart : null;
-            scheduleUiRender('task-eval-user-search-ui', () => {
-                syncTaskEvalUserControls(activeTaskTab);
-                requestAnimationFrame(() => {
-                    const current = document.getElementById('task-eval-user-search');
-                    if (!current) return;
-                    if (document.activeElement !== current) current.focus();
-                    if (cursorPos !== null && typeof current.setSelectionRange === 'function') current.setSelectionRange(cursorPos, cursorPos);
-                });
-            });
-            return false;
-        }
 
-        function applyVisibleTaskEvalUserResult() {
-            const options = filterExcelOptionValues(getTaskEvalUserDropdownOptions(activeTaskTab), taskEvalUserSearchTerm);
-            if (!options.length) return false;
-            taskEvalUserSearchTerm = '';
-            return setTaskEvalUser(options[0].value);
-        }
 
-        function handleTaskEvalUserSearchKeydown(event) {
-            if (!isEnterKeypress(event)) return;
-            handleSearchEnterApply(event, applyVisibleTaskEvalUserResult);
-        }
 
         function setTaskEvalUser(value = '') {
             return setTaskEvaluatorView(value);
@@ -127512,27 +116768,6 @@ ${folderNote ? `Folder Note: ${folderNote}
             return false;
         }
 
-        function clearIosTaskFilterSheetSelection(kind = '') {
-            const safeKind = normalizeIosTaskFilterSheetKind(kind);
-            if (safeKind === 'genus') {
-                selectedTaskGenusNames = new Set();
-                taskGenusSearchTerm = '';
-                renderTaskGenusFilter(taskGenusFilterItemsCache);
-                scheduleTasksFilterRender(0, 36);
-            } else if (safeKind === 'contsize') {
-                selectedTaskContSizes = new Set();
-                taskContSizeSearchTerm = '';
-                renderTaskContSizeFilter(taskContSizeFilterItemsCache);
-                scheduleTasksFilterRender(0, 36);
-            } else if (safeKind === 'reserve-customer') {
-                clearTaskReserveCustomerDraft();
-            }
-            iosTaskFilterSheetState.search = '';
-            const input = document.getElementById('ios-task-filter-sheet-search');
-            if (input) input.value = '';
-            renderIosTaskFilterSheetOptionsOnly();
-            return false;
-        }
 
         function selectAllIosTaskFilterSheetSelection(kind = '') {
             const safeKind = normalizeIosTaskFilterSheetKind(kind);
@@ -127657,19 +116892,6 @@ ${folderNote ? `Folder Note: ${folderNote}
             return false;
         }
 
-        function clearTaskReserveCustomerSearch() {
-            if (taskReserveCustomerDropdownOpen) return clearTaskReserveCustomerDraft();
-            const hadSelection = getTaskReserveCustomerSelectionKey(activeTaskReserveCustomerFilters, activeTaskReserveRepFilter) !== 'all';
-            const hadSearch = String(taskReserveCustomerSearchTerm || '').trim() !== '';
-            if (!hadSelection && !hadSearch) return false;
-            taskReserveCustomerSearchTerm = '';
-            if (!hadSelection) {
-                const container = document.getElementById('task-reserves-customer-filters');
-                if (container) updateTaskReserveCustomerFilterUi(buildTaskReserveCustomerSearchState(), container);
-                return false;
-            }
-            return setTaskReserveCustomerFilter('all');
-        }
 
         function applyVisibleTaskReserveCustomerResult() {
             const state = buildTaskReserveCustomerSearchState();
@@ -127966,14 +117188,6 @@ ${folderNote ? `Folder Note: ${folderNote}
             return false;
         }
 
-        function clearTaskGenusFilters() {
-            if (!selectedTaskGenusNames.size && !taskGenusSearchTerm) return false;
-            selectedTaskGenusNames = new Set();
-            taskGenusSearchTerm = '';
-            taskGenusFilterOpen = false;
-            scheduleTasksFilterRender(0);
-            return false;
-        }
 
         function selectAllTaskGenusFilters() {
             const state = buildTaskGenusFilterState(taskGenusFilterItemsCache);
@@ -128065,14 +117279,6 @@ ${folderNote ? `Folder Note: ${folderNote}
             return false;
         }
 
-        function setTaskContSizeFilter(value = '') {
-            const nextValue = String(value || '').trim();
-            selectedTaskContSizes = nextValue ? new Set([nextValue]) : new Set();
-            taskContSizeSearchTerm = '';
-            taskContSizeDropdownOpen = false;
-            scheduleTasksFilterRender(0);
-            return false;
-        }
 
         function toggleTaskContSizeSelection(value = '') {
             const nextValue = String(value || '').trim();
@@ -128126,14 +117332,6 @@ ${folderNote ? `Folder Note: ${folderNote}
             return closeTaskDropdowns(true);
         }
 
-        function clearTaskContSizeFilter() {
-            if (!selectedTaskContSizes.size && !taskContSizeSearchTerm) return false;
-            selectedTaskContSizes = new Set();
-            taskContSizeSearchTerm = '';
-            taskContSizeDropdownOpen = false;
-            scheduleTasksFilterRender(0);
-            return false;
-        }
 
         function selectAllTaskContSizeFilter() {
             const state = buildTaskContSizeFilterState(taskContSizeFilterItemsCache);
@@ -130291,8 +119489,6 @@ ${folderNote ? `Folder Note: ${folderNote}
             const itemCode = esc(String(firstNonEmptyValue(item.ITEMCODE, item.itemcode, '') || ''));
             const locationCode = esc(String(firstNonEmptyValue(item.LOCATIONCODE, item.locationcode, '-') || '-'));
             const lotCode = esc(String(firstNonEmptyValue(item.LOTCODE, item.lotcode, '-') || '-'));
-            const ptrValue = parseAppNumber(firstNonEmptyValue(item.PTRAVAILABLE, item.ptravailable, ''));
-            const ptrLabel = Number.isFinite(ptrValue) ? Math.max(0, ptrValue).toLocaleString() : String(firstNonEmptyValue(item.PTRAVAILABLE, item.ptravailable, '0') || '0');
             const compactCardFieldChipsHtml = `${buildInventoryQuantityChipsHtml(item, { compact: true })}${buildInventoryCardFieldChipsHtml(item, { compact: true })}`;
             const specLabel = esc(String(firstNonEmptyValue(item.SPEC, item.spec, 'N/A') || 'N/A'));
             const caliperLabel = esc(String(firstNonEmptyValue(item.CALIPER, item.caliper, 'N/A') || 'N/A'));
@@ -133904,121 +123100,10 @@ ${folderNote ? `Folder Note: ${folderNote}
             return { completedRows, folderNames, failedRows };
         }
 
-        function getRequestDriveSourceId(row = null) {
-            if (!row) return '';
-            const linkedMaster = findLinkedMasterRow(row);
-            const sourceTable = String(firstNonEmptyValue(row.SOURCE_TABLE, row.source_table, '') || '').trim().toLowerCase();
-            return String(firstNonEmptyValue(
-                row.MASTER_ID,
-                row.MASTER_UNIQUE_ID,
-                row.master_id,
-                row.SOURCE_MASTER_ID,
-                row.SOURCE_MASTER_UNIQUE_ID,
-                row.source_master_id,
-                row.source_master_unique_id,
-                linkedMaster && linkedMaster.UNIQUE_ID,
-                linkedMaster && linkedMaster.unique_id,
-                sourceTable === 'ph_master_inventory' ? row.UNIQUE_ID : '',
-                sourceTable === 'ph_master_inventory' ? row.unique_id : '',
-                ''
-            ) || '').trim();
-        }
 
-        function isSameDriveSourceRequestRow(sourceRow = null, targetRow = null) {
-            if (!sourceRow || !targetRow) return false;
-            const sourceId = getRequestDriveSourceId(sourceRow);
-            const targetId = getRequestDriveSourceId(targetRow);
-            return !!(sourceId && targetId && sourceId === targetId);
-        }
 
-        function getPendingSameDriveRequestReviewRows(completedRow = null) {
-            if (!completedRow || !Array.isArray(requestsInventory) || !requestsInventory.length) return [];
-            const completedId = String(firstNonEmptyValue(completedRow.UNIQUE_ID, completedRow.unique_id, '') || '').trim();
-            const completedContextKey = getLinkedRequestCompletionContextKey(completedRow);
-            return requestsInventory
-                .filter((row) => {
-                    if (!row || !isRequestPendingVisible(row)) return false;
-                    const rowId = String(firstNonEmptyValue(row.UNIQUE_ID, row.unique_id, '') || '').trim();
-                    if (!rowId || rowId === completedId) return false;
-                    if (!isSameDriveSourceRequestRow(completedRow, row)) return false;
-                    const rowContextKey = getLinkedRequestCompletionContextKey(row);
-                    return !completedContextKey || !rowContextKey || rowContextKey !== completedContextKey;
-                })
-                .sort((a, b) => {
-                    const folderCompare = String(getRequestFolderName(a) || '').localeCompare(String(getRequestFolderName(b) || ''), undefined, { numeric: true });
-                    if (folderCompare !== 0) return folderCompare;
-                    const customerCompare = String(getRequestCustomerConsigneeLabelForItem(a) || '').localeCompare(String(getRequestCustomerConsigneeLabelForItem(b) || ''), undefined, { numeric: true });
-                    if (customerCompare !== 0) return customerCompare;
-                    return String(getRequestAssignedRep(a) || '').localeCompare(String(getRequestAssignedRep(b) || ''), undefined, { numeric: true });
-                });
-        }
 
-        function buildSameDriveRequestReviewCarryoverPayload(completedRow = null, targetRow = null) {
-            const payload = {};
-            if (!completedRow || !targetRow) return payload;
-            const completedIsRequest = isRequestOwnedPhotoRow(completedRow);
-            const completedPhotoLink = String(firstNonEmptyValue(
-                getRequestPhotoLinkCsv(completedRow, { includePending: false }),
-                getLinkedRequestCompletionPhotoLink(completedRow, targetRow),
-                ''
-            ) || '').trim();
-            const completedPhotoName = String(firstNonEmptyValue(
-                getLinkedRequestCompletionPhotoName(completedRow, targetRow),
-                completedRow.REQ_PHOTO_NAME,
-                completedRow.REQUEST_PHOTO_NAME,
-                ''
-            ) || '').trim();
-            if (completedPhotoLink) {
-                const mergedPhotoLink = mergePhotoCsvList([targetRow.REQ_PHOTO_LINK, targetRow.REQUEST_PHOTO_LINK, targetRow.REQUESTPHOTO_LINK, completedPhotoLink]);
-                if (mergedPhotoLink) payload.req_photo_link = mergedPhotoLink;
-            }
-            if (completedPhotoName) {
-                const mergedPhotoName = mergePhotoCsvList([targetRow.REQ_PHOTO_NAME, targetRow.REQUEST_PHOTO_NAME, targetRow.REQUESTPHOTONAME, completedPhotoName]);
-                if (mergedPhotoName) payload.req_photo_name = mergedPhotoName;
-            }
-            const copyStringIfBlank = (payloadKey, targetValues, sourceValues) => {
-                const existingValue = String(firstNonEmptyValue(...targetValues, '') || '').trim();
-                if (existingValue) return;
-                const nextValue = String(firstNonEmptyValue(...sourceValues, '') || '').trim();
-                if (nextValue) payload[payloadKey] = nextValue;
-            };
-            const existingMatch = parseLocMatchPercent(firstNonEmptyValue(targetRow.REQ_MATCH, targetRow.req_match, ''));
-            const sourceMatch = parseLocMatchPercent(completedIsRequest
-                ? firstNonEmptyValue(completedRow.REQ_MATCH, completedRow.req_match, '')
-                : firstNonEmptyValue(completedRow.REQ_MATCH, completedRow.req_match, completedRow.MATCH, completedRow.match, ''));
-            if (existingMatch == null && sourceMatch != null) payload.req_match = sourceMatch;
-            copyStringIfBlank('req_spec', [targetRow.REQ_SPEC, targetRow.req_spec], completedIsRequest ? [completedRow.REQ_SPEC, completedRow.req_spec] : [completedRow.REQ_SPEC, completedRow.req_spec, completedRow.SPEC, completedRow.spec]);
-            copyStringIfBlank('req_caliper', [targetRow.REQ_CALIPER, targetRow.req_caliper], completedIsRequest ? [completedRow.REQ_CALIPER, completedRow.req_caliper] : [completedRow.REQ_CALIPER, completedRow.req_caliper, completedRow.CALIPER, completedRow.caliper]);
-            const existingPick = getRequestRawPickNoteValue(targetRow);
-            const nextPick = existingPick || getRequestResolvedPickNoteValue(targetRow || completedRow, completedRow, { includeStandard: true });
-            if (nextPick && normalizeRepMatchToken(nextPick) !== normalizeRepMatchToken(existingPick)) payload.req_pic_note = nextPick;
-            copyStringIfBlank('av_note', [targetRow.AV_NOTE, targetRow.av_note], [completedRow.AV_NOTE, completedRow.av_note]);
-            return payload;
-        }
 
-        function applySameDriveRequestReviewCarryoverToLocalRow(targetRow = null, payload = {}) {
-            if (!targetRow || !payload || typeof payload !== 'object') return targetRow;
-            const applyStringPayload = (payloadKey, upperKey, lowerKey, aliases = []) => {
-                if (!Object.prototype.hasOwnProperty.call(payload, payloadKey)) return;
-                const value = payload[payloadKey] == null ? '' : String(payload[payloadKey]);
-                targetRow[upperKey] = value;
-                targetRow[lowerKey] = value;
-                aliases.forEach((alias) => { targetRow[alias] = value; });
-            };
-            if (Object.prototype.hasOwnProperty.call(payload, 'req_match')) {
-                targetRow.REQ_MATCH = payload.req_match == null ? '' : String(payload.req_match);
-                targetRow.req_match = targetRow.REQ_MATCH;
-            }
-            applyStringPayload('req_spec', 'REQ_SPEC', 'req_spec');
-            applyStringPayload('req_caliper', 'REQ_CALIPER', 'req_caliper');
-            applyStringPayload('req_pic_note', 'REQ_PICK', 'req_pic_note', ['REQ_PIC_NOTE', 'req_pick']);
-            applyStringPayload('av_note', 'AV_NOTE', 'av_note');
-            applyStringPayload('req_photo_link', 'REQ_PHOTO_LINK', 'req_photo_link', ['REQUEST_PHOTO_LINK', 'REQUESTPHOTO_LINK']);
-            applyStringPayload('req_photo_name', 'REQ_PHOTO_NAME', 'req_photo_name', ['REQUEST_PHOTO_NAME', 'REQUESTPHOTONAME']);
-            normalizeRowPhotoFields(targetRow);
-            buildSearchIndex(targetRow);
-            return targetRow;
-        }
 
         let requestCorrectionActionInFlight = false;
 
@@ -134411,66 +123496,8 @@ ${folderNote ? `Folder Note: ${folderNote}
             return false;
         }
 
-        function refreshSameDriveRequestReviewCarryoverState(row = null) {
-            if (!row) return;
-            upsertRealtimeRow(requestsInventory, row, ACTIVE_REQUEST_TABLE);
-            rebuildRequestInventoryIndexes();
-            requestViewLiveSyncSignature = buildRequestLiveSyncSignature(requestsInventory);
-            invalidateResolvedViewStateCaches();
-            markViewDirty('request');
-            markViewDirty('reports');
-            refreshLocalRequestViewState('same-drive-request-review', {
-                forceRender: true,
-                preferImmediate: true,
-                userAction: false,
-                typingDelay: REQUEST_REALTIME_UI_DELAY_MS,
-                renderHiddenRequest: true
-            });
-        }
 
-        async function carryOverSameDriveRequestReviewData(completedRow = null, targetRow = null, requestOptions = {}) {
-            const rowId = String(firstNonEmptyValue(targetRow && targetRow.UNIQUE_ID, targetRow && targetRow.unique_id, '') || '').trim();
-            const payload = buildSameDriveRequestReviewCarryoverPayload(completedRow, targetRow);
-            applySameDriveRequestReviewCarryoverToLocalRow(targetRow, payload);
-            refreshSameDriveRequestReviewCarryoverState(targetRow);
-            const hasPayload = payload && Object.keys(payload).length > 0;
-            if (!rowId || !hasPayload || navigator.onLine === false) return { payload, persisted: false };
-            try {
-                await runDetailWriteWithRetry(ACTIVE_REQUEST_TABLE, 'PATCH', payload, `unique_id=eq.${encodeURIComponent(rowId)}`, requestOptions || {});
-                persistCurrentCache(false, 'same-drive-request-review-carryover');
-                return { payload, persisted: true };
-            } catch (error) {
-                console.warn('Same Drive request review carryover write failed', rowId, error);
-                return { payload, persisted: false, error };
-            }
-        }
 
-        async function promptSameDriveRequestReviewAfterCompletion(completedRow = null, requestOptions = {}) {
-            const candidates = getPendingSameDriveRequestReviewRows(completedRow);
-            if (!candidates.length) return false;
-            const nextRow = candidates[0];
-            const customerLabel = String(getRequestCustomerConsigneeLabelForItem(nextRow) || '').trim();
-            const repLabel = String(getRequestAssignedRep(nextRow) || '').trim();
-            const labelParts = [customerLabel, repLabel ? `Rep: ${repLabel}` : ''].filter(Boolean);
-            const itemLabel = String(firstNonEmptyValue(nextRow.COMMONNAME, nextRow.ITEMCODE, completedRow && completedRow.COMMONNAME, completedRow && completedRow.ITEMCODE, 'this item') || 'this item').trim();
-            const promptText = [
-                `Another pending request uses the same Drive Mode row for ${itemLabel}.`,
-                labelParts.length ? `Next request: ${labelParts.join(' / ')}.` : '',
-                'Copy the same photos/data into that request and open it now so you can update comments/details and mark it complete?'
-            ].filter(Boolean).join('\n\n');
-            const openNext = await showAppConfirm(promptText, {
-                title: 'Review Next Request',
-                confirmLabel: 'Open Next',
-                cancelLabel: 'Stay Here'
-            });
-            if (!openNext) return false;
-            await carryOverSameDriveRequestReviewData(completedRow, nextRow, requestOptions);
-            const rowId = String(firstNonEmptyValue(nextRow.UNIQUE_ID, nextRow.unique_id, '') || '').trim();
-            if (!rowId) return false;
-            openDetail(rowId, 'request', { preferredTab: 'request' });
-            showToast('Review Next Request', 'Same photos/data were copied. Update comments/details, then mark this request complete.');
-            return true;
-        }
 
         let autoSaveTimer = null;
 
@@ -134523,9 +123550,6 @@ ${folderNote ? `Folder Note: ${folderNote}
             return !!(item && getDockSuspendValue(item) === 'SUSPEND' && getDockSuspendToValue(item) === 'dc');
         }
 
-        function isDockSuspendDcRequestCompletedRow(item = null) {
-            return !!String(firstNonEmptyValue(item && item.DATE_COMPLETED, item && item.date_completed, '') || '').trim();
-        }
 
         function getDockSuspendDcRequestGroupParts(item = null) {
             const row = getDockSuspendDcRequestBaseRow(item) || item || {};
@@ -134578,18 +123602,6 @@ ${folderNote ? `Folder Note: ${folderNote}
                 : '';
         }
 
-        function getDockSuspendDcRequestCompletionFolderId(parts = {}, row = null) {
-            const sourceUid = sanitizeDockSuspendDcRequestFolderToken(parts.sourceUid || firstNonEmptyValue(row && row.UNIQUE_ID, row && row.unique_id, ''), 'row');
-            const tokens = [
-                'SUSPEND-TAG',
-                sanitizeDockSuspendDcRequestFolderToken(parts.dock, 'NO-DOCK'),
-                sanitizeDockSuspendDcRequestFolderToken(parts.drop, 'NO-DROP'),
-                sanitizeDockSuspendDcRequestFolderToken(parts.customer, 'NO-CUSTOMER'),
-                sanitizeDockSuspendDcRequestFolderToken(parts.consignee, 'NO-CONSIGNEE'),
-                sanitizeDockSuspendDcRequestFolderToken(parts.itemcode, sourceUid || 'ITEM')
-            ].filter(Boolean);
-            return tokens.join('-') || `SUSPEND-TAG-${sourceUid || Date.now()}`;
-        }
 
         function getDockSuspendDcRequestSalesRepName(item = null) {
             return String(firstNonEmptyValue(
@@ -134694,41 +123706,6 @@ ${folderNote ? `Folder Note: ${folderNote}
             return row;
         }
 
-        async function maybeSendDockSuspendDcRequestGroupCompleteNotification(completedSourceRow = null, mirrorRow = null) {
-            const baseRow = completedSourceRow || getDockSuspendDcRequestBaseRow(mirrorRow) || mirrorRow;
-            if (!baseRow) return false;
-            const groupRows = await loadDockSuspendDcRequestGroupRows(baseRow);
-            if (!groupRows.length || groupRows.some((row) => !isDockSuspendDcRequestCompletedRow(row))) return false;
-            const parts = getDockSuspendDcRequestGroupParts(baseRow);
-            const folderId = getDockSuspendDcRequestCompletionFolderId(parts, baseRow);
-            const repName = getDockSuspendDcRequestSalesRepName(baseRow);
-            const customerLabel = getDockSuspendDcRequestCompletionCustomerLabel(parts, baseRow);
-            const requestItems = groupRows
-                .map((row, index) => buildDockSuspendDcRequestCompletionItem(row, folderId, index))
-                .filter(Boolean);
-            if (!requestItems.length) return false;
-            const requestIds = requestItems.map((row) => String(firstNonEmptyValue(row.UNIQUE_ID, row.unique_id, '') || '').trim()).filter(Boolean);
-            const completedByUsers = collectRequestCompletionUsers(requestItems, [getCurrentRequestCompletionUserEntry()].filter(Boolean));
-            const result = await sendEmailNotification('request_complete', folderId, repName, customerLabel, requestItems.length, {
-                items: requestItems,
-                requestIds,
-                completedByUsers,
-                source: 'dock_suspend_dc',
-                folderNote: 'All Suspend Tag rows for this dock/drop item were completed.'
-            }, { suppressFailureToast: true });
-            if (result && result.ok) {
-                if (!result.skipped) {
-                    sendPushNotification('request_complete', folderId, repName, customerLabel, requestItems.length, {
-                        source: 'dock_suspend_dc',
-                        requestIds
-                    });
-                    showToast('Sales Rep Sent', 'All matching Suspend Tag rows are complete. The sales rep was notified.');
-                }
-                return true;
-            }
-            showToast('Email Warning', 'Suspend Tag completed, but the sales rep email could not be sent.', true);
-            return false;
-        }
 
         function getDockSuspendTagPhotoSpecIdentityKey(row = null) {
             return inventoryPhotoLocationKey(row);
@@ -135025,9 +124002,6 @@ ${folderNote ? `Folder Note: ${folderNote}
                 if (!values.avNote) values.avNote = existingReview.avNote;
             }
             const missing = [];
-            const effectiveItem = source || mirrorRow || {};
-            const plantGroup = String(firstNonEmptyValue(effectiveItem.PLANTGROUPCODE, effectiveItem.plantgroupcode, '') || '');
-            const contSize = String(firstNonEmptyValue(effectiveItem.CONTSIZE, effectiveItem.contsize, '') || '');
             const needsCaliper = false;
             return {
                 ready: missing.length === 0,
@@ -135206,108 +124180,9 @@ ${folderNote ? `Folder Note: ${folderNote}
             return payload;
         }
 
-        async function syncDockSuspendDcRequestMasterFromSave(mirrorRow = null, sourceRow = null, values = {}, reqPhotoLink = '', reqPhotoName = '', completedAt = '') {
-            const linkedMaster = getDockSuspendDcRequestLinkedMasterRow(mirrorRow, sourceRow);
-            if (!linkedMaster) return { updated: false, payload: null, masterItem: null, error: null };
-            const payload = buildDockSuspendDcRequestMasterSyncPayload(values, reqPhotoLink, reqPhotoName, completedAt);
-            const result = await syncLinkedMasterFromRequestSave(mirrorRow, payload, linkedMaster, {
-                timeoutMs: getDetailRowWriteTimeoutMs(),
-                retries: DETAIL_ROW_WRITE_RETRY_COUNT,
-                retryDelayMs: DETAIL_ROW_WRITE_RETRY_DELAY_MS
-            });
-            if (result && result.error) {
-                showToast('Inventory Sync Warning', 'Suspend Tag saved, but the linked inventory row did not update in every view.', true);
-            }
-            return result;
-        }
 
-        function syncSuspendTagSeasonSalesOfficeAfterSave(mirrorRow = null, sourceRow = null) {
-            const linkedMaster = getDockSuspendDcRequestLinkedMasterRow(mirrorRow, sourceRow);
-            const baseRow = linkedMaster || sourceRow || mirrorRow;
-            const itemCode = getMasterItemCodeKey(baseRow) || getItemInquiryItemCode(baseRow);
-            if (!itemCode) return [];
-            const candidates = [linkedMaster, sourceRow, mirrorRow].filter(Boolean);
-            const shouldSync = candidates.some((row) => {
-                if (!row) return false;
-                if (isSeasonSalesNoteCardItem(row)) return true;
-                const assignment = firstNonEmptyValue(
-                    row.APP_TAB_ASSIGNMENT,
-                    row.app_tab_assignment,
-                    row.MASTER_APP_TAB_ASSIGNMENT,
-                    row.master_app_tab_assignment,
-                    ''
-                );
-                return isCurrentSeasonSalesNotesAssignmentRow(row, assignment);
-            });
-            if (!shouldSync) return [];
-            const remoteOps = syncSeasonSalesOfficeStateForItemCodes([itemCode], {
-                preserveAssignments: true,
-                reason: 'suspend-tag-data-save'
-            });
-            remoteOps.forEach((op) => Promise.resolve(op).catch((error) => console.warn('Suspend Tag Sales Office sync failed', error)));
-            return remoteOps;
-        }
 
-        async function confirmDockSuspendDcRequestMarkDone(mirrorRow = null, btnComp = null) {
-            if (!mirrorRow) return true;
-            const markDonePromptPlan = prepareMarkDoneCompletionPrompt(mirrorRow, 'req-');
-            if (!markDonePromptPlan || !markDonePromptPlan.ok) {
-                if (btnComp) btnComp.innerText = 'MARK DONE';
-                const preview = markDonePromptPlan && markDonePromptPlan.inventoryPreview;
-                showToast(
-                    (preview && preview.title) || 'Inventory Checks',
-                    (preview && preview.message) || 'Review the inventory-check fields before marking this row done.',
-                    true
-                );
-                return false;
-            }
-            const confirmedMarkDone = await openMarkDoneConfirmModal(markDonePromptPlan);
-            if (!confirmedMarkDone) {
-                if (btnComp) btnComp.innerText = 'MARK DONE';
-                return false;
-            }
-            if (markDonePromptPlan.shouldSaveInventory) {
-                const inventorySaveResult = await saveInventoryEditMockInlineForm(markDonePromptPlan.inventoryForm, { silent: true });
-                if (!inventorySaveResult || !inventorySaveResult.ok) {
-                    if (btnComp) btnComp.innerText = 'MARK DONE';
-                    showToast(
-                        (inventorySaveResult && inventorySaveResult.title) || 'Inventory Checks',
-                        (inventorySaveResult && inventorySaveResult.message) || 'Inventory checks could not be saved.',
-                        true
-                    );
-                    return false;
-                }
-            }
-            return true;
-        }
 
-        function scheduleDockSuspendDcRequestPostSavePrompts(mirrorRow = null, sourceRow = null) {
-            if (!mirrorRow) return false;
-            const linkedMaster = getDockSuspendDcRequestLinkedMasterRow(mirrorRow, sourceRow);
-            const sourceItem = linkedMaster || sourceRow || mirrorRow;
-            const promptOptions = {
-                sourceItem,
-                requestMasterItem: linkedMaster || null,
-                suppressRequestCompletionEmail: true,
-                skipSalesRepEmail: true
-            };
-            setTimeout(() => {
-                promptAndSendNcrReleaseEmailFromSave(mirrorRow, 'req-', promptOptions)
-                    .catch((error) => console.warn('Suspend Tag NCR prompt failed', error));
-                setTimeout(() => {
-                    promptAndSendHoldReleaseEmailFromSave(mirrorRow, 'req-', promptOptions)
-                        .catch((error) => console.warn('Suspend Tag hold prompt failed', error));
-                }, 180);
-                setTimeout(() => {
-                    promptSameDriveRequestReviewAfterCompletion(mirrorRow, {
-                        timeoutMs: getDetailRowWriteTimeoutMs(),
-                        retries: DETAIL_ROW_WRITE_RETRY_COUNT,
-                        retryDelayMs: DETAIL_ROW_WRITE_RETRY_DELAY_MS
-                    }).catch((error) => console.warn('Suspend Tag same-drive prompt failed', error));
-                }, 260);
-            }, 90);
-            return true;
-        }
 
         function getSuspendTagStatus(row = null) {
             row = overlaySuspendTagReceipt(row);
@@ -135811,20 +124686,6 @@ ${folderNote ? `Folder Note: ${folderNote}
             return !!(receipt && Number.isFinite(Date.parse(receipt.completedAt)));
         }
 
-        function getDockSuspendCompletionErrorMessage(error) {
-            let message = String(error && error.message || 'The connection was interrupted. Tap Done to retry safely.');
-            try { message = JSON.parse(message).message || message; } catch (parseError) { globalThis.reportHandledRuntimeIssue?.("getDockSuspendCompletionErrorMessage", 'HANDLED_OPERATION_FAILURE'); }
-            const hints = {
-                SUSPEND_TAG_SESSION_REQUIRED: 'Your session expired. Sign in again, then retry Done.',
-                SUSPEND_TAG_AUTH_REQUIRED: 'Your session expired. Sign in again, then retry Done.',
-                SUSPEND_TAG_FORBIDDEN: 'Your account is not authorized to complete Suspend Tag rows.',
-                SUSPEND_TAG_SOURCE_CHANGED: 'This Docks row changed. Refresh the view, review it, then tap Done again.',
-                SUSPEND_TAG_NOT_ELIGIBLE: 'This row is no longer suspended to DC. Refresh the view.',
-                SUSPEND_TAG_NOT_FOUND: 'This Docks row is no longer available. Refresh the view.',
-                SUSPEND_TAG_SOURCE_MISSING: 'This Docks row is no longer available. Refresh the view.'
-            };
-            return hints[message] ? `${hints[message]} (${message})` : message;
-        }
 
         async function persistDockSuspendDcRequestCompletion(mirrorRow, expectedRevision = getDockSuspendCompletionRevision(mirrorRow)) {
             const sourceRow = findDockSuspendDcRequestSourceRow(mirrorRow) || getDockSuspendDcRequestBaseRow(mirrorRow) || mirrorRow;
@@ -136018,171 +124879,13 @@ ${folderNote ? `Folder Note: ${folderNote}
             buildSearchIndex(row);
         }
 
-        function clearDockSuspendDcRequestSuspendState(row = null) {
-            if (!row) return;
-            [
-                'SUSPEND',
-                'suspend',
-                'Suspend',
-                'SUSPENDTO',
-                'suspendto',
-                'SUSPEND_TO',
-                'suspend_to',
-                'SUSPEND-TO',
-                'suspend-to',
-                'SUSPEND TO',
-                'suspend to'
-            ].forEach((key) => { row[key] = ''; });
-            normalizeRowPhotoFields(row);
-            buildSearchIndex(row);
-        }
 
-        function applyDockSuspendDcRequestRemovedState(row = null, completedAt = '', isMirrorRow = false) {
-            if (!isMirrorRow) invalidateDockSuspendDcSourceRowLookup(row);
-            applyDockSuspendDcRequestHandledState(row, completedAt, isMirrorRow);
-            clearDockSuspendDcRequestSuspendState(row);
-            if (isMirrorRow) setDockSuspendDcRequestMirrorHidden(row, true);
-        }
 
-        function getDockSuspendDcRequestHandledSnapshot(row = null) {
-            if (!row) return null;
-            return {
-                DATE_COMPLETED: row.DATE_COMPLETED,
-                date_completed: row.date_completed,
-                REQ_STATUS: row.REQ_STATUS,
-                req_status: row.req_status,
-                STATUS: row.STATUS,
-                status: row.status,
-                SUSPEND: row.SUSPEND,
-                suspend: row.suspend,
-                Suspend: row.Suspend,
-                SUSPENDTO: row.SUSPENDTO,
-                suspendto: row.suspendto,
-                SUSPEND_TO: row.SUSPEND_TO,
-                suspend_to: row.suspend_to,
-                'SUSPEND-TO': row['SUSPEND-TO'],
-                'suspend-to': row['suspend-to'],
-                'SUSPEND TO': row['SUSPEND TO'],
-                'suspend to': row['suspend to']
-            };
-        }
 
-        function restoreDockSuspendDcRequestHandledState(row = null, snapshot = null) {
-            if (!row || !snapshot) return;
-            invalidateDockSuspendDcSourceRowLookup(row);
-            Object.keys(snapshot).forEach((key) => {
-                row[key] = snapshot[key];
-            });
-            normalizeRowPhotoFields(row);
-            buildSearchIndex(row);
-        }
 
-        function getDockSuspendDcCancelDetails(sourceRow = null, mirrorRow = null) {
-            const row = sourceRow || mirrorRow || {};
-            const fallbackRow = mirrorRow || sourceRow || {};
-            const orderedQty = getDockOrderedQtyDisplay(row)
-                || getDockOrderedQtyDisplay(fallbackRow)
-                || String(firstNonEmptyValue(row.REQ_QTY, fallbackRow.REQ_QTY, row.QUANTITYORDERED, fallbackRow.QUANTITYORDERED, '1') || '1').trim();
-            return {
-                commonName: String(firstNonEmptyValue(row.COMMONNAME, row.commonname, fallbackRow.COMMONNAME, 'Unknown') || 'Unknown').trim(),
-                contSize: String(firstNonEmptyValue(row.CONTSIZE, row.contsize, fallbackRow.CONTSIZE, '') || '').trim(),
-                itemCode: String(firstNonEmptyValue(row.ITEMCODE, row.itemcode, fallbackRow.ITEMCODE, '') || '').trim(),
-                locationCode: String(firstNonEmptyValue(row.LOCATIONCODE, row.locationcode, fallbackRow.LOCATIONCODE, '') || '').trim(),
-                lotCode: String(firstNonEmptyValue(row.LOTCODE, row.lotcode, fallbackRow.LOTCODE, '') || '').trim(),
-                dock: String(firstNonEmptyValue(row.DOCK_NUM, row.DOCK, row.dock_num, fallbackRow.DOCK_NUM, fallbackRow.DOCK, '') || '').trim(),
-                drop: String(firstNonEmptyValue(row.STOPNUMBER, row.STOP, row.stopnumber, fallbackRow.STOPNUMBER, fallbackRow.STOP, '') || '').trim(),
-                customerName: String(firstNonEmptyValue(row.CUSTOMERNAME, row.customername, row.CUSTOMER, fallbackRow.CUSTOMERNAME, fallbackRow.CUSTOMER, '') || '').trim(),
-                consigneeName: String(firstNonEmptyValue(row.CONSIGNEENAME, row.consigneename, row.CONSIGNEE, fallbackRow.CONSIGNEENAME, fallbackRow.CONSIGNEE, '') || '').trim(),
-                qtyOrdered: orderedQty,
-                qtyCanceling: String(firstNonEmptyValue(row.DOCK_CANCEL_QTY, row.dock_cancel_qty, fallbackRow.DOCK_CANCEL_QTY, orderedQty, '1') || '1').trim()
-            };
-        }
 
-        function buildDockSuspendDcCancelEmailNote(details = {}) {
-            const customerLine = details.consigneeName ? `${details.customerName || 'N/A'} / ${details.consigneeName}` : (details.customerName || 'N/A');
-            return [
-                'Suspend Tag Cancel',
-                `Common Name: ${details.commonName || 'Unknown'}`,
-                `Cont Size: ${details.contSize || '-'}`,
-                `Item Code: ${details.itemCode || '-'}`,
-                `Location Code: ${details.locationCode || '-'}`,
-                `Dock: ${details.dock || '-'}`,
-                `Drop: ${details.drop || '-'}`,
-                `Customer: ${customerLine}`,
-                `Qty Ordered: ${details.qtyOrdered || '-'}`,
-                `Amount Canceling: ${details.qtyCanceling || '-'}`
-            ].join('\n');
-        }
 
-        function buildDockSuspendDcCancelEmailRow(sourceRow = null, mirrorRow = null) {
-            const row = sourceRow || mirrorRow;
-            if (!row) return null;
-            const details = getDockSuspendDcCancelDetails(sourceRow, mirrorRow);
-            const sourceUid = String(firstNonEmptyValue(row.UNIQUE_ID, row.unique_id, mirrorRow && mirrorRow.UNIQUE_ID, Date.now()) || '').trim();
-            const noteText = buildDockSuspendDcCancelEmailNote(details);
-            const customerLabel = getRequestCustomerConsigneeLabel(details.customerName, details.consigneeName);
-            const cancelUid = `dock_suspend_dc_cancel_${sourceUid}_${Date.now()}`;
-            const emailRow = {
-                ...(row || {}),
-                UNIQUE_ID: cancelUid,
-                unique_id: cancelUid,
-                SOURCE_UNIQUE_ID: sourceUid,
-                SOURCE_TABLE: 'ph_soc_master',
-                source_table: 'ph_soc_master',
-                REQUEST_SOURCE: 'Docks Suspend Tag Cancel',
-                REQUEST_FOLDER: 'Suspend Tag Cancel',
-                request_folder: 'Suspend Tag Cancel',
-                REQ_CUSTOMER: customerLabel,
-                req_customer: customerLabel,
-                REQ_STATUS: 'Complete',
-                STATUS: 'Complete',
-                REQ_ARCHIVED: false,
-                REQUEST_HISTORY: false,
-                REQ_RESERVE: 'NO',
-                REQ_QTY: details.qtyCanceling || details.qtyOrdered || '1',
-                ORDER_QTY: details.qtyOrdered || '',
-                DOCK_ORDERED_QTY: details.qtyOrdered || '',
-                DOCK_CANCEL_QTY: details.qtyCanceling || '',
-                REQUEST_NOTE: noteText,
-                REQ_COMMENTS: noteText,
-                DATE_COMPLETED: new Date().toISOString(),
-                date_completed: new Date().toISOString()
-            };
-            setRequestPickNoteAliases(emailRow, noteText);
-            normalizeRowPhotoFields(emailRow);
-            buildSearchIndex(emailRow);
-            return emailRow;
-        }
 
-        async function sendDockSuspendDcRequestCancelNotification(sourceRow = null, mirrorRow = null) {
-            if (!requireCurrentSuspendTagWriteProof('sending a cancellation notice', mirrorRow)) return false;
-            const baseRow = sourceRow || getDockSuspendDcRequestBaseRow(mirrorRow) || mirrorRow;
-            if (!baseRow) return false;
-            const details = getDockSuspendDcCancelDetails(baseRow, mirrorRow);
-            const emailRow = buildDockSuspendDcCancelEmailRow(baseRow, mirrorRow);
-            if (!emailRow) return false;
-            const repName = getDockSuspendDcRequestSalesRepName(baseRow);
-            const customerLabel = getRequestCustomerConsigneeLabel(details.customerName, details.consigneeName);
-            const folderId = [
-                'Suspend-Tag-Cancel',
-                details.dock ? `Dock-${details.dock}` : '',
-                details.drop ? `Drop-${details.drop}` : '',
-                details.itemCode || ''
-            ].filter(Boolean).join('-');
-            const result = await sendEmailNotification('request_complete', folderId, repName, customerLabel, 1, {
-                items: [emailRow],
-                requestIds: [String(firstNonEmptyValue(emailRow.UNIQUE_ID, emailRow.unique_id, '') || '').trim()].filter(Boolean),
-                source: 'dock_suspend_dc_cancel',
-                folderNote: 'Suspend Tag cancellation sent to sales rep.',
-                forceResend: true
-            }, { suppressFailureToast: true, forceResend: true });
-            if (result && result.ok) {
-                showToast('Sales Rep Sent', 'Suspend Tag cancellation email is ready for the sales rep.');
-                return true;
-            }
-            showToast('Email Warning', 'Suspend Tag was removed, but the sales rep email could not be sent.', true);
-            return false;
-        }
 
         async function markDockSuspendDcRequestHandled(uniqueId = '', button = null) {
             const mirror = findDockSuspendDcRequestMirrorRowByUniqueId(String(uniqueId || '').trim());
@@ -137826,11 +126529,6 @@ ${folderNote ? `Folder Note: ${folderNote}
             req_photo_link: ['REQ_PHOTO_LINK', 'req_photo_link'], req_photo_name: ['REQ_PHOTO_NAME', 'req_photo_name'],
             req_status: ['REQ_STATUS', 'req_status']
         });
-        const REQUEST_WORK_FIELD_LABELS = Object.freeze({
-            req_match: 'LOC MATCH %', req_spec: 'Spec', req_caliper: 'Caliper', req_pic_note: 'Pick Note',
-            req_comments: 'Comments', req_reserve: 'Reserve', av_note: 'AV Note',
-            req_photo_link: 'Request photo', req_photo_name: 'Request photo name', req_status: 'Completion status'
-        });
 
         function normalizeRequestWorkDraftValue(value) {
             if (value == null) return null;
@@ -137851,11 +126549,6 @@ ${folderNote ? `Folder Note: ${folderNote}
             return entry && entry.requestWorkDraft && typeof entry.requestWorkDraft === 'object' ? entry.requestWorkDraft : null;
         }
 
-        function isRequestWorkConflictBlocked(item = null) {
-            const requestId = String(firstNonEmptyValue(item && item.UNIQUE_ID, item && item.unique_id, '') || '').trim();
-            const entry = requestId ? getPendingEditsCache()[requestId] : null;
-            return !!(entry && entry.conflictType === 'request-work' && entry.autoRetryBlocked === true);
-        }
 
         function isRequestWorkVersionConflict(error) {
             const text = `${String(error && error.message || error || '')} ${String(error && error.code || '')}`.toUpperCase();
@@ -137948,23 +126641,6 @@ ${folderNote ? `Folder Note: ${folderNote}
             return Object.fromEntries(Object.entries(formValues).filter(([, entry]) => entry !== undefined));
         }
 
-        function captureBlockedRequestWorkFormDraft(item) {
-            const requestId = String(firstNonEmptyValue(item && item.UNIQUE_ID, item && item.unique_id, '') || '').trim();
-            const entry = requestId ? getPendingEditsCache()[requestId] : null;
-            if (!entry || entry.conflictType !== 'request-work' || !entry.requestWorkDraft) return;
-            const draft = { ...entry.requestWorkDraft, dirtyValues: { ...(entry.requestWorkDraft.dirtyValues || {}) }, conflictChoices: { ...(entry.requestWorkDraft.conflictChoices || {}) } };
-            const liveValues = getRequestWorkFormValues(item);
-            if (!liveValues) return;
-            const canonicalValues = draft.conflictPlan && draft.conflictPlan.canonical && draft.conflictPlan.canonical.values || null;
-            Object.entries(liveValues).forEach(([field, value]) => {
-                if (canonicalValues && value === canonicalValues[field]) delete draft.dirtyValues[field];
-                else draft.dirtyValues[field] = value;
-                const conflict = draft.conflictPlan && Array.isArray(draft.conflictPlan.conflictFields)
-                    ? draft.conflictPlan.conflictFields.find((candidate) => candidate.field === field) : null;
-                if (conflict && conflict.local !== value) { conflict.local = value; delete draft.conflictChoices[field]; }
-            });
-            persistRequestWorkDraft(item, draft, { autoRetryBlocked: true, conflictType: 'request-work' });
-        }
 
         function finalizeRequestWorkDraftAfterSuccess(item, draft, sentValues, canonicalRow, dispatchFormValues = {}, dispatchEntryTimestamp = null, currentValuesOverride = null) {
             const requestId = String(firstNonEmptyValue(item && item.UNIQUE_ID, item && item.unique_id, '') || '').trim();
@@ -138023,75 +126699,11 @@ ${folderNote ? `Folder Note: ${folderNote}
             panel.replaceChildren();
             panel.classList.add('hidden');
             return;
-            const requestId = String(firstNonEmptyValue(item && item.UNIQUE_ID, item && item.unique_id, '') || '').trim();
-            const entry = requestId ? getPendingEditsCache()[requestId] : null;
-            const draft = entry && entry.requestWorkDraft;
-            if (!entry || entry.conflictType !== 'request-work' || !draft) {
-                panel.replaceChildren(); panel.classList.add('hidden'); return;
-            }
-
-            const title = document.createElement('strong');
 
 
-            const plan = draft.conflictPlan;
-            if (!plan || !Array.isArray(plan.conflictFields) || !plan.conflictFields.length) {
-                const detail = document.createElement('p'); detail.className = 'mt-1';
-                detail.textContent = draft.legacy ? 'This older offline draft has no saved base version. Use the latest row, or keep the draft here and copy its values into the form after review.' : 'The request could not be safely reconciled. Your draft is preserved on this device.';
-                panel.append(detail);
-                if (draft.legacy && draft.dirtyValues) {
-                    const legacyValues = document.createElement('pre'); legacyValues.className = 'mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded-lg bg-white/70 p-2 text-xs dark:bg-black/10';
-                    legacyValues.textContent = Object.entries(draft.dirtyValues).map(([field, value]) => `${REQUEST_WORK_FIELD_LABELS[field] || field}: ${String(value ?? '(blank)')}`).join('\n');
-                    panel.append(legacyValues);
-                }
-                if (!plan.canonical) {
-                    const loadLatest = document.createElement('button'); loadLatest.type = 'button'; loadLatest.className = 'mr-2 mt-2 rounded-lg border border-amber-700 px-3 py-2 font-bold'; loadLatest.textContent = 'Load latest row';
-                    loadLatest.onclick = async () => {
-                        loadLatest.disabled = true;
-                        try {
-                            const canonical = await fetchCanonicalRequestWorkRow(requestId);
-                            if (!canonical) throw new Error('The latest request row is unavailable. Try again when online.');
-                            const currentDraft = getRequestWorkDraftEntry(requestId) || draft;
-                            const planned = currentDraft.legacy ? null : window.AgMetricRequestSubmission.planRequestWorkConflictRebase(currentDraft, canonical);
-                            const conflictFields = currentDraft.legacy
-                                ? Object.entries(currentDraft.dirtyValues || {}).map(([field, local]) => ({ field, base: undefined, local, remote: canonical.values[field] }))
-                                : (planned && planned.conflictFields || []);
-                            const nextDraft = { ...currentDraft, conflictPlan: { ...(planned || { status: 'review-required', reason: 'legacy-draft' }), conflictFields, canonical }, conflictChoices: {} };
-                            persistRequestWorkDraft(item, nextDraft, { autoRetryBlocked: true, conflictType: 'request-work' });
-                            updateRequestWorkConflictReview(item);
-                        } catch (error) {
-                            const message = document.createElement('p'); message.className = 'mt-2'; message.textContent = error instanceof Error ? error.message : 'The latest request row could not be loaded.'; panel.append(message);
-                            loadLatest.disabled = false;
-                        }
-                    };
-                    panel.append(loadLatest);
-                }
-                const useLatest = document.createElement('button'); useLatest.type = 'button'; useLatest.className = 'mt-2 rounded-lg border border-amber-700 px-3 py-2 font-bold'; useLatest.textContent = 'Use latest server row';
-                useLatest.disabled = !plan.canonical;
-                useLatest.title = plan.canonical ? '' : 'Refresh the request before choosing the server version.';
-                useLatest.onclick = () => { if (!plan.canonical) return; delete getPendingEditsCache()[requestId]; flushPendingEditsCache(true); applyRequestWorkValuesToItem(item, plan.canonical.values); if (item) { item.ROW_VERSION = plan.canonical.rowVersion; item.row_version = plan.canonical.rowVersion; } if (item === activeItem) populateDetailInputsForPrefix('req-', item); updateRequestWorkConflictReview(item); };
-                panel.append(useLatest);
-                if (!draft.legacy && plan.canonical && plan.status === 'rebase') {
-                    const retry = document.createElement('button'); retry.type = 'button'; retry.className = 'ml-2 mt-2 rounded-lg bg-amber-700 px-3 py-2 font-bold text-white'; retry.textContent = 'Retry my draft against latest';
-                    retry.onclick = () => {
-                        const resolved = { ...draft, baseVersion: plan.canonical.rowVersion, baseValues: { ...plan.canonical.values }, dirtyValues: { ...plan.patch }, conflictPlan: null, conflictChoices: {}, acknowledged: false };
-                        applyRequestWorkValuesToItem(item, plan.canonical.values); applyRequestWorkValuesToItem(item, resolved.dirtyValues);
-                        item.ROW_VERSION = resolved.baseVersion; item.row_version = resolved.baseVersion;
-                        persistRequestWorkDraft(item, resolved, { autoRetryBlocked: false, conflictType: '' });
-                        updateRequestWorkConflictReview(item);
-                        if (Object.keys(resolved.dirtyValues).length || resolved.complete) saveData(resolved.complete, 'req-', false, item, { requestWorkDraftRetry: true });
-                        else discardPendingLocalEdits([requestId], true);
-                    };
-                    panel.append(retry);
-                }
-                return;
-            }
-            const choices = draft.conflictChoices || {};
-            const list = document.createElement('div');
 
 
-            const allChosen = plan.conflictFields.every((conflict) => choices[conflict.field] === 'local' || choices[conflict.field] === 'remote');
-            if (!allChosen) return;
-            const save = document.createElement('button');
+
 
 
         }

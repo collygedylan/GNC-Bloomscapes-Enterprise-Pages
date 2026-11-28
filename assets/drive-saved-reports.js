@@ -9,6 +9,10 @@ function driveSavedReportChoices(state,evaluator,scope) {
     return [driveReportAllRows,...assigned,...saved,...save];
 }
 
+/**
+ * @param {string} scope Effective evaluation report access.
+ * @returns {boolean} Whether the current viewer may manage custom reports.
+ */
 function canUseDriveCustomReports(scope = getActiveEvalReportsAccess().scope) {
     if (isBloomscapesDriveTour()) return false;
     return scope === 'all' || scope === 'legacy';
@@ -47,11 +51,16 @@ function mountDriveAssignedUsers(evaluator) {
     if (!evaluator.error) loadDriveEvaluatorPicker(evaluator);
 }
 
+/**
+ * @param {object} state Saved-report state for the active account.
+ * @param {object|null} evaluator Current evaluator and assignment scope.
+ * @returns {void} Applies the active role and Drive mode to the report controls.
+ */
 function mountDriveSavedReports(state,evaluator) {
     const host = document.querySelector('[data-drive-saved-reports]');
     if (!host) return;
     const {scope} = getActiveEvalReportsAccess();
-    host.hidden = scope === 'hidden' || activeDriveMode !== 'ok';
+    host.hidden = isBloomscapesDriveTour() || scope === 'hidden' || activeDriveMode !== 'ok';
     if (!host.hidden) {
         const selected = activeDriveSavedReport(state,evaluator);
         syncDriveReportSelect(host,'Report',driveSavedReportChoices(state,evaluator,scope),selected,key=>{
@@ -123,6 +132,10 @@ function showDriveReportSaveStatus(message) {
     if (status) status.textContent = message;
 }
 
+/**
+ * @param {HTMLElement} container Mounted report host.
+ * @returns {void} Releases the Drive report projection.
+ */
 function resetDriveReportContent(container) {
     setContainerHtml(container,'');
     delete container.dataset.driveRenderKey;

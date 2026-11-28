@@ -100,7 +100,7 @@ function renderManagerImportedFilesPanel() {
     if (managerImportHistoryModule?.renderImportedFilesPanel) {
         return renderContinuousImportedFilesPanel(managerImportHistoryModule.renderImportedFilesPanel,viewState);
     }
-    return '<div class="rounded-xl border border-emerald-100 bg-white p-6 text-center text-sm font-bold text-emerald-700">Loading Imported Files tools…</div>';
+    return '<div class="rounded-xl border border-emerald-100 bg-white p-6 text-center text-sm font-bold text-emerald-700">Loading Imported Files toolsâ€¦</div>';
 }
 
 /** @returns {*} */

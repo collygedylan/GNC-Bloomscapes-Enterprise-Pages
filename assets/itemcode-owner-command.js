@@ -1,3 +1,4 @@
+/** @param {string[]} [itemcodes] Exact selected item codes. @param {string} [assignedto] Eligible farm owner. @returns {Promise<boolean>} The handled control result. */
 async function assignEvalItemcodes(itemcodes=[],assignedto='') {
     await saveFarmOwnerBatch(itemcodes,assignedto);
     return false;
@@ -12,16 +13,21 @@ async function saveFarmOwnerBatch(itemcodes,assignedto) {
         const receipt = await saveBloomscapesItemcodeOwners(command);
         if (!farmOwnerCommandIsCurrent(command)) return false;
         applyAcknowledgedEvalAssignmentResults(command.changes,[receipt]);
+        command.undo.commit?.();
         completeFarmOwnerCommand(command);
         saved = true;
     } catch (error) {
         if (farmOwnerCommandIsCurrent(command)) failFarmOwnerCommand(command,error);
     } finally {
+        const current = farmOwnerCommandIsCurrent(command);
+        if (!current) command.undo({retired:true});
         codes.forEach(code=>state.defaultPending.delete(code));
-        state.ownerWriteAt = Date.now();
-        if (farmOwnerCommandIsCurrent(command)) updateManagerAssignedItemsView({ownerOnly:true});
+        if (current) {
+            state.ownerWriteAt = Date.now();
+            updateManagerAssignedItemsView({ownerOnly:true});
+        }
     }
-    if (saved) refreshSuspendOwnerViews();
+    if (saved && farmOwnerCommandIsCurrent(command)) refreshSuspendOwnerViews();
     return saved;
 }
 

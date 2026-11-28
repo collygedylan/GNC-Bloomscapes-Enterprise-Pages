@@ -39,6 +39,7 @@ function renderBloomscapesDockDropRows(container, crumb, label, dockRows) {
 const bloomscapesDockLabelCollator=new Intl.Collator(undefined,{numeric:true});
 const bloomscapesDockNameCollator=new Intl.Collator(undefined,{sensitivity:'base'});
 
+/** @returns {void} Renders the authorized Docks browse level from the current workspace state. */
 function renderBloomscapesDocksBrowse() {
     if (ensureViewDataForRender('docks')) return;
     const container = document.getElementById('docks-content');
@@ -216,9 +217,9 @@ function renderBloomscapesDockDropCard(card, label) {
     return `<button type="button" class="bloomscapes-dock-card mb-2 block w-full space-y-1 p-3 text-left"
         data-docks-drop-card="${pullHtml(stop)}" ${buildFastInvokeAttrs('selectDockStop',[stop],`Open Drop ${stop}`)}>
         <span class="flex items-center justify-between"><strong>Drop ${pullHtml(stop)}</strong><span class="text-xs">${done}/${items.length} Done</span></span>${phDockUnloadBadge(items)}
-        <span class="block text-xs">${pullHtml(label)} Ã‚Â· ${items.length} Rows Ã‚Â· Qty ${pullHtml(summary.quantity)}</span>
-        <strong class="block text-sm">${pullHtml(identity.cust)}${identity.cons && identity.cons !== identity.cust ? ' Ã‚Â· '+pullHtml(identity.cons) : ''}</strong>
-        <span class="flex flex-wrap items-center gap-2 text-xs"><span>${pullHtml(identity.rep)} Ã‚Â· ${pullHtml(identity.state)}</span>${badges}${planStarts.map(renderBloomscapesDockDropStart).join('')}</span></button>`;
+        <span class="block text-xs">${pullHtml(label)} · ${items.length} Rows · Qty ${pullHtml(summary.quantity)}</span>
+        <strong class="block text-sm">${pullHtml(identity.cust)}${identity.cons && identity.cons !== identity.cust ? ' · '+pullHtml(identity.cons) : ''}</strong>
+        <span class="flex flex-wrap items-center gap-2 text-xs"><span>${pullHtml(identity.rep)} · ${pullHtml(identity.state)}</span>${badges}${planStarts.map(renderBloomscapesDockDropStart).join('')}</span></button>`;
 }
 
 function renderBloomscapesDockPage(key,container,crumb,rows,label,render,options) {

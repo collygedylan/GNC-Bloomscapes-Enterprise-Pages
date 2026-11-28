@@ -14,6 +14,72 @@ function getDockOrderBusinessKey(row = {}) {
     return JSON.stringify([dock,drop,code,location,...group,Number.isFinite(quantity)?quantity:0]);
 }
 
+/** Select active Docks orders while the full SOC dataset loads.
+ * @param {Array} items Available order rows.
+ * @returns {Array} Rows used to render the Docks board.
+ */
+function dockScopedOrderSource(items) {
+    if (typeof getCurrentVisibleViewId !== 'function' || getCurrentVisibleViewId() !== 'docks'
+        || typeof isDatasetLoaded !== 'function' || isDatasetLoaded('soc','full')) return items;
+    const hasAssigned = items.some(row=>normalizeDockViewDockKey(firstNonEmptyValue(
+        row.DOCK,row.dock,row.DOCK_NUM,row.dock_num,'')) !== 'Unassigned' && bloomscapesFarmRowIsVisible(row));
+    if (hasAssigned) return items;
+    const board = currentBloomscapesDockBoard();
+    return board?.tags.length ? dockBrowseRowsFromBoard(board) : items;
+}
+
+function firstDockValue(row, keys) {
+    return firstDockNonEmpty(...keys.map(key => row[key]));
+}
+
+/**
+ * @param {string} [value] Raw suspend status.
+ * @returns {string} Uppercase status with word separators normalized.
+ */
+function normalizeDockSuspendRequestValue(value = '') {
+    return String(value || '').trim().toUpperCase().replace(/[\s_-]+/g, ' ');
+}
+
+/**
+ * @param {object} [item] Dock order row.
+ * @returns {string} Normalized suspend status from its first populated alias.
+ */
+function getDockSuspendValue(item = null) {
+    return normalizeDockSuspendRequestValue(firstDockValue(item || {}, ['SUSPEND', 'suspend', 'Suspend']));
+}
+
+/**
+ * @param {object} [item] Source order row.
+ * @returns {boolean} Whether the row is suspended on an assigned dock and remains open.
+ */
+function isDockSuspendDcRequestSource(item = null) {
+    if (!item || !['SUSPEND', 'SUSPENDED'].includes(getDockSuspendValue(item))) return false;
+    const dock = firstDockValue(item, ['DOCK_NUM', 'dock_num', 'DOCK', 'dock']);
+    const closed = item.suspend_completed === true || item.SUSPEND_COMPLETED === true || item.completed === true;
+    const candidate = String(item.suspend_candidate_state || item.SUSPEND_CANDIDATE_STATE || '').toLowerCase();
+    const status = String(item.status || item.STATUS || '').toLowerCase();
+    return normalizeDockViewDockKey(dock) !== 'Unassigned' && !closed
+        && !['approved', 'rejected', 'replaced', 'denied', 'canceled', 'cancelled'].includes(candidate)
+        && !['complete', 'completed', 'deleted'].includes(status);
+}
+
+/**
+ * @param {object} [item] Order or mirrored request.
+ * @returns {boolean} Whether its origin, tag, or request identity ties it to a dock suspension.
+ */
+function isDockSuspendDcRequestMirrorRow(item = null) {
+    if (!item) return false;
+    const text = (...keys) => String(firstDockValue(item, keys) || '').trim().toLowerCase();
+    const isSuspendTag = item.IS_SUSPEND_TAG === true || item.is_suspend_tag === true
+        || ['true', '1', 'yes'].includes(text('IS_SUSPEND_TAG', 'is_suspend_tag'));
+    const uniqueId = String(firstDockValue(item, ['UNIQUE_ID', 'unique_id']) || '').trim();
+    return isSuspendTag || text('REQUEST_TYPE', 'request_type') === 'suspend_tag' || isDockSuspendDcRequestSource(item)
+        || item.DOCK_SUSPEND_DC_REQUEST === true
+        || String(item.DOCK_SUSPEND_DC_REQUEST || '').trim().toLowerCase() === 'true'
+        || /^dock_suspend_dc_/i.test(uniqueId) || !!(item.DOCK_SUSPEND_SOURCE_UID || item.dock_suspend_source_uid)
+        || (text('SOURCE_TABLE', 'source_table') === 'ph_soc_master' && text('REQUEST_SOURCE', 'request_source') === 'docks');
+}
+
 // Pending commands are scoped to the authenticated session. Only RPC receipts enter SOC history.
 const pendingDockFulfillments = new Map();
 
@@ -81,6 +147,11 @@ function beginSuspendFulfillmentDocksProjection(source, allocations, requestId) 
     };
 }
 
+/** Build the per-farm key for one physical dock item.
+ * @param {string} uniqueId
+ * @param {string} farm
+ * @returns {string}
+ */
 function bloomscapesDockProgressKey(uniqueId,farm=getBloomscapesFarm()) {
     const uid = normalizeDockItemUniqueId(uniqueId);
     return uid ? farm+':'+uid : '';
@@ -109,15 +180,20 @@ function readDockSuspendAuditTotals() {
     dockSuspendAuditCache={revision,tags,orders:socInventory,totals};
     return totals;
 }
-
+/** Return the maximum number of groups to show for a dock browse level. @param {string} key @returns {number|undefined} */
 function dockBrowsePageLimit(key) {
     return {'docks-main':4,'docks-stops':16,'docks-stop-items':8}[key];
 }
-
+/** Identify the selected dock page by its level, farm, label and search.
+ * @param {string} key
+ * @param {string} label
+ * @param {string} search
+ * @returns {string}
+ */
 function dockBrowsePageKey(key,label,search) {
     return [key,label,getBloomscapesFarm(),search].join('|');
 }
-
+/** Resolve the dock rows visible in the current farm's display snapshot. @returns {Array} */
 function getBloomscapesDockBrowseSource() {
     const snapshot = dockIssueDataLoaded ? getDockResolvedState() : {
         rows:Array.isArray(socInventory) ? socInventory : [],
@@ -141,7 +217,7 @@ function expectedDockPageGroups() {
     const sorted=[...ids].sort((a,b)=>root ? sortBloomscapesDockLabels(a,b) : sortBloomscapesDockLabels(b,a));
     return new Set(getClientBrowsePage('docks',dockBrowsePageKey(key,label,''),sorted,limit).rows);
 }
-
+/** Compare the visible Suspend cards with their source and hierarchy totals. @returns {object} */
 function getDocksSuspendSyncAudit() {
     const container=document.getElementById('docks-content');
     const mounted=isViewVisible('docks') && container && !String(document.getElementById('docks-search')?.value || '').trim()
@@ -167,7 +243,11 @@ function readLegacyDockItemProgress(uniqueId = '') {
         return getDefaultDockItemProgress();
     }
 }
-
+/** Normalize and cache one physical item's dock progress.
+ * @param {string} uniqueId
+ * @param {object|null} progress
+ * @returns {object}
+ */
 function cacheDockItemProgress(uniqueId = '', progress = null) {
     const normalizedUid = bloomscapesDockProgressKey(uniqueId);
     if (!normalizedUid) return getDefaultDockItemProgress();
@@ -177,7 +257,7 @@ function cacheDockItemProgress(uniqueId = '', progress = null) {
     invalidateDockWorkflowResolvedState();
     return normalized;
 }
-
+/** Read the normalized progress for one physical dock item. @param {string} uniqueId @returns {object} */
 function getDockItemProgress(uniqueId = '') {
     const normalizedUid = bloomscapesDockProgressKey(uniqueId);
     if (!normalizedUid) return getDefaultDockItemProgress();
@@ -187,7 +267,7 @@ function getDockItemProgress(uniqueId = '') {
     return legacy;
 }
 
-
+/** Invalidate resolved dock projections after a workflow change. @returns {void} */
 function invalidateDockWorkflowResolvedState() {
     dockWorkflowStateEpoch += 1;
     docksScopedItemsCacheKey = '';
@@ -233,7 +313,11 @@ function getLatestSocImportFileWatermark(rows = socRawSourceRows, sourceFreshnes
 }
 
 let suspendSocWatermarkReceipt;
-
+/** Return the SOC import watermark for the published Suspend rows.
+ * @param {Array} rows
+ * @param {object|null} freshness
+ * @returns {object}
+ */
 function publishedSuspendSocWatermark(rows, freshness) {
     if (freshness?.loaded) return getLatestSocImportFileWatermark(rows, freshness);
     const revision = getDatasetLoadSignature('soc');

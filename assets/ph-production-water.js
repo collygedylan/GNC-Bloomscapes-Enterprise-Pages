@@ -1,6 +1,7 @@
 
 const phWaterOptions = [['request','Prober Request'],['schedule','Water Man Schedule'],['active','Active ON'],['all','All Blocks']];
 const phWaterDurations = [15,30,45,60,90,120];
+const mountedPhWaterPanels = new WeakMap();
 
 function phWaterMarkup() {
     return '<section data-ph-water><nav aria-label="Water views" data-ph-water-bar>'
@@ -90,9 +91,8 @@ function phWaterViewRows(rows,view,query,panel,state) {
 }
 
 function paintPhWaterPanel(panel) {
-    const {root,owner,form,search} = panel;
-    const state = currentPhWaterState();
-    if (!root.isConnected || state?.owner !== owner) return;
+    if (!syncPhWaterPanelOwner(panel)) return;
+    const {root,state,form,search} = panel;
     const rows = Object.values(state.blockWaterStatus);
     const active = rows.filter(row => row.is_water_on).length;
     const scheduled = rows.filter(row => row.is_water_on || row.requests?.length).length;
@@ -129,14 +129,22 @@ function paintPhWaterBatch(panel,rows,state,count) {
     button.textContent = on ? '💧 Turn All Scheduled ON' : '\u23f9 Turn All Active OFF';
 }
 
-function startPhWaterClock(panel) {
-    const state = currentPhWaterState();
-    if (!panel.root.isConnected || state?.owner !== panel.owner) {
+function syncPhWaterPanelOwner(panel, requestedView = panel.view) {
+    if (!panel.root.isConnected) {
         panel.stop();
-        return;
+        return false;
     }
-    if (document.hidden || getCurrentVisibleViewId() !== 'production') return;
-    paintPhWaterClocks(panel.root,state);
+    const state = currentPhWaterState();
+    if (state && state === panel.state) return true;
+    if (state) mountPhProductionWater(panel.host,requestedView);
+    else panel.root.replaceChildren();
+    return false;
+}
+
+function startPhWaterClock(panel) {
+    const owned = syncPhWaterPanelOwner(panel);
+    if (!panel.root.isConnected || document.hidden || getCurrentVisibleViewId() !== 'production') return;
+    if (owned) paintPhWaterClocks(panel.root,panel.state);
     panel.clock = setTimeout(() => startPhWaterClock(panel),5000);
 }
 
@@ -149,8 +157,8 @@ function phWaterFormKey(form) {
 async function savePhProberRequest(panel,event) {
     event.preventDefault();
     const {form} = panel;
-    const state = currentPhWaterState();
-    if (state?.owner !== panel.owner || !state.today) return;
+    if (!syncPhWaterPanelOwner(panel) || !panel.state.today) return;
+    const state = panel.state;
     const location = form.elements.location.value;
     const block = parseCanonicalBlockKey(location)?.block_code;
     if (!state.blockWaterStatus[block]) {
@@ -163,6 +171,7 @@ async function savePhProberRequest(panel,event) {
     const saved = await submitPhWaterCommand({
         location,date,minutes:Number(form.elements.minutes.value),note:form.elements.note.value
     });
+    if (!syncPhWaterPanelOwner(panel)) return;
     if (saved) panel.message = 'Water request saved for '+block+'.';
     else panel.view = 'request';
     paintPhWaterPanel(panel);
@@ -172,6 +181,7 @@ function clickPhWater(panel,event) {
     const target = event.target.closest('button');
     if (!target) return;
     const {phDuration,phWaterView,phWaterToggle} = target.dataset;
+    if (!syncPhWaterPanelOwner(panel,phWaterView)) return;
     if (phDuration) panel.form.elements.minutes.value = phDuration;
     if (phWaterView) {
         panel.view = phWaterView;
@@ -180,39 +190,36 @@ function clickPhWater(panel,event) {
     }
     if (Object.hasOwn(target.dataset,'phWaterBatch')) void submitPhWaterBatch(panel.batch,panel.view==='schedule');
     if (phWaterToggle) {
-        const state = currentPhWaterState();
-        if (state?.owner !== panel.owner) return;
-        const row = state.blockWaterStatus[phWaterToggle];
+        const row = panel.state.blockWaterStatus[phWaterToggle];
         if (row) void submitPhWaterCommand({location:phWaterToggle,on:!row.is_water_on});
     }
 }
 
 /**
  * @param {HTMLElement} host Production Water workspace.
+ * @param {string} view Selected read-only Water tab.
  * @returns {void}
  */
-function mountPhProductionWater(host) {
+function mountPhProductionWater(host,view = 'request') {
     const state = currentPhWaterState();
-    if (!state) return;
+    mountedPhWaterPanels.get(host)?.stop();
     host.innerHTML = phWaterMarkup();
     const root = host.firstElementChild;
     const form = root.querySelector('form');
     const search = root.querySelector('[data-ph-water-search]');
-    const panel = {root,form,search,owner:state.owner,view:'request',message:'',clock:null,cards:new Map()};
+    const panel = {host,root,state,form,search,view,message:'',clock:null,cards:new Map()};
+    mountedPhWaterPanels.set(host,panel);
     root.onclick = event => clickPhWater(panel,event);
     form.onsubmit = event => void savePhProberRequest(panel,event);
     form.elements.location.oninput = () => phWaterFormKey(form);
     search.oninput = () => paintPhWaterPanel(panel);
-    const update = () => {
-        if (!root.isConnected) return panel.stop();
-        paintPhWaterPanel(panel);
-    };
-    const unobserve = observePhWaterUpdates(update);
+    const unobserve = observePhWaterUpdates(() => paintPhWaterPanel(panel));
     const startClock = () => {
         clearTimeout(panel.clock);
         startPhWaterClock(panel);
     };
     panel.stop = () => {
+        if (mountedPhWaterPanels.get(host) === panel) mountedPhWaterPanels.delete(host);
         unobserve();
         clearTimeout(panel.clock);
         document.removeEventListener('visibilitychange',startClock);

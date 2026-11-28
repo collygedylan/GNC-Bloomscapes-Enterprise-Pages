@@ -1,3 +1,8 @@
+/** Render a bounded Assigned Items table for full or preview display.
+ * @param {Array} rows
+ * @param {boolean} preview
+ * @returns {string}
+ */
 function renderManagerAssignedFallbackRows(rows = [], preview = false) {
     const state = getManagerAssignedColumnState(), limit = BLOOMSCAPES_LIST_PAGE_SIZE;
     const columns = getManagerAssignedColumnDefinitions().slice(0, 9), editable = canManageEvalItemcodeAssignments();
@@ -52,7 +57,11 @@ function assignedFallbackCellHtml(row, field, code, { state, editable, preview }
     return '<td>' + escapeHtml(row[field] || (field === 'LOCATIONCODE' ? '—' : row[field] ?? '')) + '</td>';
 }
 
-
+/** Render the initial window of Assigned Items into its host.
+ * @param {Element} host
+ * @param {Array} rows
+ * @returns {void}
+ */
 function renderAssignedItemsFirstFrame(host, rows) {
     host.innerHTML = renderManagerTableManagementWorkspace(renderManagerAssignedFallbackRows([], true), 'assigned-items');
     const body = host.querySelector('[data-assigned-fallback] tbody');

@@ -89,7 +89,11 @@ async function saveFarmDirectoryAccess(state,row,key) {
     } catch(error) {if (state.current()) state.status.textContent=error.message;}
     finally {state.pending.delete(key);if (state.current()) paintFarmDirectory(state);}
 }
-
+/** Mount the chosen farm administration panel and return its lifecycle owner.
+ * @param {Element|Document} root
+ * @param {string} selected
+ * @returns {object}
+ */
 function mountBloomscapesFarmWorkspace(root,selected) {
     if (['user-role-access','user-controls'].includes(selected)) {
         root.dataset.nativeFarmWorkspace='true';
@@ -120,14 +124,14 @@ function openBloomscapesCompanyContacts() {
     try { setHomeTab(MANAGER_COMPANY_DIRECTORY_VIEW); }
     finally { managerTableManagementDirectOpen=false; }
 }
-
+/** Resolve the farm administration workspace for the active navigation tab. @param {string} tab @returns {string} */
 function bloomscapesFarmWorkspaceSelection(tab=activeHomeTab) {
     if (currentUser!=='dylan_collyge') return '';
     if (tab===MANAGER_ACCESS_CONTROL_VIEW) return 'user-role-access';
     return tab===MANAGER_TABLE_MANAGEMENT_VIEW && ['user-role-access','user-controls','company-directory'].includes(managerTableManagementSelection)
         ? managerTableManagementSelection : '';
 }
-
+/** Check whether the mounted workspace belongs to the selected account and panel. @param {Element} container @returns {boolean} */
 function keepBloomscapesFarmWorkspace(container) {
     const root=container.querySelector('[data-native-farm-workspace]');
     return !!root && root.dataset.owner===getSupabaseReadIdentityScope()

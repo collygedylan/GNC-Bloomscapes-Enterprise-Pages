@@ -49,6 +49,9 @@ html body #app-wrapper #av-filter-options > .bloomscapes-farm-selector {flex:0 0
 html body #app-wrapper #av-filter-options > .bloomscapes-farm-selector select {width:100%!important;min-width:0!important;height:36px!important;min-height:36px!important;font-size:11px!important;padding:0 4px!important;}
 
 html body.current-view-home #app-wrapper #view-home:not(.hidden){display:flex!important;flex-direction:column;}
+html body.current-view-home.global-back-active #toast-notification.show {
+  top: calc(max(var(--app-top-chrome-height, 0px), 7.5rem, env(safe-area-inset-top)) + 0.5rem) !important;
+}
 html body.current-view-home #app-wrapper #app-top-chrome #global-header-search-row > :is(#global-header-search-slot,#global-header-inline-title,#global-header-inline-back):not([popover]){
   display:none!important;
 }

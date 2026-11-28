@@ -224,52 +224,11 @@ function applyDockSuspendAvailableQuantities(row, source, sourceSnapshot, rowSna
     ));
 }
 
-function dockScopedOrderSource(items) {
-    if (typeof getCurrentVisibleViewId !== 'function' || getCurrentVisibleViewId() !== 'docks'
-        || typeof isDatasetLoaded !== 'function' || isDatasetLoaded('soc','full')) return items;
-    const hasAssigned = items.some(row=>normalizeDockViewDockKey(firstNonEmptyValue(
-        row.DOCK,row.dock,row.DOCK_NUM,row.dock_num,'')) !== 'Unassigned' && bloomscapesFarmRowIsVisible(row));
-    if (hasAssigned) return items;
-    const board = currentBloomscapesDockBoard();
-    return board?.tags.length ? dockBrowseRowsFromBoard(board) : items;
-}
-
-function firstDockValue(row, keys) {
-    return firstDockNonEmpty(...keys.map(key => row[key]));
-}
-
-function normalizeDockSuspendRequestValue(value = '') {
-    return String(value || '').trim().toUpperCase().replace(/[\s_-]+/g, ' ');
-}
-
-function getDockSuspendValue(item = null) {
-    return normalizeDockSuspendRequestValue(firstDockValue(item || {}, ['SUSPEND', 'suspend', 'Suspend']));
-}
-
-function isDockSuspendDcRequestSource(item = null) {
-    if (!item || !['SUSPEND', 'SUSPENDED'].includes(getDockSuspendValue(item))) return false;
-    const dock = firstDockValue(item, ['DOCK_NUM', 'dock_num', 'DOCK', 'dock']);
-    const closed = item.suspend_completed === true || item.SUSPEND_COMPLETED === true || item.completed === true;
-    const candidate = String(item.suspend_candidate_state || item.SUSPEND_CANDIDATE_STATE || '').toLowerCase();
-    const status = String(item.status || item.STATUS || '').toLowerCase();
-    return normalizeDockViewDockKey(dock) !== 'Unassigned' && !closed
-        && !['approved', 'rejected', 'replaced', 'denied', 'canceled', 'cancelled'].includes(candidate)
-        && !['complete', 'completed', 'deleted'].includes(status);
-}
-
-function isDockSuspendDcRequestMirrorRow(item = null) {
-    if (!item) return false;
-    const text = (...keys) => String(firstDockValue(item, keys) || '').trim().toLowerCase();
-    const isSuspendTag = item.IS_SUSPEND_TAG === true || item.is_suspend_tag === true
-        || ['true', '1', 'yes'].includes(text('IS_SUSPEND_TAG', 'is_suspend_tag'));
-    const uniqueId = String(firstDockValue(item, ['UNIQUE_ID', 'unique_id']) || '').trim();
-    return isSuspendTag || text('REQUEST_TYPE', 'request_type') === 'suspend_tag' || isDockSuspendDcRequestSource(item)
-        || item.DOCK_SUSPEND_DC_REQUEST === true
-        || String(item.DOCK_SUSPEND_DC_REQUEST || '').trim().toLowerCase() === 'true'
-        || /^dock_suspend_dc_/i.test(uniqueId) || !!(item.DOCK_SUSPEND_SOURCE_UID || item.dock_suspend_source_uid)
-        || (text('SOURCE_TABLE', 'source_table') === 'ph_soc_master' && text('REQUEST_SOURCE', 'request_source') === 'docks');
-}
-
+/**
+ * @param {object} row Inventory or note row.
+ * @param {...string} keys Field names in order of precedence.
+ * @returns {*} First nonblank original field value, or an empty string.
+ */
 function liveInventoryCardValue(row, ...keys) {
     for (const key of keys) for (const alias of [key, key.toLowerCase()]) {
         const value = row?.[alias];
@@ -292,6 +251,14 @@ function resolveLiveInventoryCardPhotoMatch(primary, note, canonical, number, ca
     return quantity === '' ? null : quantity;
 }
 
+/**
+ * @param {object} primary Physical inventory row providing identity and stored evidence.
+ * @param {Array} selected Inventory rows included in the card totals.
+ * @param {Array} atLocation Inventory rows at the selected location.
+ * @param {Array} rows Candidate inventory rows.
+ * @param {object} options Canonical display, notes, and quantity/identity resolvers.
+ * @returns {object} Display metrics and evidence for the physical inventory card.
+ */
 function hydrateLiveInventoryCardDisplay(primary, selected, atLocation, rows, options) {
     const text = value => String(value || '').trim().toUpperCase();
     const location = value => options.normalizeLocation(value) || text(value);
@@ -347,6 +314,11 @@ function mergeLiveInventoryCardPair(prior, row, getPhotos) {
     return merged;
 }
 
+/**
+ * @param {Array} [rows] Source inventory rows in display order.
+ * @param {Function} [getPhotos] Extracts photo URLs for merged rows.
+ * @returns {Array} Rows grouped by complete physical identity.
+ */
 function mergeLiveInventoryCardRows(rows = [], getPhotos = parsePhotoCsvValues) {
     if (rows.length && rows.every(row => !row || /^fi_\d+$/.test(String(row.DOM_ID || '')))) return rows;
     const groups = new Map();
@@ -364,20 +336,35 @@ function mergeLiveInventoryCardRows(rows = [], getPhotos = parsePhotoCsvValues) 
     return mergedAny ? [...groups.values()] : rows;
 }
 
+/**
+ * @returns {object} Initial unassigned dock team and trip state.
+ */
 function getDefaultDockTeamInfo() {
     return { checker: '', inspector: '', mistake: '', status: '', tripnumber: '', dockNum: '', revision: 0, updatedAt: '' };
 }
 
+/**
+ * @param {string} [tripNumber] Trip identifier from the dock feed.
+ * @returns {string} Trimmed uppercase identifier.
+ */
 function normalizeDockTeamTripKey(tripNumber = '') {
     return String(tripNumber || '').trim().toUpperCase();
 }
 
+/**
+ * @param {string} [dockNum] Dock number or label.
+ * @returns {string} Display label for the dock, including the unassigned case.
+ */
 function formatDockViewDockLabel(dockNum = '') {
     const normalized = normalizeDockViewDockKey(dockNum);
     if (!normalized || normalized === 'Unassigned') return normalized || 'Unassigned';
     return /^dock\b/i.test(normalized) ? normalized : `Dock ${normalized}`;
 }
 
+/**
+ * @param {Array} [items] Source dock order rows.
+ * @returns {Array} Active suspend rows deduplicated by order and candidate group.
+ */
 function getActiveSuspendDockRows(items = []) {
     const groups = new Set(), orders = new Set();
     return dockScopedOrderSource(items).filter(row => {

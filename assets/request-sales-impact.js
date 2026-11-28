@@ -32,7 +32,7 @@ function firstValue(row = {}, keys = [], fallback = '') {
   return fallback;
 }
 
-export function effectiveRequestQuantity(value) {
+function effectiveRequestQuantity(value) {
   const parsed = number(value);
   return parsed > 0 ? parsed : 25;
 }
@@ -48,7 +48,7 @@ function requestSourceTable(row = {}) {
     ? inferred : '';
 }
 
-export function requestSalesImpactDedupKey(row = {}) {
+function requestSalesImpactDedupKey(row = {}) {
   const explicitIdentity = normalized(firstValue(row, ['line_identity_key', 'lineIdentityKey'], ''));
   if (explicitIdentity) return `line:${explicitIdentity}`;
   const rowIndex = normalized(firstValue(row, ['row_index', 'rowIndex'], '1')) || '1';
@@ -231,7 +231,7 @@ function responsePayload(response = {}) {
   return body.data && typeof body.data === 'object' && !Array.isArray(body.data) ? body.data : body;
 }
 
-export function normalizeRequestSalesImpactResponse(response = {}) {
+function normalizeRequestSalesImpactResponse(response = {}) {
   const payload = responsePayload(response);
   const grouped = Array.isArray(payload.by_customer_consignee) ? payload.by_customer_consignee : [];
   const nestedLines = grouped.flatMap(group => (Array.isArray(group.items) ? group.items : []).map(item => ({
@@ -264,12 +264,12 @@ function lineMatchesFilters(item, filters) {
   return true;
 }
 
-export function buildRequestSalesImpactViewModel(canonical = {}, filters = {}) {
+function buildRequestSalesImpactViewModel(canonical = {}, filters = {}) {
   const lineItems = Array.isArray(canonical.line_items) ? canonical.line_items : [];
   return aggregateRequestSalesImpactLines(lineItems.filter(item => lineMatchesFilters(item, filters)));
 }
 
-export function buildRequestSalesImpactExportSheets(model = {}) {
+function buildRequestSalesImpactExportSheets(model = {}) {
   const summary = model.summary || {};
   const summaryRows = [
     { metric: 'Total Request Impact', value: money(summary.total_dollar_value) },

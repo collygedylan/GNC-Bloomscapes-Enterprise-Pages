@@ -234,7 +234,6 @@ function resetQueCategoryDrills(nextTab) {
         requestDylanFilterMode = 'all';
         requestDylanFilterValue = '';
         requestDylanSalesRepValue = '';
-        requestDylanFilterMenuOpen = '';
     }
     clearSelection();
 }

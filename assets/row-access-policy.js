@@ -8,6 +8,7 @@ function normalizeEvidenceActor(value) {
         .replace(/^_+|_+$/g,'').replace(/^nally_aguilar$/,'nelly_aguilar');
 }
 
+/** @returns {object|null} Active matching native or app-session identity. */
 function getCanonicalAccessSessionIdentity() {
     const actor = normalizeEvidenceActor(currentUser);
     if (!actor || globalThis.__agdataSessionBoundary === true
@@ -95,6 +96,7 @@ function canEditDockMirrorEvidence(item, capability) {
         || identity.matrix.edit_assigned_rows_only === 'Y' && resolveInventoryRowOwner(item) === identity.actor;
 }
 
+/** @param {object} row Physical inventory or queue row. @returns {string} Canonical owner username, or an empty string when unassigned. */
 function resolveInventoryRowOwner(row) {
     if (typeof nativeAuthSessionActive !== 'undefined' && nativeAuthSessionActive && typeof getBloomscapesAssignmentIndex === 'function') {
         return resolveBloomscapesAssignedOwner(row, getBloomscapesAssignmentIndex());
@@ -109,6 +111,7 @@ function resolveInventoryRowOwner(row) {
     return '';
 }
 
+/** @param {string} user Acting username. @param {object} row Exact inventory row. @returns {object} Row viewing and mutation capabilities. */
 function resolveCanonicalRowAccess(user, row) {
     const authority = resolveEvidenceRowAuthority(user);
     const permitted = authority && ['view_drive_mode','view_av','view_que'].some(view => evidenceViewPermitted(authority.matrix,view));
@@ -117,6 +120,7 @@ function resolveCanonicalRowAccess(user, row) {
         canUnlock:canEdit,canReclass:canEdit,canUploadPhoto:canEdit,canCompleteTag:canEdit,canManageLocations:canEdit};
 }
 
+/** @param {string} user Acting username. @param {object} row Exact inventory row. @returns {boolean} Whether the actor may unlock the row. */
 function canUserUnlockRow(user, row) {
     return resolveCanonicalRowAccess(user,row).canUnlock;
 }
@@ -152,6 +156,7 @@ function ownsExactRequestWorkRow(identity, item) {
     return fields.some(key => names.has(normalizeEvidenceActor(item[key] ?? item[key.toUpperCase()])));
 }
 
+/** @param {object|null} [item] Request or Suspend row. @param {string} [action] Requested evidence action. @returns {boolean} Whether the current account may perform it. */
 function canCurrentUserWorkRequestItem(item = null, action = 'edit') {
     const actionKey = String(action || 'edit').trim().toLowerCase();
     if (!item || (item.REQUEST_HISTORY && actionKey !== 'queued-photo')) return false;
@@ -168,6 +173,7 @@ function canCurrentUserWorkRequestItem(item = null, action = 'edit') {
     return !!(allowed && (identity.matrix.edit_any_row === 'Y' || ownsExactRequestWorkRow(identity,item)));
 }
 
+/** @param {string} prefix Detail field prefix. @param {object} item Exact evidence row. @param {string} [sourceView] Originating view. @returns {boolean} Whether the editor may modify this evidence. */
 function canEditEvidenceWorkflow(prefix, item, sourceView = '') {
     const source = String(sourceView || activeDetailSourceView || lastView || '').trim().toLowerCase();
     const av = ['av','av-photo'].includes(source);
@@ -177,6 +183,7 @@ function canEditEvidenceWorkflow(prefix, item, sourceView = '') {
     return canEditScopedEvidenceRow(authority,item) && evidenceViewPermitted(authority.matrix,av ? 'view_av' : 'view_drive_mode');
 }
 
+/** @param {object} item Exact evidence row. @param {object|null} options Publication context. @returns {boolean} Whether the command is authorized for publication. */
 function canPublishRowEvidenceCommand(item, options) {
     if (options?.receipt || options?.seasonSalesOffice) return true;
     if (options?.requestWork) return canCurrentUserWorkRequestItem(item,requestEvidenceAction(options));
@@ -191,6 +198,7 @@ function requestEvidenceAction(options) {
     return options.photoAttachmentUrl ? 'photo' : 'edit';
 }
 
+/** @param {string} [prefix] Detail field prefix. @param {object|null} [itemOverride] Row to check instead of the active item. @returns {boolean} Whether the detail fields are editable. */
 function canEditRowDetails(prefix = '', itemOverride = null) {
     if (!itemOverride && globalThis.isAvDetailReadOnlyContext()) return false;
     const normalizedPrefix = String(prefix || '').trim();
@@ -210,10 +218,12 @@ function canEditRowDetails(prefix = '', itemOverride = null) {
     return true;
 }
 
+/** @returns {boolean} Whether the active account may unlock the current row. */
 function canUnlockProtectedData() {
     return canUserUnlockRow(currentUser,activeItem);
 }
 
+/** @returns {boolean} Whether the active account has photo authority for the current row. */
 function canUsePhotoDeleteOverride() {
     return canUserUploadRowPhoto(currentUser,activeItem);
 }

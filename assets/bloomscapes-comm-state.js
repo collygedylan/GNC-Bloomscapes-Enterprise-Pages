@@ -12,7 +12,7 @@ function saveBloomscapesCommCache() {
         state.cacheFailed=false;
     } catch {state.cacheFailed=true;state.status='Device storage is unavailable. Keep this window open for unsent text.';}
 }
-
+/** Reset the inbox when the signed-in owner or selected farm changes. @returns {void} */
 function scopeBloomscapesComm() {
     const state=bloomscapesCommState,owner=nativeAuthSessionActive?nativeAuthProfile?.id || '':'',farm=getBloomscapesFarm();
     if (state.owner===owner && state.farm===farm) return;
@@ -43,7 +43,7 @@ async function readCommunicationDirectory(farm) {
     }
     return inbox;
 }
-
+/** Refresh the authorized conversation directory, sharing an in-flight refresh. @returns {Promise<void>} */
 async function refreshBloomscapesComm() {
     if (!window.BloomscapesBatteryGovernor.visible()) return;
     scopeBloomscapesComm();
@@ -87,7 +87,12 @@ function handleCommInboxReadFailure(error,generation) {
     if (kind==='unavailable') return showBloomscapesCommStatus('Inbox refresh is temporarily unavailable.');
     throw error;
 }
-
+/** Select a conversation and load the requested page of messages.
+ * @param {string} id
+ * @param {boolean} drill
+ * @param {string|null} before
+ * @returns {Promise<void>}
+ */
 async function selectBloomscapesConversation(id,drill=true,before=null) {
     const state=bloomscapesCommState,generation=state.generation,farm=state.farm;
     if (state.selected!==id) {stopBloomscapesWalkie(true);releaseBloomscapesCommAudio();}
@@ -115,7 +120,11 @@ async function markBloomscapesCommThreadRead(id,data,generation) {
     bloomscapesMessagesState.unread=state.conversations.reduce((sum,row)=>sum+Number(row.unreadText || 0),0);
     saveBloomscapesCommCache();syncBloomscapesHomeBadges();renderBloomscapesCommList();
 }
-
+/** Open or create a conversation for the selected recipients.
+ * @param {Array} people
+ * @param {string} title
+ * @returns {Promise<void>}
+ */
 async function chooseBloomscapesCommPeople(people,title='') {
     const state=bloomscapesCommState,generation=state.generation;
     const selection=state.selectionEpoch=(state.selectionEpoch || 0)+1;
@@ -147,14 +156,14 @@ function applyBloomscapesCommConversationReceipt(id,people,title) {
     state.conversations.push({id,title:title || participants.join(' ↔ '),is_group:participants.length>2,
         participant_usernames:participants,unread:0,unreadText:0,last:null});
 }
-
+/** Store the current thread's text draft. @param {unknown} value @returns {void} */
 function draftBloomscapesCommText(value) {
     const state=bloomscapesCommState,id=state.selected;
     if (!id) return;
     state.threads[id]={...state.threads[id],draft:value};
     saveBloomscapesCommCache();
 }
-
+/** Post the current draft and refresh the thread from its delivery receipt. @returns {Promise<void>} */
 async function dispatchBloomscapesCommText() {
     const state=bloomscapesCommState,id=state.selected,thread=state.threads[id],generation=state.generation;
     const body=thread?.draft?.trim();
@@ -180,14 +189,14 @@ async function dispatchBloomscapesCommText() {
         saveBloomscapesCommCache();renderBloomscapesCommComposer();
     }
 }
-
+/** Display the conversation status in the active communications view. @param {string} message @returns {void} */
 function showBloomscapesCommStatus(message) {
     bloomscapesCommState.status=message;
     document.querySelectorAll('[data-comm-status]').forEach(node=>{node.textContent=message;});
     const retry=document.querySelector('[data-radio-panel] [data-comm-retry]');
     if (retry) retry.hidden=!String(message).includes('Retry unsent calls');
 }
-
+/** Look up one conversation participant by username. @param {string} username @returns {object|undefined} */
 function getBloomscapesCommPerson(username) {
     const people=bloomscapesCommState.people;
     if (getBloomscapesCommPerson.source!==people) {
@@ -196,13 +205,13 @@ function getBloomscapesCommPerson(username) {
     }
     return getBloomscapesCommPerson.index.get(username);
 }
-
+/** Choose the conversation title or the other participant's display name. @param {object} row @returns {string} */
 function commConversationName(row) {
     if (row.is_group) return row.title.replace(' All','');
     const person=row.participant_usernames?.find(name=>name!==currentUser);
     return getBloomscapesCommPerson(person)?.name || person || row.title;
 }
-
+/** Return the cached conversations ordered by the most recent message. @returns {Array} */
 function sortedBloomscapesConversations() {
     return [...bloomscapesCommState.conversations].sort((a,b)=>
         String(b.last?.created_at || '').localeCompare(a.last?.created_at || '') || commConversationName(a).localeCompare(commConversationName(b)));

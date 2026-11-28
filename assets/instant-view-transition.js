@@ -62,7 +62,6 @@ function setDriveTab(tab, { exitReport = false } = {}) {
         const mobileMode = document.getElementById('drive-mobile-mode');
         if (mobileMode) mobileMode.value = nextTab;
         if (nextTab === 'hold' && previousTab !== 'hold') activeDriveHoldStopReport = 'hold-stop';
-        driveQuickRequestCardMode = nextTab === 'card';
         closeDriveTabFilters();
         if (!preserveNameDrillSelection) resetDriveDrillSelectionState();
         else {

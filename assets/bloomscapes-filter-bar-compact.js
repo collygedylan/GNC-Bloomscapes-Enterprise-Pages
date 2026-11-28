@@ -1,5 +1,11 @@
 const bloomscapesDockFacetAllLabels = {username:'All Assigned Users',commonname:'All Plants',contsize:'All Sizes'};
-
+/** Render a filter control with counts for the current browse scope.
+ * @param {string} scope
+ * @param {object} state
+ * @param {string} key
+ * @param {string} label
+ * @returns {string}
+ */
 function renderBloomscapesCountedSelect(scope,state,key,label) {
     if (scope==='docks') {
         const value=[...(state.filters[key] || [])][0];
@@ -23,7 +29,12 @@ function renderBloomscapesCountedSelect(scope,state,key,label) {
         +'<select data-field="'+key+'" data-inventory-select="'+key+'" '+(scope==='drive' && key==='username' ? 'id="drive-assigned-filter" ' : '')+'aria-label="'+escapeHtml(label)+'" onchange="return setBloomscapesCountedFilter(\''+scope+'\',\''+key+'\',this.value)">'
         +choices.map(([value,title])=>'<option value="'+escapeHtml(value)+'" '+(value && selected?.has(value)?'selected':'')+'>'+escapeHtml(title)+'</option>').join('')+'</select></label>';
 }
-
+/** Apply a counted filter selection to the active browse state.
+ * @param {string} scope
+ * @param {string} key
+ * @param {unknown} value
+ * @returns {boolean}
+ */
 function setBloomscapesCountedFilter(scope,key,value) {
     const state = getInventoryExcelState(scope);
     if (value) state.filters[key] = new Set([value]);
@@ -32,13 +43,17 @@ function setBloomscapesCountedFilter(scope,key,value) {
     refreshInventoryExcelView(scope);
     return false;
 }
-
+/** Render the browse-mode selector for Eval Report 2. @returns {string} */
 function renderManagerEvalReport2BrowseModeSwitch() {
     return '<label class="bloomscapes-compact-select manager-eval2-view-switch">View<select aria-label="Reports View" onchange="return setManagerEvalReport2BrowseMode(this.value)">'
         +'<option value="plant" '+(managerEvalReport2BrowseMode!=='location'?'selected':'')+'>Itemcodes / Common Name</option>'
         +'<option value="location" '+(managerEvalReport2BrowseMode==='location'?'selected':'')+'>Block / Location</option></select></label>';
 }
-
+/** Render the assigned-user selector for the requested evaluation view.
+ * @param {unknown} target
+ * @param {boolean} disabled
+ * @returns {string}
+ */
 function renderManagerEvalAssignedUserControl(target = 'eval2', disabled = false) {
     if (target === 'eval2') {
         const selected = getManagerEvalAssignedUsers('eval2')[0] || 'all';

@@ -18,7 +18,7 @@ function clearLogoutUpdateLocks() {
     }
     rowSaveCoordinatorState.clear();
 }
-
+/** Sign out and release the account's mounted views and cached authentication state. @returns {Promise<void>} */
 async function performLogout() {
     setExplicitLogoutMarker();
     clearLogoutUpdateLocks();

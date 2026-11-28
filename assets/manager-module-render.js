@@ -22,6 +22,7 @@ function syncManagersHeaderChrome() {
     return false;
 }
 
+/** @returns {void} Renders the authorized manager workspace in its mounted view. */
 function renderManagers() {
     if(typeof syncInventoryExcelBars==='function') syncInventoryExcelBars();
     if (getCurrentVisibleViewId() !== 'managers') return;

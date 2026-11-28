@@ -13,7 +13,7 @@ async function requireBloomscapesSession() {
     if (!client || !session?.user?.id || !nativeAuthSessionActive) throw new Error('Sign in to continue.');
     return {client, owner: session.user.id};
 }
-
+/** Require the active signed owner before continuing a farm operation. @param {string} owner @returns {Promise<void>} */
 async function requireBloomscapesOwner(owner) {
     if ((await getNativeAuthSession())?.user?.id !== owner) throw new Error('Signed-in account changed.');
 }
@@ -26,7 +26,7 @@ function bloomscapesData(result) {
     }
     return result.data;
 }
-
+/** Read the dock capacity records for the requested farm. @param {string} farm @returns {Promise<Array>} */
 async function readBloomscapesCapacityDocks(farm) {
     const {client,owner} = await requireBloomscapesSession();
     const response = await client.rpc('gnc_load_maximizer_docks',{p_farm:farm}).abortSignal(AbortSignal.timeout(6000));
@@ -37,7 +37,7 @@ async function readBloomscapesCapacityDocks(farm) {
     }
     return docks;
 }
-
+/** Read the selected farm panel using its authorized transport. @param {string} panel @param {object} inputs @returns {Promise<object|Array>} */
 async function readBloomscapesPanel(panel, inputs = {}) {
     const {client, owner} = await requireBloomscapesSession();
     const input = {...inputs,farm:getBloomscapesFarm()};
@@ -134,7 +134,7 @@ async function bloomscapesVaultQuery(client) {
     }
     throw new Error('Vault index exceeds 20,000 records. Contact the archive administrator.');
 }
-
+/** Submit the named farm command and return its durable receipt. @param {string} command @param {object} input @returns {Promise<object>} */
 async function submitBloomscapesCommand(command, input) {
     const {client, owner} = await requireBloomscapesSession();
     const result = await bloomscapesCommandRequest(client, command, input);
@@ -232,7 +232,7 @@ async function bloomscapesWorkPdfLink(client,id) {
     const {storage_bucket,storage_path}=receipt.data;
     return client.storage.from(storage_bucket).createSignedUrl(storage_path,120);
 }
-
+/** Read one page of pending orders with the supplied authenticated headers. @param {object} headers @param {unknown} cursor @returns {Promise<Array>} */
 async function readBloomscapesPendingOrdersPage(headers, cursor) {
     const p_payload = cursor ? { beforeTime: cursor.created_at, beforeId: cursor.id } : {};
     const send = authorization => window.GncDatabase.fetchRpc(SUPABASE_URL, 'bloomscapes_pending_command', {

@@ -1,3 +1,4 @@
+/** @returns {string} Initially selected tab for the exact active item. */
 function renderDetailShellView() {
     if (window.BunchQueueShell?.isDetailOpen()) return 'request';
     if (!activeItem) return 'overview';
@@ -8,13 +9,14 @@ function renderDetailShellView() {
     const targetDetailTab = resolveVisibleDetailTab(primaryDetailTab, 'overview');
     const editPrefix = getDetailTabPrefix(targetDetailTab);
     if (typeof mountBloomscapesStaticBody === 'function') mountBloomscapesStaticBody('det-' + targetDetailTab + '-content');
-    const summary = ['drive','reports'].includes(detailSourceView) ? paintItemDetailSummaryText : populateDetailSummaryValues;
+    const summary = firstDetailSummary(detailSourceView);
     runDetailPanelRender(()=>summary(activeItem,detailSourceView));
     runDetailPanelRender(resetDetailDeferredMediaShell);
     if (detailSourceView.toLowerCase() === 'request') deferItemDetailRequestPhotos(activeItem,detailHydrationToken);
     runDetailPanelRender(() => { applyCameraPermissions(detailSourceView, activeItem); });
     runDetailPanelRender(() => { populatePrimaryDetailTabShell(targetDetailTab, detailSourceView, activeItem); });
     runDetailPanelRender(() => { switchDetailTab(targetDetailTab, { suppressScroll: true, skipHydrate: true }); });
+    if (globalThis.isAvDetailSource?.(detailSourceView)) runDetailPanelRender(() => applyAvDetailReadOnlyState(detailSourceView));
     if (String(detailSourceView || '').trim().toLowerCase() === 'request') {
         setRequestDetailLoadState('');
         scheduleRequestDetailEntryVisible('shell', { skipOptionLoad: true });
@@ -24,6 +26,20 @@ function renderDetailShellView() {
     return targetDetailTab;
 }
 
+function firstDetailSummary(source) {
+    if (globalThis.isAvDetailSource?.(source)) return paintInitialAvDetailSummary;
+    return ['drive','reports'].includes(source) ? paintItemDetailSummaryText : populateDetailSummaryValues;
+}
+
+function paintInitialAvDetailSummary(item, source) {
+    paintItemDetailSummaryText(item,source);
+    renderAvDetailHero(null,source);
+    paintAvDetailExtraInfo(null,'',false);
+    renderRequestDesiredPanel(item,source);
+    renderManagerApprovalDetailWorkspace(item,source);
+    syncDetailSharedPanelsVisibility();
+}
+
 function deferItemDetailRequestPhotos(item,token) {
     requestAnimationFrame(()=>requestAnimationFrame(()=>{
         if (token !== detailHydrationToken || item !== activeItem || getCurrentVisibleViewId() !== 'detail') return;
@@ -31,6 +47,7 @@ function deferItemDetailRequestPhotos(item,token) {
     }));
 }
 
+/** @param {object} item Exact active inventory row. @param {string} sourceView Current detail source. @returns {void} Paints its visible summary fields. */
 function paintItemDetailSummaryText(item,sourceView) {
     const fields = {
         'det-common':item.COMMONNAME, 'det-size':item.CONTSIZE, 'det-location':item.LOCATIONCODE,
@@ -56,6 +73,7 @@ function paintItemDetailSummaryText(item,sourceView) {
     scheduleDetailTitleRowFit(0);
 }
 
+/** @param {number} token Current detail hydration token. @returns {boolean} Whether a focused field deferred hydration. */
 function deferFocusedItemDetailHydration(token) {
     if (!hasActiveTextEntryFocus()) return false;
     const input = document.activeElement;
@@ -66,6 +84,7 @@ function deferFocusedItemDetailHydration(token) {
     return true;
 }
 
+/** @returns {boolean} Suppresses the default action after committing the current measurement entry. */
 function completeDetailMeasurementKeyboard() {
     clearDetailMeasurementKeyboardRepeat();
     clearDetailMeasurementKeyboardKeepAlive();
@@ -96,6 +115,7 @@ function completeDetailMeasurementKeyboard() {
 
 let pendingItemDetailMeasurementPaint;
 
+/** @param {HTMLInputElement} input Current measurement field. @returns {boolean} Whether its keyboard paint is pending. */
 function isItemDetailMeasurementPaintDeferred(input) {
     return !!input && pendingItemDetailMeasurementPaint?.input===input;
 }
@@ -115,6 +135,7 @@ function deferItemDetailMeasurementPaint(input) {
     });
 }
 
+/** @param {HTMLInputElement} input Target measurement field. @param {boolean} sameKeyboardOpen Whether the mounted keypad already owns that field. @returns {void} Opens or updates the keypad. */
 function paintItemDetailMeasurementOpen(input,sameKeyboardOpen) {
     if (isItemDetailMeasurementPaintDeferred(input)) return false;
     if (sameKeyboardOpen) {
@@ -128,6 +149,7 @@ function paintItemDetailMeasurementOpen(input,sameKeyboardOpen) {
 }
 
 
+/** @param {FocusEvent} event Current viewport focus event. @returns {void} Synchronizes authorized text entry chrome. */
 function syncMobileTextEntryOnViewportFocus(event) {
     const target = event?.target || document.activeElement;
     if (isItemDetailMeasurementPaintDeferred(target) || !isMobileTextEntryTarget(target)) return;
@@ -135,6 +157,7 @@ function syncMobileTextEntryOnViewportFocus(event) {
     queueMobileTextEntryVisibilitySettle(target);
 }
 
+/** @param {VisualViewport} viewport Current viewport. @param {Function} scheduleShell Shared viewport refresh owner. @returns {void} Installs the text entry viewport listeners. */
 function installMobileTextEntryViewportListeners(viewport,scheduleShell) {
     if (!viewport) return;
     const handleChange = reason => {

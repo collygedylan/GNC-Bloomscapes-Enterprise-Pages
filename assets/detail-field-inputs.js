@@ -62,7 +62,7 @@ function closeCustomKeyboardForNativeInput(event) {
     const input = target.closest('input, textarea');
     const nativeText = input && isRequestDetailNativeTypingInput(input);
     const command = event.type === 'pointerdown'
-        && target.closest('button, a, label, select, [role="button"]');
+        ? target.closest('button, a, label, select, [role="button"]') : null;
     if (detailMeasurementKeyboardTarget && (nativeText || command)) {
         if (!command?.contains(detailMeasurementKeyboardTarget)) {
             closeDetailMeasurementKeyboard(false,{blur:true});

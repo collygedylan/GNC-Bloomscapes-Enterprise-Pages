@@ -1,5 +1,5 @@
 const DEFERRED_CARD_PHOTO_PENDING = 'img[data-deferred-card-photo="1"]:not([data-photo-hydrated="1"]):not([data-photo-observed="1"])';
-
+/** Schedule thumbnail hydration for a mounted inventory card. @param {Element} card @param {unknown} _row @param {number} index @returns {void} */
 function hydrateMountedInventoryCardThumbnail(card, _row, index) {
     configureBloomscapesCardWindowNode(card);
     const isAvCard = card.classList.contains('app-av-catalog-card');
@@ -16,13 +16,13 @@ function hydrateMountedInventoryCardThumbnail(card, _row, index) {
         scheduleDeferredCardPhotoHydration(scope || card);
     }
 }
-
+/** Refresh the photo hydration queue for the mounted inventory window. @param {Element} container @param {string} view @returns {void} */
 function refreshInventoryCardWindowPhotos(container, view) {
     tuneNativeImagePerformance(container);
     scheduleDeferredCardPhotoHydration(container);
     if (view === 'av') queueAvCardPhotoHydration(container, 0);
 }
-
+/** Release deferred image work when its card leaves the mounted window. @param {Element} card @returns {void} */
 function releaseUnmountedDeferredCardPhotos(card) {
     for (const img of card.querySelectorAll('img')) {
         deferredCardPhotoObserver?.unobserve(img);
@@ -32,7 +32,7 @@ function releaseUnmountedDeferredCardPhotos(card) {
     }
     deferredCardPhotoHydrationRoots.delete(card);
 }
-
+/** Schedule deferred thumbnail hydration for one mounted root. @param {Element|Document} root @returns {void} */
 function scheduleDeferredCardPhotoHydration(root = document) {
     const requestedRoot = root?.querySelectorAll ? root : document;
     deferredCardPhotoHydrationRoots.delete(requestedRoot);
@@ -172,12 +172,12 @@ function resolveDeferredPhotoSources(img) {
     }
     return {src,fallbackSrc:getDeferredCardPhotoFallbackSrc(src)};
 }
-
+/** Resolve the AV content root to use for thumbnail hydration. @param {Element|Document} root @returns {Element|Document} */
 function getAvCardPhotoHydrationScope(root = document) {
     if (root?.querySelectorAll && root !== document) return root;
     return document.getElementById('av-content') || document;
 }
-
+/** Check whether the root currently contains AV card thumbnails. @param {Element|Document} root @returns {boolean} */
 function isAvCardPhotoHydrationRelevant(root = document) {
     const scope = getAvCardPhotoHydrationScope(root);
     if (scope.isConnected === false) return false;
@@ -210,7 +210,7 @@ function handleDeferredCardPhotoLoadFailure(img = null) {
     placeholder.textContent = 'NO PHOTO';
     host.appendChild(placeholder);
 }
-
+/** Load a deferred thumbnail only while its element and expected source still match. @param {HTMLImageElement|null} img @param {string} expectedSrc @returns {void} */
 function hydrateDeferredCardPhoto(img = null, expectedSrc = '') {
     if (!img || img.dataset.photoHydrated === '1') return;
     if (img.isConnected === false) {

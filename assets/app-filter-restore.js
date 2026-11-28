@@ -1,25 +1,3 @@
-function restorePersistedAppFilterStateForCurrentUser(force = false, snapshotOverride = null) {
-    const storageKey = getAppFilterStateStorageKey();
-    if (!snapshotOverride && !force && appFilterStateRestoredUserKey === storageKey) return false;
-    const snapshot = snapshotOverride || readAppFilterStateSnapshot();
-    if (!snapshot || typeof snapshot !== 'object') {
-        appFilterStateRestoredUserKey = storageKey;
-        return false;
-    }
-    restoreDriveFilters(snapshot.drive);
-    restoreTasksFilters(snapshot.tasks);
-    restoreAvFilters(snapshot.av);
-    restoreRequestViewState(snapshot.request);
-    restoreDocksFilters(snapshot.docks);
-    restoreNcrFilters(snapshot.ncr);
-    restoreMovesFilters(snapshot.moves);
-    restoreSalesInventoryFilters(snapshot.salesInventory);
-    invalidateResolvedViewStateCaches();
-    ['drive', 'tasks', 'av', 'request', 'docks', 'review', 'move-up', 'moves', 'sales-inventory'].forEach((viewId) => markViewDirty(viewId));
-    appFilterStateRestoredUserKey = storageKey;
-    return true;
-}
-
 function restoreSavedInventoryColumnFilters(saved) {
     const result = {};
     if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return result;
@@ -36,6 +14,10 @@ function restoreSavedInventoryColumnFilters(saved) {
     return result;
 }
 
+/** Restore Drive view and filter selections.
+ * @param {object} drive Saved account-scoped Drive filters.
+ * @returns {void}
+ */
 function restoreDriveFilters(drive) {
     if (!drive || typeof drive !== 'object') return;
     activeDriveMode = appFilterText(drive.activeDriveMode, activeDriveMode || 'ok') || 'ok';
@@ -76,6 +58,10 @@ function restoreDriveFilters(drive) {
     driveLotSelectionMode = appFilterMode(drive.driveLotSelectionMode, ['all', 'custom'], driveLotSelectionMode || 'all');
     driveSeasonSearchTerm = appFilterText(drive.driveSeasonSearchTerm, '');
     if (Array.isArray(drive.driveSelectedSeasons)) driveSelectedSeasons = appFilterArrayToSet(drive.driveSelectedSeasons);
+    restoreDriveColumnFilters(drive);
+}
+
+function restoreDriveColumnFilters(drive) {
     driveColumnFilters = restoreSavedInventoryColumnFilters(drive.driveColumnFilters);
     driveColumnFilterFieldKey = normalizeDriveColumnFilterKey(drive.driveColumnFilterFieldKey);
     driveColumnFilterMode = normalizeDriveColumnFilterMode(drive.driveColumnFilterMode || 'values');
@@ -86,7 +72,6 @@ function restoreDriveFilters(drive) {
     driveColumnFilterSelectedHeaders = new Set();
     driveColumnFilterStep = 'select';
     driveQuickFiltersModalOpen = false;
-    driveCommonNameFilterOpen = false;
     driveGenusFilterOpen = false;
     driveContSizeFilterOpen = false;
     driveLocationFilterOpen = false;
@@ -94,6 +79,102 @@ function restoreDriveFilters(drive) {
     driveColumnFilterDropdownOpen = false;
     driveViewDropdownOpen = false;
     driveSeasonDropdownOpen = false;
+}
+
+/** Restore AV view and filter selections.
+ * @param {object} av Saved account-scoped AV filters.
+ * @returns {void}
+ */
+function restoreAvFilters(av) {
+    if (!av || typeof av !== 'object') return;
+    activeAVTab = appFilterMode(av.activeAVTab, ['open', 'reserves'], activeAVTab || 'open');
+    activeAvOpenTab = appFilterMode(av.activeAvOpenTab, ['name', 'photos'], activeAvOpenTab || 'name');
+    activeAvHotPriceTab = 'all';
+    avOpenLevel = appFilterNumber(av.avOpenLevel, 0);
+    selectedAvOpenName = appFilterNullableText(av.selectedAvOpenName);
+    selectedAvOpenSize = appFilterNullableText(av.selectedAvOpenSize);
+    selectedAvOpenSeason = appFilterNullableText(av.selectedAvOpenSeason);
+    selectedAvOpenLot = appFilterNullableText(av.selectedAvOpenLot);
+    avResLevel = appFilterNumber(av.avResLevel, 0);
+    selectedAvResRep = appFilterNullableText(av.selectedAvResRep);
+    selectedAvResDriveUid = appFilterNullableText(av.selectedAvResDriveUid);
+    selectedAvResItemCode = appFilterNullableText(av.selectedAvResItemCode);
+    selectedAvResName = appFilterNullableText(av.selectedAvResName);
+    selectedAvResSize = appFilterNullableText(av.selectedAvResSize);
+    selectedAvResCustomerKey = appFilterNullableText(av.selectedAvResCustomerKey);
+    activeAvReserveMode = appFilterMode(av.activeAvReserveMode, ['all', 'photos', 'cards'], activeAvReserveMode || 'all');
+    activeAvReserveDetailTab = appFilterMode(av.activeAvReserveDetailTab, ['customer', 'rep', 'row'], activeAvReserveDetailTab || 'customer');
+    selectedAvReserveDetailCustomerKey = appFilterNullableText(av.selectedAvReserveDetailCustomerKey);
+    activeAvSalesBucket = appFilterMode(av.activeAvSalesBucket, AV_SALES_BUCKET_OPTIONS.map((option) => option.value), activeAvSalesBucket || 'current');
+    activeAvPhotoMode = appFilterMode(av.activeAvPhotoMode, ['all', 'valid_photos', 'photos', 'no_photos'], activeAvPhotoMode || 'all');
+    restoreAvSearchFilters(av);
+}
+
+function restoreAvSearchFilters(av) {
+    if (Array.isArray(av.selectedAvSeasons)) {
+        selectedAvSeasons = appFilterArrayToSet(av.selectedAvSeasons);
+        avSeasonDefaultsInitialized = true;
+    }
+    avSeasonSearchTerm = appFilterText(av.avSeasonSearchTerm, '');
+    if (Array.isArray(av.selectedAvGenusNames)) selectedAvGenusNames = appFilterArrayToSet(av.selectedAvGenusNames);
+    avGenusSearchTerm = appFilterText(av.avGenusSearchTerm, '');
+    avGenusSelectionMode = appFilterMode(av.avGenusSelectionMode, ['all', 'custom'], avGenusSelectionMode || 'all');
+    if (Array.isArray(av.selectedAvContSizes)) selectedAvContSizes = appFilterArrayToSet(av.selectedAvContSizes);
+    avContSizeSearchTerm = appFilterText(av.avContSizeSearchTerm, '');
+    avContSizeSelectionMode = appFilterMode(av.avContSizeSelectionMode, ['all', 'custom'], avContSizeSelectionMode || 'all');
+    selectedAvSalesRepName = appFilterText(av.selectedAvSalesRepName, '');
+    avSalesRepSearchTerm = appFilterText(av.avSalesRepSearchTerm, '');
+    selectedAvRepCustomerKey = appFilterText(av.selectedAvRepCustomerKey, '');
+    avRepCustomerSearchTerm = appFilterText(av.avRepCustomerSearchTerm, '');
+    avHoldFilterMode = appFilterText(av.avHoldFilterMode, avHoldFilterMode || 'all') || 'all';
+    avHoldStopOnly = appFilterBool(av.avHoldStopOnly, false);
+    avColumnFilters = restoreSavedInventoryColumnFilters(av.avColumnFilters);
+    avColumnFilterFieldKey = normalizeDriveColumnFilterKey(av.avColumnFilterFieldKey);
+    avColumnFilterMode = normalizeDriveColumnFilterMode(av.avColumnFilterMode || 'values');
+    avColumnFilterValueSearchTerm = appFilterText(av.avColumnFilterValueSearchTerm, '');
+    avColumnFilterFieldSearchTerm = '';
+    avColumnFilterHeaderFieldsCache = [];
+    avColumnFilterDrafts = {};
+    avColumnFilterSelectedHeaders = new Set();
+    avColumnFilterStep = 'select';
+    avPhotoOutreachMinSLts = appFilterText(av.avPhotoOutreachMinSLts, '');
+    if (Array.isArray(av.avPhotoOutreachSelectedRepKeys)) avPhotoOutreachSelectedRepKeys = appFilterArrayToSet(av.avPhotoOutreachSelectedRepKeys);
+    avSourceDropdownOpen = false;
+    avSeasonDropdownOpen = false;
+    avGenusFilterOpen = false;
+    avContSizeFilterOpen = false;
+    avHoldDropdownOpen = false;
+    avPhotoDropdownOpen = false;
+    avSalesRepDropdownOpen = false;
+    avRepCustomerDropdownOpen = false;
+    avColumnFilterDropdownOpen = false;
+}
+
+/** Restore filters for the current account.
+ * @param {boolean} force Apply the snapshot even if this account is already restored.
+ * @param {object|null} snapshotOverride Explicit snapshot from an application update.
+ * @returns {boolean} Whether a saved snapshot was applied.
+ */
+function restorePersistedAppFilterStateForCurrentUser(force = false, snapshotOverride = null) {
+    const storageKey = getAppFilterStateStorageKey();
+    if (!snapshotOverride && !force && appFilterStateRestoredUserKey === storageKey) return false;
+    const snapshot = snapshotOverride || readAppFilterStateSnapshot();
+    if (!snapshot || typeof snapshot !== 'object') {
+        appFilterStateRestoredUserKey = storageKey;
+        return false;
+    }
+    restoreDriveFilters(snapshot.drive);
+    restoreTasksFilters(snapshot.tasks);
+    restoreAvFilters(snapshot.av);
+    restoreRequestViewState(snapshot.request);
+    restoreDocksFilters(snapshot.docks);
+    restoreNcrFilters(snapshot.ncr);
+    restoreMovesFilters(snapshot.moves);
+    restoreSalesInventoryFilters(snapshot.salesInventory);
+    invalidateResolvedViewStateCaches();
+    ['drive', 'tasks', 'av', 'request', 'docks', 'review', 'move-up', 'moves', 'sales-inventory'].forEach((viewId) => markViewDirty(viewId));
+    appFilterStateRestoredUserKey = storageKey;
+    return true;
 }
 
 function restoreTasksFilters(tasks) {
@@ -135,67 +216,6 @@ function restoreTasksFilters(tasks) {
     taskEvalUserDropdownOpen = false;
     taskSubviewDropdownOpen = false;
     taskReserveCustomerDropdownOpen = false;
-}
-
-function restoreAvFilters(av) {
-    if (!av || typeof av !== 'object') return;
-    activeAVTab = appFilterMode(av.activeAVTab, ['open', 'reserves'], activeAVTab || 'open');
-    activeAvOpenTab = appFilterMode(av.activeAvOpenTab, ['name', 'photos'], activeAvOpenTab || 'name');
-    activeAvHotPriceTab = 'all';
-    avOpenLevel = appFilterNumber(av.avOpenLevel, 0);
-    selectedAvOpenName = appFilterNullableText(av.selectedAvOpenName);
-    selectedAvOpenSize = appFilterNullableText(av.selectedAvOpenSize);
-    selectedAvOpenSeason = appFilterNullableText(av.selectedAvOpenSeason);
-    selectedAvOpenLot = appFilterNullableText(av.selectedAvOpenLot);
-    avResLevel = appFilterNumber(av.avResLevel, 0);
-    selectedAvResRep = appFilterNullableText(av.selectedAvResRep);
-    selectedAvResDriveUid = appFilterNullableText(av.selectedAvResDriveUid);
-    selectedAvResItemCode = appFilterNullableText(av.selectedAvResItemCode);
-    selectedAvResName = appFilterNullableText(av.selectedAvResName);
-    selectedAvResSize = appFilterNullableText(av.selectedAvResSize);
-    selectedAvResCustomerKey = appFilterNullableText(av.selectedAvResCustomerKey);
-    activeAvReserveMode = appFilterMode(av.activeAvReserveMode, ['all', 'photos', 'cards'], activeAvReserveMode || 'all');
-    activeAvReserveDetailTab = appFilterMode(av.activeAvReserveDetailTab, ['customer', 'rep', 'row'], activeAvReserveDetailTab || 'customer');
-    selectedAvReserveDetailCustomerKey = appFilterNullableText(av.selectedAvReserveDetailCustomerKey);
-    activeAvSalesBucket = appFilterMode(av.activeAvSalesBucket, AV_SALES_BUCKET_OPTIONS.map((option) => option.value), activeAvSalesBucket || 'current');
-    activeAvPhotoMode = appFilterMode(av.activeAvPhotoMode, ['all', 'valid_photos', 'photos', 'no_photos'], activeAvPhotoMode || 'all');
-    if (Array.isArray(av.selectedAvSeasons)) {
-        selectedAvSeasons = appFilterArrayToSet(av.selectedAvSeasons);
-        avSeasonDefaultsInitialized = true;
-    }
-    avSeasonSearchTerm = appFilterText(av.avSeasonSearchTerm, '');
-    if (Array.isArray(av.selectedAvGenusNames)) selectedAvGenusNames = appFilterArrayToSet(av.selectedAvGenusNames);
-    avGenusSearchTerm = appFilterText(av.avGenusSearchTerm, '');
-    avGenusSelectionMode = appFilterMode(av.avGenusSelectionMode, ['all', 'custom'], avGenusSelectionMode || 'all');
-    if (Array.isArray(av.selectedAvContSizes)) selectedAvContSizes = appFilterArrayToSet(av.selectedAvContSizes);
-    avContSizeSearchTerm = appFilterText(av.avContSizeSearchTerm, '');
-    avContSizeSelectionMode = appFilterMode(av.avContSizeSelectionMode, ['all', 'custom'], avContSizeSelectionMode || 'all');
-    selectedAvSalesRepName = appFilterText(av.selectedAvSalesRepName, '');
-    avSalesRepSearchTerm = appFilterText(av.avSalesRepSearchTerm, '');
-    selectedAvRepCustomerKey = appFilterText(av.selectedAvRepCustomerKey, '');
-    avRepCustomerSearchTerm = appFilterText(av.avRepCustomerSearchTerm, '');
-    avHoldFilterMode = appFilterText(av.avHoldFilterMode, avHoldFilterMode || 'all') || 'all';
-    avHoldStopOnly = appFilterBool(av.avHoldStopOnly, false);
-    avColumnFilters = restoreSavedInventoryColumnFilters(av.avColumnFilters);
-    avColumnFilterFieldKey = normalizeDriveColumnFilterKey(av.avColumnFilterFieldKey);
-    avColumnFilterMode = normalizeDriveColumnFilterMode(av.avColumnFilterMode || 'values');
-    avColumnFilterValueSearchTerm = appFilterText(av.avColumnFilterValueSearchTerm, '');
-    avColumnFilterFieldSearchTerm = '';
-    avColumnFilterHeaderFieldsCache = [];
-    avColumnFilterDrafts = {};
-    avColumnFilterSelectedHeaders = new Set();
-    avColumnFilterStep = 'select';
-    avPhotoOutreachMinSLts = appFilterText(av.avPhotoOutreachMinSLts, '');
-    if (Array.isArray(av.avPhotoOutreachSelectedRepKeys)) avPhotoOutreachSelectedRepKeys = appFilterArrayToSet(av.avPhotoOutreachSelectedRepKeys);
-    avSourceDropdownOpen = false;
-    avSeasonDropdownOpen = false;
-    avGenusFilterOpen = false;
-    avContSizeFilterOpen = false;
-    avHoldDropdownOpen = false;
-    avPhotoDropdownOpen = false;
-    avSalesRepDropdownOpen = false;
-    avRepCustomerDropdownOpen = false;
-    avColumnFilterDropdownOpen = false;
 }
 
 function restoreDocksFilters(docks) {

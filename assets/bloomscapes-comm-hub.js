@@ -1,7 +1,9 @@
+/** @param {unknown} value Communications text. @returns {string} Escaped HTML text. */
 function commEscape(value) {
     return String(value ?? '').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 }
 
+/** @param {string} view Communications workspace. @returns {string} Workspace shell markup. */
 function renderBloomscapesCommHub(view) {
     if (view==='push-to-talk') return renderWalkieShell();
     return '<section data-comm-hub aria-label="Messages"><header class="comm-heading"><h2>Messages</h2></header>'
@@ -16,13 +18,16 @@ function renderBloomscapesCommHub(view) {
         +'<p data-comm-status role="status"></p></section>';
 }
 
+/** @returns {Element|null} Communications host in the visible view. */
 function bloomscapesCommHost() {
     const view=getCurrentVisibleViewId();
     return document.querySelector('#view-'+view+' [data-comm-hub]');
 }
 
+/** @returns {boolean} Whether the Messages host is visible. */
 function isBloomscapesCommVisible() {return getCurrentVisibleViewId()==='messages' && !!bloomscapesCommHost();}
 
+/** @param {Element} container View containing the communications hub. @returns {void} Connects the mounted hub to its existing delegates. */
 function mountBloomscapesCommHub(container) {
     const host=container.querySelector('[data-comm-hub]');
     if (!host || host.dataset.mounted) return;
@@ -36,6 +41,7 @@ function mountBloomscapesCommHub(container) {
     void refreshBloomscapesComm().catch(error=>showBloomscapesCommStatus(error.message));
 }
 
+/** @returns {void} Paints the mounted hub from its current conversation state. */
 function renderBloomscapesComm() {
     const host=bloomscapesCommHost();
     if (!host) return;
@@ -57,6 +63,7 @@ function matchesBloomscapesComm(row) {
     return true;
 }
 
+/** @returns {void} Paints the conversation list for the active filters. */
 function renderBloomscapesCommList() {
     const host=bloomscapesCommHost();
     if (!host?.querySelector('[data-comm-list]')) return;
@@ -78,6 +85,7 @@ function commInboxRow(row) {
         +'<span class="comm-person-meta"><time>'+commTime(last?.created_at)+'</time>'+(row.unreadText>0?'<b class="comm-badge">'+row.unreadText+'</b>':'')+'</span></button>';
 }
 
+/** @returns {void} Paints the eligible people matching the current search. */
 function renderBloomscapesCommPeople() {
     const host=bloomscapesCommHost();
     if (!host) return;
@@ -132,7 +140,9 @@ function commActivityDot(person) {
     return '<i class="comm-activity '+(person?.active?'is-active':'')+'" title="'+(person?.active?'Active in the last 5 minutes':'Activity unknown')+'"></i>';
 }
 
+/** @param {number} milliseconds Recorded message duration. @returns {string} Display duration. */
 function commDuration(milliseconds) {return '0:'+String(Math.round((milliseconds || 0)/1000)).padStart(2,'0');}
+/** @param {string|number} value Message timestamp. @returns {string} Escaped local time label. */
 function commTime(value) {return value?commEscape(new Date(value).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})):'';}
 
 function openBloomscapesComm(mode='voice') {
@@ -142,6 +152,7 @@ function openBloomscapesComm(mode='voice') {
     return switchView('push-to-talk');
 }
 
+/** @param {string} view Current view identifier. @returns {void} Releases owned Walkie media on departure. */
 function syncBloomscapesCommLifecycle(view) {
     if (view==='push-to-talk') return;
     stopBloomscapesWalkie(true);releaseBloomscapesCommAudio();

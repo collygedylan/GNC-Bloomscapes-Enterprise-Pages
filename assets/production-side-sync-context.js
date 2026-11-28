@@ -1,22 +1,10 @@
+/** @returns {object} Active projections and row filters for the live-sync registry. */
 function getProductionLiveSyncSideContext() {
     const view = getCurrentVisibleViewId();
     const surfaces = [];
     const add = (key) => { if (window.AgMetricLiveSyncRegistry.surfaces[key]) surfaces.push(key); };
     const access = getRoleAccessState();
-    if (view === 'home' && canViewDashboardSyncStatus()) add('home:sync-metadata');
-    if (String(document.activeElement?.id || '').endsWith('av-note')
-        || document.body?.classList.contains('request-av-note-sheet-open')
-        || document.body?.classList.contains('eval-work-av-note-open')) add('dialog:av-notes');
-    if (view === 'request') {
-        add(`request:${activeReqTab}`);
-        if (requestDeliveryRecoveryOpen && canManageRequestDeliveryRecovery()) add('request:delivery-recovery');
-    }
-    if (view === 'sales-inventory' && inventoryMainTab === 'production' && productionInventoryTab === 'counting') add('sales-inventory:counting');
-    if (view === 'managers') addProductionLiveManagerSurfaces(add);
-    if (view === 'weather-hold' && canUseWeatherHoldRiskTools()) add('weather-hold:risk');
-    if (document.getElementById('bloomscapes-pending-dialog')?.open && canViewBloomscapesPendingOrders()) add('dialog:pending-orders');
-    if (currentUser && canAccessView('request') && (getRequestCapabilities()?.canViewQueue || canSeeEvalWorkRequestTab())) add('badge:queue');
-    if (currentUser && (canAccessView('chat') || canAccessView('communication'))) add('badge:communications');
+    addProductionLiveViewSurfaces(view, add);
     const driveDemand = getDriveDemandContext();
     addProductionLiveDialogSurfaces(view,driveDemand,add);
     return {
@@ -51,6 +39,23 @@ function getProductionLiveSyncSideContext() {
     };
 }
 
+function addProductionLiveViewSurfaces(view, add) {
+    if (view === 'home' && canViewDashboardSyncStatus()) add('home:sync-metadata');
+    if (String(document.activeElement?.id || '').endsWith('av-note')
+        || document.body?.classList.contains('request-av-note-sheet-open')
+        || document.body?.classList.contains('eval-work-av-note-open')) add('dialog:av-notes');
+    if (view === 'request') {
+        add(`request:${activeReqTab}`);
+        if (requestDeliveryRecoveryOpen && canManageRequestDeliveryRecovery()) add('request:delivery-recovery');
+    }
+    if (view === 'sales-inventory' && inventoryMainTab === 'production' && productionInventoryTab === 'counting') add('sales-inventory:counting');
+    if (view === 'managers') addProductionLiveManagerSurfaces(add);
+    if (view === 'weather-hold' && canUseWeatherHoldRiskTools()) add('weather-hold:risk');
+    if (document.getElementById('bloomscapes-pending-dialog')?.open && canViewBloomscapesPendingOrders()) add('dialog:pending-orders');
+    if (currentUser && canAccessView('request') && (getRequestCapabilities()?.canViewQueue || canSeeEvalWorkRequestTab())) add('badge:queue');
+    if (currentUser && (canAccessView('chat') || canAccessView('communication'))) add('badge:communications');
+}
+
 function addProductionLiveManagerSurfaces(add) {
     if (bloomscapesFarmWorkspaceSelection()) return;
     const managerToolAccess = getManagersToolAccess();
@@ -79,5 +84,5 @@ function addProductionLiveDialogSurfaces(view, driveDemand, add) {
     if (shown('bloom-picker-modal')) add('dialog:bloom-picker');
     if (shown('assign-modal') || shown('flyer-assignee-modal')) add('dialog:assignees');
     if (shown('eval-task-modal')) add('dialog:eval-assignees');
-    if (['ncr-email-modal', 'grouped-bloom-ncr-recipient-modal', 'bloom-crop-update-modal', 'bloom-email-purpose-modal', 'bloom-share-modal', 'ncr-rep-outreach-modal', 'inventory-multi-action-email-modal'].some(shown)) add('dialog:recipients');
+    if (['ncr-email-modal', 'grouped-bloom-ncr-recipient-modal', 'bloom-crop-update-modal', 'bloom-email-purpose-modal', 'bloom-share-modal', 'inventory-multi-action-email-modal'].some(shown)) add('dialog:recipients');
 }

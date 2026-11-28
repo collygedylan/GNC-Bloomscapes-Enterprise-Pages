@@ -319,41 +319,6 @@ function isBloomEmailPurposeReasonRequired(purpose = bloomEmailPurposeAction) {
             return item;
         }
 
-        async function collectGroupedBloomNcrRowOptions(rows = [], approvalMessage = '') {
-            const safeRows = (Array.isArray(rows) ? rows : []).filter(Boolean);
-            const optionsByUid = new Map();
-            for (let index = 0; index < safeRows.length; index += 1) {
-                const item = safeRows[index];
-                const label = getGroupedBloomNcrRowLabel(item, index);
-                const recommendationMeta = await promptApprovalRecommendationQuantity(item, 'new-crop', { approvalMessage });
-                if (!recommendationMeta) return null;
-                const holdCode = getHoldStopSnapshotFromItem(item);
-                let removeHoldStop = false;
-                if (hasBlockingHoldStopCodeForAv(holdCode)) {
-                    removeHoldStop = await showAppConfirm(`This NCR row is on hold/stop ship (${holdCode}).\n\nRemove the holdstopcode for this row?\n\n${label}`, {
-                        title: 'Remove Hold/Stop?',
-                        confirmLabel: 'Remove',
-                        cancelLabel: 'Keep'
-                    });
-                }
-                const priorityOne = await showAppConfirm(`Make this NCR row priority 1?\n\n${label}`, {
-                    title: 'Priority 1?',
-                    confirmLabel: 'Yes',
-                    cancelLabel: 'No'
-                });
-                const rowOptions = {
-                    recommendationMeta,
-                    ncrQty: recommendationMeta.suggestedQty,
-                    removeHoldStop,
-                    holdStopCode: holdCode,
-                    priorityOne
-                };
-                applyGroupedBloomNcrRowOptionsToItem(item, rowOptions);
-                optionsByUid.set(getGroupedBloomNcrRowKey(item, index), rowOptions);
-            }
-            return optionsByUid;
-        }
-
 
 
         function getGroupedBloomNcrRecipientFilter(options = getGroupedBloomNcrRecipientOptions()) {
@@ -1847,10 +1812,6 @@ function isBloomEmailPurposeReasonRequired(purpose = bloomEmailPurposeAction) {
             return false;
         }
 
-        function handleBloomActionMoveDownSeasonChange(index = 0) {
-            return handleBloomActionMoveSeasonChange(index, 'move_down');
-        }
-
         function handleBloomActionHoldStopReasonInput(input = null) {
             if (!input) return true;
             const lower = String(input.value == null ? '' : input.value).toLowerCase();
@@ -2271,56 +2232,6 @@ function isBloomEmailPurposeReasonRequired(purpose = bloomEmailPurposeAction) {
             if (safeOptions.clearSelection !== false) clearSelection();
             showToast('NCR Rows sent', `${submittedCount} NCR row${submittedCount === 1 ? '' : 's'} sent to Managers > NCR Approval.`);
             return true;
-        }
-
-        async function submitBloomActionHoldReleaseRowsToApproval(rows = [], rowOptionsByUid = null, options = {}) {
-            const safeRows = (Array.isArray(rows) ? rows : []).filter(Boolean);
-            const safeOptions = options || {};
-            if (!safeRows.length) {
-                showToast('Off Hold Empty', 'No Off Hold rows were selected.', true);
-                return 0;
-            }
-            const requester = safeOptions.requester || getCurrentNcrApprovalRequesterEntry() || {
-                username: String(currentUser || '').trim(),
-                display: String(firstNonEmptyValue(currentUserDisplay, currentUser, '') || '').trim(),
-                email: resolveRequestRecipientEmail(currentUser || currentUserDisplay || '')
-            };
-            const approvalMessage = String(firstNonEmptyValue(safeOptions.approvalMessage, safeOptions.reason, '') || '').trim();
-            let submittedCount = 0;
-            for (let index = 0; index < safeRows.length; index += 1) {
-                const item = safeRows[index];
-                const rowOptions = rowOptionsByUid ? getGroupedBloomNcrRowOption(rowOptionsByUid, item, index) : null;
-                if (rowOptions) applyGroupedBloomNcrRowOptionsToItem(item, rowOptions);
-                await submitNcrApprovalToDylan(item, 'hold-release', {
-                    requester,
-                    requestedByEmail: firstNonEmptyValue(safeOptions.requestedByEmail, requester && requester.email, resolveRequestRecipientEmail(currentUser || currentUserDisplay || '')),
-                    requestedByUsername: firstNonEmptyValue(safeOptions.requestedByUsername, requester && requester.username, currentUser, ''),
-                    requestedByDisplay: firstNonEmptyValue(safeOptions.requestedByDisplay, requester && requester.display, currentUserDisplay, currentUser, ''),
-                    photoUrls: safeOptions.photoUrls || getNcrApprovalPhotoUrls(item) || [],
-                    allowMissingPhoto: safeOptions.allowMissingPhoto !== false,
-                    allowMissingAvNote: true,
-                    approvalMessage,
-                    rowOptions,
-                    recommendationMeta: rowOptions && rowOptions.recommendationMeta ? rowOptions.recommendationMeta : null,
-                    skipEmail: true,
-                    dylanOnly: true
-                });
-                clearNcrDraft(item);
-                submittedCount += 1;
-            }
-            managerReviewInventoryDirty = true;
-            moveUpInventoryDirty = true;
-            markViewDirty('review');
-            markViewDirty('move-up');
-            markViewDirty('tasks');
-            markViewDirty('managers');
-            clearNcrApprovalTaskViewCaches();
-            scheduleNcrApprovalTaskRowsRefresh(getNcrApprovalTaskViewForType('hold-release'), { force: true, bypassThrottle: true, quiet: true });
-            if (safeOptions.clearSelection !== false) clearSelection();
-            if (safeOptions.showToast !== false) {
-                showToast('Off Hold Rows sent', `${submittedCount} Off Hold row${submittedCount === 1 ? '' : 's'} sent to Managers > Off Hold Approval.`);
-            }
-            return submittedCount;
         }
 
         function getPaperNcrDisplayValue(value = '', fallback = '-') {
@@ -4443,57 +4354,6 @@ function isBloomEmailPurposeReasonRequired(purpose = bloomEmailPurposeAction) {
                 window.location.href = mailtoHref;
             }
             showToast('Email Ready', 'The selected card details are ready to send.');
-            return true;
-        }
-
-        function buildShearListAddedReportRows(payloads = [], itemsByUniqueId = new Map()) {
-            return (Array.isArray(payloads) ? payloads : []).filter(Boolean).map((payload) => {
-                const sourceItem = itemsByUniqueId && typeof itemsByUniqueId.get === 'function'
-                    ? (itemsByUniqueId.get(payload.unique_id) || null)
-                    : null;
-                const snapshot = payload && payload.snapshot && typeof payload.snapshot === 'object' ? payload.snapshot : {};
-                const row = {
-                    ...(sourceItem || {}),
-                    ...(payload || {})
-                };
-                row.ITEMCODE = String(firstNonEmptyValue(payload.itemcode, row.ITEMCODE, row.itemcode, '') || '').trim();
-                row.itemcode = row.ITEMCODE;
-                row.COMMONNAME = String(firstNonEmptyValue(payload.commonname, row.COMMONNAME, row.commonname, '') || '').trim();
-                row.commonname = row.COMMONNAME;
-                row.CONTSIZE = String(firstNonEmptyValue(payload.contsize, row.CONTSIZE, row.contsize, '') || '').trim();
-                row.contsize = row.CONTSIZE;
-                row.LOTCODE = String(firstNonEmptyValue(payload.lotcode, row.LOTCODE, row.lotcode, '') || '').trim();
-                row.lotcode = row.LOTCODE;
-                row.LOCATIONCODE = String(firstNonEmptyValue(payload.locationcode, row.LOCATIONCODE, row.locationcode, '') || '').trim();
-                row.locationcode = row.LOCATIONCODE;
-                row.PTRAVAILABLE = String(firstNonEmptyValue(payload.ptravailable, row.PTRAVAILABLE, row.ptravailable, '') || '').trim();
-                row.ptravailable = row.PTRAVAILABLE;
-                row.PERCENT_TO_SHEAR = String(firstNonEmptyValue(payload.percent_to_shear, row.PERCENT_TO_SHEAR, row.percent_to_shear, snapshot.percent_to_shear, '') || '').trim();
-                row.percent_to_shear = row.PERCENT_TO_SHEAR;
-                row.SHEAR_TYPE = normalizeShearListType(firstNonEmptyValue(row.SHEAR_TYPE, row.shear_type, snapshot.shear_type, snapshot.shearType, ''));
-                row.shear_type = row.SHEAR_TYPE;
-                return row;
-            }).filter((row) => row.ITEMCODE || row.COMMONNAME || row.LOTCODE || row.PTRAVAILABLE || row.PERCENT_TO_SHEAR || row.SHEAR_TYPE);
-        }
-
-        async function sendShearListAddedReportEmail(payloads = [], itemsByUniqueId = new Map(), options = {}) {
-            const rows = buildShearListAddedReportRows(payloads, itemsByUniqueId);
-            if (!rows.length) return false;
-            const safeOptions = options && typeof options === 'object' ? options : {};
-            const defaultRecipientEmails = dedupeRequestEmailRecipients([
-                ...BLOOM_CROP_UPDATE_INTERNAL_RECIPIENTS,
-                resolveRequestRecipientEmail(currentUser || currentUserDisplay || '')
-            ]);
-            const pickedEmails = safeOptions.skipRecipientModal === true
-                ? defaultRecipientEmails
-                : await openGroupedBloomNcrRecipientModal(rows, defaultRecipientEmails, {
-                    brandLabel: 'GNC PH Shear List',
-                    title: 'Select Shear List Recipients'
-                });
-            const recipientEmails = dedupeRequestEmailRecipients(pickedEmails || []);
-            if (!recipientEmails.length) return false;
-            showToast('Sending Email', `Sending Shear List report for ${rows.length} row${rows.length === 1 ? '' : 's'}.`, false);
-            await sendBloomPurposeReportEmail(rows, 'inventory', 'shear', '', recipientEmails);
             return true;
         }
 

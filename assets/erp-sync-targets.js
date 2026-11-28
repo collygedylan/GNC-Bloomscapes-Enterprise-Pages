@@ -1,3 +1,17 @@
+/**
+ * @param {string} fileName
+ * @param {string} modifiedTime
+ * @returns {string} Sortable file timestamp from its name or Drive metadata.
+ */
+function dashboardFilenameTimestamp(fileName = '', modifiedTime = '') {
+  const match = String(fileName || '').match(/(\d{6})(20\d{6})(\d{6})/);
+  if (match) return match[2] + match[1];
+  const legacy = String(fileName || '').match(/(?:19|20)\d{12}/g);
+  if (legacy?.length) return legacy[legacy.length - 1];
+  const fallback = Date.parse(modifiedTime);
+  return Number.isFinite(fallback) ? new Date(fallback).toISOString().replace(/\D/g, '').slice(0,14) : '';
+}
+
 const ERP_DROP_FOLDERS_ROOT = '18JVGiQDQwBNHDHxbliH92Noa1DZGS10r';
 const ERP_PENDING_FOLDER_IDS = Object.freeze({
     "PH_DRIVE_AROUND": "1hpTjQsfWGSmDv_VWQssjbTOOxSXjMREc",

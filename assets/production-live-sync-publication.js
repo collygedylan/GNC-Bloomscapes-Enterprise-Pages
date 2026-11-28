@@ -1,3 +1,4 @@
+/** Publish the latest synchronization status and refresh its controls. @param {object} status @returns {void} */
 function publishProductionLiveSyncStatus(status) {
 
     if (!updateProductionLiveSyncProofFromStatus(status)) {
@@ -68,7 +69,26 @@ function refreshProductionHlDisplay(status) {
         restoreProductionRefreshAnchor(anchor);
     }, 0, 120, { deferUntilIdle: true, ignoreChunkDuringInteraction: true });
 }
+function reuseVerifiedSeasonInventory(snapshots, context, metadata, payload) {
+    const seasonChanged = snapshots.some(({ adapter }) => adapter.id === 'side:settings');
+    const masterState = getDatasetState('master');
+    const masterRevision = metadata.sources.get('ph_master_inventory');
+    const canReuseMaster = masterState.rowCompleteness === 'complete' && masterState.liveVerifiedScope === context.scope
+        && masterState.liveVerifiedPermission === metadata.permissionVersion
+        && masterRevision?.state === 'ready' && masterState.liveVerifiedRevision === masterRevision.revision;
+    if (seasonChanged && !Object.prototype.hasOwnProperty.call(payload, 'data') && canReuseMaster) {
+        // Season changes alter derived AV/current-season collections,
+        // not the already-verified all-season master snapshot itself.
+        payload.data = fullInventory.map((row) => ({ ...row }));
+    }
+}
 
+/** Apply verified snapshots, replay pending row patches and schedule visible updates.
+ * @param {Array} snapshots
+ * @param {object} context
+ * @param {object} metadata
+ * @returns {void}
+ */
 function commitProductionLiveSnapshots(snapshots, context, metadata) {
 
     const incomingMaster = snapshots.some(({ adapter }) => adapter.id === 'core:master');
@@ -84,17 +104,7 @@ function commitProductionLiveSnapshots(snapshots, context, metadata) {
     // Settings and operational maps are applied in the same JS turn.
     snapshots.filter(({ adapter }) => adapter.id.startsWith('side:')).forEach(({ adapter, value }) => adapter.commit(value));
     core.forEach(({ value }) => Object.assign(payload, value.payload));
-    const seasonChanged = snapshots.some(({ adapter }) => adapter.id === 'side:settings');
-    const masterState = getDatasetState('master');
-    const masterRevision = metadata.sources.get('ph_master_inventory');
-    const canReuseMaster = masterState.rowCompleteness === 'complete' && masterState.liveVerifiedScope === context.scope
-        && masterState.liveVerifiedPermission === metadata.permissionVersion
-        && masterRevision?.state === 'ready' && masterState.liveVerifiedRevision === masterRevision.revision;
-    if (seasonChanged && !Object.prototype.hasOwnProperty.call(payload, 'data') && canReuseMaster) {
-        // Season changes alter derived AV/current-season collections,
-        // not the already-verified all-season master snapshot itself.
-        payload.data = fullInventory.map((row) => ({ ...row }));
-    }
+    reuseVerifiedSeasonInventory(snapshots, context, metadata, payload);
     core.forEach(({ value }) => Object.assign(getDatasetState(value.key), {
         initialLoaded: true, fullLoaded: value.fieldCoverage === 'full', fieldCoverage: value.fieldCoverage,
         rowCompleteness: value.rowCompleteness === 'complete' ? 'complete' : 'unknown', firstPagePreviewLoaded: false, lastLoadedAt: new Date().toISOString(),

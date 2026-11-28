@@ -215,9 +215,6 @@ if (!(typeof window !== 'undefined' ? window : globalThis).AgMetricLifecycle) {
     };
 
     const isShellRelease = value => /^(?:V?\d{4}\.\d{2}\.\d{2}\.\d+|AgData v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))$/.test(value);
-    const FORCED_VERSION_UPGRADE_STORAGE_KEY = 'agdata_forced_version_upgrade';
-    const VERSION_RELOAD_FUSE_STORAGE_KEY = 'gnc_version_reload_fuse_v1';
-    const VERSION_RELOAD_FUSE_MS = 5 * 60 * 1000;
     const normalizeAgDataVersion = value => String(value || '').trim().match(/(?:AgData\s+v|v)?((?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))/i)?.[1] || '';
     const compareAgDataVersions = (left, right) => {
         const a = normalizeAgDataVersion(left).split('.').map(Number);
@@ -237,29 +234,6 @@ if (!(typeof window !== 'undefined' ? window : globalThis).AgMetricLifecycle) {
             || (spinnerVisible && (!loginView || loginView.style?.display !== 'none'));
     };
     root.isAgDataAuthTransitionActive = isAuthTransitionActive;
-    const recentlyReloadedForVersion = target => {
-        try {
-            const marker = JSON.parse(root.localStorage.getItem(VERSION_RELOAD_FUSE_STORAGE_KEY) || 'null');
-            return marker?.target === target && Date.now() - Number(marker.at || 0) < VERSION_RELOAD_FUSE_MS;
-        } catch (_) { return false; }
-    };
-    const markVersionReload = target => {
-        try { root.localStorage.setItem(VERSION_RELOAD_FUSE_STORAGE_KEY, JSON.stringify({ target, at: Date.now() })); }
-        catch (error) { globalThis.GncRuntimeWatchdog?.capture?.(error, 'app-lifecycle'); }
-    };
-    const clearVersionUpgradeSession = () => {
-        const exactKeys = new Set([
-            'gnc_user_v3', 'gnc_pin_v3', 'gnc_role_v3', 'gnc_division_v1', 'gnc_language_v1',
-            'gnc_user_display_v1', 'gnc_verified_login_v1', 'gnc_native_auth_profile_v1', 'gnc_app_session_v1'
-        ]);
-        try {
-            const keys = [];
-            for (let index = 0; index < root.localStorage.length; index += 1) keys.push(root.localStorage.key(index));
-            keys.filter(key => exactKeys.has(key) || /^sb-.+-auth-token$/i.test(key || '')).forEach(key => root.localStorage.removeItem(key));
-            root.localStorage.setItem('gnc_explicit_logout_v1', '1');
-        } catch (error) { globalThis.GncRuntimeWatchdog?.capture?.(error, 'app-lifecycle'); }
-        try { root.sessionStorage.clear(); } catch (error) { globalThis.GncRuntimeWatchdog?.capture?.(error, 'app-lifecycle'); }
-    };
     root.isAgDataEditorActive = () => {
         const detail = doc?.getElementById?.('view-detail');
         return !!(detail && !detail.classList.contains('hidden') && !detail.hidden
@@ -267,27 +241,65 @@ if (!(typeof window !== 'undefined' ? window : globalThis).AgMetricLifecycle) {
             || root.pendingPhotoUploads?.size);
     };
     const reloadClaims = new Set();
-    root.claimShellReloadOnce = version => {
-        if (root.isAgDataEditorActive?.() || root.isCameraCaptureProtected?.()) return false;
+    const reloadCooldownKey = 'agdata_ios_reload_guard_v23154';
+    const reloadFuseKey = 'gnc_version_reload_fuse_v1';
+    const reloadFuseMs = 5 * 60 * 1000;
+
+    function recentShellReloads(raw, now) {
+        const previous = JSON.parse(raw || 'null');
+        const entries = previous?.target ? [[previous.target, previous.at]] : Object.entries(previous || {});
+        return Object.fromEntries(entries.filter(([, at]) => Number.isFinite(at) && at <= now && now - at < reloadFuseMs));
+    }
+
+    function prepareShellReloadClaim(target) {
+        const session = root.sessionStorage, local = root.localStorage, now = Date.now();
+        const key = 'agdata_sw_reload_once_' + target;
+        if (reloadClaims.has(key) || session.getItem(key)) return null;
+        const cooldown = session.getItem(reloadCooldownKey), history = local.getItem(reloadFuseKey);
+        const prior = JSON.parse(cooldown || 'null'), recent = recentShellReloads(history, now);
+        if (prior?.target === target || (prior && now - prior.at < 60000) || Object.hasOwn(recent, target)) return null;
+        return {key, changes:[
+            [session, reloadCooldownKey, cooldown, JSON.stringify({target, at:now})],
+            [session, key, null, '1'],
+            [local, reloadFuseKey, history, JSON.stringify({...recent, [target]:now})],
+        ]};
+    }
+
+    function writeShellReloadClaim(changes) {
+        try {
+            for (const [store, key, , intended] of changes) store.setItem(key, intended);
+            return true;
+        } catch { return false; }
+    }
+
+    function restoreShellReloadClaim(changes) {
+        for (const [store, key, previous, intended] of changes) {
+            try {
+                if (store.getItem(key) !== intended) continue;
+                if (previous === null) store.removeItem(key);
+                else store.setItem(key, previous);
+            } catch { /* A retained claim safely prevents a repeat navigation. */ }
+        }
+    }
+
+    root.claimShellReloadOnce = (version, navigate = () => true) => {
+        if (root.isAgDataAuthTransitionActive() || root.isAgDataEditorActive?.() || root.isCameraCaptureProtected?.()) return false;
         const value = String(version || root.__APP_SHELL_VERSION__ || '').trim();
         const target = /^V?\d{4}\.\d{2}\.\d{2}\.\d+$/.test(value) ? value.replace(/^V/, '') : normalizeAgDataVersion(value);
         if (!target) return false;
-        const key = 'agdata_sw_reload_once_' + target;
-        const cooldownKey = 'agdata_ios_reload_guard_v23154';
-        if (reloadClaims.has(key)) return false;
+        let claim;
+        try { claim = prepareShellReloadClaim(target); } catch { return false; }
+        if (!claim) return false;
+        let navigated = false;
         try {
-            const previous = JSON.parse(root.sessionStorage.getItem(cooldownKey) || 'null');
-            const now = Date.now();
-            if (root.sessionStorage.getItem(key) || previous?.target === target || (previous && now - previous.at < 60000)) return false;
-            root.sessionStorage.setItem(cooldownKey, JSON.stringify({ target, at: now }));
-            root.sessionStorage.setItem(key, '1');
-        } catch (_) { return false; }
-        reloadClaims.add(key);
-        return true;
+            navigated = writeShellReloadClaim(claim.changes) && navigate() === true;
+            if (navigated) reloadClaims.add(claim.key);
+            return navigated;
+        } finally {
+            if (!navigated) restoreShellReloadClaim(claim.changes);
+        }
     };
-    let forcedVersionUpgrade = null;
     root.forceAgDataVersionUpgrade = (targetVersion, currentVersion = '', options = {}) => root.requestLiveAppUpdate?.(targetVersion, options) || Promise.resolve(false);
-    let versionCheck = null;
     root.checkAgDataVersion = (reason, options = {}) => root.checkForLiveAppUpdate?.(reason, options) || Promise.resolve(false);
     // Filters are disposable UI state. Auth, inventory, drafts and outboxes are not.
     root.invalidateAppFiltersForVersion = targetBuild => { const target=String(targetBuild || '').trim(); if(!isShellRelease(target))return false; for(const name of ['localStorage','sessionStorage'])try{root[name].setItem('gnc_app_filter_version_v1',target);}catch(_){} return true; };
@@ -298,17 +310,6 @@ if (!(typeof window !== 'undefined' ? window : globalThis).AgMetricLifecycle) {
     // target during the short toast, even when its registration URL is older.
     root.reloadForServiceWorkerUpdate = targetBuild => { void root.requestLiveAppUpdate?.(targetBuild,{reason:'worker-update'}); return false; };
 
-    function isOwnedShellRegistration(registration) {
-        try {
-            const appScope = new URL('./', root.location.href);
-            const expectedScript = new URL('./sw.js', root.location.href);
-            const scope = new URL(registration?.scope || '');
-            if (scope.origin !== appScope.origin || scope.href !== appScope.href) return false;
-            const worker = registration.active || registration.waiting || registration.installing;
-            const script = new URL(worker?.scriptURL || '');
-            return script.origin === expectedScript.origin && script.pathname === expectedScript.pathname;
-        } catch (_) { return false; }
-    }
 
     root.clearOwnedShellControllerState = async targetBuild => {
         const safeTarget = String(targetBuild || '').trim();
@@ -319,7 +320,6 @@ if (!(typeof window !== 'undefined' ? window : globalThis).AgMetricLifecycle) {
 
     };
 
-    let appLoadRecovery = null;
     root.recoverAppLoadFailure = reason => { root.__gncShellUpdateReady=true; return root.checkForLiveAppUpdate?.(String(reason || 'runtime-load-failure')) || Promise.resolve(false); };
 
     doc.addEventListener('click', event => {

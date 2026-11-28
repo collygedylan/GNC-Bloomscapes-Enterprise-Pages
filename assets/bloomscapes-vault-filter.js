@@ -10,7 +10,12 @@ function filterBloomscapesVault(rows,input) {
             && (!input.to || String(row.created_at).slice(0,10)<=input.to);
     });
 }
-
+/** Bind the report vault's filter controls to their source rows and renderer.
+ * @param {Element} host
+ * @param {Array} rows
+ * @param {Function} render
+ * @returns {void}
+ */
 function bindBloomscapesVaultFilter(host,rows,render) {
     const form=host.querySelector('form');
     const apply=()=>{
@@ -26,7 +31,11 @@ function bindBloomscapesVaultFilter(host,rows,render) {
     form.onsubmit=event=>{event.preventDefault();apply();};
     apply();
 }
-
+/** Open the selected vault PDF and reflect the operation on its button.
+ * @param {object} row
+ * @param {Element} button
+ * @returns {Promise<void>}
+ */
 async function openBloomscapesVaultPdf(row,button) {
     if (button.disabled) return;
     button.disabled=true;

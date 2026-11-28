@@ -51,7 +51,6 @@ function announcePendingArgosReclassMove(state) {
     showToast('Saving Moves', 'The move is saved on this device and awaiting confirmation.');
     return true;
 }
-
 async function prepareEvalWorkReclassMove(setup, payload, inquiry) {
     const { transactionState: state, identityKey } = setup;
     state.backgroundSubmission = true;
@@ -78,16 +77,6 @@ async function prepareEvalWorkReclassMove(setup, payload, inquiry) {
         }
     });
     return true;
-}
-
-function focusEvalWorkSetupAssignee(button) {
-    setTimeout(() => {
-        try {
-            button?.focus({ preventScroll: true });
-        } catch {
-            globalThis.safeIgnoreProbeError?.('openEvalWorkSetupFromReclass');
-        }
-    }, 30);
 }
 
 async function confirmArgosReclassMoveSubmission(submission, inquiryPayload) {
@@ -181,7 +170,6 @@ function resetArgosReclassSubmitButton({ apply, state, isContextCurrent }) {
         setArgosInventoryTransactionAction(state.action || 'reclass');
     }
 }
-
 async function submitArgosInventoryTransaction(event = null, confirmedPayload = null) {
     event?.preventDefault?.();
     const state = argosInventoryTransactionState;
@@ -248,7 +236,6 @@ function createArgosReclassActionProposal(normalized, uid, entry, rule, globalHo
     };
     return true;
 }
-
 function toggleArgosReclassV3Action(button = null, action = '', sourceUid = '') {
     const normalized = String(action || '').trim().toLowerCase();
     const card = button && button.closest ? button.closest('[data-reclass-row-card]') : null;
@@ -286,7 +273,6 @@ function toggleArgosReclassV3Action(button = null, action = '', sourceUid = '') 
     captureEvalWorkLocalDraftSoon(0);
     return false;
 }
-
 function handleArgosReclassV3ProposalInput(input = null) {
     const card = input && input.closest ? input.closest('[data-reclass-row-card]') : null;
     const uid = String(card && card.getAttribute('data-reclass-row-card') || '').trim();
@@ -313,7 +299,7 @@ function handleArgosReclassV3ProposalInput(input = null) {
     proposal[field] = value;
     if (action === 'sheared' && field === 'quantity') {
         const preview = card && card.querySelector('[data-sheared-request-preview="true"]');
-        if (preview) preview.textContent = value.trim() ? `${value.trim()}-->#` : '—';
+        if (preview) preview.textContent = value.trim() ? `${value.trim()}-->#` : 'â€”';
     }
     if (field === 'reason' && RECLASS_ACTION_WORKFLOW_V3_HOLD_ACTIONS.includes(action)) {
         document.querySelectorAll('[data-reclass-v3-proposal-field="reason"]').forEach((other) => {
@@ -323,7 +309,6 @@ function handleArgosReclassV3ProposalInput(input = null) {
     markArgosReclassProposalEdited(uid);
     return true;
 }
-
 async function reassignEvalWork(workId = '') {
     const work = getEvalWorkById(workId);
     if (!work || !evalWorkManager) return false;
@@ -381,4 +366,13 @@ async function chooseEvalWorkCompletionRecipients() {
     if (selected !== null) evalWorkSetupState.completionRecipients = dedupeRequestEmailRecipients(selected || []);
     syncEvalWorkSetupSummary();
     return false;
+}
+function focusEvalWorkSetupAssignee(button) {
+    setTimeout(() => {
+        try {
+            button?.focus({ preventScroll: true });
+        } catch {
+            globalThis.safeIgnoreProbeError?.('openEvalWorkSetupFromReclass');
+        }
+    }, 30);
 }

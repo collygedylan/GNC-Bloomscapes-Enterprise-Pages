@@ -1,6 +1,8 @@
 const BLOOMSCAPES_RADIO_DRAFT_DB = 'bloomscapes-radio-drafts-v1';
 const bloomscapesRadioVolatileDrafts=new Map();
+/** Check whether any radio recordings currently depend on in-memory storage. @returns {boolean} */
 function hasVolatileBloomscapesRadioDrafts() { return bloomscapesRadioVolatileDrafts.size>0; }
+/** Check recording capacity before accepting another volatile radio draft. @returns {void} */
 function assertBloomscapesRadioDraftCapacity() {
     if(bloomscapesRadioVolatileDrafts.size>=8)throw Error('Retry unsent calls before recording another call on this device.');
 }
@@ -24,6 +26,7 @@ async function radioDraftTransaction(mode,operation) {
         });
     } finally { db.close(); }
 }
+/** Persist a radio draft and report whether it can survive a reload. @param {object} draft @returns {Promise<object>} */
 async function saveBloomscapesRadioDraft(draft) {
     const key=draft.owner+':'+draft.id;
     bloomscapesRadioVolatileDrafts.set(key,draft);
@@ -33,6 +36,7 @@ async function saveBloomscapesRadioDraft(draft) {
         return {persisted:true};
     } catch(error) { return {persisted:false,error}; }
 }
+/** Publish a saved recording and return its receipt, including any local cleanup error. @param {object} draft @returns {Promise<object>} */
 async function publishBloomscapesRadioDraft(draft) {
     const {client,owner}=await requireBloomscapesSession();
     if (owner!==draft.owner) throw Error('Sign in to the account that recorded this call.');
@@ -49,6 +53,7 @@ async function publishBloomscapesRadioDraft(draft) {
     try {await radioDraftTransaction('readwrite',store=>store.delete(key));return receipt;}
     catch(error) {return {...receipt,localCleanupError:error.message};}
 }
+/** Retry eligible saved radio recordings and return the number delivered. @returns {Promise<number>} */
 async function retryBloomscapesRadioDrafts() {
     const {owner}=await requireBloomscapesSession();
     const drafts=new Map([...bloomscapesRadioVolatileDrafts].filter(([,draft])=>draft.owner===owner));

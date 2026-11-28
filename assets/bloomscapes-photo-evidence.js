@@ -1,3 +1,8 @@
+/** Select the photo field family used by a row in this view.
+ * @param {object|null} item Physical inventory or workflow row.
+ * @param {string} sourceView Originating view name.
+ * @returns {string} The flyer, request, dock or shared context.
+ */
 function getLocPhotoEvidenceContext(item = null, sourceView = '') {
     const view = String(sourceView || '').trim().toLowerCase();
     const table = String(firstNonEmptyValue(item && item.SOURCE_TABLE, item && item.source_table, '')).toLowerCase();
@@ -9,6 +14,11 @@ function getLocPhotoEvidenceContext(item = null, sourceView = '') {
     return 'shared';
 }
 
+/** Read the first field present on the row, including an explicitly empty value.
+ * @param {object|null} item Row to inspect.
+ * @param {string[]} keys Canonical fields and aliases in precedence order.
+ * @returns {unknown} Owned field value, or an empty string.
+ */
 function getLocPhotoOwnedValue(item = null, keys = []) {
     // An explicit cleared canonical field must not fall back to a stale alias.
     for (const key of keys) {
@@ -17,6 +27,10 @@ function getLocPhotoOwnedValue(item = null, keys = []) {
     return '';
 }
 
+/** Parse a capture timestamp for comparison with the current time.
+ * @param {unknown} value Stored photo timestamp.
+ * @returns {number|null} Epoch milliseconds when the timestamp is valid.
+ */
 function parseLocPhotoEvidenceTimestamp(value = '') {
     const text = String(value == null ? '' : value).trim();
     if (!/^20\d{2}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}(?::?\d{2})?)$/.test(text)) return null;
@@ -27,6 +41,10 @@ function parseLocPhotoEvidenceTimestamp(value = '') {
     return Number.isFinite(at) ? at : null;
 }
 
+/** Read capture-time evidence embedded in the photo name or URL.
+ * @param {string} value Photo reference.
+ * @returns {object} Whether capture evidence was provided and its parsed timestamp.
+ */
 function getLocPhotoCaptureEvidence(value = '') {
     let text = String(value == null ? '' : value).trim();
     try { text = decodeURIComponent(text); } catch { return { provided: true, at: null }; }
@@ -45,6 +63,12 @@ function getLocPhotoCaptureEvidence(value = '') {
     return { provided: true, dateOnly: true, at: date.getUTCFullYear() === parts[0] && date.getUTCMonth() === parts[1] - 1 && date.getUTCDate() === parts[2] ? +date : null };
 }
 
+/** Classify the retained photo evidence belonging to this row and view.
+ * @param {object|null} item Inventory or workflow row.
+ * @param {string} sourceView View that owns the photo fields.
+ * @param {number} now Comparison time in epoch milliseconds.
+ * @returns {object} Row photo status, recognized evidence and freshness deadline.
+ */
 function getLocPhotoEvidenceState(item = null, sourceView = '', now = Date.now()) {
     const context = getLocPhotoEvidenceContext(item, sourceView);
     const fields = {
@@ -84,11 +108,14 @@ function getLocPhotoEvidenceState(item = null, sourceView = '', now = Date.now()
 function classifyBloomscapesPhoto(link, name, context, fallback, now) {
     const relative = link.startsWith(SUPABASE_URL + '/') ? link.slice(SUPABASE_URL.length) : '';
     const object = relative.match(/^\/storage\/v1\/object\/public\/(request_photos|flyer_photos|season_sales_notes_photos|location_sales_notes_photos|dock_photos)\/[^?#]+$/);
+    const publishedEvaluation = /^\/storage\/v1\/object\/public\/bloomscapes-evaluation-photos\/drive-evidence\/[a-f0-9]+\/v2\/[a-f0-9]{64}\.(?:jpg|webp)$/.test(relative);
     const sharedProxy = context === 'shared' && /^\/functions\/v1\/app-api\?photo_blob=[a-f0-9]{64}$/.test(relative);
     const canReadBucket = object && (object[1] !== 'dock_photos' || context === 'dock');
     const badPath = /[\u0000-\u001f\u007f\\]/.test(link) || /(?:^|\/|%2f)(?:\.|%2e){1,2}(?:\/|%2f|$)/i.test(link);
-    if ((!sharedProxy && !canReadBucket) || badPath) return {state:'invalid', at:null};
-    const captures = [sharedProxy ? null : getLocPhotoCaptureEvidence(link), getLocPhotoCaptureEvidence(name)].filter(value => value?.provided);
+    if ((!sharedProxy && !canReadBucket && !publishedEvaluation) || badPath) return {state:'invalid', at:null};
+    const opaqueName = publishedEvaluation && /^[a-f0-9]{64}\.(?:jpg|webp)$/.test(name);
+    const captures = [sharedProxy || publishedEvaluation ? null : getLocPhotoCaptureEvidence(link),
+        opaqueName ? null : getLocPhotoCaptureEvidence(name)].filter(value => value?.provided);
     const at = bloomscapesPhotoCaptureDate(captures, fallback, now);
     const state = at == null || !Number.isFinite(now) ? 'undated' : at > now ? 'future'
         : now - at > 10 * 86400000 ? 'stale' : 'current';

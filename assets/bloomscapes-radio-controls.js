@@ -1,7 +1,12 @@
+/** @returns {string} Navigation container for the communications controls. */
 function renderBloomscapesRadioControls() {
     return '<nav data-comm-links aria-label="Communications"></nav>';
 }
 
+/** Bind links to the communication views this account can open.
+ * @param {Element} container Rendered navigation host.
+ * @returns {void}
+ */
 function mountBloomscapesRadioControls(container) {
     const nav=container.querySelector('[data-comm-links]');
     if (!nav) return;
@@ -13,12 +18,4 @@ function mountBloomscapesRadioControls(container) {
         button.addEventListener('click',()=>switchView(view));
         nav.append(button);
     }
-}
-
-function isBloomscapesRadioSurfaceActive(host) {
-    if (!host.isConnected) return false;
-    const view=getCurrentVisibleViewId();
-    if (view==='managers') return activeHomeTab==='bloomscapes-radio' && !!host.closest('#view-managers');
-    const frame=host.closest('[data-department-workspace]');
-    return frame?.dataset.departmentWorkspace==='bloomscapes-radio' && !!frame.closest('#view-'+view);
 }

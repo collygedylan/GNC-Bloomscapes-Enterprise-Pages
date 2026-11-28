@@ -1,4 +1,5 @@
 const bloomscapesRadioInbox={owner:'',farm:'',calls:[],count:0,channel:null,pending:null,generation:0,audio:null};
+/** Refresh the authorized radio inbox using the existing in-flight request. @returns {Promise<void>} */
 async function refreshBloomscapesRadioInbox() {
     if (!window.BloomscapesBatteryGovernor.visible()) return;
     const access=bloomscapesCommAccess('walkie');
@@ -26,6 +27,7 @@ async function refreshBloomscapesRadioInbox() {
     }).catch(error=>handleRadioReadFailure(error,generation)).finally(()=>{if(generation===state.generation)state.pending=null;});
     return state.pending;
 }
+/** Connect the authorized radio inbox and optionally refresh its contents. @param {boolean} refresh @returns {Promise<void>} */
 async function connectBloomscapesRadioInbox(refresh = true) {
     if (!nativeAuthSessionActive || !currentUser) return disconnectBloomscapesRadioInbox();
     if (!window.BloomscapesBatteryGovernor.visible()) return;
@@ -67,6 +69,7 @@ async function disconnectBloomscapesRadioInbox() {
     renderBloomscapesRadioInbox();
     await Promise.all([disconnectBloomscapesMessages(),channel?channel():null]);
 }
+/** Play the next eligible incoming radio recording. @returns {Promise<void>} */
 async function playNextBloomscapesRadioCall() {
     const state=bloomscapesRadioInbox,call=state.calls[0];
     if (!call || state.audio || document.hidden) return;

@@ -26,6 +26,7 @@ async function toggleDockItemState(uid,type) {
     return false;
 }
 
+/** @param {object} state Confirmed dock board state. @returns {void} Paints the visible board and refreshes dependent controls. */
 function publishBloomscapesDockBoard(state) {
     const viewId = getCurrentVisibleViewId();
     const host = document.getElementById('view-'+viewId);
@@ -40,11 +41,13 @@ function publishBloomscapesDockBoard(state) {
     }
 }
 
+/** @returns {object|null} Current account and farm board when available. */
 function currentBloomscapesDockBoard() {
     const state = getBloomscapesDockBoardState();
     return isBloomscapesDockStateCurrent(state) ? state.board : null;
 }
 
+/** @returns {number} Current board revision or zero before a confirmed board. */
 function bloomscapesDockBoardRevision() {
     const state = getBloomscapesDockBoardState();
     return isBloomscapesDockStateCurrent(state) ? state.revision : 0;

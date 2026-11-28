@@ -11,7 +11,7 @@ function getGlobalHeaderChromeState(backState = getGlobalBackState()) {
     const moduleTitle = bloomscapesDepartmentTitle(currentView)
         || (currentView === 'managers' ? bloomscapesWorkflowTab(activeHomeTab)?.label : '');
     const resolvedTitle = moduleTitle || meta.title || formatGlobalHeaderTitle(currentView);
-    const showHomeBack = currentView === 'home' && backState.modalBack;
+    const showHomeBack = currentView === 'home' && backState.showBack;
     const po=document.getElementById('view-'+currentView)?.querySelector('[data-bloomscapes-workflow="bloomscapes-replenishment"]');
     const searchContainerId = po && !po.closest('[hidden],.hidden') ? getBloomscapesPoHeaderSearch(po) : currentView === 'tasks'
         ? (shouldShowTaskHeaderSearch() ? GLOBAL_HEADER_SEARCH_CONFIG.tasks : '')
@@ -65,7 +65,8 @@ function applyGlobalBackState(state) {
         } catch { globalThis.reportHandledRuntimeIssue?.("applyGlobalBackState", 'HANDLED_OPERATION_FAILURE'); }
         button.removeAttribute('popover');
     }
-    const visible = (currentView !== 'home' || modalBack) && (showBack || !!currentUser);
+    const homeBack = currentView === 'home' && showBack;
+    const visible = homeBack || (currentView !== 'home' && (showBack || !!currentUser));
     button.classList.toggle('hidden', !visible);
     button.hidden = !visible;
     button.disabled = !showBack;
@@ -74,7 +75,8 @@ function applyGlobalBackState(state) {
     const accessBack=currentView==='managers' && getActiveBloomscapesUserDirectory()?.showingDetail();
     button.setAttribute('aria-label',accessBack?'Back to Users':'Back');
     button.title=accessBack?'Back to Users':'Back';
-    if (visible) ['display', 'visibility', 'pointer-events'].forEach(prop => button.style.removeProperty(prop));
+    button.style.removeProperty('display');
+    if (visible) ['visibility', 'pointer-events'].forEach(prop => button.style.removeProperty(prop));
     if (modalBack && typeof button.showPopover === 'function') {
         button.setAttribute('popover', 'manual');
         try {
@@ -85,6 +87,7 @@ function applyGlobalBackState(state) {
             button.removeAttribute('popover');
         }
     }
+    if (homeBack && !button.hasAttribute('popover')) button.style.setProperty('display','inline-flex','important');
 }
 
 

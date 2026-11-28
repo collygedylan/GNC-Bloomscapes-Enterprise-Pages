@@ -75,6 +75,7 @@ function mountPrimaryNavigation(context) {
     Object.assign(context, { targetView, nextState });
 }
 
+/** @param {object} context Pending navigation and origin state. @returns {boolean} Whether navigation may continue. */
 function preparePrimaryNavigationOrigin(context) {
     const { nextViewId, currentViewId, switchOptions, fromHistory } = context;
     let targetScrollTop = switchOptions.targetScrollTop == null ? null : Math.max(0, Number(switchOptions.targetScrollTop) || 0);
@@ -108,6 +109,7 @@ function preparePrimaryNavigationOrigin(context) {
     return true;
 }
 
+/** @param {object} context Current navigation and cached target state. @returns {boolean} Whether the current view handled the route. */
 function reusePrimaryNavigation(context) {
     const { nextViewId, currentViewId, nextState, targetScrollTop, navigationSeq, viewSwitchStartedAt } = context;
     if (currentViewId !== nextViewId || !nextState.initialized || nextState.dirty) return false;
@@ -147,6 +149,7 @@ function reusePrimaryNavigation(context) {
     return true;
 }
 
+/** @param {object} context Authorized navigation target and rendering state. @returns {void} Schedules or performs the target render. */
 function renderPrimaryNavigation(context) {
     const { nextViewId, nextState, targetView, switchOptions } = context;
     const managerCommandOwnsRender = nextViewId==='managers' && !!switchOptions?.quickAccessTab;
@@ -168,6 +171,7 @@ function renderPrimaryNavigation(context) {
     }
 }
 
+/** @param {object} context View and navigation sequence. @param {number} renderToken Current render token. @param {boolean} syncHeader Whether to update the header. @returns {void} Renders a current target. */
 function runPrimaryNavigationTargetRender({ nextViewId, navigationSeq }, renderToken, syncHeader = false) {
     if (!isLatestViewRenderToken(nextViewId, renderToken)) {
         incrementInternalPerfCounter('staleViewRenderSkips');
@@ -176,6 +180,7 @@ function runPrimaryNavigationTargetRender({ nextViewId, navigationSeq }, renderT
     if (isCurrentNavigationTransition(navigationSeq, nextViewId)) renderViewContent(nextViewId, false, false, syncHeader);
 }
 
+/** @param {object} context Navigation and retained scroll coordinates. @returns {void} Restores or schedules the target scroll. */
 function restorePrimaryNavigationScroll(context) {
     const { nextViewId, currentViewId, targetScrollTop, navigationSeq, originScrollTop } = context;
     if (targetScrollTop != null) return queueExplicitPrimaryNavigationScroll(context);
@@ -201,6 +206,7 @@ function confirmPrimaryNavigationScroll({ nextViewId, targetScrollTop, navigatio
     if (isIosPhoneRequestFlowView(nextViewId)) scheduleIosPhoneRequestFlowAudit('view-restore', { resetScroll: true });
 }
 
+/** @param {object} context Committed navigation and target state. @returns {false} Cancels the original event after activation is scheduled. */
 function activatePrimaryNavigation(context) {
     const { nextViewId, currentViewId, nextState, targetView, viewSwitchStartedAt } = context;
     const shouldActivateImmediately = shouldRunImmediateViewActivation(nextViewId, nextState);

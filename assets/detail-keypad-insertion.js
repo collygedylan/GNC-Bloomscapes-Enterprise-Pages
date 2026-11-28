@@ -1,3 +1,9 @@
+/** Apply a measurement-key press to the selected text and compute the new cursor.
+ * @param {string} type
+ * @param {object} selection
+ * @param {string} key
+ * @returns {object}
+ */
 function resolveDetailKeypadInsertion(type, { value, start, end }, key) {
     let inserted = String(key || '');
     const emptyMeasurement = ['', 'N/A', '-'].includes(value.trim().toUpperCase());
@@ -16,7 +22,11 @@ function resolveDetailKeypadInsertion(type, { value, start, end }, key) {
     }
     return { nextValue: value.slice(0, start) + inserted + value.slice(end), nextCursor: start + inserted.length };
 }
-
+/** Set the measurement input value and restore the requested cursor position.
+ * @param {string} nextValue
+ * @param {number|null} nextCursor
+ * @returns {boolean}
+ */
 function updateDetailMeasurementKeyboardTargetValue(nextValue = '', nextCursor = null) {
     const input = detailMeasurementKeyboardTarget;
     if (!input) return false;
@@ -43,7 +53,7 @@ function updateDetailMeasurementKeyboardTargetValue(nextValue = '', nextCursor =
     },300);
     return false;
 }
-
+/** Vibrate briefly for a detail keyboard press when supported. @param {number} duration @returns {void} */
 function triggerDetailKeyboardHaptic(duration = 8) {
     const now = Date.now();
     if (now - detailMeasurementKeyboardLastHapticAt < 14 || typeof navigator.vibrate !== 'function') return;
@@ -62,7 +72,7 @@ function pinActiveDetailField(input) {
         - getDetailMeasurementKeyboardVisibleHeight() - 8;
     scrollDetailFieldWithinMainArea(input, top, bottom);
 }
-
+/** Register the focus and interaction handlers for pinned detail inputs. @returns {void} */
 function initializePinnedDetailFields() {
     document.addEventListener('beforeinput', event => {
         const input = event.target;
@@ -70,7 +80,11 @@ function initializePinnedDetailFields() {
         if (String(input.value).trim().toUpperCase() === 'N/A') input.value = '';
     });
 }
-
+/** Scroll a focused field into view using its active detail panel.
+ * @param {unknown} target
+ * @param {object} options
+ * @returns {void}
+ */
 function bringFocusedDetailFieldIntoView(target, options = {}) {
     if (!isDetailEditableField(target)) return;
     if (shouldSkipDetailFieldAutoScroll(target, options) && document.activeElement !== target) return;

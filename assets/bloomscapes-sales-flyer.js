@@ -1,3 +1,4 @@
+/** @returns {false|Promise<false>} Starts folder selection for the eligible Bloom cart rows. */
 function startBloomscapesCartFlyerBuilder() {
     const items = Array.from(selectedItems, id => findItemByDomId(id)).filter(Boolean);
     if (!items.length) {
@@ -7,6 +8,7 @@ function startBloomscapesCartFlyerBuilder() {
     return openBloomscapesFlyerBuilder(items, {closeCart:true, clearSelection:true, usePendingFolder:true});
 }
 
+/** @param {object[]} items Selected inventory rows. @param {object} options Folder and cart handling options. @returns {Promise<false>} Opens the authorized folder and assignee prompts. */
 async function openBloomscapesFlyerBuilder(items, options = {}) {
     const validItems = items.filter(item => canUseCartInventoryActions([item]));
     if (!validItems.length) {
@@ -45,11 +47,8 @@ async function requestBloomscapesFlyerFolderName(existing) {
     return name;
 }
 
+/** @param {string|string[]} value Assignee names. @returns {string[]} Deduplicated nonempty display names. */
 function getFlyerAssigneeList(value = '') {
     const rawValues = Array.isArray(value) ? value : String(value || '').split(/[;,\n]+/);
     return [...new Set(rawValues.map(entry => entry == null ? '' : String(entry).trim()).filter(Boolean))];
-}
-
-function normalizeFlyerAssigneeKey(value = '') {
-    return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
 }

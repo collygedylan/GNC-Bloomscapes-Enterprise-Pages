@@ -1,4 +1,4 @@
-import { canonicalAuraSize } from '../utils/auraLingo.js';
+import { canonicalAuraSize } from '../utils/auraLingo.js?v=AgData%20v3.1.85';
 export function createAuraConversation() {
   return { auraMode:'IDLE', party:null, lines:[], history:[], choice:null, resumeMode:null, consumedCommands:[], revision:0 };
 }

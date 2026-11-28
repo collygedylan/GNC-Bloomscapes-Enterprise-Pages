@@ -1,7 +1,7 @@
-// AgData source commit: e74b09dd062fcc7ba63eeb49c72dadc88c772399
-const APP_SHELL_BUILD = 'AgData v3.1.84';
+// AgData source commit: ba3078fcdd576bd10ef2192b52890de699b09123
+const APP_SHELL_BUILD = 'AgData v3.1.85';
 const APP_SHELL_RUNTIME_REVISION = 'cloud-relay-cache-r2';
-const APP_ASSET_VERSION = '3.1.84';
+const APP_ASSET_VERSION = '3.1.85';
 importScripts('./assets/storage-request-guard.js?v=' + APP_ASSET_VERSION);
 importScripts('./assets/service-worker-url.js?v=' + APP_ASSET_VERSION);
 importScripts('./assets/bloomscapes-radio-worker.js?v=' + APP_ASSET_VERSION);
@@ -11,9 +11,8 @@ const { installCurrentShell, fetchWithTimeout, handleShellResourceRequest, relea
 const APP_SHELL_QUERY_PARAM = 'shellv';
 const APP_SHELL_URL = './index.html?shellv=' + encodeURIComponent(APP_SHELL_BUILD);
 const INSTALL_ASSET_TIMEOUT_MS = 8500;
-const INSTALL_REMOTE_ASSET_TIMEOUT_MS = 4500;
-const CACHE_VERSION = 'agdata-v3.1.84';
-const CACHE_RUNTIME_REVISION = 'e74b09dd062fcc7ba63eeb49c72dadc88c772399';
+const CACHE_VERSION = 'agdata-v3.1.85';
+const CACHE_RUNTIME_REVISION = 'ba3078fcdd576bd10ef2192b52890de699b09123';
 const CACHE_NAME = CACHE_VERSION + '-' + CACHE_RUNTIME_REVISION;
 const SHELL_FETCH_TIMEOUT_MS = 1200;
 const IMAGE_CACHE_NAME = 'agdata-photo-cache-v1';
@@ -72,20 +71,20 @@ const BRANDING_CANONICAL_ASSETS = Object.freeze([
 // END GENERATED BRANDING ASSETS
 const DEFERRED_VIEW_ASSETS = /* release-generated */ [
   "./assets/bunch-note-cards.css",
-  "./assets/bunch-note-chunks/CardBoard-P3OULQNR.js",
-  "./assets/bunch-note-chunks/StructuredBunchNote-XDG7VGHK.js",
-  "./assets/bunch-note-chunks/chunk-5ZDRBDCG.js",
+  "./assets/bunch-note-chunks/CardBoard-YFEHSIHX.js",
+  "./assets/bunch-note-chunks/StructuredBunchNote-CWKBSZD5.js",
+  "./assets/bunch-note-chunks/chunk-JQXRNT4Y.js",
   "./assets/bunch-note-structured.js",
   "./assets/bunch-note.css",
   "./assets/bunch-queue-shell.js",
   "./assets/bunch-queue.css",
   "./assets/bunch-queue.js",
-  "./assets/field-counting-chunks/FieldCountingView-SAWUREZ4.js",
+  "./assets/field-counting-chunks/FieldCountingView-WQKVCJUQ.js",
   "./assets/field-counting-chunks/chunk-4U4VUOO3.js",
   "./assets/field-counting.css",
   "./assets/field-counting.js",
-  "./assets/historical-requests-chunks/HistoricalRequestsView-ULM7WHRZ.js",
-  "./assets/historical-requests-chunks/chunk-DDCCT2RM.js",
+  "./assets/historical-requests-chunks/HistoricalRequestsView-ODPJMAM7.js",
+  "./assets/historical-requests-chunks/chunk-DQROBOEJ.js",
   "./assets/historical-requests.css",
   "./assets/historical-requests.js",
   "./assets/report-pages-live.js",
@@ -202,7 +201,7 @@ const SHELL_INSTALL_RECEIPT = './__agdata_shell_install_complete__';
 const ASSETS_TO_CACHE = [
   './services/bunch-note-pdf.mjs',
   ...STATIC_ASSETS,
-  ...["./assets/photo-workflow-controls.css?v=3.1.84","./assets/bloomscapes-workflows.css?v=3.1.84","./assets/bloomscapes-cards.css?v=3.1.84","./assets/drive-reports-v2.css?v=3.1.84","./assets/bloomscapes-handheld.css?v=3.1.84","./assets/bloomscapes-timecards.css?v=3.1.84","./assets/bloomscapes-work-studio.css?v=3.1.84","./assets/field-work-consolidation.css?v=3.1.84","./assets/bloomscapes-load-maximizer.css?v=3.1.84","./assets/bloomscapes-flyer-designer.css?v=3.1.84","./assets/bloomscapes-flyer-history.css?v=3.1.84","./assets/battery-mobile.css?v=3.1.84","./assets/preboot-recovery.js?v=3.1.84","./assets/location-code.js?v=3.1.84","./assets/bunch-note.js?v=3.1.84","./assets/bunch-queue-shell.js?v=3.1.84","./assets/sales-workspace.js?v=3.1.84","./assets/mobile-workspace.js?v=3.1.84","./assets/navigation-preferences.js?v=3.1.84","./assets/access-matrix-policy.js?v=3.1.84","./assets/consolidation-cpb-access.js?v=3.1.84","./assets/bloomscapes-consolidation-lookups.js?v=3.1.84","./assets/bloomscapes-cpb-grid.js?v=3.1.84","./assets/bloomscapes-table-management-consolidation.js?v=3.1.84","./assets/user-access-control.js?v=3.1.84","./assets/bunch-note.css?v=3.1.84","./assets/bunch-queue.css?v=3.1.84","./assets/bunch-note-cards.css?v=3.1.84","./assets/sales-workspace.css?v=3.1.84","./assets/mobile-workspace.css?v=3.1.84","./assets/navigation-preferences.css?v=3.1.84","./assets/user-access-control.css?v=3.1.84","./assets/theme-tokens.css?v=3.1.84","./assets/live-tailwind-v2026082010.min.css?v=3.1.84","./assets/vendor/phosphor/regular/style.css?v=3.1.84","./assets/vendor/phosphor/bold/style.css?v=3.1.84","./assets/vendor/phosphor/duotone/style.css?v=3.1.84","./assets/vendor/phosphor/fill/style.css?v=3.1.84","./assets/vendor/phosphor/light/style.css?v=3.1.84","./assets/battery-live-sync-governor.js?v=3.1.84","./assets/live-app-update.js?v=3.1.84","./assets/live-app-styles-base-v2026090503.css?v=3.1.84","./assets/ops-precision-pilot.css?v=3.1.84","./assets/production-schedule.css?v=3.1.84","./assets/live-app-styles-authority-v2026090503.css?v=3.1.84","./assets/app-styles.css?v=3.1.84","./assets/av-mobile-toolbar.css?v=3.1.84","./assets/manager-workspace.css?v=3.1.84","./assets/assigned-items.css?v=3.1.84","./assets/app-shell-style-16.css?v=3.1.84","./assets/erp-sync-progress.css?v=3.1.84","./assets/editable-input-contrast.css?v=3.1.84","./assets/request-detail-reference.css?v=3.1.84","./assets/bloomscapes-home-tiles.css?v=3.1.84","./assets/bloom-picker-actions.css?v=3.1.84","./assets/bloomscapes-business-areas.css?v=3.1.84","./assets/drive-native-report-layout.css?v=3.1.84","./assets/body-prepaint-theme.js?v=3.1.84","./assets/vendor/supabase-browser-2.112.3.min.js?v=3.1.84","./assets/drive-demand-detail.js?v=3.1.84","./assets/inventory-list-contract.js?v=3.1.84","./assets/inventory-card-window.js?v=3.1.84","./assets/chunk-render-pacing.js?v=3.1.84","./assets/suspend-tag-page.js?v=3.1.84","./assets/suspend-fulfillment-model.js?v=3.1.84","./assets/suspend-fulfillment-command.js?v=3.1.84","./assets/suspend-fulfillment-dialog.js?v=3.1.84","./assets/queue-inventory-hydration.js?v=3.1.84","./assets/login-network-trace.js?v=3.1.84","./assets/smart-hold-intelligence.js?v=3.1.84","./assets/agdata-kernel.js?v=3.1.84","./assets/storage-request-guard.js?v=3.1.84","./assets/watchdog-surface-observer.js?v=3.1.84","./assets/watchdog-queue-controls.js?v=3.1.84","./assets/preboot-health.js?v=3.1.84","./assets/watchdog-local-diagnostics.js?v=3.1.84","./assets/runtime-watchdog.js?v=3.1.84","./assets/live-sync-registry.js?v=3.1.84","./assets/manager-source-live-events.js?v=3.1.84","./assets/customer-mapping-live-events.js?v=3.1.84","./assets/live-sync-adapters.js?v=3.1.84","./assets/live-sync-coordinator.js?v=3.1.84","./assets/inventory-hydration-recovery.js?v=3.1.84","./assets/av-derived-rows.js?v=3.1.84","./assets/bounded-snapshot-cache.js?v=3.1.84","./assets/stable-view-dom.js?v=3.1.84","./assets/company-directory-cache.js?v=3.1.84","./assets/nursery-command-tables.css?v=3.1.84","./assets/nursery-command-model.js?v=3.1.84","./assets/nursery-command-tables.js?v=3.1.84","./assets/manager-table-management.js?v=3.1.84","./assets/queue-completion-state.js?v=3.1.84","./assets/request-submission.js?v=3.1.84","./assets/ops-precision-pilot.js?v=3.1.84","./assets/production-schedule.js?v=3.1.84","./assets/eval-reports-engine.js?v=3.1.84","./assets/report-pages-live.js?v=3.1.84","./assets/photo-history-v2026090401.js?v=3.1.84","./assets/runtime-watchdog-panel.js?v=3.1.84","./assets/erp-foreground-wakelock.js?v=3.1.84","./assets/ph-qr-workflow.min.js?v=3.1.84","./assets/ph-water-visibility.js?v=3.1.84","./assets/ph-block-water.js?v=3.1.84","./assets/ph-production-water.js?v=3.1.84","./assets/bloomscapes-notification-links.js?v=3.1.84"],
+  ...["./assets/photo-workflow-controls.css?v=3.1.85","./assets/bloomscapes-workflows.css?v=3.1.85","./assets/bloomscapes-cards.css?v=3.1.85","./assets/drive-reports-v2.css?v=3.1.85","./assets/bloomscapes-handheld.css?v=3.1.85","./assets/bloomscapes-timecards.css?v=3.1.85","./assets/bloomscapes-work-studio.css?v=3.1.85","./assets/field-work-consolidation.css?v=3.1.85","./assets/bloomscapes-load-maximizer.css?v=3.1.85","./assets/bloomscapes-flyer-designer.css?v=3.1.85","./assets/bloomscapes-flyer-history.css?v=3.1.85","./assets/battery-mobile.css?v=3.1.85","./assets/preboot-recovery.js?v=3.1.85","./assets/location-code.js?v=3.1.85","./assets/bunch-note.js?v=3.1.85","./assets/bunch-queue-shell.js?v=3.1.85","./assets/sales-workspace.js?v=3.1.85","./assets/mobile-workspace.js?v=3.1.85","./assets/navigation-preferences.js?v=3.1.85","./assets/access-matrix-policy.js?v=3.1.85","./assets/consolidation-cpb-access.js?v=3.1.85","./assets/bloomscapes-consolidation-lookups.js?v=3.1.85","./assets/bloomscapes-cpb-grid.js?v=3.1.85","./assets/bloomscapes-table-management-consolidation.js?v=3.1.85","./assets/user-access-control.js?v=3.1.85","./assets/bunch-note.css?v=3.1.85","./assets/bunch-queue.css?v=3.1.85","./assets/bunch-note-cards.css?v=3.1.85","./assets/sales-workspace.css?v=3.1.85","./assets/mobile-workspace.css?v=3.1.85","./assets/navigation-preferences.css?v=3.1.85","./assets/user-access-control.css?v=3.1.85","./assets/theme-tokens.css?v=3.1.85","./assets/live-tailwind-v2026082010.min.css?v=3.1.85","./assets/vendor/phosphor/regular/style.css?v=3.1.85","./assets/vendor/phosphor/bold/style.css?v=3.1.85","./assets/vendor/phosphor/duotone/style.css?v=3.1.85","./assets/vendor/phosphor/fill/style.css?v=3.1.85","./assets/vendor/phosphor/light/style.css?v=3.1.85","./assets/battery-live-sync-governor.js?v=3.1.85","./assets/live-app-update.js?v=3.1.85","./assets/live-app-styles-base-v2026090503.css?v=3.1.85","./assets/ops-precision-pilot.css?v=3.1.85","./assets/production-schedule.css?v=3.1.85","./assets/live-app-styles-authority-v2026090503.css?v=3.1.85","./assets/app-styles.css?v=3.1.85","./assets/av-mobile-toolbar.css?v=3.1.85","./assets/manager-workspace.css?v=3.1.85","./assets/assigned-items.css?v=3.1.85","./assets/app-shell-style-16.css?v=3.1.85","./assets/erp-sync-progress.css?v=3.1.85","./assets/editable-input-contrast.css?v=3.1.85","./assets/request-detail-reference.css?v=3.1.85","./assets/bloomscapes-home-tiles.css?v=3.1.85","./assets/bloom-picker-actions.css?v=3.1.85","./assets/bloomscapes-business-areas.css?v=3.1.85","./assets/drive-native-report-layout.css?v=3.1.85","./assets/body-prepaint-theme.js?v=3.1.85","./assets/vendor/supabase-browser-2.112.3.min.js?v=3.1.85","./assets/drive-demand-detail.js?v=3.1.85","./assets/inventory-list-contract.js?v=3.1.85","./assets/inventory-card-window.js?v=3.1.85","./assets/chunk-render-pacing.js?v=3.1.85","./assets/suspend-tag-page.js?v=3.1.85","./assets/suspend-fulfillment-model.js?v=3.1.85","./assets/suspend-fulfillment-command.js?v=3.1.85","./assets/suspend-fulfillment-dialog.js?v=3.1.85","./assets/queue-inventory-hydration.js?v=3.1.85","./assets/login-network-trace.js?v=3.1.85","./assets/smart-hold-intelligence.js?v=3.1.85","./assets/agdata-kernel.js?v=3.1.85","./assets/storage-request-guard.js?v=3.1.85","./assets/watchdog-surface-observer.js?v=3.1.85","./assets/watchdog-queue-controls.js?v=3.1.85","./assets/preboot-health.js?v=3.1.85","./assets/watchdog-local-diagnostics.js?v=3.1.85","./assets/runtime-watchdog.js?v=3.1.85","./assets/live-sync-registry.js?v=3.1.85","./assets/manager-source-live-events.js?v=3.1.85","./assets/customer-mapping-live-events.js?v=3.1.85","./assets/live-sync-adapters.js?v=3.1.85","./assets/live-sync-coordinator.js?v=3.1.85","./assets/inventory-hydration-recovery.js?v=3.1.85","./assets/av-derived-rows.js?v=3.1.85","./assets/bounded-snapshot-cache.js?v=3.1.85","./assets/stable-view-dom.js?v=3.1.85","./assets/company-directory-cache.js?v=3.1.85","./assets/nursery-command-tables.css?v=3.1.85","./assets/nursery-command-model.js?v=3.1.85","./assets/nursery-command-tables.js?v=3.1.85","./assets/manager-table-management.js?v=3.1.85","./assets/queue-completion-state.js?v=3.1.85","./assets/request-submission.js?v=3.1.85","./assets/ops-precision-pilot.js?v=3.1.85","./assets/production-schedule.js?v=3.1.85","./assets/eval-reports-engine.js?v=3.1.85","./assets/report-pages-live.js?v=3.1.85","./assets/photo-history-v2026090401.js?v=3.1.85","./assets/runtime-watchdog-panel.js?v=3.1.85","./assets/erp-foreground-wakelock.js?v=3.1.85","./assets/ph-qr-workflow.min.js?v=3.1.85","./assets/ph-water-visibility.js?v=3.1.85","./assets/ph-block-water.js?v=3.1.85","./assets/ph-production-water.js?v=3.1.85","./assets/bloomscapes-notification-links.js?v=3.1.85"],
   ...DEFERRED_VIEW_ASSETS,
   './assets/bunch-queue-shell.js?v=' + encodeURIComponent(APP_SHELL_BUILD),
   './assets/bunch-queue.js?v=' + encodeURIComponent(APP_SHELL_BUILD),
@@ -257,7 +256,7 @@ const ASSETS_TO_CACHE = [
   if (!/\.(?:css|js|mjs)(?:\?|$)/i.test(asset)) return asset;
   const revision = new URL(asset, 'https://cache.invalid/').searchParams.get('v') || '';
   const version = revision.startsWith(APP_ASSET_VERSION + '.') ? revision : APP_ASSET_VERSION;
-  return asset.split('?')[0] + '?v=' + version + '&rev=e74b09dd062fcc7ba63eeb49c72dadc88c772399';
+  return asset.split('?')[0] + '?v=' + version + '&rev=ba3078fcdd576bd10ef2192b52890de699b09123';
 });
 const RUNTIME_CACHE_EXTENSION_REGEX = /\.(?:css|js|mjs|json|png|jpg|jpeg|webp|svg|ico|woff2?)$/i;
 const CONTENT_VERSION_REGEX = /(?:[._-](?:v?20\d{6,}|[a-f0-9]{8,})[._-]|\/assets\/vendor\/)/i;
@@ -375,7 +374,7 @@ function shouldBypassServiceWorkerCache(request) {
   if (isIndependentAppRequest(request)) return true;
   // AURA is loaded only after a verified authorized session. Never persist its modules
   // in the shared origin's service-worker cache on devices with multiple users.
-  if (/\/(?:services\/(?:auraVoiceService|auraConversation)|utils\/(?:auraIntentParser|auraLingo)|components\/common\/(?:auraVoiceWidget|auraQueryPanel))\.js$/i.test(requestUrl.pathname)) return true;
+  if (/\/(?:services\/(?:auraVoiceService|auraConversation|auraGeminiSpeech)|utils\/(?:auraIntentParser|auraLingo)|components\/common\/(?:auraVoiceWidget|auraQueryPanel)|src\/ui\/aura-widget\/[a-z-]+)\.js$/i.test(requestUrl.pathname)) return true;
   if (/\/assets\/aura-voice\.js$/i.test(requestUrl.pathname)) return true;
   if (/\/assets\/alpha-command-center\.(?:js|css)$/i.test(requestUrl.pathname)) return true;
   if (requestUrl.origin !== self.location.origin && PRIVATE_NETWORK_PATH_REGEX.test(requestUrl.pathname)) return true;

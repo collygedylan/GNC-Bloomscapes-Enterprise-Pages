@@ -1,10 +1,18 @@
 
+/**
+ * @param {object} item Exact Request row.
+ * @param {object} patch Canonical evaluation evidence fields.
+ * @param {object} options Scoped persistence and durable confirmation callbacks.
+ * @returns {Promise<object>} The confirmed publication outcome.
+ */
 async function publishRequestWorkEvaluation(item, patch, options) {
     const scope = options.scope || getSupabaseReadIdentityScope();
-    const target = findLinkedMasterRow(item);
+    const expectedMasterUid = canonicalInventoryLinkedUid(item);
+    const candidate = expectedMasterUid ? findLinkedMasterRow(item) : null;
+    const target = canonicalInventoryRowUid(candidate) === expectedMasterUid ? candidate : null;
     const evidence = target ? withCanonicalEvaluationMatchQuantity(target, buildRequestMasterUpdatePayloadFromSave(item, patch, target)) : null;
     if (evidence && patch?.explicit_av_note === true) { evidence.explicit_av_note = true; evidence.av_note = String(patch.av_note ?? ''); }
-    const rollback = options.memoryRollback || beginRowEvaluationMemoryPublication(target, evidence, scope);
+    const rollback = options.memoryRollback || beginRowEvaluationMemoryPublication(target, evidence, scope, {source:item,prefix:'req-'});
     let outcome, completedReceipt = false, photoReceipt = false;
     try {
         outcome = await options.persist();
@@ -27,7 +35,7 @@ async function publishRequestWorkEvaluation(item, patch, options) {
             options.onConfirmed?.(result);
         }
         if (completedReceipt || photoReceipt) rollback.commit?.();
-        reconcileRequestPublicationMaster({ result, saved, item, target, options, completedReceipt, photoReceipt, scope, rollback });
+        reconcileRequestPublicationMaster({ result, saved, item, target, expectedMasterUid, options, completedReceipt, photoReceipt, scope, rollback });
         acknowledgeDetailEvaluationDraft(item,saved,scope);
         return outcome;
     } catch (error) {
@@ -41,17 +49,45 @@ async function publishRequestWorkEvaluation(item, patch, options) {
     }
 }
 
-function reconcileRequestPublicationMaster({ result, item, target, options, completedReceipt, photoReceipt, scope, rollback }) {
-    if (result.master_row) {
-        if (!canonicalEvidenceGroupMatches(result.master_row,item)) throw new Error('REQUEST_MASTER_RECEIPT_MISMATCH');
-        if (photoReceipt && !parsePhotoCsvValues(result.master_row.photo_link).includes(options.photoAttachmentUrl)) throw new Error('REQUEST_MASTER_PHOTO_RECEIPT_UNCONFIRMED');
-        if (!completedReceipt && !photoReceipt) options.onConfirmed?.(result);
-        rollback.commit?.();
-        const master = masterInventoryById.get(result.master_row.unique_id) || formatFetchedRows([result.master_row], 'ph_master_inventory')[0];
-        reconcileConfirmedDriveEvidence({ok:true,row:result.master_row,canonicalConfirmed:true,locationRows:[]},
+function reconcileRequestPublicationMaster({ result, saved, item, target, expectedMasterUid, options, completedReceipt, photoReceipt, scope, rollback }) {
+    const rows = getRequestPublicationReceiptRows(result, saved, item, target, expectedMasterUid);
+    if (photoReceipt && rows.some(row => !parsePhotoCsvValues(row.photo_link).includes(options.photoAttachmentUrl))) {
+        throw new Error('REQUEST_MASTER_PHOTO_RECEIPT_UNCONFIRMED');
+    }
+    if (!completedReceipt && !photoReceipt) options.onConfirmed?.(result);
+    rollback.commit?.();
+    for (const row of rows) {
+        const master = masterInventoryById.get(canonicalInventoryRowUid(row)) || formatFetchedRows([row], 'ph_master_inventory')[0];
+        reconcileConfirmedDriveEvidence({ok:true,row,canonicalConfirmed:true,locationRows:[]},
             master,'req-',{scope,preserveDetailDraft:true,photoOnly:photoReceipt});
-    } else if (target) throw new Error('REQUEST_MASTER_RECEIPT_UNCONFIRMED');
-    else if (!completedReceipt && !photoReceipt) options.onConfirmed?.(result);
+    }
+}
+
+function getRequestPublicationReceiptRows(result, saved, item, target, expectedMasterUid) {
+    const receivedLink = canonicalInventoryLinkedUid(saved);
+    if (receivedLink && expectedMasterUid && receivedLink !== expectedMasterUid) throw new Error('REQUEST_MASTER_RECEIPT_MISMATCH');
+    const bound = expectedMasterUid || receivedLink;
+    const requestUid = canonicalInventoryRowUid(item);
+    if (Array.isArray(result.master_rows)) {
+        const rows = result.master_rows;
+        const ids = rows.map(canonicalInventoryRowUid);
+        const scope = result.master_scope;
+        if (scope === 'request' && !rows.length) return rows;
+        if (!rows.length || ids.some(uid => !uid || uid === requestUid)
+            || new Set(ids).size !== rows.length
+            || (scope === 'row' ? rows.length !== 1 || ids[0] !== bound : scope !== 'group' || ids.includes(bound))
+            || rows.some(row => !canonicalInventorySameLocation(row,item)
+                || canonicalInventoryLot(item) && !canonicalInventorySameLot(row,item))) throw new Error('REQUEST_MASTER_RECEIPT_MISMATCH');
+        return rows;
+    }
+    const row = result.master_row;
+    if (!row && target) throw new Error('REQUEST_MASTER_RECEIPT_UNCONFIRMED');
+    if (!row) return [];
+    const uid = canonicalInventoryRowUid(row);
+    if (!bound || uid !== bound || uid === requestUid || !canonicalEvidenceGroupMatches(row,item)) {
+        throw new Error('REQUEST_MASTER_RECEIPT_MISMATCH');
+    }
+    return [row];
 }
 
 function reportDeferredRequestPublication(error, photoReceipt) {

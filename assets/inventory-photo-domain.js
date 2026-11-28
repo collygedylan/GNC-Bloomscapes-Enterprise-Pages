@@ -1,125 +1,6 @@
-
-function parsePhotoCsvValues(value = '') {
-    return String(value || '').replace(/(data:image\/[^,]+),/gi, '$1\u0000').split(',')
-        .map(entry => entry.replace('\u0000', ',').trim()).filter(Boolean);
-}
-
-function strictInventoryPhotoLocationKey(row) {
-    if (!row || !canonicalInventorySameLot(row, row)) return '';
-    const master = resolveCanonicalInventoryTarget(row, masterInventoryById, masterInventoryByItemCode);
-    const target = master || row;
-    const table = String(row.SOURCE_TABLE || row.source_table || '').toLowerCase();
-    const uid = master ? canonicalInventoryRowUid(master) : canonicalInventoryLinkedUid(row)
-        || (['', 'ph_master_inventory', 'ph_location_sales_notes'].includes(table) ? canonicalInventoryRowUid(row) : '');
-    if (!uid) return '';
-    const part = key => String(target[key] ?? target[key.toLowerCase()] ?? '').trim().toUpperCase();
-    return JSON.stringify([uid, part('ITEMCODE'), part('LOCATIONCODE'), canonicalInventoryLot(target)]);
-}
-
-function calculateLiveLocPhotoMatch(row = {}, note = null) {
-    const number = (...values) => {
-        for (const value of values) {
-            if (value == null || String(value).trim() === '') continue;
-            const parsed = Number(String(value).replace(/,/g, '').replace(/%$/, ''));
-            if (Number.isFinite(parsed)) return Math.max(0, parsed);
-        }
-        return null;
-    };
-    const preferredOnHand = number(row.PTRONHAND, row.ptronhand, row.ON_HAND, row.on_hand, row.onhand, row.ONHAND, row.ptr_onhand, row.loc_on_hand);
-    if (preferredOnHand === 0) return 0;
-    const currentOnHand = [row.onhand, row.ONHAND, row.PTRONHAND, row.ptronhand, row.ptr_onhand, row.ON_HAND, row.on_hand, row.loc_on_hand].map(value => number(value)).find(value => value > 0) ?? 0;
-    const available = number(row.available, row.AVAILABLE, row.PTRAVAILABLE, row.ptravailable, row.ptr_available, row.LOC_AVAILABLE, row.loc_available) ?? currentOnHand;
-    const pct = number(note?.match_pct, note?.loc_match_pct, note?.LOC_MATCH_PCT, note?.MATCH_PCT, note?.MATCH, note?.match, row.LOC_MATCH_PCT, row.loc_match_pct, row.MATCH_PCT, row.match_pct, row.MATCH, row.match) ?? 0;
-    const baseline = number(note?.eval_baseline_available, note?.EVAL_BASELINE_AVAILABLE, row.eval_baseline_available, row.EVAL_BASELINE_AVAILABLE) ?? Math.max(currentOnHand, available);
-    const initial = number(note?.initial_loc_photo_match, note?.INITIAL_LOC_PHOTO_MATCH, row.initial_loc_photo_match, row.INITIAL_LOC_PHOTO_MATCH)
-        ?? number(note?.initial_photo_match_qty, note?.INITIAL_PHOTO_MATCH_QTY, row.INITIAL_PHOTO_MATCH_QTY, row.initial_photo_match_qty)
-        ?? number(...[note?.LOC_PHOTO_MATCH,note?.loc_photo_match,note?.LOC_MATCH_QTY,note?.loc_match_qty,row.LOC_PHOTO_MATCH,row.loc_photo_match,row.LOC_MATCH_QTY,row.loc_match_qty].filter(value => Number(value)>0))
-        ?? Math.round(Math.min(100, pct) * baseline / 100);
-    return Math.max(0, Math.min(available, initial - Math.max(0, baseline - available)));
-}
-
-function hasDetachedDrivePhotoWrite(uid) {
-    for (const job of drivePhotoAttachments.values()) {
-        if (job.identity.UNIQUE_ID === uid && job.running && job.commandRow?.__drivePhotoAbort) return true;
-    }
-    return false;
-}
-
-function queueDetailRowPhoto(item, prefix, file) {
-    assertPhotoMutationSurface(prefix);
-    const normalized = String(prefix || '').trim().toLowerCase();
-    if (!isQueuedDetailPhoto(normalized)) return globalThis.queueRowPhotoUpload(item,prefix,file);
-    if (normalized === 'req-') {
-        if (!canCurrentUserWorkRequestItem(item, 'photo')) return false;
-        const owner = getRequestPhotoOwnerItem(item) || item;
-        if (owner !== item) mergeRequestPhotoFields(item, owner);
-        item = owner;
-    }
-    if (normalized !== 'req-' && canUnlockCompletedRow(item) && isProtectedSectionCompleted(normalized,item)) {
-        void unlockCanonicalInventoryRow(item,normalized);
-    }
-    const fileName = buildInventoryRowPhotoFileName(item,file,{extension:'jpg'});
-    return queueDrivePhotoAttachment(item,normalized,file,fileName);
-}
-
-const ROW_PHOTO_TRANSFER_RETRY_DELAYS = [300, 800];
-const DETAIL_PHOTO_RETRY_DELAYS = [1000, 2500, 5000];
-const ROW_PHOTO_SAVE_RETRY_DELAYS = [300, 800, 1500];
-
+/** @param {string} prefix Evidence editor prefix. @returns {boolean} Whether the photo is queued from the detail editor. */
 function isQueuedDetailPhoto(prefix) {
     return prefix === 'req-' || SECURE_DRIVE_EVIDENCE_PREFIXES.has(prefix);
-}
-
-function isRetryablePhotoTransfer(error) {
-    if (error?.name === 'AbortError' || ['REQUEST_ABORTED', 'DATASET_READ_SCOPE_CHANGED'].includes(error?.code)) return false;
-    return isTransientPhotoUploadFailure(error) || Number(error?.status) === 544;
-}
-
-function isRetryableDetailPhotoTransfer(error) {
-    if (error?.name === 'AbortError' || ['REQUEST_ABORTED', 'DATASET_READ_SCOPE_CHANGED'].includes(error?.code)) return false;
-    const status = Number(error?.status);
-    if (status >= 400 && status < 500 && status !== 408 && status !== 429) return false;
-    return (status >= 500 && status < 600) || isRetryablePhotoTransfer(error);
-}
-
-function isRetryablePhotoSave(error) {
-    const status = Number(error?.status);
-    const diagnostic = `${error?.code || ''} ${error?.message || ''}`;
-    if ([401, 403].includes(status) || /abort|forbidden|not[ _-]found|identity.mismatch|unlock.required/i.test(diagnostic)) return false;
-    return isRetryablePhotoTransfer(error) || [409, 423].includes(status)
-        || /55P03|57014|40001|40P01|lock.not.available|lock(?:ing)? timeout|deadlock|could not (?:obtain|acquire) lock|serialization failure|row.locked|save.busy|version.conflict|drive.field.conflict|drive.row.stale/i.test(diagnostic);
-}
-
-function waitForRowPhotoRetry(delay) {
-    return new Promise(resolve => setTimeout(resolve, delay));
-}
-
-async function retryPhotoOperation(job, operation, delays, isRetryable) {
-    for (let attempt = 0; attempt <= delays.length && isCurrentDrivePhotoAttachment(job); attempt += 1) {
-        try { return await operation(); }
-        catch (error) {
-            if (!isCurrentDrivePhotoAttachment(job) || attempt >= delays.length || !isRetryable(error)) throw error;
-            if (delays[attempt]) await waitForRowPhotoRetry(delays[attempt]);
-        }
-    }
-}
-
-function resetPhotoAttachmentConflict(job, conflict) {
-    if (!['DRIVE_FIELD_CONFLICT','DRIVE_ROW_STALE'].includes(conflict.code)) {
-        showToast('Photo needs review','The row identity changed. Reopen the correct inventory row before retrying.',true);
-        return false;
-    }
-    job.baseline = {...conflict.canonicalBaseline};
-    job.commandRow = {...job.commandRow,LAST_UPDATED:conflict.canonicalSignature,__drivePhotoAttachment:true};
-    setPhotoAliasFieldsForPrefix(job.commandRow, job.prefix, job.baseline.photo_link, job.baseline.photo_name);
-    delete job.commandRow.__driveEvidenceIdempotencyKey;
-    delete job.commandRow.__driveEvidenceIdempotencySignature;
-    delete job.commandRow.__driveEvidenceConflict;
-    job.payload = {
-        photo_link:appendPhotoCsvValue(job.baseline.photo_link,job.upload.publicUrl),
-        photo_name:appendPhotoCsvValue(job.baseline.photo_name,job.upload.fileName)
-    };
-    return true;
 }
 
 function getRowPhotoUploadIdentity(job, master) {
@@ -132,15 +13,29 @@ function getRowPhotoUploadIdentity(job, master) {
     };
 }
 
+function queuedRequestPhotoMaster(row) {
+    const bound = canonicalInventoryLinkedUid(row);
+    if (!bound) return null;
+    const candidate = findLinkedMasterRow(row);
+    return canonicalInventoryRowUid(candidate) === bound ? candidate : null;
+}
+
 async function resolveQueuedRowPhotoMaster(job, signal) {
-    if (job.prefix === 'req-' && isDockSuspendDcRequestMirrorRow(job.item)) {
-        return resolveSuspendPhotoMaster(job.item, signal);
-    }
-    return ['req-', 'dock-'].includes(job.prefix) ? findLinkedMasterRow(job.item) : null;
+    if (job.prefix === 'dock-') return findLinkedMasterRow(job.item);
+    if (job.prefix !== 'req-') return null;
+    if (isDockSuspendDcRequestMirrorRow(job.item)) return resolveSuspendPhotoMaster(job.item, signal);
+    return queuedRequestPhotoMaster(job.item);
+}
+
+function cachedQueuedRequestPhotoMaster(job) {
+    if (job.prefix !== 'req-') return null;
+    return isDockSuspendDcRequestMirrorRow(job.item) ? findLinkedMasterRow(job.item) : queuedRequestPhotoMaster(job.item);
 }
 
 async function prepareQueuedRowPhoto(job) {
-    const cached = job.prefix === 'req-' ? findLinkedMasterRow(job.item) : null;
+    if (job.prefix === 'req-' && job.item && !isDockSuspendDcRequestMirrorRow(job.item)
+        && !canonicalInventoryLinkedUid(job.item)) return null;
+    const cached = cachedQueuedRequestPhotoMaster(job);
     const masterUid = canonicalInventoryLinkedUid(job.item);
     if (cached && canonicalInventorySameLot(job.item, cached)
         && (!masterUid || masterUid === canonicalInventoryRowUid(cached))) return cached;
@@ -196,6 +91,7 @@ async function retainPreparedRowPhoto(job, optimized) {
     await job.blobBackup;
 }
 
+/** @param {object} job Queued exact-row photo and owner metadata. @returns {Promise<void>} Binary receipt and publication-ready state. */
 async function uploadRowPhotoAttachment(job) {
     job.uploadController = new AbortController();
     const detailPhoto = isQueuedDetailPhoto(job.prefix);
@@ -235,6 +131,140 @@ function capturedPhotoSourceFields(job) {
     return isDockSuspendDcRequestMirrorRow(job.item)
         ? {suspendTagId:getDockSuspendDcRequestSourceUid(job.item)}
         : {requestId:job.identity.UNIQUE_ID,queuedPhotoId:job.id};
+}
+
+/** @param {object} job Current owner’s photo attachment. @param {string} status Photo transfer or publication state. @returns {void} */
+function setDrivePhotoAttachmentStatus(job, status) {
+    if (!isCurrentDrivePhotoAttachment(job)) return;
+    job.status = status;
+    getPendingPhotoPreviewEntries(job.item, job.prefix).forEach(entry => {
+        if (entry.id === job.preview.id) Object.assign(entry, { status, uploadId:job.id, scope:job.scope, storageUrl:job.upload?.publicUrl });
+    });
+    refreshPendingPhotoUiForItem(job.item, job.prefix, status === 'Optimizing');
+}
+
+/** @param {string} [value] Stored CSV photo evidence. @returns {string[]} Photo URLs with data URL delimiters preserved. */
+function parsePhotoCsvValues(value = '') {
+    return String(value || '').replace(/(data:image\/[^,]+),/gi, '$1\u0000').split(',')
+        .map(entry => entry.replace('\u0000', ',').trim()).filter(Boolean);
+}
+
+/** @param {object} row Evidence row or linked projection. @returns {string} Exact linked row key, or an empty string when unverifiable. */
+function strictInventoryPhotoLocationKey(row) {
+    if (!row || !canonicalInventorySameLot(row, row)) return '';
+    const master = resolveCanonicalInventoryTarget(row, masterInventoryById, masterInventoryByItemCode);
+    const target = master || row;
+    const table = String(row.SOURCE_TABLE || row.source_table || '').toLowerCase();
+    const uid = master ? canonicalInventoryRowUid(master) : canonicalInventoryLinkedUid(row)
+        || (['', 'ph_master_inventory', 'ph_location_sales_notes'].includes(table) ? canonicalInventoryRowUid(row) : '');
+    if (!uid) return '';
+    const part = key => String(target[key] ?? target[key.toLowerCase()] ?? '').trim().toUpperCase();
+    return JSON.stringify([uid, part('ITEMCODE'), part('LOCATIONCODE'), canonicalInventoryLot(target)]);
+}
+
+/** @param {object} [row] Current inventory evidence. @param {object|null} [note] Confirmed location note. @returns {number} Current matched photo quantity. */
+function calculateLiveLocPhotoMatch(row = {}, note = null) {
+    const number = (...values) => {
+        for (const value of values) {
+            if (value == null || String(value).trim() === '') continue;
+            const parsed = Number(String(value).replace(/,/g, '').replace(/%$/, ''));
+            if (Number.isFinite(parsed)) return Math.max(0, parsed);
+        }
+        return null;
+    };
+    const preferredOnHand = number(row.PTRONHAND, row.ptronhand, row.ON_HAND, row.on_hand, row.onhand, row.ONHAND, row.ptr_onhand, row.loc_on_hand);
+    if (preferredOnHand === 0) return 0;
+    const currentOnHand = [row.onhand, row.ONHAND, row.PTRONHAND, row.ptronhand, row.ptr_onhand, row.ON_HAND, row.on_hand, row.loc_on_hand].map(value => number(value)).find(value => value > 0) ?? 0;
+    const available = number(row.available, row.AVAILABLE, row.PTRAVAILABLE, row.ptravailable, row.ptr_available, row.LOC_AVAILABLE, row.loc_available) ?? currentOnHand;
+    const pct = number(note?.match_pct, note?.loc_match_pct, note?.LOC_MATCH_PCT, note?.MATCH_PCT, note?.MATCH, note?.match, row.LOC_MATCH_PCT, row.loc_match_pct, row.MATCH_PCT, row.match_pct, row.MATCH, row.match) ?? 0;
+    const baseline = number(note?.eval_baseline_available, note?.EVAL_BASELINE_AVAILABLE, row.eval_baseline_available, row.EVAL_BASELINE_AVAILABLE) ?? Math.max(currentOnHand, available);
+    const initial = number(note?.initial_loc_photo_match, note?.INITIAL_LOC_PHOTO_MATCH, row.initial_loc_photo_match, row.INITIAL_LOC_PHOTO_MATCH)
+        ?? number(note?.initial_photo_match_qty, note?.INITIAL_PHOTO_MATCH_QTY, row.INITIAL_PHOTO_MATCH_QTY, row.initial_photo_match_qty)
+        ?? number(...[note?.LOC_PHOTO_MATCH,note?.loc_photo_match,note?.LOC_MATCH_QTY,note?.loc_match_qty,row.LOC_PHOTO_MATCH,row.loc_photo_match,row.LOC_MATCH_QTY,row.loc_match_qty].filter(value => Number(value)>0))
+        ?? Math.round(Math.min(100, pct) * baseline / 100);
+    return Math.max(0, Math.min(available, initial - Math.max(0, baseline - available)));
+}
+
+/** @param {string} uid Physical master row UID. @returns {boolean} Whether that row has a detached write still in progress. */
+function hasDetachedDrivePhotoWrite(uid) {
+    for (const job of drivePhotoAttachments.values()) {
+        if (job.identity.UNIQUE_ID === uid && job.running && job.commandRow?.__drivePhotoAbort) return true;
+    }
+    return false;
+}
+
+/** @param {object} item Current detail row. @param {string} prefix Evidence field prefix. @param {Blob} file Captured image. @returns {unknown} Queued upload result. */
+function queueDetailRowPhoto(item, prefix, file) {
+    assertPhotoMutationSurface(prefix);
+    const normalized = String(prefix || '').trim().toLowerCase();
+    if (!isQueuedDetailPhoto(normalized)) return globalThis.queueRowPhotoUpload(item,prefix,file);
+    if (normalized === 'req-') {
+        if (!canCurrentUserWorkRequestItem(item, 'photo')) return false;
+        const owner = getRequestPhotoOwnerItem(item) || item;
+        if (owner !== item) mergeRequestPhotoFields(item, owner);
+        item = owner;
+    }
+    if (normalized !== 'req-' && canUnlockCompletedRow(item) && isProtectedSectionCompleted(normalized,item)) {
+        void unlockCanonicalInventoryRow(item,normalized);
+    }
+    const fileName = buildInventoryRowPhotoFileName(item,file,{extension:'jpg'});
+    return queueDrivePhotoAttachment(item,normalized,file,fileName);
+}
+
+const ROW_PHOTO_TRANSFER_RETRY_DELAYS = [300, 800];
+const DETAIL_PHOTO_RETRY_DELAYS = [1000, 2500, 5000];
+const ROW_PHOTO_SAVE_RETRY_DELAYS = [300, 800, 1500];
+
+function isRetryablePhotoTransfer(error) {
+    if (error?.name === 'AbortError' || ['REQUEST_ABORTED', 'DATASET_READ_SCOPE_CHANGED'].includes(error?.code)) return false;
+    return isTransientPhotoUploadFailure(error) || Number(error?.status) === 544;
+}
+
+function isRetryableDetailPhotoTransfer(error) {
+    if (error?.name === 'AbortError' || ['REQUEST_ABORTED', 'DATASET_READ_SCOPE_CHANGED'].includes(error?.code)) return false;
+    const status = Number(error?.status);
+    if (status >= 400 && status < 500 && status !== 408 && status !== 429) return false;
+    return (status >= 500 && status < 600) || isRetryablePhotoTransfer(error);
+}
+
+function isRetryablePhotoSave(error) {
+    const status = Number(error?.status);
+    const diagnostic = `${error?.code || ''} ${error?.message || ''}`;
+    if ([401, 403].includes(status) || /abort|forbidden|not[ _-]found|identity.mismatch|unlock.required/i.test(diagnostic)) return false;
+    return isRetryablePhotoTransfer(error) || [409, 423].includes(status)
+        || /55P03|57014|40001|40P01|lock.not.available|lock(?:ing)? timeout|deadlock|could not (?:obtain|acquire) lock|serialization failure|row.locked|save.busy|version.conflict|drive.field.conflict|drive.row.stale/i.test(diagnostic);
+}
+
+function waitForRowPhotoRetry(delay) {
+    return new Promise(resolve => setTimeout(resolve, delay));
+}
+
+async function retryPhotoOperation(job, operation, delays, isRetryable) {
+    for (let attempt = 0; attempt <= delays.length && isCurrentDrivePhotoAttachment(job); attempt += 1) {
+        try { return await operation(); }
+        catch (error) {
+            if (!isCurrentDrivePhotoAttachment(job) || attempt >= delays.length || !isRetryable(error)) throw error;
+            if (delays[attempt]) await waitForRowPhotoRetry(delays[attempt]);
+        }
+    }
+}
+
+function resetPhotoAttachmentConflict(job, conflict) {
+    if (!['DRIVE_FIELD_CONFLICT','DRIVE_ROW_STALE'].includes(conflict.code)) {
+        showToast('Photo needs review','The row identity changed. Reopen the correct inventory row before retrying.',true);
+        return false;
+    }
+    job.baseline = {...conflict.canonicalBaseline};
+    job.commandRow = {...job.commandRow,LAST_UPDATED:conflict.canonicalSignature,__drivePhotoAttachment:true};
+    setPhotoAliasFieldsForPrefix(job.commandRow, job.prefix, job.baseline.photo_link, job.baseline.photo_name);
+    delete job.commandRow.__driveEvidenceIdempotencyKey;
+    delete job.commandRow.__driveEvidenceIdempotencySignature;
+    delete job.commandRow.__driveEvidenceConflict;
+    job.payload = {
+        photo_link:appendPhotoCsvValue(job.baseline.photo_link,job.upload.publicUrl),
+        photo_name:appendPhotoCsvValue(job.baseline.photo_name,job.upload.fileName)
+    };
+    return true;
 }
 
 async function persistQueuedRowPhoto(job) {
@@ -281,6 +311,7 @@ function runRowPhotoAttachmentWithRetry(job) {
     return enqueueRowPhotoSave(job, uploaded);
 }
 
+/** @param {string} id Pending photo attachment ID. @returns {boolean} False after handling a retry interaction. */
 function retryDrivePhotoAttachment(id) {
     const job = drivePhotoAttachments.get(id);
     if (!job || job.running || !isCurrentDrivePhotoAttachment(job)) return false;
@@ -310,25 +341,18 @@ function getScopedDetailRowPhotoJobs(item, prefix) {
         && String(job.identity.UNIQUE_ID) === uid && (!prefix || job.prefix === prefix));
 }
 
+/** @param {object} item Captured evidence row. @param {string} [prefix] Evidence editor prefix. @returns {Promise[]} Current owner’s matching photo jobs. */
 function getDetailRowPhotoUploadPromises(item, prefix = '') {
     return getScopedDetailRowPhotoJobs(item, prefix).map(job => job.promise).filter(Boolean);
 }
 
+/** @param {object} item Request row. @returns {string[]} Matching photo intent IDs owned by the active account. */
 function getQueuedRequestPhotoIds(item) {
     return getScopedDetailRowPhotoJobs(item,'req-').map(job => job.id);
 }
 
+/** @param {object} item Captured evidence row. @param {string} [prefix] Evidence editor prefix. @returns {boolean} Whether matching jobs or pending previews remain. */
 function hasUnsettledDetailRowPhotos(item, prefix = '') {
     return getScopedDetailRowPhotoJobs(item, prefix).length > 0
         || getPendingPhotoPreviewEntries(item, prefix).some(entry => entry.status !== 'Uploaded');
 }
-
-function setDrivePhotoAttachmentStatus(job, status) {
-    if (!isCurrentDrivePhotoAttachment(job)) return;
-    job.status = status;
-    getPendingPhotoPreviewEntries(job.item, job.prefix).forEach(entry => {
-        if (entry.id === job.preview.id) Object.assign(entry, { status, uploadId:job.id, scope:job.scope, storageUrl:job.upload?.publicUrl });
-    });
-    refreshPendingPhotoUiForItem(job.item, job.prefix, status === 'Optimizing');
-}
-

@@ -1,3 +1,4 @@
+/** @param {string} [scope] Active view or filter scope. @returns {Array<[string,string]>} Field keys and labels for the scope. */
 function getInventoryExcelFields(scope = '') {
     if (scope==='reclass') return [];
     if (scope==='request' || scope==='suspend') return [['username','Assigned To']];
@@ -8,6 +9,7 @@ function getInventoryExcelFields(scope = '') {
     return fields.filter(([key])=>scope==='av' ? !['username','stock','view'].includes(key)
         : key!=='view' || !['drive','eval2','studio'].includes(scope));
 }
+/** @param {string} scope Active view or filter scope. @returns {object} The current account and farm's facet state. */
 function getInventoryExcelState(scope) {
     const owner = getSupabaseReadIdentityScope()+(nativeAuthSessionActive?':'+getBloomscapesFarm():'');
     const cache = getInventoryExcelState.cache;
@@ -44,9 +46,11 @@ function getInventoryExcelFacts(row,state,projection,ownerIndex) {
     return owners.facts[projection] ||= buildInventoryExcelFacts(row,state,projection,
         (index,item)=>owners.values[index] ||= getInventoryExcelFacetOwners(item,ownerIndex));
 }
+/** @param {object} fact Row facet values. @param {object} filters Active selections. @param {string} [ignore] Facet to omit. @returns {boolean} Whether the values match every remaining filter. */
 function inventoryExcelFactMatches(fact, filters, ignore = '') {
     return Object.entries(filters).every(([key,values])=>key===ignore || values===null || fact[key]?.some(value=>values.has(inventoryExcelKey(value))));
 }
+/** @param {object} row Candidate row. @param {object} state Current facet state. @param {string} [ignore] Facet to omit. @returns {boolean} Whether the row matches the remaining filters. */
 function inventoryExcelRowMatches(row, state, ignore = '') {
     const filters=state.filters;
     if (!Object.keys(filters).some(key=>key!==ignore && filters[key]!==null)) return true;
@@ -75,6 +79,7 @@ function inventoryExcelOptionsContext(state,field) {
     return {filters,ownerIndex};
 }
 
+/** @param {object} state Current facet state. @param {string} field Open facet key. @returns {object[]} Eligible values and their matching row counts. */
 function getInventoryExcelOptions(state, field) {
     const {filters,ownerIndex}=inventoryExcelOptionsContext(state,field);
     if (state.options.has(field)) return inventoryExcelPickerOptions(state,field);
@@ -124,6 +129,7 @@ function collectInventoryExcelOptionValues(facts,selections,field,values) {
     return matched;
 }
 
+/** @param {object[]} rows Authorized Drive cohort. @param {object} saved Saved field selections. @returns {object[]} Rows matching valid saved selections. */
 function applySavedDriveExcelFilters(rows, saved) {
     if (!saved || !Object.keys(saved).length) return rows;
     const state = getInventoryExcelState('drive');
@@ -153,6 +159,7 @@ function inventoryExcelFilterKeys(scope) {
     return new Set(fields.map(([key])=>key));
 }
 
+/** @param {string} scope Active view or filter scope. @param {object[]} rows Authorized source cohort. @returns {object[]} Rows matching the active filters. */
 function applyInventoryExcelFilters(scope, rows) {
     if (scope==='reclass') return Array.isArray(rows)?rows:[];
     const state = getInventoryExcelState(scope);
@@ -176,6 +183,7 @@ function applyInventoryExcelFilters(scope, rows) {
     return getFilteredInventoryExcelRows(state,ignore);
 }
 
+/** @param {object[]} [items] Docks source rows. @param {boolean} [inspectOnly] Read filters without remounting controls. @returns {object[]} Matching rows. */
 function applyDockColumnFiltersToItems(items = [], inspectOnly = false) {
     const rows = applyDockColumnFiltersToItemsWithMap(items,dockColumnFilters);
     if (inspectOnly) {
@@ -185,6 +193,7 @@ function applyDockColumnFiltersToItems(items = [], inspectOnly = false) {
     return applyInventoryExcelFilters('docks',rows);
 }
 
+/** @param {object[]} [items] Docks source rows. @param {boolean} [inspectOnly] Read filters without changing controls. @returns {object[]} Rows matching customer, rep and column filters. */
 function applyDockStructuredFilters(items = [], inspectOnly = false) {
     if (!inspectOnly) clearRemovedDockTopFilterState();
     return applyDockColumnFiltersToItems(applyDockRepCustomerFiltersOnly(items),inspectOnly);

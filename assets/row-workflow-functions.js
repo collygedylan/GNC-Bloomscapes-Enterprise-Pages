@@ -79,12 +79,6 @@ function getManagerAssignableOwnerUsers() {
     return eligibleAssignmentNames();
 }
 
-        function setManagerAssignedViewMode(value = 'unique') {
-            getManagerAssignedColumnState().viewMode = value === 'rows' ? 'rows' : 'unique';
-            scheduleManagersRender(true);
-            return false;
-        }
-
         function setManagerAssignedPlantGroupFilter(value = '') {
             const state = getManagerAssignedColumnState();
             if (value) state.filters.PLANTGROUPCODE = [String(value).trim().toLowerCase().replace(/[ _]+/g, '_')];
@@ -2209,7 +2203,6 @@ function fieldAuditDrill(block = '', location = '', blockRows = false) {
     return false;
 }
 function fieldAuditBack() {const s=fieldAuditState();return s.location?fieldAuditDrill(s.block):fieldAuditDrill();}
-function fieldAuditSort(key) { const s=fieldAuditState();s.direction=s.sort===key?-s.direction:1;s.sort=key;s.page=0;paintFieldAuditReport();return false; }
 function fieldAuditMode(flat) {fieldAuditState().flat=flat;fieldAuditState().page=0;paintFieldAuditReport();return false;}
 function fieldAuditSwitch(surface, mode) {fieldAuditState().modes[surface]=mode;if(surface==='drive')renderDrive();else renderManagers();return false;}
 function fieldAuditSwitcher(surface) {const mode=fieldAuditState().modes[surface];return '<div class="field-audit-switcher" role="group" aria-label="Reports"><button type="button" aria-pressed="'+(mode==='audit')+'" onclick="return fieldAuditSwitch(\''+surface+'\',\'audit\')">'+(surface==='drive'?'S Y ≤ 26':'Season Y ≤ 2026 Field Audit')+'</button><button type="button" aria-pressed="'+(mode==='legacy')+'" onclick="return fieldAuditSwitch(\''+surface+'\',\'legacy\')">All Existing Reports · Low Stock · Not in F1</button></div>';}

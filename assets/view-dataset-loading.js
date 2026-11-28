@@ -173,7 +173,7 @@ async function readNavigationRevisionWindow(datasetKeys, requestOptions = {}) {
     const wanted = new Set(datasetKeys);
     return { ...metadata, sources: metadata.sources.filter(source => wanted.has(source.key)) };
 }
-
+/** Read dataset revision metadata using the current navigation request context. @param {object} body @param {object} requestOptions @returns {Promise<object>} */
 async function readDatasetRevisionRpc(body, requestOptions) {
     if (requestOptions.signal?.aborted) throw Object.assign(new Error('Dataset revision read cancelled.'), { code: 'REQUEST_ABORTED' });
     const datasetKeys = Array.from(new Set((Array.isArray(body.p_dataset_keys) ? body.p_dataset_keys : [])
@@ -198,31 +198,31 @@ async function readDatasetRevisionRpc(body, requestOptions) {
     if (!result || result.ok !== true || !result.data) throw new Error(String(result && result.code || 'DATASET_REVISIONS_UNAVAILABLE'));
     return result.data;
 }
-
+/** Check whether the current session can display the view's existing snapshot. @param {string} viewId @returns {boolean} */
 function canRenderNavigationSnapshot(viewId) {
     if (getCurrentVisibleViewId() !== viewId || !canUseProductionLiveSync()) return false;
     const context = getProductionLiveSyncContext();
     if (context.view !== viewId || !context.authenticated || context.accessDeniedConfirmed) return false;
     return hasProgressiveViewData(context) || hasCurrentProductionReadStatus(productionLiveSyncCoordinator?.getStatus(), context);
 }
-
+/** Associate a warm AV row set with the current read identity. @param {Array} rows @returns {void} */
 function rememberWarmAvInventoryRows(rows) {
     if (rows.length && hasAuthenticatedOperationalReadIdentity()) {
         warmAvInventoryOwners.set(rows, getSupabaseReadIdentityScope());
     }
 }
-
+/** Check for AV inventory already loaded for this account and permission scope. @returns {boolean} */
 function canRenderWarmAvInventory() {
     if (activeAVTab !== 'open' || !canAccessView('av') || hasConfirmedCurrentAccountRevocation()) return false;
     const owner = getSupabaseReadIdentityScope();
     return [fullInventory, avOpenInventory].some(rows => rows.length && warmAvInventoryOwners.get(rows) === owner);
 }
-
+/** Keep the displayed pending Requests when an authorized refresh fails. @param {string} viewId @returns {boolean} */
 function retainPendingRequestDisplayOnReadFailure(viewId) {
     return viewId === 'request' && activeReqTab === 'pending' && canAccessView('request')
         && hasAuthenticatedOperationalReadIdentity() && !hasConfirmedCurrentAccountRevocation();
 }
-
+/** Start the selected view's read and report whether it can render immediately. @param {string} viewId @returns {boolean} */
 function ensureViewDataForRender(viewId) {
     if (viewId === 'managers' && activeHomeTab === MANAGER_APPROVAL_HOME_VIEW && canAccessView('managers')) return false;
     const pagedSurface = getActiveManagerReportPageSurface(viewId);

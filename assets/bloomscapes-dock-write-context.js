@@ -4,14 +4,14 @@ function hasBloomscapesDockWriteContext() {
     if (nativeAuthProfile.username!==currentUser || bloomscapesFarmState.readyFarm!==getBloomscapesFarm()) return false;
     return canAccessView('docks');
 }
-
+/** Check whether the current session can publish changes to Docks. @param {string} actionLabel @returns {boolean} */
 function requireCurrentDocksWriteProof(actionLabel = 'saving Docks changes') {
     if (hasBloomscapesDockWriteContext()) return true;
     const view = getCurrentVisibleViewId();
     if (!canUseProductionLiveSync() || (view !== 'docks' && !(view === 'detail' && activeDetailSourceView === 'docks'))) return true;
     return requireCurrentProductionLiveSyncProof(actionLabel);
 }
-
+/** Refresh the write controls using the current Docks synchronization proof. @returns {void} */
 function updateDocksWriteControlGate() {
     const view = getCurrentVisibleViewId();
     const isDocks = view === 'docks' || (view === 'detail' && activeDetailSourceView === 'docks');
